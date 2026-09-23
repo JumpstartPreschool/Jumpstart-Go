@@ -11,8 +11,8 @@
     "test": "vitest run",
     "test:db": "bash scripts/db-test.sh",
     "check:routing": "node --env-file=.env.local scripts/check-routing.ts",
-    "deploy": "npm run build && npx wrangler@4 pages deploy dist --project-name jumpstart-preschool --branch main",
-    "deploy:design": "VITE_DESIGN_PREVIEW=true npm run build && npx wrangler@4 pages deploy dist --project-name jumpstart-preschool --branch design"
+    "deploy": "npm run build && npx wrangler@4 deploy",
+    "deploy:design": "VITE_DESIGN_PREVIEW=true npm run build && npx wrangler@4 deploy --name jumpstart-preschool-design"
   },
   "dependencies": {
     "@fontsource-variable/baloo-2": "^5.3.0",

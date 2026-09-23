@@ -6,7 +6,12 @@
 | Region | AWS Mumbai (ap-south-1) |
 | Postgres | 17.6 |
 | Migrations applied | `0001_foundation` (2026-09-24, via `supabase db push`) |
-| App hosting | Local (`npm run dev`) until the Cloudflare Pages project exists |
+| App hosting | Cloudflare Workers static assets, `jumpstart-preschool` (production) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
+
+## Publishing
+- `npm run deploy` publishes the production app; `npm run deploy:design` publishes the design-review build with the sample-data preview. Both read `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from `.env.local` (load it first: `set -a; . ./.env.local; set +a`).
+- The token needs **Account → Workers Scripts → Edit**, **Account → Account Settings → Read**, **User → User Details → Read** and **User → Memberships → Read**.
+- **Temporary secure link without an account:** `VITE_DESIGN_PREVIEW=true npm run build`, then `npx vite preview --port 4173 --host 127.0.0.1` and `cloudflared tunnel --url http://127.0.0.1:4173`. The printed `https://….trycloudflare.com` address works while both are running.
 
 ## Configuration
 - Local settings live in `.env.local` (git-ignored); `.env.example` lists every variable.

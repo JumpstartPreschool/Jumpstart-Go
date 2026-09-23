@@ -4,7 +4,7 @@ Free-first. Every external provider sits behind an interface so it can be replac
 
 | Need | Service | Cost | Free-plan limits that matter | Risk | Alternative |
 |---|---|---|---|---|---|
-| Hosting the app | **Cloudflare Pages** | Free | Commercial use allowed; 500 builds a month; no bandwidth charge | Low | Netlify free, a self-hosted server |
+| Hosting the app | **Cloudflare Workers static assets** (Cloudflare's successor to Pages) | Free | Commercial use allowed; static files are free and unmetered | Low | Cloudflare Pages, Netlify free |
 | Database, auth, realtime, functions, cron | **Supabase**, Mumbai region | Free | 500 MB database; 50,000 monthly active users; 200 concurrent realtime connections; 500,000 edge-function calls a month; **pauses after 7 days without activity; no automatic backups** | Medium: backups and pausing | Supabase Pro ($25/month, needs approval); self-hosted Postgres |
 | Backups | **Nightly `pg_dump` from GitHub Actions**, encrypted, stored in Cloudflare R2 | Free | R2: 10 GB storage free | Low once tested; restore is rehearsed monthly | Supabase Pro backups |
 | Login and trip-link email | **Brevo** SMTP (or Resend) | Free | Brevo: 300 emails a day; Resend: 100 a day / 3,000 a month | Low at 50 children | Amazon SES (cheap, paid) |

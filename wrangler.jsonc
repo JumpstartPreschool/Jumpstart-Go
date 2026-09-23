@@ -1,0 +1,11 @@
+// Cloudflare Workers static-assets site: the built app in ./dist, served as a single-page app.
+// Headers come from public/_headers. Publish with `npm run deploy`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jumpstart-preschool",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
