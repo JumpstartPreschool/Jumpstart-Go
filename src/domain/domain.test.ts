@@ -111,3 +111,25 @@ describe('lateBand', () => {
     expect(lateBand(t('12:45'), t('12:30'))).toBe(0)
   })
 })
+
+describe('contact details', async () => {
+  const { normalizeEmail, normalizeIndianMobile, formatIndianMobile } = await import('./contact')
+  it('normalizes emails', () => {
+    expect(normalizeEmail('  Sneha.K@Example.COM ')).toBe('sneha.k@example.com')
+    expect(normalizeEmail('not-an-email')).toBeNull()
+    expect(normalizeEmail('a@b')).toBeNull()
+  })
+  it('accepts Indian mobiles in any common format', () => {
+    for (const v of ['98765 43210', '+91 98765 43210', '+91-98765-43210', '09876543210', '919876543210', '0091 9876543210']) {
+      expect(normalizeIndianMobile(v)).toBe('+919876543210')
+    }
+  })
+  it('rejects landlines and short numbers', () => {
+    expect(normalizeIndianMobile('020 2545 1234')).toBeNull()
+    expect(normalizeIndianMobile('98765')).toBeNull()
+    expect(normalizeIndianMobile('+1 415 555 0100')).toBeNull()
+  })
+  it('formats for display', () => {
+    expect(formatIndianMobile('+919876543210')).toBe('+91 98765 43210')
+  })
+})
