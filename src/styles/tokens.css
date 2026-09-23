@@ -1,0 +1,98 @@
+/*
+ * Design tokens. Light and dark are designed separately, not inverted.
+ * Text colours meet WCAG 2.2 AA on their surfaces; status colours always come with an icon and text.
+ * See docs/design/design-system.md.
+ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces: warm paper canvas, solid content surfaces */
+  --canvas: #f7f5f2;
+  --surface: #ffffff;
+  --sunken: #efece7;
+  --line: rgb(20 22 28 / 0.09);
+  --line-strong: rgb(20 22 28 / 0.16);
+
+  /* Text */
+  --ink: #15171c;
+  --ink-2: #555b67;
+  --ink-3: #868c98; /* icons and non-essential text only */
+
+  /* Action */
+  --accent: #2457d6;
+  --accent-press: #1c46b0;
+  --on-accent: #ffffff;
+  --focus: #2457d6;
+
+  /* Status (TRK-3 freshness, flags, errors) */
+  --live: #11774f;
+  --live-soft: #e2f3ea;
+  --recent: #8a5a00;
+  --recent-soft: #fff1d1;
+  --stale: #5f6672;
+  --stale-soft: #eceef1;
+  --flag: #a84a06;
+  --flag-soft: #fdeedd;
+  --danger: #b91c1c;
+  --danger-soft: #fdeaea;
+  --danger-strong: #b91c1c; /* filled alerts with white text */
+
+  /* Brand accents from the Jumpstart logo, for small decorative marks only */
+  --brand-red: #e31e24;
+  --brand-orange: #f29015;
+  --brand-yellow: #fcbf00;
+  --brand-sky: #93d5e6;
+
+  /* Floating glass layers (bars, sheets, toasts), never primary content */
+  --glass: rgb(255 255 255 / 0.72);
+  --glass-line: rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 10px 30px -12px rgb(16 18 24 / 0.22), 0 1px 3px rgb(16 18 24 / 0.08);
+  --glass-blur: blur(20px) saturate(170%);
+
+  --shadow-1: 0 1px 2px rgb(16 18 24 / 0.06), 0 1px 1px rgb(16 18 24 / 0.04);
+  --shadow-2: 0 12px 32px -14px rgb(16 18 24 / 0.2), 0 2px 6px rgb(16 18 24 / 0.05);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --canvas: #0f1115;
+    --surface: #171a20;
+    --sunken: #1e222a;
+    --line: rgb(255 255 255 / 0.08);
+    --line-strong: rgb(255 255 255 / 0.15);
+
+    --ink: #f1f2f4;
+    --ink-2: #a6acb8;
+    --ink-3: #737a87;
+
+    --accent: #3d6ae6;
+    --accent-press: #3159c9;
+    --on-accent: #ffffff;
+    --focus: #7c9dff;
+
+    --live: #48d597;
+    --live-soft: rgb(72 213 151 / 0.14);
+    --recent: #f3b940;
+    --recent-soft: rgb(243 185 64 / 0.14);
+    --stale: #979fac;
+    --stale-soft: rgb(151 159 172 / 0.14);
+    --flag: #f7a258;
+    --flag-soft: rgb(247 162 88 / 0.14);
+    --danger: #ff7a7a;
+    --danger-soft: rgb(255 122 122 / 0.14);
+    --danger-strong: #c42b2b;
+
+    --glass: rgb(26 29 36 / 0.74);
+    --glass-line: rgb(255 255 255 / 0.08);
+    --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6);
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 14px 34px -14px rgb(0 0 0 / 0.7);
+  }
+}
