@@ -3,17 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Installed on the Home Screen: full screen, content under a translucent status bar (screens pad for the safe area). -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Jumpstart" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f5f2" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1115" />
+    <meta name="application-name" content="Jumpstart" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fff8f0" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e23" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Jumpstart</title>
   </head>
-  <body>
+  <body class="app-bg">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

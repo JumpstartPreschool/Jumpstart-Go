@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { useOnline } from '../ui/hooks'
+import { Backdrop } from '../ui/Backdrop'
 import { useDuty } from '../features/duty/useDuty'
 import { StartDuty } from '../features/duty/StartDuty'
 import { OnDuty } from '../features/duty/OnDuty'
@@ -17,6 +18,7 @@ function CoordinatorDuty() {
 export function App() {
   return (
     <BrowserRouter>
+      <Backdrop />
       <Suspense fallback={null}>
         <Routes>
           <Route path="/coordinator" element={<CoordinatorDuty />} />

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { LoaderCircle } from 'lucide-react'
 
-type Variant = 'primary' | 'secondary' | 'quiet' | 'danger'
+type Variant = 'primary' | 'secondary' | 'sunshine' | 'quiet' | 'danger'
 type Size = 'md' | 'lg' | 'xl'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,30 +12,40 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const base =
-  'group relative inline-flex select-none items-center justify-center gap-2.5 whitespace-nowrap font-semibold tracking-[-0.01em] ' +
-  // Press: quick scale-down, spring back on release. Disabled and reduced-motion users get no movement.
-  'transition-[transform,background-color,box-shadow,color] duration-200 ease-spring active:scale-[0.97] active:duration-75 active:ease-out ' +
-  'disabled:pointer-events-none disabled:opacity-45 motion-reduce:active:scale-100'
+  'relative inline-flex select-none items-center justify-center gap-2.5 whitespace-nowrap rounded-full font-extrabold tracking-[-0.005em] [&_svg]:shrink-0 ' +
+  // Press: a quick squeeze, then a spring back on release. Reduced motion keeps it still.
+  'transition-[transform,box-shadow,filter,background-color,color] duration-200 ease-spring active:scale-[0.95] active:duration-75 active:ease-out ' +
+  'disabled:pointer-events-none disabled:opacity-45 disabled:saturate-50 motion-reduce:active:scale-100'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-on-accent shadow-[0_1px_0_rgb(255_255_255/0.18)_inset,0_6px_16px_-6px_var(--accent)] hover:bg-accent-press active:bg-accent-press active:shadow-none',
-  secondary: 'bg-surface text-ink ring-1 ring-line-strong shadow-1 hover:bg-sunken active:bg-sunken',
-  quiet: 'bg-transparent text-ink-2 hover:bg-sunken hover:text-ink active:bg-sunken',
-  danger: 'bg-danger-soft text-danger hover:brightness-95 active:brightness-90',
+  // The one next action: Jumpstart blue with a glow and a glassy top highlight.
+  primary:
+    'text-on-accent bg-[linear-gradient(135deg,var(--accent),var(--accent-2))] ' +
+    'shadow-[var(--accent-glow),inset_0_1px_0_rgb(255_255_255/0.4),inset_0_-2px_0_rgb(0_0_0/0.12)] hover:brightness-110 active:brightness-95',
+  secondary: 'card text-ink hover:brightness-[1.04] active:brightness-95',
+  // Warm, friendly secondary for "Running late" and similar. Dark text keeps contrast on yellow–orange.
+  sunshine:
+    'text-[#3a2200] bg-[linear-gradient(135deg,var(--rb-yellow),var(--rb-orange))] ' +
+    'shadow-[0_14px_30px_-12px_rgb(247_133_42/0.75),inset_0_1px_0_rgb(255_255_255/0.5)] hover:brightness-105 active:brightness-95',
+  quiet: 'text-ink-2 hover:bg-sunken hover:text-ink active:bg-sunken',
+  danger: 'bg-danger-soft text-danger ring-1 ring-inset ring-danger/20 hover:brightness-95 active:brightness-90',
 }
 
-// Heights keep every target above 44 pt (NFR-3); xl is the one main action on an iPad screen.
+// Heights keep every target above 44 pt (NFR-3); xl is the main action of an iPad screen.
 const sizes: Record<Size, string> = {
-  md: 'h-11 rounded-[12px] px-4 text-[15px] [&_svg]:size-[18px]',
-  lg: 'h-13 rounded-[14px] px-5 text-[17px] [&_svg]:size-5',
-  xl: 'h-16 rounded-[18px] px-7 text-[19px] [&_svg]:size-6',
+  md: 'h-11 text-[15px] [&_svg]:size-[18px]',
+  lg: 'h-14 text-[17px] [&_svg]:size-5',
+  xl: 'h-16 text-[19px] [&_svg]:size-6',
 }
+// Padding is separate so an icon-only button becomes a circle instead of squeezing its icon.
+const padding: Record<Size, string> = { md: 'px-5', lg: 'px-6', xl: 'px-8' }
+const circle: Record<Size, string> = { md: 'w-11', lg: 'w-14', xl: 'w-16' }
 
 export function Button({ variant = 'primary', size = 'lg', icon, loading = false, children, className = '', disabled, ...rest }: ButtonProps) {
   return (
     <button
       type="button"
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`${base} ${variants[variant]} ${sizes[size]} ${children ? padding[size] : circle[size]} ${className}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
