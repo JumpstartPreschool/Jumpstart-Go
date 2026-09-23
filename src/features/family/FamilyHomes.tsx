@@ -6,7 +6,7 @@ import { childColor } from '../../ui/childColor'
 import { formatTime, indiaClock, toMinutes } from '../../domain/time'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
-import type { Area } from '../auth/session'
+import { useSession, type Area } from '../auth/session'
 
 interface ChildToday {
   id: string
@@ -30,25 +30,30 @@ function todayLine(c: ChildToday, weekday: number): { dropoff: string; pickup: s
     : { dropoff: `${t(p.dropoff_from)}–${t(p.dropoff_to)}`, pickup: `${t(p.pickup_from)}–${t(p.pickup_to)}`, fromWindows: true }
 }
 
-function useChildrenToday() {
+const CHILD_FIELDS = 'id, full_name, preferred_name, programmes(name, flexible, starts, ends, dropoff_from, dropoff_to, pickup_from, pickup_to), classes(name), child_schedules(weekday, dropoff, pickup)'
+
+/**
+ * Row-level security already limits a parent to their own children, but staff can read everyone's;
+ * so the parent page also filters to the signed-in person's own children (a staff member may be a parent too).
+ */
+function useChildrenToday(guardianId: string | null) {
   const [rows, setRows] = useState<ChildToday[] | null>(null)
   const [error, setError] = useState(false)
   const load = () => {
     setError(false)
-    // Row-level security decides whose children come back: a parent's own, or everyone's for staff.
-    void supabase
+    let query = supabase
       .from('children')
-      .select('id, full_name, preferred_name, programmes(name, flexible, starts, ends, dropoff_from, dropoff_to, pickup_from, pickup_to), classes(name), child_schedules(weekday, dropoff, pickup)')
+      .select(guardianId ? `${CHILD_FIELDS}, guardianships!inner(guardian_id)` : CHILD_FIELDS)
       .eq('active', true)
-      .order('full_name')
-      .then(({ data, error: e }) => (e ? setError(true) : setRows((data ?? []) as unknown as ChildToday[])))
+    if (guardianId) query = query.eq('guardianships.guardian_id', guardianId)
+    void query.order('full_name').then(({ data, error: e }) => (e ? setError(true) : setRows((data ?? []) as unknown as ChildToday[])))
   }
-  useEffect(load, [])
+  useEffect(load, [guardianId])
   return { rows, error, reload: load }
 }
 
-function ChildrenToday({ area, title, empty }: { area: Area; title: string; empty: string }) {
-  const { rows, error, reload } = useChildrenToday()
+function ChildrenToday({ area, title, empty, guardianId }: { area: Area; title: string; empty: string; guardianId: string | null }) {
+  const { rows, error, reload } = useChildrenToday(guardianId)
   const { weekday } = indiaClock(new Date())
   return (
     <AreaShell area={area} title={title}>
@@ -110,9 +115,11 @@ function ChildrenToday({ area, title, empty }: { area: Area; title: string; empt
 }
 
 export function ParentHome() {
-  return <ChildrenToday area="parent" title="Today" empty="No children are linked to your account yet. Please contact the school." />
+  const { state } = useSession()
+  const me = state.status === 'signed-in' ? state.me : null
+  return <ChildrenToday area="parent" title="Today" guardianId={me?.profile_id ?? null} empty="No children are linked to your account yet. Please contact the school." />
 }
 
 export function CoreHome() {
-  return <ChildrenToday area="core" title="Today" empty="No children yet. The admin adds children from People." />
+  return <ChildrenToday area="core" title="Today" guardianId={null} empty="No children yet. The admin adds children from People." />
 }
