@@ -21,6 +21,18 @@ Run `npm run test:db` first. Add `--dry-run` to see what would be applied.
 
 The direct database address only works over IPv6. Machines without IPv6 (including GitHub Actions, used for backups) must use the Supabase connection pooler (Project Settings → Database → Connection pooling).
 
+## Edge Functions
+| Function | What it does | Secrets |
+|---|---|---|
+| `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
+
+Deploying needs a Supabase login on this machine (`npx supabase login`, once):
+```
+npx supabase secrets set --project-ref <project-ref> ORS_API_KEY=<key>
+npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
+```
+`--no-verify-jwt` because the function checks the user's session itself. `npm run check:routing` tests the key and the ETA maths from this machine.
+
 ## Auth settings (Supabase dashboard)
 Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):
 - **Sign-ups off:** Authentication → Sign In / Providers → turn off "Allow new users to sign up". Users are created only by the admin flow.
