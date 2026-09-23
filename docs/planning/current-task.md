@@ -3,7 +3,8 @@
 **Milestone:** M0 Foundations ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-24
 
 ## Done
-- App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags, interim star icon).
+- App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
+- The school's logo: wordmark in light and dark versions, and app icons and favicon made from the smiling star.
 - Design tokens for light and dark, contrast-checked; Button component.
 - Domain rules with tests (`src/domain`): school hours, programme validation, which days a programme runs (term, 2nd and last Saturday), off-schedule and short-notice checks, freshness, running-late bands.
 - Database migration `0001_foundation.sql`: people, roles, programmes, classes, children, guardians, coordinator classes, regular schedules (checked against programme windows), holidays, attendance, settings, audit log; row-level security on every table. SQL tests for every role (`npm run test:db`).
@@ -18,5 +19,4 @@
 
 ## Waiting on the owner
 - What the existing "Jumpstart app" (website FAQ) is, and whether this platform replaces it.
-- The original logo files (SVG, AI or PDF).
-- Whether to commit to git.
+- A vector version of the logo (SVG, AI or PDF) if one exists. Not needed for the app; better for print later.

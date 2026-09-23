@@ -5,6 +5,7 @@ import {
   MessagesSquare, Timer, User, UserPlus, UserRound, Users,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { Logo } from '../ui/Logo'
 import { FreshnessBadge } from '../ui/FreshnessBadge'
 import { Sheet } from '../ui/Sheet'
 import { PhoneColumn } from './PreviewShell'
@@ -41,10 +42,11 @@ export function ParentToday() {
       <div className="px-5 pb-32 pt-[max(56px,calc(env(safe-area-inset-top)+44px))]">
         <header className="flex items-start justify-between">
           <div>
+            <Logo className="mb-4 h-8" />
             <p className="text-[15px] font-medium text-ink-2">Thursday, 24 September</p>
             <h1 className="mt-0.5 text-[30px] font-semibold leading-9 tracking-[-0.02em]">Good afternoon, Sneha</h1>
           </div>
-          <button type="button" aria-label="Notifications, 1 new" className="relative grid size-11 place-items-center rounded-full bg-surface shadow-1 ring-1 ring-line">
+          <button type="button" aria-label="Notifications, 1 new" className="relative mt-0.5 grid size-11 place-items-center rounded-full bg-surface shadow-1 ring-1 ring-line">
             <Bell className="size-5" aria-hidden />
             <span className="absolute right-2.5 top-2.5 size-2.5 rounded-full ring-2 ring-surface" style={{ background: 'var(--brand-red)' }} />
           </button>

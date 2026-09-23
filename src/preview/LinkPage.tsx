@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { CircleCheck, Clock, KeyRound, MapPin, MonitorSmartphone, ShieldCheck, Timer } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { BrandMark } from '../ui/BrandMark'
+import { Logo } from '../ui/Logo'
 import { FreshnessBadge } from '../ui/FreshnessBadge'
 import { PhoneColumn } from './PreviewShell'
 import { SAMPLE_CODE, SAMPLE_PROGRESS_INDEX, SAMPLE_ROUTE, SCHOOL } from './sample'
@@ -65,8 +65,10 @@ export function LinkPage() {
   return (
     <PhoneColumn>
       <div className="flex min-h-dvh flex-col px-6 pt-[max(64px,calc(env(safe-area-inset-top)+52px))] pb-[max(28px,env(safe-area-inset-bottom))] md:min-h-[860px]">
-        <div className="flex items-center gap-2.5 text-[15px] font-semibold text-ink-2">
-          <BrandMark className="size-7" /> Jumpstart Preschool
+        {/* A stranger opens this from WhatsApp: the real logo is the first sign it's from the school. */}
+        <div className="flex flex-col items-start gap-1.5">
+          <Logo className="h-12" />
+          <p className="text-[14px] font-semibold text-ink-2">Preschool &amp; Learning Center · Karve Road</p>
         </div>
 
         {step === 'invite' && (

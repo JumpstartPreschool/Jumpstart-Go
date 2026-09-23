@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { CircleCheck, Play, Power, RotateCcw, TriangleAlert, Volume2 } from 'lucide-react'
 import { Button } from '../../ui/Button'
-import { BrandMark } from '../../ui/BrandMark'
+import { Logo } from '../../ui/Logo'
 import { isInstalled } from '../../ui/hooks'
 import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
@@ -67,9 +67,10 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
 
   return (
     <Shell>
-      <div className="flex items-center gap-2.5 text-[15px] font-medium text-ink-2">
-        <BrandMark className="size-7" />
-        Jumpstart · Karve Road
+      <div className="flex items-center gap-3 text-[15px] font-semibold text-ink-2">
+        <Logo className="h-10" />
+        <span className="h-6 w-px bg-line-strong" aria-hidden />
+        Karve Road
       </div>
       <h1 className="mt-5 text-[34px] font-semibold leading-10 tracking-[-0.02em]">{duty.resumable ? 'Resume your duty' : 'Start your duty'}</h1>
       <p className="mt-2 text-[17px] leading-6 text-ink-2">

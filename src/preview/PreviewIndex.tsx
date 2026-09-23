@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, Link2, MapPinned, Power, Smartphone, Tablet } from 'lucide-react'
-import { BrandMark } from '../ui/BrandMark'
+import { Logo } from '../ui/Logo'
 
 const SCREENS: Array<{ to: string; title: string; detail: string; device: string; icon: ReactNode }> = [
   { to: '/preview/parent', title: 'Parent · Today', detail: "Each child's day, change time with busy slots, running late, choosing who picks up.", device: 'Phone', icon: <Smartphone /> },
@@ -14,8 +14,10 @@ const SCREENS: Array<{ to: string; title: string; detail: string; device: string
 export function PreviewIndex() {
   return (
     <main className="mx-auto max-w-[760px] px-6 pt-[max(48px,env(safe-area-inset-top))] pb-16">
-      <div className="flex items-center gap-2.5 text-[15px] font-semibold text-ink-2">
-        <BrandMark className="size-7" /> Jumpstart · Design preview
+      <div className="flex items-center gap-3 text-[15px] font-semibold text-ink-2">
+        <Logo className="h-9" />
+        <span className="h-6 w-px bg-line-strong" aria-hidden />
+        Design preview
       </div>
       <h1 className="mt-4 text-[34px] font-semibold leading-10 tracking-[-0.02em]">Key screens for review</h1>
       <p className="mt-2 text-[17px] leading-6 text-ink-2">
