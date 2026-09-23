@@ -6,8 +6,9 @@ import { useDuty } from '../features/duty/useDuty'
 import { StartDuty } from '../features/duty/StartDuty'
 import { OnDuty } from '../features/duty/OnDuty'
 
-// Design preview with sample data: development builds only, never shipped to production (NFR-7).
-const Preview = import.meta.env.DEV ? lazy(() => import('../preview/PreviewRoutes')) : null
+// Design preview with sample data: development builds and the separate design-review deployment only,
+// never the production app (NFR-7).
+const Preview = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true' ? lazy(() => import('../preview/PreviewRoutes')) : null
 
 function CoordinatorDuty() {
   const duty = useDuty()

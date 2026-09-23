@@ -1,0 +1,18 @@
+# Cloudflare Pages response headers.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: geolocation=(self), screen-wake-lock=(self), camera=(), microphone=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://tiles.openfreemap.org; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+# Hashed build files never change, so they can be cached for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The service worker and page must always be fresh, or updates would never arrive.
+/sw.js
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
