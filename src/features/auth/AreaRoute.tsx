@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Navigate } from 'react-router'
 import { LogOut, RotateCcw, UserX } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Mascot } from '../../ui/Backdrop'
+import { clearDemoLanding, demoLanding } from '../../demo/demo'
 import { ConsentScreen } from './ConsentScreen'
 import { LoginScreen } from './LoginScreen'
 import { areasFor, CONSENT_VERSION, useSession, type Area } from './session'
@@ -40,6 +41,10 @@ function Problem({ title, children, retry }: { title: string; children: ReactNod
  */
 export function AreaRoute({ area, children }: { area: Area | null; children: ReactNode }) {
   const { state, refresh } = useSession()
+  const landing = demoLanding()
+  useEffect(() => {
+    if (landing && landing === area) clearDemoLanding()
+  }, [landing, area])
   if (state.status === 'loading') return <Splash />
   if (state.status === 'signed-out') return <LoginScreen />
   if (state.error) return <Problem title="Couldn't load your account" retry={() => void refresh()}>Check your connection and try again.</Problem>
@@ -49,6 +54,7 @@ export function AreaRoute({ area, children }: { area: Area | null; children: Rea
   const areas = areasFor(me)
   if (areas.length === 0) return <Problem title="Nothing to show yet">The school hasn't linked you to a child or given you a role yet. Please contact the school.</Problem>
   if (areas.includes('parent') && me.consent_version !== CONSENT_VERSION) return <ConsentScreen />
+  if (landing && landing !== area && areas.includes(landing)) return <Navigate to={`/${landing}`} replace />
   if (!area || !areas.includes(area)) return <Navigate to={`/${areas[0]}`} replace />
   return <>{children}</>
 }

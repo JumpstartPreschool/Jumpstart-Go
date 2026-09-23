@@ -20,11 +20,14 @@
 - Routing and ETA server function with the OpenRouteService key (`supabase/functions/route`, not yet deployed).
 - Rainbow-glass design system and iPad layouts; the owner's logo; the design preview.
 - Owner-facing explainer: https://claude.ai/artifact/AmiKrGQCV21UHzgL8jGcbu
+- Demo mode (development and design builds only, left out of production): "Try the demo" on the login screen opens Admin, Core team, Coordinator or Parent with a dummy code (246810) that fills itself in, backed by sample data in the browser tab. It never calls the real database, and a "Demo · sample data" pill stays on screen until Exit demo.
+- The owner's account (ai@jumpstartpreschool.in) is invited in the live database with Admin, Core team and Coordinator. The Parent area appears once a real child is linked.
 
 ## Next
-1. **Owner reviews the design preview** and sends changes.
-2. **Test on a real iPad:** Home Screen install, Start duty, the screen staying on for a full shift, and the sound check with Silent Mode on and off.
-3. Create the Supabase project in Mumbai and the Cloudflare Pages project (both free), then M1: email login, role areas and admin people management.
+1. **Owner reviews the design preview and the demo**, and sends changes.
+2. **Real email codes:** in Supabase, add `{{ .Token }}` to the Magic Link email, turn off public sign-ups, and connect a free SMTP sender (Brevo). The built-in sender only mails the Supabase team.
+3. **Test on a real iPad:** Home Screen install, Start duty, the screen staying on for a full shift, and the sound check with Silent Mode on and off.
+4. **Publishing:** give the Cloudflare token Workers Scripts: Edit, then `npm run deploy:design`.
 
 ## Waiting on the owner
 - What the existing "Jumpstart app" (website FAQ) is, and whether this platform replaces it.

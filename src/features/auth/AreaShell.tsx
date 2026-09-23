@@ -7,7 +7,7 @@ import { Sheet } from '../../ui/Sheet'
 import { areasFor, useSession, type Area } from './session'
 
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', coordinator: 'Coordinator', parent: 'Parent' }
-const AREA_COLOR: Record<Area, string> = { admin: 'var(--rb-violet)', core: 'var(--rb-green)', coordinator: 'var(--rb-orange)', parent: 'var(--rb-blue)' }
+export const AREA_COLOR: Record<Area, string> = { admin: 'var(--rb-violet)', core: 'var(--rb-green)', coordinator: 'var(--rb-orange)', parent: 'var(--rb-blue)' }
 
 /** Signed-in person's button: shows who is signed in, switches area (D16) and signs out. */
 export function AccountButton({ area }: { area: Area }) {

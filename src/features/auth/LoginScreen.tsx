@@ -1,14 +1,24 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { ArrowLeft, CalendarClock, FlaskConical, Heart, Mail, ShieldCheck, Tablet, UsersRound } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Mascot } from '../../ui/Backdrop'
 import { TextField } from '../../ui/Field'
 import { normalizeEmail } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
+import { DEMO_AVAILABLE, DEMO_CODE, DEMO_EMAIL, enterDemo, isDemo } from '../../demo/demo'
+import { AREA_COLOR, AREA_LABEL } from './AreaShell'
+import type { Area } from './session'
 
 const CODE_LENGTH = 6
 const RESEND_AFTER_S = 30
+const DEMO_ROLES: Array<{ area: Area; icon: ReactNode }> = [
+  { area: 'admin', icon: <UsersRound /> },
+  { area: 'core', icon: <CalendarClock /> },
+  { area: 'coordinator', icon: <Tablet /> },
+  { area: 'parent', icon: <Heart /> },
+]
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 function explain(message: string | undefined, status: number | undefined): string {
   if (message?.includes('not_invited')) return "This email isn't registered with Jumpstart. Please contact the school."
@@ -25,6 +35,9 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resendIn, setResendIn] = useState(0)
+  const [demoArea, setDemoArea] = useState<Area | null>(null)
+  // Always false in production builds, so the demo text is dropped there.
+  const demo = DEMO_AVAILABLE && isDemo()
   const codeInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -33,22 +46,30 @@ export function LoginScreen() {
     return () => clearTimeout(t)
   }, [resendIn])
 
-  async function sendCode(address: string) {
+  async function sendCode(address: string): Promise<boolean> {
     setBusy(true)
     setError(null)
     try {
       const { data: allowed, error: checkError } = await supabase.rpc('login_allowed', { p_email: address })
       if (checkError) throw checkError
-      if (!allowed) return setError(explain('not_invited', undefined))
+      if (!allowed) {
+        setError(explain('not_invited', undefined))
+        return false
+      }
       // shouldCreateUser: the first code creates the account, which the database links to the invite (0002).
       const { error: otpError } = await supabase.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } })
-      if (otpError) return setError(explain(otpError.message, otpError.status))
+      if (otpError) {
+        setError(explain(otpError.message, otpError.status))
+        return false
+      }
       setStep('code')
       setCode('')
       setResendIn(RESEND_AFTER_S)
       setTimeout(() => codeInput.current?.focus(), 50)
+      return true
     } catch (e) {
       setError(explain((e as Error).message, undefined))
+      return false
     } finally {
       setBusy(false)
     }
@@ -62,15 +83,35 @@ export function LoginScreen() {
     await sendCode(address)
   }
 
-  async function onCode(e?: FormEvent) {
-    e?.preventDefault()
-    if (code.length !== CODE_LENGTH) return setError(`Enter all ${CODE_LENGTH} digits of the code.`)
+  async function verify(address: string, token: string) {
     setBusy(true)
     setError(null)
-    const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email: address, token, type: 'email' })
     setBusy(false)
     // On success the session provider takes over and routes the person to their area.
     if (verifyError) setError(explain(verifyError.message, verifyError.status))
+  }
+
+  async function onCode(e?: FormEvent) {
+    e?.preventDefault()
+    if (code.length !== CODE_LENGTH) return setError(`Enter all ${CODE_LENGTH} digits of the code.`)
+    await verify(email, code)
+  }
+
+  /** Demo only: sign in with the sample account, typing the dummy code the way a person would. */
+  async function tryDemo(area: Area) {
+    setDemoArea(area)
+    enterDemo(area)
+    setEmail(DEMO_EMAIL)
+    if (await sendCode(DEMO_EMAIL)) {
+      for (let i = 1; i <= CODE_LENGTH; i++) {
+        await pause(120)
+        setCode(DEMO_CODE.slice(0, i))
+      }
+      await pause(300)
+      await verify(DEMO_EMAIL, DEMO_CODE)
+    }
+    setDemoArea(null)
   }
 
   return (
@@ -111,9 +152,11 @@ export function LoginScreen() {
             <div className="mx-auto grid size-20 place-items-center rounded-full bg-[linear-gradient(135deg,var(--rb-teal),var(--rb-blue))] text-white shadow-[0_14px_30px_-12px_var(--rb-blue)]">
               <ShieldCheck className="size-10" aria-hidden />
             </div>
-            <h1 className="mt-4 text-center text-[30px] font-bold leading-9">Check your email</h1>
+            <h1 className="mt-4 text-center text-[30px] font-bold leading-9">{demo ? 'Demo sign-in' : 'Check your email'}</h1>
             <p className="mt-1 text-center text-[16px] font-semibold leading-6 text-ink-2">
-              We sent a 6-digit code to <span className="font-extrabold text-ink">{email}</span>. It works for 5 minutes.
+              {demo
+                ? <>Demo mode: no email is sent. The dummy code for <span className="font-extrabold text-ink">{email}</span> fills itself in.</>
+                : <>We sent a 6-digit code to <span className="font-extrabold text-ink">{email}</span>. It works for 5 minutes.</>}
             </p>
             <label htmlFor="code" className="sr-only">6-digit code</label>
             {/* One real input (so iOS can fill the code from Mail), drawn as six friendly boxes. */}
@@ -148,6 +191,7 @@ export function LoginScreen() {
               </div>
             </div>
             {error && <p className="mt-2 text-center text-[15px] font-bold text-danger" role="alert">{error}</p>}
+            {demo && <p className="mt-2 text-center text-[14px] font-bold text-ink-2">Demo code: <span className="font-display tabular-nums tracking-[0.12em] text-ink">{DEMO_CODE}</span></p>}
             <Button type="submit" size="xl" className="mt-5 w-full" loading={busy} disabled={code.length !== CODE_LENGTH}>
               Sign in
             </Button>
@@ -162,6 +206,35 @@ export function LoginScreen() {
           </form>
         )}
       </div>
+
+      {DEMO_AVAILABLE && step === 'email' && (
+        <section className="card mt-5 rounded-[30px] p-5 sm:p-6" aria-labelledby="demo-title">
+          <p id="demo-title" className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.08em] text-ink-2">
+            <FlaskConical className="size-4 text-rb-violet" aria-hidden /> Try the demo
+          </p>
+          <p className="mt-1 text-[15px] font-semibold leading-[22px] text-ink-2">
+            Opens an area with sample children and a dummy code. It stays in this browser and never touches the school's records.
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2.5">
+            {DEMO_ROLES.map(({ area, icon }) => (
+              <button
+                key={area}
+                type="button"
+                disabled={busy || demoArea !== null}
+                onClick={() => void tryDemo(area)}
+                aria-busy={demoArea === area || undefined}
+                className="flex h-16 items-center gap-3 rounded-[22px] bg-sunken pl-2.5 pr-3 text-left text-[16px] font-extrabold transition-transform duration-200 ease-spring hover:brightness-[1.03] active:scale-[0.96] disabled:opacity-60 motion-reduce:active:scale-100"
+              >
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl text-white [&_svg]:size-[22px]"
+                  style={{ background: `linear-gradient(135deg, ${AREA_COLOR[area]}, color-mix(in oklab, ${AREA_COLOR[area]} 62%, white))`, boxShadow: `0 10px 20px -10px ${AREA_COLOR[area]}` }} aria-hidden>
+                  {icon}
+                </span>
+                {AREA_LABEL[area]}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }
