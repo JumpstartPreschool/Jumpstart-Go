@@ -2,38 +2,42 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, Link2, MapPinned, Power, Smartphone, Tablet } from 'lucide-react'
 import { Logo } from '../ui/Logo'
+import { Mascot } from '../ui/Backdrop'
 
-const SCREENS: Array<{ to: string; title: string; detail: string; device: string; icon: ReactNode }> = [
-  { to: '/preview/parent', title: 'Parent · Today', detail: "Each child's day, change time with busy slots, running late, choosing who picks up.", device: 'Phone', icon: <Smartphone /> },
-  { to: '/preview/trip', title: 'Parent · Live trip', detail: 'Full-screen map with the trip sheet. Switch between LIVE, RECENT, STALE and UNAVAILABLE.', device: 'Phone', icon: <MapPinned /> },
-  { to: '/preview/gate', title: 'Coordinator · Gate queue', detail: 'Who is arriving next, flags, running late, handoff code entry and guardian confirmation.', device: 'iPad', icon: <Tablet /> },
-  { to: '/preview/link', title: 'Third person · Pickup link', detail: 'What the grandparent or driver sees from WhatsApp, step by step.', device: 'Phone', icon: <Link2 /> },
-  { to: '/coordinator', title: 'Coordinator · Start duty (working)', detail: 'The real duty mode: sound check, screen kept awake, announcements. Not sample data.', device: 'iPad', icon: <Power /> },
+const SCREENS: Array<{ to: string; title: string; detail: string; device: string; icon: ReactNode; color: string }> = [
+  { to: '/preview/parent', title: 'Parent · Today', detail: "Each child's day, change time with busy slots, running late, choosing who picks up.", device: 'Phone · iPad', icon: <Smartphone />, color: 'var(--rb-blue)' },
+  { to: '/preview/trip', title: 'Parent · Live trip', detail: 'Full-screen map with the trip panel. Switch between LIVE, RECENT, STALE and UNAVAILABLE.', device: 'Phone · iPad', icon: <MapPinned />, color: 'var(--rb-green)' },
+  { to: '/preview/gate', title: 'Coordinator · Gate queue', detail: 'Who is arriving next, flags, running late, handoff code entry and guardian confirmation.', device: 'iPad', icon: <Tablet />, color: 'var(--rb-orange)' },
+  { to: '/preview/link', title: 'Third person · Pickup link', detail: 'What a grandparent or driver sees from WhatsApp, step by step.', device: 'Phone', icon: <Link2 />, color: 'var(--rb-violet)' },
+  { to: '/coordinator', title: 'Coordinator · Start duty', detail: 'The real duty mode: sound check, screen kept awake, announcements. Not sample data.', device: 'iPad', icon: <Power />, color: 'var(--rb-red)' },
 ]
 
 export function PreviewIndex() {
   return (
-    <main className="mx-auto max-w-[760px] px-6 pt-[max(48px,env(safe-area-inset-top))] pb-16">
-      <div className="flex items-center gap-3 text-[15px] font-semibold text-ink-2">
-        <Logo className="h-9" />
-        <span className="h-6 w-px bg-line-strong" aria-hidden />
-        Design preview
+    <main className="mx-auto w-full max-w-[860px] px-5 pt-[max(48px,calc(env(safe-area-inset-top)+28px))] pb-16 sm:px-8">
+      <div className="flex flex-col items-center text-center">
+        <Logo className="h-14 sm:h-16" />
+        <Mascot size={120} className="mt-4" />
+        <h1 className="mt-2 text-[40px] font-bold leading-[44px] sm:text-[48px] sm:leading-[52px]">Design preview</h1>
+        <p className="mt-2 max-w-[560px] text-[18px] font-semibold leading-7 text-ink-2">
+          The key screens with <strong className="text-ink">sample data</strong>: no real children, people or locations. They show the look and the flow before the school server is connected.
+        </p>
       </div>
-      <h1 className="mt-4 text-[34px] font-semibold leading-10 tracking-[-0.02em]">Key screens for review</h1>
-      <p className="mt-2 text-[17px] leading-6 text-ink-2">
-        These screens use <strong className="text-ink">sample data</strong>: no real children, people or locations. They show the design and the flow before the school server is connected.
-      </p>
-      <ul className="mt-8 grid gap-3">
+      <ul className="mt-10 grid gap-4 md:grid-cols-2">
         {SCREENS.map((s) => (
           <li key={s.to}>
-            <Link to={s.to} className="flex items-center gap-4 rounded-[22px] bg-surface p-5 shadow-1 ring-1 ring-line transition-[transform,box-shadow] duration-200 ease-spring hover:shadow-2 active:scale-[0.99]">
-              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent/10 text-accent [&_svg]:size-6" aria-hidden>{s.icon}</span>
+            <Link to={s.to} className="card flex h-full items-center gap-4 rounded-[30px] p-5 transition-transform duration-200 ease-spring hover:-translate-y-0.5 active:scale-[0.98]">
+              <span
+                className="grid size-14 shrink-0 place-items-center rounded-[20px] text-white [&_svg]:size-7"
+                style={{ background: `linear-gradient(135deg, ${s.color}, color-mix(in oklab, ${s.color} 65%, white))`, boxShadow: `0 12px 24px -10px ${s.color}` }}
+                aria-hidden
+              >
+                {s.icon}
+              </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="text-[18px] font-semibold">{s.title}</span>
-                  <span className="rounded-full bg-sunken px-2 py-0.5 text-[12px] font-semibold text-ink-2">{s.device}</span>
-                </span>
-                <span className="mt-0.5 block text-[15px] leading-[22px] text-ink-2">{s.detail}</span>
+                <span className="block font-display text-[20px] font-bold leading-6">{s.title}</span>
+                <span className="mt-0.5 block text-[15px] font-semibold leading-[22px] text-ink-2">{s.detail}</span>
+                <span className="mt-2 inline-block rounded-full bg-sunken px-2.5 py-0.5 text-[12px] font-extrabold text-ink-2">{s.device}</span>
               </span>
               <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
             </Link>
