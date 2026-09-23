@@ -2,20 +2,29 @@
 -- Each block signs in as one user (JWT claims + the authenticated role) and asserts what they can and cannot do.
 
 -- Seed (as the database owner) -------------------------------------------------
-insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-0000000000a1', 'admin@example.test'),
-  ('00000000-0000-0000-0000-0000000000c1', 'core@example.test'),
-  ('00000000-0000-0000-0000-0000000000d1', 'priya@example.test'),
-  ('00000000-0000-0000-0000-0000000000e1', 'parent.a@example.test'),
-  ('00000000-0000-0000-0000-0000000000e2', 'parent.b@example.test'),
-  ('00000000-0000-0000-0000-0000000000f1', 'former.admin@example.test');
+-- 0003 loads the 17 Karve Road programmes, each passing the programme constraints; check, then start clean.
+do $$ begin
+  assert (select count(*) from public.programmes) = 17, 'Karve Road programmes loaded';
+  assert (select count(*) from public.programmes where flexible) = 5, 'the 360°+ programmes and the Learning Center are flexible';
+end $$;
+delete from public.programmes;
+-- People are invited first (profiles), then sign in (auth.users); the trigger links them by email.
+-- Test profiles reuse their auth ids, so the JWT subject below is also the profile id.
 insert into public.profiles (id, full_name, email, active) values
   ('00000000-0000-0000-0000-0000000000a1', 'Admin', 'admin@example.test', true),
   ('00000000-0000-0000-0000-0000000000c1', 'Core Team', 'core@example.test', true),
   ('00000000-0000-0000-0000-0000000000d1', 'Priya', 'priya@example.test', true),
   ('00000000-0000-0000-0000-0000000000e1', 'Parent A', 'parent.a@example.test', true),
   ('00000000-0000-0000-0000-0000000000e2', 'Parent B', 'parent.b@example.test', true),
-  ('00000000-0000-0000-0000-0000000000f1', 'Former Admin', 'former.admin@example.test', false);
+  ('00000000-0000-0000-0000-0000000000f1', 'Former Admin', 'former.admin@example.test', true);
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000a1', 'admin@example.test'),
+  ('00000000-0000-0000-0000-0000000000c1', 'core@example.test'),
+  ('00000000-0000-0000-0000-0000000000d1', 'priya@example.test'),
+  ('00000000-0000-0000-0000-0000000000e1', 'parent.a@example.test'),
+  ('00000000-0000-0000-0000-0000000000e2', 'Parent.B@Example.test'),
+  ('00000000-0000-0000-0000-0000000000f1', 'former.admin@example.test');
+insert into auth.sessions (user_id) values ('00000000-0000-0000-0000-0000000000f1');
 insert into public.staff_roles values
   ('00000000-0000-0000-0000-0000000000a1', 'admin'),
   ('00000000-0000-0000-0000-0000000000c1', 'core'),
@@ -36,6 +45,11 @@ insert into public.guardianships values
   ('00000000-0000-0000-0000-0000000c0001', '00000000-0000-0000-0000-0000000000e1', 'Mother'),
   ('00000000-0000-0000-0000-0000000c0002', '00000000-0000-0000-0000-0000000000e2', 'Father');
 insert into public.coordinator_classes values ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-00000000c001');
+update public.profiles set active = false where email = 'former.admin@example.test';
+do $$ begin
+  assert (select count(*) from auth.sessions) = 0, 'deactivation ended the saved sessions';
+  assert (select count(*) from public.profiles where user_id is not null) = 6, 'every invited person was linked on first sign-in (email case ignored)';
+end $$;
 
 -- Anonymous visitors: no access at all ------------------------------------------
 set role anon;
