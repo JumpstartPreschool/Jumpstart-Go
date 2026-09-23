@@ -1,0 +1,79 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAnnouncer, PRIORITY, type Announcement } from './announcer'
+
+function fakeOutput() {
+  const played: string[] = []
+  return {
+    played,
+    chime: vi.fn(async (kind: string) => void played.push(`chime:${kind}`)),
+    // Speech takes 3 s, like a real sentence.
+    speak: vi.fn((text: string) => new Promise<void>((r) => setTimeout(() => (played.push(text), r()), 3000))),
+  }
+}
+
+const a = (id: string, priority: number, chime: 'normal' | 'flagged' = 'normal'): Announcement => ({ id, text: id, chime, priority })
+
+describe('announcer', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('plays one at a time, most urgent first, then in arrival order', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.announce(a('arriving', PRIORITY.arriving))
+    ann.announce(a('new-1', PRIORITY.newRequest))
+    ann.announce(a('flag', PRIORITY.flagged, 'flagged'))
+    ann.announce(a('new-2', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(20_000)
+    // The first one had already started when the others arrived; after that, priority decides.
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['arriving', 'flag', 'new-1', 'new-2'])
+    expect(out.played).toContain('chime:flagged')
+  })
+
+  it('repeats every 2 minutes until acknowledged', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.announce(a('new-1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(out.speak).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(119_000)
+    expect(out.speak).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(out.speak).toHaveBeenCalledTimes(2)
+    ann.acknowledge('new-1')
+    await vi.advanceTimersByTimeAsync(10 * 60_000)
+    expect(out.speak).toHaveBeenCalledTimes(2)
+  })
+
+  it('holds announcements while muted and plays them afterwards', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.mute(5 * 60_000)
+    ann.announce(a('new-1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(4 * 60_000)
+    expect(out.speak).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(60_000 + 3_000)
+    expect(out.speak).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps going when the speaker fails', async () => {
+    const out = fakeOutput()
+    out.chime.mockRejectedValueOnce(new Error('audio blocked'))
+    const ann = createAnnouncer(out)
+    ann.announce(a('one', PRIORITY.newRequest))
+    ann.announce(a('two', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(out.speak).toHaveBeenCalledWith('two')
+  })
+
+  it('reports what is speaking and how many are waiting', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    const states: Array<{ speaking: string | null; waiting: number }> = []
+    ann.subscribe((s) => states.push({ speaking: s.speaking?.id ?? null, waiting: s.waiting }))
+    ann.announce(a('one', PRIORITY.newRequest))
+    ann.announce(a('two', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1)
+    expect(states.at(-1)).toEqual({ speaking: 'one', waiting: 1 })
+  })
+})
