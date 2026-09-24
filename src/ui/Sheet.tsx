@@ -22,7 +22,8 @@ export function Sheet({ open, onClose, title, description, children, wide = fals
       className="sheet"
       style={wide ? ({ '--sheet-w': '760px' } as CSSProperties) : undefined}
       aria-label={title}
-      onClose={onClose}
+      // React passes a nested sheet's close up to this one; only this dialog's own close should close it.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-line-2 md:hidden" aria-hidden />
