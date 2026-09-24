@@ -9,13 +9,13 @@ import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
-import { formatIndianMobile } from '../../domain/contact'
+import { formatMobile } from '../../domain/contact'
 import { AREA_ICON, AREA_LABEL, AreaShell } from '../auth/AreaShell'
 import { useSession, type Area } from '../auth/session'
 import { explainDbError, type ClassRow, type Profile } from '../admin/api'
 import { loadCoordinators, removeCoordinator, setCoordinator, type CoordinatorData } from './api'
 
-const contact = (p: Profile) => [p.email, p.phone && formatIndianMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'
+const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'
 const firstName = (p: Profile) => p.full_name.split(' ')[0]
 
 /** Multi-select class chips. */

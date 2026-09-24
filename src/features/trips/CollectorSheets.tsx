@@ -10,7 +10,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import { windowFor, type Programme } from '../../domain/programme'
 import { now } from '../../lib/clock'
 import { explainTripError, type Trip } from './api'
-import { formatPhone, toE164, whatsappUrl } from './geo'
+import { formatMobile, normalizeMobile, whatsappUrl } from '../../domain/contact'
 import { arrivalSlots, clockTime, formatRange } from './rules'
 import { inviteCollector, whatsappText, type Invite } from './tracking'
 import { ReasonPicker } from './TripSheets'
@@ -37,7 +37,7 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
       <p className="text-body text-ink-2">{first} shows this code at the gate. The link works on one phone and stops after the trip.</p>
       <div className="mt-5 rounded-xl bg-sunken px-4 py-6">
         <CodeTiles code={invite.code} size="xl" />
-        <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatPhone(sendTo)}</p>
+        <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatMobile(sendTo)}</p>
       </div>
       <Notice tone="info" className="mt-4">Send it now: for safety the link is shown only once. Resend link makes a new link and code, and the old ones stop working.</Notice>
       <SheetFooter>
@@ -79,8 +79,8 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
 
   async function create() {
     const e: Record<string, string> = {}
-    const mobile = toE164(phone)
-    const whatsapp = wa.trim() ? toE164(wa) : mobile
+    const mobile = normalizeMobile(phone)
+    const whatsapp = wa.trim() ? normalizeMobile(wa) : mobile
     const rel = relation === 'Other' ? otherRel.trim() : relation
     if (name.trim().length < 2) e.name = 'Enter their full name.'
     if (!mobile) e.phone = 'Enter a 10-digit mobile number, or the full number with + and the country code.'

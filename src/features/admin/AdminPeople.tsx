@@ -10,7 +10,7 @@ import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
-import { formatIndianMobile } from '../../domain/contact'
+import { formatMobile } from '../../domain/contact'
 import { AREA_ICON, AREA_LABEL, AreaShell } from '../auth/AreaShell'
 import { useSession } from '../auth/session'
 import { addClass, explainDbError, loadDirectory, setPersonActive, type ClassRow, type Directory, type Profile } from './api'
@@ -181,7 +181,7 @@ export function AdminPeople() {
               const kids = dir.guardianships.filter((g) => g.guardian_id === p.id).length
               return (
                 <ListRow key={p.id} avatar={<Avatar name={p.full_name} color={childColor(p.id)} />} title={p.id === myId ? `${p.full_name} (you)` : p.full_name}
-                  detail={[p.email, p.phone && formatIndianMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'}
+                  detail={[p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'}
                   badges={<>
                     <Status person={p} />
                     {roles.map((r) => <Pill key={r} icon={AREA_ICON[r]}>{AREA_LABEL[r]}</Pill>)}

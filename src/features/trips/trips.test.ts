@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Programme } from '../../domain/programme'
 import { toMinutes } from '../../domain/time'
 import { arrivalSlots } from './rules'
-import { distanceM, formatDistance, positionOf, toE164, whatsappUrl, SCHOOL } from './geo'
+import { distanceM, formatDistance, positionOf, SCHOOL } from './geo'
 
 const halfDay: Programme = {
   name: 'Jr KG · Half day', weekdays: [1, 2, 3, 4, 5, 6], saturdayRule: 'every', term: null, hours: { from: toMinutes('09:00'), to: toMinutes('13:00') },
@@ -31,20 +31,6 @@ describe('arrivalSlots', () => {
   })
   it('has nothing after the gate closes', () => {
     expect(arrivalSlots(plus, 'pickup', toMinutes('19:10'))).toEqual([])
-  })
-})
-
-describe('phone numbers', () => {
-  it('reads Indian mobiles however they are typed', () => {
-    for (const v of ['98765 43210', '098765-43210', '+91 98765 43210', '919876543210']) expect(toE164(v)).toBe('+919876543210')
-  })
-  it('keeps other countries only with their code', () => {
-    expect(toE164('+971 50 123 4567')).toBe('+971501234567')
-    expect(toE164('12345')).toBeNull()
-    expect(toE164('5876543210')).toBeNull() // not an Indian mobile, and no country code
-  })
-  it('builds a WhatsApp link with the message', () => {
-    expect(whatsappUrl('+919876543210', 'Hi & bye')).toBe('https://wa.me/919876543210?text=Hi%20%26%20bye')
   })
 })
 

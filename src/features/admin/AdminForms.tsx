@@ -6,7 +6,7 @@ import { SelectField, TextField } from '../../ui/Field'
 import { SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { childColor } from '../../ui/childColor'
-import { normalizeEmail, normalizeIndianMobile } from '../../domain/contact'
+import { normalizeEmail, normalizeMobile } from '../../domain/contact'
 import type { StaffRole } from '../auth/session'
 import { AREA_ICON, AREA_LABEL } from '../auth/AreaShell'
 import { addChild, addPerson, explainDbError, type ClassRow, type Directory } from './api'
@@ -44,7 +44,7 @@ export function AddPersonForm({ kind, onDone }: { kind: 'parent' | 'staff'; onDo
     e.preventDefault()
     const next: Record<string, string> = {}
     const cleanEmail = email.trim() ? normalizeEmail(email) : null
-    const cleanPhone = phone.trim() ? normalizeIndianMobile(phone) : null
+    const cleanPhone = phone.trim() ? normalizeMobile(phone) : null
     if (name.trim().length < 2) next.name = 'Enter their full name.'
     if (email.trim() && !cleanEmail) next.email = 'This email address looks incomplete.'
     if (phone.trim() && !cleanPhone) next.phone = 'Enter a 10-digit Indian mobile number.'

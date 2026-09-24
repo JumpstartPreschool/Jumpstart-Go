@@ -118,7 +118,7 @@ describe('lateBand', () => {
 })
 
 describe('contact details', async () => {
-  const { normalizeEmail, normalizeIndianMobile, formatIndianMobile } = await import('./contact')
+  const { normalizeEmail, normalizeMobile, formatMobile, whatsappUrl } = await import('./contact')
   it('normalizes emails', () => {
     expect(normalizeEmail('  Sneha.K@Example.COM ')).toBe('sneha.k@example.com')
     expect(normalizeEmail('not-an-email')).toBeNull()
@@ -126,15 +126,23 @@ describe('contact details', async () => {
   })
   it('accepts Indian mobiles in any common format', () => {
     for (const v of ['98765 43210', '+91 98765 43210', '+91-98765-43210', '09876543210', '919876543210', '0091 9876543210']) {
-      expect(normalizeIndianMobile(v)).toBe('+919876543210')
+      expect(normalizeMobile(v)).toBe('+919876543210')
     }
   })
-  it('rejects landlines and short numbers', () => {
-    expect(normalizeIndianMobile('020 2545 1234')).toBeNull()
-    expect(normalizeIndianMobile('98765')).toBeNull()
-    expect(normalizeIndianMobile('+1 415 555 0100')).toBeNull()
+  // Contract change (PRD D26, 2026-09-24): families abroad have numbers from other countries, given with + or 00.
+  it('accepts other countries with their code', () => {
+    expect(normalizeMobile('+1 415 555 0100')).toBe('+14155550100')
+    expect(normalizeMobile('00971 50 123 4567')).toBe('+971501234567')
   })
-  it('formats for display', () => {
-    expect(formatIndianMobile('+919876543210')).toBe('+91 98765 43210')
+  it('rejects landlines, short numbers, and foreign numbers without a code', () => {
+    expect(normalizeMobile('020 2545 1234')).toBeNull()
+    expect(normalizeMobile('98765')).toBeNull()
+    expect(normalizeMobile('+91 20 2545 1234')).toBeNull()
+    expect(normalizeMobile('5876543210')).toBeNull()
+  })
+  it('formats for display, and links to WhatsApp', () => {
+    expect(formatMobile('+919876543210')).toBe('+91 98765 43210')
+    expect(formatMobile('+14155550100')).toBe('+14155550100')
+    expect(whatsappUrl('+919876543210', 'Hi & bye')).toBe('https://wa.me/919876543210?text=Hi%20%26%20bye')
   })
 })

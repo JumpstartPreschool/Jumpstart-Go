@@ -14,7 +14,8 @@ import { onTableChange } from '../../lib/live'
 import { useSession } from '../auth/session'
 import { explainTripError, gateStep, useTodayTrips, type GateStep, type Trip } from '../trips/api'
 import { clockTime } from '../trips/rules'
-import { formatDistance, formatPhone, positionOf, type Position } from '../trips/geo'
+import { formatDistance, positionOf, type Position } from '../trips/geo'
+import { formatMobile } from '../../domain/contact'
 import { useLatestPoints } from '../trips/tracking'
 import { formatAge } from '../../domain/freshness'
 import { CodeSheet } from './CodeSheet'
@@ -313,7 +314,7 @@ function TripDetail({ trip, child, busy, pos, locked, onStep }: { trip: Trip; ch
             : pickup
             ? <Button size="xl" icon={third ? <KeyRound /> : <UserCheck />} loading={busy} onClick={() => onStep('handover')}>{third ? `Enter ${who}'s code` : 'Hand over'}</Button>
             : <Button size="xl" icon={<DoorOpen />} loading={busy} onClick={() => onStep('close')}>Check in {child.name}</Button>}
-          {third && trip.traveller_phone && <a className="btn btn--quiet btn--md" href={`tel:${trip.traveller_phone}`}><Phone aria-hidden />Call {who}, {formatPhone(trip.traveller_phone)}</a>}
+          {third && trip.traveller_phone && <a className="btn btn--quiet btn--md" href={`tel:${trip.traveller_phone}`}><Phone aria-hidden />Call {who}, {formatMobile(trip.traveller_phone)}</a>}
         </div>
       )}
     </div>

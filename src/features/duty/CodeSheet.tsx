@@ -3,7 +3,7 @@ import { Delete, Lock, Phone, X } from 'lucide-react'
 import { Sheet } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { explainTripError, type Trip } from '../trips/api'
-import { formatPhone } from '../trips/geo'
+import { formatMobile } from '../../domain/contact'
 import { handoverWithCode } from '../trips/tracking'
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'] as const
@@ -68,7 +68,7 @@ export function CodeSheet({ open, onClose, trip, childName, onDone }: { open: bo
       {locked ? (
         <div className="grid gap-4">
           <Notice tone="danger" icon={<Lock />}>Handover locked after three wrong codes. Don't release {childName}. Call the parent: they can send {who} a new link and code.</Notice>
-          {trip.traveller_phone && <a className="btn btn--secondary btn--lg" href={`tel:${trip.traveller_phone}`}><Phone aria-hidden />Call {who}, {formatPhone(trip.traveller_phone)}</a>}
+          {trip.traveller_phone && <a className="btn btn--secondary btn--lg" href={`tel:${trip.traveller_phone}`}><Phone aria-hidden />Call {who}, {formatMobile(trip.traveller_phone)}</a>}
         </div>
       ) : (
         <div className="mx-auto grid w-full max-w-[340px] gap-5">
