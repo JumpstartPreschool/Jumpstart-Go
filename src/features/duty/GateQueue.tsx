@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BellRing, CircleCheck, DoorOpen, Eye, House, Navigation, RotateCcw, School, TriangleAlert, UserCheck } from 'lucide-react'
+import { BellRing, CircleCheck, DoorOpen, Eye, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
+import { FreshnessBadge } from '../../ui/FreshnessBadge'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
@@ -13,6 +14,10 @@ import { onTableChange } from '../../lib/live'
 import { useSession } from '../auth/session'
 import { explainTripError, gateStep, useTodayTrips, type GateStep, type Trip } from '../trips/api'
 import { clockTime } from '../trips/rules'
+import { formatDistance, formatPhone, positionOf, type Position } from '../trips/geo'
+import { useLatestPoints } from '../trips/tracking'
+import { formatAge } from '../../domain/freshness'
+import { CodeSheet } from './CodeSheet'
 import { PRIORITY, type Announcer } from './announcer'
 import { cancelledText, shouldAnnounce, spokenText, type GateChild } from './gate'
 
@@ -56,10 +61,13 @@ function nextStep(t: Trip): { step: GateStep | 'handover'; label: string; icon: 
   if (t.off_schedule && !t.acknowledged_at) return { step: 'acknowledge', label: 'Acknowledge', icon: <Eye /> }
   if (t.direction === 'dropoff') return { step: 'close', label: 'Check in', icon: <DoorOpen /> }
   if (!t.ready_at) return { step: 'ready', label: 'Ready', icon: <CircleCheck /> }
-  return { step: 'handover', label: 'Hand over', icon: <UserCheck /> }
+  return t.traveller_kind === 'third_person' ? { step: 'handover', label: 'Enter code', icon: <KeyRound /> } : { step: 'handover', label: 'Hand over', icon: <UserCheck /> }
 }
 
 const relationName = (t: Trip) => [t.traveller_relation, t.traveller_name.split(' ')[0]].filter(Boolean).join(', ')
+
+/** "1.2 km away" or "At the gate": straight-line, never a time (no route or traffic). */
+const awayText = (p: Position) => (p.away === null ? 'Approximate' : p.away < 150 ? 'At the school' : `${formatDistance(p.away)} away`)
 
 /**
  * The live gate queue on the coordinator's iPad (J4, J5, ANN-1): today's drop-offs and pickups as they come in,
@@ -69,10 +77,12 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const toast = useToast()
   const trips = useTodayTrips()
   const gate = useGateData()
-  const nowMs = useNow(15_000)
+  const nowMs = useNow(5_000)
   const [picked, setPicked] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [handover, setHandover] = useState<Trip | null>(null)
+  const [codeFor, setCodeFor] = useState<Trip | null>(null)
+  const [locked, setLocked] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const cancelHeard = useRef(new Set<string>())
   const announced = useRef(new Map<string, string>())
@@ -86,6 +96,10 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       done: all.filter((t) => t.status !== 'en_route').sort((a, b) => Date.parse(b.closed_at ?? b.updated_at) - Date.parse(a.closed_at ?? a.updated_at)),
     }
   }, [trips.trips])
+
+  // Where people on the way are (only while the trip is open; staff never see points after the handover).
+  const points = useLatestPoints((trips.trips ?? []).filter((t) => t.status === 'en_route').map((t) => t.id))
+  const posOf = (t: Trip) => positionOf(points.get(t.id), nowMs)
 
   // Announcements follow the trips: new or changed ones play (the class's own coordinators first); seen ones stop repeating.
   useEffect(() => {
@@ -132,9 +146,10 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     }
   }
 
+  const openHandover = (t: Trip) => (t.traveller_kind === 'third_person' ? setCodeFor(t) : setHandover(t))
   const doNext = (t: Trip) => {
     const n = nextStep(t)
-    if (n.step === 'handover') return setHandover(t)
+    if (n.step === 'handover') return openHandover(t)
     void act(t, n.step)
   }
 
@@ -151,6 +166,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     const done = t.status !== 'en_route'
     const n = done ? null : nextStep(t)
     const mine = c ? gate.data!.myClasses.has(c.classId) : false
+    const pos = done ? null : posOf(t)
     return (
       <li>
         <div className={`card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 pr-3.5 transition-shadow duration-200 ${selected?.id === t.id ? 'shadow-[0_0_0_2px_var(--accent),var(--shadow-card)]' : ''} ${done ? 'opacity-70' : ''}`}>
@@ -169,6 +185,9 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {!done && t.off_schedule && <Pill tone="warning" icon={<TriangleAlert />}>{t.reason ?? 'Outside the usual time'}</Pill>}
                 {!done && t.ready_at && <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>}
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
+                {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
+                {pos && pos.state !== 'unavailable' && <FreshnessBadge state={pos.state} age={pos.ageMs !== null ? formatAge(pos.ageMs) : undefined} />}
+                {pos && pos.state !== 'unavailable' && <Pill icon={<MapPin />}>{awayText(pos)}</Pill>}
                 {!done && !mine && <Pill icon={<BellRing />}>Other class</Pill>}
               </span>
             </span>
@@ -202,7 +221,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       {/* The chosen trip, side by side on iPad landscape and desktop. */}
       <aside className="card sticky top-[calc(env(safe-area-inset-top)+180px)] hidden rounded-2xl p-6 lg:block" aria-label="Details">
         {selected && detailChild ? (
-          <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} onStep={(s) => (s === 'handover' ? setHandover(selected) : void act(selected, s))} />
+          <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} pos={posOf(selected)} locked={locked.has(selected.id)} onStep={(s) => (s === 'handover' ? openHandover(selected) : void act(selected, s))} />
         ) : (
           <div className="grid justify-items-center gap-2 py-8 text-center text-body text-ink-2">
             <School className="size-10 text-ink-3" aria-hidden />
@@ -232,15 +251,26 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       </Sheet>
       <div className="lg:hidden">
         <Sheet open={!!picked && !!selected && !!detailChild} onClose={() => setPicked(null)} title={detailChild?.fullName ?? 'Details'}>
-          {selected && detailChild && <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} onStep={(s) => { if (s === 'handover') { setPicked(null); setHandover(selected) } else void act(selected, s) }} />}
+          {selected && detailChild && <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} pos={posOf(selected)} locked={locked.has(selected.id)} onStep={(s) => { if (s === 'handover') { setPicked(null); openHandover(selected) } else void act(selected, s) }} />}
         </Sheet>
       </div>
+      {codeFor && (
+        <CodeSheet open onClose={() => setCodeFor(null)} trip={codeFor} childName={children.get(codeFor.child_id)?.name ?? 'the child'}
+          onDone={(isLocked) => {
+            if (isLocked) return setLocked((l) => new Set(l).add(codeFor.id))
+            toast(`Code correct. ${children.get(codeFor.child_id)?.name ?? 'The child'} handed over to ${codeFor.traveller_name.split(' ')[0]}.`)
+            setCodeFor(null)
+            void trips.reload()
+          }} />
+      )}
       <Button size="md" variant="quiet" icon={<RotateCcw />} className="justify-self-start lg:col-span-2" onClick={() => { void trips.reload(); void gate.reload() }}>Refresh</Button>
     </div>
   )
 }
 
-function TripDetail({ trip, child, busy, onStep }: { trip: Trip; child: GateChild & { guardians: Guardian[] }; busy: boolean; onStep: (s: GateStep | 'handover') => void }) {
+function TripDetail({ trip, child, busy, pos, locked, onStep }: { trip: Trip; child: GateChild & { guardians: Guardian[] }; busy: boolean; pos: Position; locked: boolean; onStep: (s: GateStep | 'handover') => void }) {
+  const third = trip.traveller_kind === 'third_person'
+  const who = trip.traveller_name.split(' ')[0]!
   const done = trip.status !== 'en_route'
   const pickup = trip.direction === 'pickup'
   const fact = (label: string, value: string) => (
@@ -263,6 +293,15 @@ function TripDetail({ trip, child, busy, onStep }: { trip: Trip; child: GateChil
         {fact('Arrives', `about ${clockTime(trip.arrive_at)}`)}
         {fact('Coming', relationName(trip) || trip.traveller_name)}
       </div>
+      {!done && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-sunken px-3.5 py-2.5">
+          <FreshnessBadge state={pos.state} age={pos.ageMs !== null && pos.state !== 'unavailable' ? formatAge(pos.ageMs) : undefined} />
+          <span className="text-small font-semibold text-ink-2">{pos.state === 'unavailable' ? 'Not sharing location' : awayText(pos)}</span>
+        </div>
+      )}
+      {third && !done && (
+        <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone.</Notice>
+      )}
       {trip.off_schedule && trip.reason && <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>Outside the usual time: {trip.reason}</Notice>}
       {done ? (
         <Notice tone="success">{trip.status === 'handed_over' ? `Handed over at ${clockTime(trip.closed_at!)}.` : trip.status === 'checked_in' ? `Checked in at ${clockTime(trip.closed_at!)}.` : 'Cancelled by the parent or the school.'}</Notice>
@@ -270,9 +309,11 @@ function TripDetail({ trip, child, busy, onStep }: { trip: Trip; child: GateChil
         <div className="grid gap-2.5">
           {!trip.acknowledged_at && <Button variant={trip.off_schedule ? 'sunshine' : 'secondary'} icon={<Eye />} loading={busy} onClick={() => onStep('acknowledge')}>Acknowledge</Button>}
           {pickup && !trip.ready_at && <Button variant="secondary" icon={<CircleCheck />} loading={busy} onClick={() => onStep('ready')}>{child.name} is ready</Button>}
-          {pickup
-            ? <Button size="xl" icon={<UserCheck />} loading={busy} onClick={() => onStep('handover')}>Hand over</Button>
+          {locked ? <Notice tone="danger" icon={<Lock aria-hidden />}>Locked after three wrong codes. Call the parent before releasing {child.name}.</Notice>
+            : pickup
+            ? <Button size="xl" icon={third ? <KeyRound /> : <UserCheck />} loading={busy} onClick={() => onStep('handover')}>{third ? `Enter ${who}'s code` : 'Hand over'}</Button>
             : <Button size="xl" icon={<DoorOpen />} loading={busy} onClick={() => onStep('close')}>Check in {child.name}</Button>}
+          {third && trip.traveller_phone && <a className="btn btn--quiet btn--md" href={`tel:${trip.traveller_phone}`}><Phone aria-hidden />Call {who}, {formatPhone(trip.traveller_phone)}</a>}
         </div>
       )}
     </div>

@@ -25,6 +25,8 @@ async function signIn(p, chip, area) {
   const parent = await ctx.newPage()
   parent.on('pageerror', (e) => errors.push('parent ' + e.message))
   parent.on('console', (m) => m.type() === 'error' && errors.push('parent console ' + m.text()))
+  await parent.goto(BASE + '/', { waitUntil: 'networkidle' })
+  await parent.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith('jumpstart-')) localStorage.removeItem(k) })
   await signIn(parent, 'Parent')
   ok('parent: greeting and Kabir card', await parent.getByRole('heading', { name: /Good (morning|afternoon|evening), Neha/ }).isVisible() && await parent.getByRole('heading', { name: 'Kabir' }).isVisible())
   if (shots) await parent.screenshot({ path: `${shots}/p-today.png`, fullPage: true })
@@ -59,8 +61,10 @@ async function signIn(p, chip, area) {
   const strip = await coord.locator('header [aria-live="polite"]').innerText()
   ok('coord: announcement plays for a trip in their classes', /Kabir Shah is coming for drop-off|Please get/.test(strip), strip.replace(/\s+/g, ' ').slice(0, 120))
   if (shots) { await coord.setViewportSize({ width: 1180, height: 820 }); await coord.waitForTimeout(300); await coord.screenshot({ path: `${shots}/c-queue.png` }) }
-  // Check in Kabir
-  await coord.locator('li', { hasText: 'Kabir Shah' }).getByRole('button', { name: 'Check in' }).click()
+  // Check in Kabir (a time outside his window is acknowledged first)
+  const kabir = coord.locator('li', { hasText: 'Kabir Shah' }).first()
+  if (await kabir.getByRole('button', { name: 'Acknowledge' }).count()) { await kabir.getByRole('button', { name: 'Acknowledge' }).click(); await coord.waitForTimeout(1200) }
+  await kabir.getByRole('button', { name: 'Check in' }).click()
   await coord.waitForTimeout(1200)
   ok('coord: Kabir checked in, in Done today', await coord.getByText('Done today', { exact: false }).isVisible() && await coord.locator('li', { hasText: 'Kabir Shah' }).getByText('Checked in').first().isVisible())
   // Parent's screen updates by itself (other tab: storage event)

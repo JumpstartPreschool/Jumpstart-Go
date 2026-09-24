@@ -16,10 +16,18 @@ describe('arrivalSlots', () => {
     expect(s.map((x) => x.at)).toEqual(['13:05', '13:10', '13:15', '13:20', '13:25', '13:30'].map(toMinutes))
     expect(s.map((x) => x.state)).toEqual(['inside', 'inside', 'inside', 'late', 'late', 'late'])
   })
-  it('steps 15 minutes for a long window and stops at the gate closing', () => {
-    const s = arrivalSlots(plus, 'pickup', toMinutes('18:40'))
-    expect(s.map((x) => x.at)).toEqual(['19:00', '19:15'].map(toMinutes))
-    expect(s.map((x) => x.state)).toEqual(['inside', 'late'])
+  it('offers the window and 15 minutes either side, even when it is hours away', () => {
+    const s = arrivalSlots({ ...halfDay, windows: { dropoff: { from: toMinutes('11:30'), to: toMinutes('11:45') }, pickup: { from: toMinutes('17:30'), to: toMinutes('17:45') } } }, 'pickup', toMinutes('12:10'))
+    expect(s[0]).toEqual({ at: toMinutes('17:15'), state: 'early' })
+    expect(s.filter((x) => x.state === 'inside').map((x) => x.at)).toEqual(['17:30', '17:35', '17:40', '17:45'].map(toMinutes))
+    expect(s.at(-1)).toEqual({ at: toMinutes('18:00'), state: 'late' })
+  })
+  it('steps 15 minutes inside a long window', () => {
+    expect(arrivalSlots(plus, 'pickup', toMinutes('18:40')).map((x) => x.at)).toEqual([toMinutes('19:00')])
+  })
+  it('after the window, offers later times marked late', () => {
+    const s = arrivalSlots(halfDay, 'pickup', toMinutes('14:00'), 3)
+    expect(s).toEqual(['14:10', '14:15', '14:20'].map((t) => ({ at: toMinutes(t), state: 'late' })))
   })
   it('has nothing after the gate closes', () => {
     expect(arrivalSlots(plus, 'pickup', toMinutes('19:10'))).toEqual([])

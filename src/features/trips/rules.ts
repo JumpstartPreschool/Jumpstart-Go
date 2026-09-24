@@ -40,15 +40,20 @@ export function formatRange(w: TimeWindow): string {
 export const clockTime = (iso: string) => formatTime(indiaClock(new Date(iso)).minutes)
 
 /**
- * Times someone can be booked to arrive, from 10 minutes from now until the gate closes: every 5 minutes for a short
- * window, every 15 for a long one. Each says where it falls, so times outside the window can ask for a reason.
+ * Times someone can be booked to arrive (the Screen Book's "Arriving about"): the child's window, plus 15 minutes either
+ * side of a short one, every 5 minutes (every 15 for a long window), from 10 minutes from now. Once the window has
+ * passed, the next times until the gate closes, marked late. Each says where it falls, so early or late can ask why.
  */
 export function arrivalSlots(p: Programme, direction: Direction, nowMin: Minutes, count = 12): Array<{ at: Minutes; state: Arrival }> {
   const w = windowFor(p, direction)
-  const step = w.to - w.from > 60 ? 15 : 5
-  const out: Array<{ at: Minutes; state: Arrival }> = []
-  for (let t = Math.max(GATE_OPENS, Math.ceil((nowMin + 10) / step) * step); t <= GATE_CLOSES && out.length < count; t += step) {
-    out.push({ at: t, state: checkArrival(p, direction, t) })
+  const wide = w.to - w.from > 60
+  const step = wide ? 15 : 5
+  const soonest = Math.ceil((nowMin + 10) / step) * step
+  const around = (from: Minutes, to: Minutes) => {
+    const out: Array<{ at: Minutes; state: Arrival }> = []
+    for (let t = Math.max(GATE_OPENS, soonest, from); t <= Math.min(GATE_CLOSES, to) && out.length < count; t += step) out.push({ at: t, state: checkArrival(p, direction, t) })
+    return out
   }
-  return out
+  const inWindow = around(wide ? w.from : w.from - 15, wide ? w.to : w.to + 15)
+  return inWindow.length ? inWindow : around(soonest, GATE_CLOSES)
 }

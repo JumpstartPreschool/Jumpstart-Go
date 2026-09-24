@@ -12,6 +12,8 @@ import { UpdatePrompt } from './UpdatePrompt'
 const AdminPeople = lazy(() => import('../features/admin/AdminPeople').then((m) => ({ default: m.AdminPeople })))
 const CoordinatorsPage = lazy(() => import('../features/coordinators/CoordinatorsPage').then((m) => ({ default: m.CoordinatorsPage })))
 const CoordinatorDuty = lazy(() => import('../features/duty/CoordinatorDuty'))
+// The page a person collecting opens from WhatsApp: no sign-in, so it loads nothing else.
+const CollectorLink = lazy(() => import('../features/link/CollectorLink'))
 
 // Design preview with sample data: development builds and the separate design-review deployment only,
 // never the production app (NFR-7).
@@ -56,6 +58,7 @@ export function App() {
               <Route path="/core/*" element={<AreaRoute area="core"><AreaPages index={<CoreHome />} area="core" /></AreaRoute>} />
               <Route path="/coordinator/*" element={<AreaRoute area="coordinator"><CoordinatorDuty /></AreaRoute>} />
               <Route path="/parent/*" element={<AreaRoute area="parent"><ParentHome /></AreaRoute>} />
+              <Route path="/t/:token" element={<CollectorLink />} />
               {Preview && <Route path="/preview/*" element={<Preview />} />}
               {/* Anything else: the login screen, or the person's home area once signed in. */}
               <Route path="*" element={<AreaRoute area={null}>{null}</AreaRoute>} />

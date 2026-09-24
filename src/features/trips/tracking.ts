@@ -175,6 +175,7 @@ export function locationHelp(): string {
 export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<unknown>) {
   const [error, setError] = useState<'denied' | 'unavailable' | 'unsupported' | null>(null)
   const [lastSent, setLastSent] = useState<number | null>(null)
+  const [lastFix, setLastFix] = useState<Point | null>(null)
   const queue = useRef<Point[]>([])
   const last = useRef<{ p: Point; at: number } | null>(null)
   const sendRef = useRef(send)
@@ -201,25 +202,28 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
         setLastSent(Date.now())
       } catch { /* kept for the next try */ } finally { sending = false }
     }
-    const watch = navigator.geolocation.watchPosition(
-      (pos) => {
-        setError(null)
-        const p: Point = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.max(1, pos.coords.accuracy), fix_at: new Date(pos.timestamp).toISOString() }
-        const prev = last.current
-        const t = Date.now()
-        const moved = prev ? distanceM(prev.p, p) : Infinity
-        if (prev && !((moved >= 10 && t - prev.at >= 5000) || t - prev.at >= 10_000)) return
-        last.current = { p, at: t }
-        queue.current.push(p)
-        void flush()
-      },
-      (e) => setError(e.code === e.PERMISSION_DENIED ? 'denied' : 'unavailable'),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
-    )
+    const onFix = (pos: GeolocationPosition) => {
+      setError(null)
+      const p: Point = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.max(1, pos.coords.accuracy), fix_at: new Date(pos.timestamp).toISOString() }
+      const prev = last.current
+      const t = Date.now()
+      const moved = prev ? distanceM(prev.p, p) : Infinity
+      if (prev && !((moved >= 10 && t - prev.at >= 5000) || t - prev.at >= 9_000)) return
+      last.current = { p, at: t }
+      setLastFix(p)
+      queue.current.push(p)
+      void flush()
+    }
+    const onError = (e: GeolocationPositionError) => setError(e.code === e.PERMISSION_DENIED ? 'denied' : 'unavailable')
+    const watch = navigator.geolocation.watchPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 })
+    // Many phones report only when they move, so someone waiting at the gate would look stale: ask for a genuine new
+    // fix every 10 s as well (at most 5 s old; never an old position with a new time).
+    const heartbeat = setInterval(() => navigator.geolocation.getCurrentPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15_000 }), 10_000)
     const retry = setInterval(() => void flush(), 5000)
     window.addEventListener('online', flush)
     return () => {
       navigator.geolocation.clearWatch(watch)
+      clearInterval(heartbeat)
       clearInterval(retry)
       window.removeEventListener('online', flush)
       document.removeEventListener('visibilitychange', onVisible)
@@ -227,7 +231,7 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
     }
   }, [on])
 
-  return { error, lastSent }
+  return { error, lastSent, lastFix }
 }
 
 /**
