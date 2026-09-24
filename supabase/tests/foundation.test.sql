@@ -13,8 +13,15 @@ do $$ begin
   assert (select dropoff_from = '08:45' and dropoff_to = '09:00' and pickup_to = '19:00' from public.programmes where name = 'Learning Center'),
     'Learning Center: in at 8:45–9:00, collected any time until 7';
   assert (select pickup_from = '19:00' and pickup_to = '19:15' from public.programmes where name = 'After School Program'), 'After School pickup 7:00–7:15';
+  -- D18: the classes are the levels, and every programme belongs to one (0011).
+  assert (select string_agg(name, ',' order by sort) from public.classes) = 'Playgroup,Nursery,Jr KG,Sr KG,Learning Center,Preschool Readiness,After School', 'classes are the levels';
+  assert (select c.name from public.programmes p join public.classes c on c.id = p.class_id where p.name = 'Nursery · 360°+') = 'Nursery', 'programme → level';
+  assert (select c.name from public.programmes p join public.classes c on c.id = p.class_id where p.name = 'After School Program') = 'After School', 'standalone programme is its own class';
 end $$;
 delete from public.programmes;
+-- The tests below use two levels under fixed ids: Jr KG (c001) and Learning Center (c002).
+update public.classes set id = '00000000-0000-0000-0000-00000000c001' where name = 'Jr KG';
+update public.classes set id = '00000000-0000-0000-0000-00000000c002' where name = 'Learning Center';
 -- People are invited first (profiles), then sign in (auth.users); the trigger links them by email.
 -- Test profiles reuse their auth ids, so the JWT subject below is also the profile id.
 insert into public.profiles (id, full_name, email, active) values
@@ -37,14 +44,11 @@ insert into public.staff_roles values
   ('00000000-0000-0000-0000-0000000000c1', 'core'),
   ('00000000-0000-0000-0000-0000000000d1', 'coordinator'),
   ('00000000-0000-0000-0000-0000000000f1', 'admin');
-insert into public.programmes (id, name, weekdays, term_start, term_end, starts, ends, dropoff_from, dropoff_to, pickup_from, pickup_to) values
-  ('00000000-0000-0000-0000-00000000b001', 'Jr KG · Half day', '{1,2,3,4,5}', '2026-06-01', '2027-03-31',
+insert into public.programmes (id, name, class_id, weekdays, term_start, term_end, starts, ends, dropoff_from, dropoff_to, pickup_from, pickup_to) values
+  ('00000000-0000-0000-0000-00000000b001', 'Jr KG · Half day', '00000000-0000-0000-0000-00000000c001', '{1,2,3,4,5}', '2026-06-01', '2027-03-31',
    '09:00', '13:00', '09:00', '09:30', '12:30', '13:00');
-insert into public.programmes (id, name, weekdays, saturday_rule, starts, ends, flexible) values
-  ('00000000-0000-0000-0000-00000000b002', 'Learning Center', '{1,2,3,4,5,6}', 'except_2nd_and_last', '09:00', '19:00', true);
-insert into public.classes (id, name) values
-  ('00000000-0000-0000-0000-00000000c001', 'Sunflowers'),
-  ('00000000-0000-0000-0000-00000000c002', 'Tulips');
+insert into public.programmes (id, name, class_id, weekdays, saturday_rule, starts, ends, flexible) values
+  ('00000000-0000-0000-0000-00000000b002', 'Learning Center', '00000000-0000-0000-0000-00000000c002', '{1,2,3,4,5,6}', 'except_2nd_and_last', '09:00', '19:00', true);
 insert into public.children (id, full_name, date_of_birth, class_id, programme_id) values
   ('00000000-0000-0000-0000-0000000c0001', 'Aarav Kulkarni', '2021-08-10', '00000000-0000-0000-0000-00000000c001', '00000000-0000-0000-0000-00000000b001'),
   ('00000000-0000-0000-0000-0000000c0002', 'Meera Joshi', '2024-02-02', '00000000-0000-0000-0000-00000000c002', '00000000-0000-0000-0000-00000000b002');
