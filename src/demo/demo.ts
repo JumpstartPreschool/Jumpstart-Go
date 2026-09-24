@@ -10,6 +10,7 @@
 import type { Area } from '../features/auth/session'
 import { indiaClock } from '../domain/time'
 import PROGRAMMES from './programmes.json'
+import { trackingRpc, type TrackingDb } from './demoTracking'
 
 export const DEMO_AVAILABLE = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true'
 export const DEMO_EMAIL = 'ai@jumpstartpreschool.in'
@@ -76,7 +77,7 @@ export function leaveDemo() {
 // ---- Sample data ------------------------------------------------------------------------------------
 
 type Row = Record<string, unknown>
-type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance', Row[]>
+type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links', Row[]>
 
 const programmeId = (name: string) => PROGRAMMES.find((p) => p.name === name)!.id
 const OWNER = 'demo-owner'
@@ -140,6 +141,8 @@ function seed(): Db {
     attendance: [
       { child_id: 'demo-anaya', day: DEMO_DAY, status: 'present', checked_in_at: demoAt('09:04'), checked_out_at: null },
     ],
+    trip_points: [],
+    trip_links: [],
   }
 }
 
@@ -251,7 +254,8 @@ function startTrip(db: Db, me: Row | undefined, args: Row): Response {
     traveller_name: me.full_name, traveller_relation: relation, updated_at: new Date(demoNow()).toISOString(), acknowledged_by: null, acknowledged_at: null,
   }
   const open = db.trips.find((x) => x.child_id === child.id && x.direction === args.p_direction && x.day === today.date && x.status === 'en_route')
-  if (open) return json(Object.assign(open, fields))
+  // Someone else collecting keeps their name and link when a parent moves the time (0009).
+  if (open) return json(Object.assign(open, fields, open.traveller_kind === 'third_person' ? { created_by: open.created_by, traveller_name: open.traveller_name, traveller_relation: open.traveller_relation } : {}))
   const trip = demoTrip({ id: crypto.randomUUID(), child_id: child.id, direction: args.p_direction, day: today.date, created_at: fields.updated_at, ...fields })
   db.trips.push(trip)
   return json(trip)
@@ -345,7 +349,8 @@ function rpc(db: Db, fn: string, args: Row, email: string | null): Response {
     case 'gate_step':
       return gateStep(db, me, args)
     default:
-      return pgError(404, 'PGRST202', `Demo mode has no function ${fn}`)
+      return trackingRpc(db as unknown as TrackingDb, fn, args, me, { json, fail, startTrip: startTrip as never })
+        ?? pgError(404, 'PGRST202', `Demo mode has no function ${fn}`)
   }
 }
 
@@ -390,10 +395,14 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
       guardianships: db.guardianships.filter((g) => g.child_id === c.id),
     }))
   }
-  const order = params.get('order')?.split('.')[0]
-  if (order) result.sort((a, b) => String(a[order]).localeCompare(String(b[order])))
+  const [order, dir] = params.get('order')?.split('.') ?? []
+  if (order) result.sort((a, b) => String(a[order]).localeCompare(String(b[order])) * (dir === 'desc' ? -1 : 1))
+  const limit = Number(params.get('limit'))
+  if (limit > 0) result = result.slice(0, limit)
   return json(single ? result[0] ?? null : result)
 }
+
+const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points'])
 
 /** Stands in for window.fetch inside the Supabase client while demo mode is on. */
 export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -431,7 +440,7 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   save(db)
   // Like Realtime: screens in this tab hear about a change (other tabs get the storage event).
   const fn = path.startsWith('/rest/v1/rpc/') ? path.slice('/rest/v1/rpc/'.length) : null
-  const wrote = fn ? !['login_allowed', 'whoami'].includes(fn) && response.ok : path.startsWith('/rest/v1/') && method !== 'GET' && response.ok
+  const wrote = fn ? !READ_ONLY.has(fn) && response.ok : path.startsWith('/rest/v1/') && method !== 'GET' && response.ok
   if (wrote) setTimeout(() => window.dispatchEvent(new Event(DEMO_CHANGE_EVENT)), 0)
   return response
 }

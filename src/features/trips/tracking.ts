@@ -1,26 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { onTableChange } from '../../lib/live'
 import { now } from '../../lib/clock'
-import { freshness, type Freshness } from '../../domain/freshness'
-
-/** The school gate, 11/7 Matoshri, Karve Road (tracking-architecture.md §7). */
-export const SCHOOL: { lat: number; lng: number } = { lat: 18.50885, lng: 73.8328 }
-
-export interface Point { lat: number; lng: number; accuracy: number; fix_at: string }
-export interface StoredPoint extends Point { received_at: string; coarse: boolean; backfill: boolean }
-
-/** Straight-line distance in metres (haversine). */
-export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const r = (d: number) => (d * Math.PI) / 180
-  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2
-  return 2 * 6_371_000 * Math.asin(Math.sqrt(h))
-}
-
-/** "350 m" or "2.4 km", as the crow flies (no route or traffic, so never shown as a time). */
-export function formatDistance(m: number): string {
-  return m < 950 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1)} km`
-}
+import { distanceM, positionOf, SCHOOL, type LatestPoint, type Point, type Position } from './geo'
 
 // ---- Calls ------------------------------------------------------------------------------------------------
 
@@ -58,29 +40,107 @@ export function whatsappText(p: { collector: string; child: string; at: string; 
   return `Hi ${p.collector.split(' ')[0]}, please collect ${p.child} from Jumpstart, Karve Road, at about ${p.at}. Open this link on your phone: ${linkUrl(p.token)} Show code ${p.code} at the gate.`
 }
 
+// ---- The link page (no sign-in: the token and this phone's key are the proof) ---------------------------
+
+export interface LinkSummary {
+  child: string
+  direction: 'pickup' | 'dropoff'
+  status: 'en_route' | 'handed_over' | 'checked_in' | 'cancelled'
+  arrive_at: string
+  ready_at: string | null
+  closed_at: string | null
+  home_at: string | null
+  collector: string
+  relation: string | null
+  sharing: boolean
+  confirmed: boolean
+  locked: boolean
+  school_phone: string | null
+  code: string | null
+}
+
+const DEVICE_KEY = 'jumpstart-link-device'
+/** A random key made once on this phone; the server keeps only its hash, and only this phone can use a confirmed link. */
+export function deviceKey(): string {
+  try {
+    let k = localStorage.getItem(DEVICE_KEY)
+    if (!k) {
+      k = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, '0')).join('')
+      localStorage.setItem(DEVICE_KEY, k)
+    }
+    return k
+  } catch {
+    return '' // Storage blocked (private mode): the server answers "open the link again on this phone"
+  }
+}
+
+async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.rpc(fn, args)
+  if (error) throw error
+  return data as T
+}
+export const linkOpen = (token: string) => call<LinkSummary>('link_open', { p_token: token })
+export const linkConfirm = (token: string) => call<LinkSummary>('link_confirm', { p_token: token, p_device: deviceKey() })
+export const linkStatus = (token: string) => call<LinkSummary>('link_status', { p_token: token, p_device: deviceKey() })
+export const linkShare = (token: string, points: Point[]) => call<number>('link_share', { p_token: token, p_device: deviceKey(), p_points: points })
+export const linkHome = (token: string) => call<null>('link_home', { p_token: token, p_device: deviceKey() })
+export const linkLate = (token: string, extra: 10 | 20 | 30) => call<LinkSummary>('link_late', { p_token: token, p_device: deviceKey(), p_extra: extra })
+
 // ---- Live points ------------------------------------------------------------------------------------------
 
-/** A trip's newest point and how fresh it is, kept live (guardians see the whole trip; staff until handover). */
-export function useTripPosition(tripId: string | null, active: boolean) {
-  const [last, setLast] = useState<StoredPoint | null>(null)
-  const [nowMs, setNowMs] = useState(now)
-  const load = useCallback(async () => {
-    if (!tripId) return
-    const { data } = await supabase.from('trip_points').select('lat, lng, accuracy, fix_at, received_at, coarse, backfill')
-      .eq('trip_id', tripId).order('fix_at', { ascending: false }).limit(1)
-    setLast(((data ?? []) as StoredPoint[]).find((p) => !p.backfill) ?? null)
-  }, [tripId])
+/**
+ * The newest point of each trip the reader may see (row-level security decides), kept live: Realtime when points
+ * arrive, and a 10-second poll so a dropped connection can't freeze a marker that looks live.
+ */
+export function useLatestPoints(tripIds: string[]) {
+  const [points, setPoints] = useState<Map<string, LatestPoint>>(new Map())
+  const key = [...tripIds].sort().join(',')
   useEffect(() => {
-    if (!tripId || !active) return
+    if (!key) { setPoints(new Map()); return }
+    const ids = key.split(',')
+    let alive = true
+    const load = async () => {
+      const { data, error } = await supabase.rpc('latest_points', { p_trips: ids })
+      if (!alive || error) return
+      setPoints(new Map(((data ?? []) as LatestPoint[]).map((p) => [p.trip_id, p])))
+    }
     void load()
     const stop = onTableChange('trip_points', () => void load())
     const poll = setInterval(() => void load(), 10_000)
+    return () => { alive = false; stop(); clearInterval(poll) }
+  }, [key])
+  return points
+}
+
+/** One trip's newest point and its freshness, ticking every second so LIVE turns RECENT and STALE on time. */
+export function useTripPosition(tripId: string | null, active: boolean): Position {
+  const points = useLatestPoints(tripId && active ? [tripId] : [])
+  const [nowMs, setNowMs] = useState(now)
+  useEffect(() => {
+    if (!active) return
     const tick = setInterval(() => setNowMs(now()), 1000)
-    return () => { stop(); clearInterval(poll); clearInterval(tick) }
-  }, [tripId, active, load])
-  const f = freshness(last ? { fixAt: Date.parse(last.fix_at), receivedAt: Date.parse(last.received_at) } : null, nowMs)
-  const away = last && !last.coarse ? distanceM(last, SCHOOL) : null
-  return { last, state: f.state as Freshness, ageMs: f.ageMs, away }
+    return () => clearInterval(tick)
+  }, [active])
+  return positionOf(tripId ? points.get(tripId) : null, nowMs)
+}
+
+/** The trip's path so far (newest last), for the map. At most the last 300 points. */
+export function useTripTrail(tripId: string | null, active: boolean): Array<[number, number]> {
+  const [trail, setTrail] = useState<Array<[number, number]>>([])
+  useEffect(() => {
+    if (!tripId || !active) return
+    let alive = true
+    const load = async () => {
+      const { data } = await supabase.from('trip_points').select('lat, lng, coarse, backfill, fix_at').eq('trip_id', tripId).order('fix_at', { ascending: false }).limit(300)
+      if (!alive) return
+      setTrail(((data ?? []) as Array<{ lat: number; lng: number; coarse: boolean }>).filter((p) => !p.coarse).reverse().map((p) => [p.lng, p.lat]))
+    }
+    void load()
+    const stop = onTableChange('trip_points', () => void load())
+    const poll = setInterval(() => void load(), 15_000)
+    return () => { alive = false; stop(); clearInterval(poll) }
+  }, [tripId, active])
+  return trail
 }
 
 // ---- Sending this phone's location ---------------------------------------------------------------------
@@ -168,4 +228,27 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
   }, [on])
 
   return { error, lastSent }
+}
+
+/**
+ * DEMO MODE ONLY: a made-up traveller heading to the gate from about 1.6 km away, one point every 5 s at city speed,
+ * so the location screens can be tried on a laptop. Every screen that uses it says "Simulated" next to the position.
+ */
+export function useSimulatedTrip(on: boolean, send: (points: Point[]) => Promise<unknown>) {
+  const sendRef = useRef(send)
+  sendRef.current = send
+  useEffect(() => {
+    if (!on) return
+    const start = { lat: SCHOOL.lat + 0.0105, lng: SCHOOL.lng - 0.0102 }
+    let step = 0
+    const tick = () => {
+      const f = Math.min(1, step / 48) // about 4 minutes to the gate, then waiting there
+      const wobble = Math.sin(step / 3) * 0.00012
+      void sendRef.current([{ lat: start.lat + (SCHOOL.lat - start.lat) * f + wobble, lng: start.lng + (SCHOOL.lng - start.lng) * f, accuracy: 12, fix_at: new Date(Date.now() - 400).toISOString() }]).catch(() => {})
+      step += 1
+    }
+    tick()
+    const id = setInterval(tick, 5000)
+    return () => clearInterval(id)
+  }, [on])
 }

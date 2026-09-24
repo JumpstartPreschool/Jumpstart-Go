@@ -38,3 +38,17 @@ export function formatRange(w: TimeWindow): string {
 }
 
 export const clockTime = (iso: string) => formatTime(indiaClock(new Date(iso)).minutes)
+
+/**
+ * Times someone can be booked to arrive, from 10 minutes from now until the gate closes: every 5 minutes for a short
+ * window, every 15 for a long one. Each says where it falls, so times outside the window can ask for a reason.
+ */
+export function arrivalSlots(p: Programme, direction: Direction, nowMin: Minutes, count = 12): Array<{ at: Minutes; state: Arrival }> {
+  const w = windowFor(p, direction)
+  const step = w.to - w.from > 60 ? 15 : 5
+  const out: Array<{ at: Minutes; state: Arrival }> = []
+  for (let t = Math.max(GATE_OPENS, Math.ceil((nowMin + 10) / step) * step); t <= GATE_CLOSES && out.length < count; t += step) {
+    out.push({ at: t, state: checkArrival(p, direction, t) })
+  }
+  return out
+}

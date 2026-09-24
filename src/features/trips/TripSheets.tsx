@@ -25,7 +25,7 @@ function CheckLine({ arrival, state, first, direction, programme }: { arrival: M
   )
 }
 
-function ReasonPicker({ onChange }: { onChange: (v: string) => void }) {
+export function ReasonPicker({ onChange }: { onChange: (v: string) => void }) {
   const [choice, setChoice] = useState<string | null>(null)
   const [other, setOther] = useState('')
   const pick = (r: string) => { setChoice(r); onChange(r === 'Other' ? other : r) }

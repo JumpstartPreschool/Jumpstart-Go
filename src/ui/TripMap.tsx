@@ -9,6 +9,7 @@ import type { Freshness } from '../domain/freshness'
 type LngLat = [number, number]
 
 export interface TripMapProps {
+  /** A planned route, or just the path travelled so far (then `progressIndex` is its last index). May be empty. */
   route: LngLat[]
   /** Index in `route` of the last point travelled. */
   progressIndex: number
@@ -31,14 +32,14 @@ setWorkerUrl(mapWorkerUrl)
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 const line = (coords: LngLat[]) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: coords } })
 
+/** Follows the app's theme (light for now; tokens.css switches on data-theme), not the device setting. */
 function useDark() {
-  const query = '(prefers-color-scheme: dark)'
-  const [dark, setDark] = useState(() => window.matchMedia(query).matches)
+  const read = () => document.documentElement.dataset.theme === 'dark'
+  const [dark, setDark] = useState(read)
   useEffect(() => {
-    const mq = window.matchMedia(query)
-    const on = () => setDark(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
+    const watch = new MutationObserver(() => setDark(read()))
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => watch.disconnect()
   }, [])
   return dark
 }
@@ -68,9 +69,11 @@ export default function TripMap({ route, progressIndex, position, freshness, des
   const dark = useDark()
   const pad = padding ?? { top: 80, bottom: 80, left: 48, right: 48 }
 
+  // Everything that matters in view: the path, the traveller and the school.
   const bounds = (): LngLatBoundsLike => {
-    const b = new LngLatBounds(route[0], route[0])
+    const b = new LngLatBounds(destination, destination)
     route.forEach((p) => b.extend(p))
+    if (position) b.extend(position)
     return b
   }
 
