@@ -243,3 +243,30 @@ do $$ begin
 exception when insufficient_privilege then null;
 end $$;
 reset role;
+
+-- 10. (0014) How busy the gate is, as counts; and a parent's own family list.
+set app.now = '2026-09-29 11:00:00+05:30';
+set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
+set role authenticated;
+do $$ begin
+  -- Aarav (another family's child) is on the way for 14:00, so he counts there, not at his regular 13:10.
+  -- The parent sees the count, never the child.
+  assert (select children from public.gate_load('pickup') where at = '14:00') = 1, 'one child due at 2:00';
+  assert not exists (select 1 from public.gate_load('pickup') where at = '13:10'), 'not counted twice';
+  assert (select count(*) from public.my_family()) = 0, 'Meera has nobody else listed';
+end $$;
+reset role;
+insert into public.guardianships (child_id, guardian_id, relation, kind) values ('00000000-0000-0000-0000-0000000c0002', '00000000-0000-0000-0000-0000000000c1', 'Aunt', 'family');
+set role authenticated;
+do $$ begin
+  assert (select full_name = 'Core Team' and relation = 'Aunt' and kind = 'family' from public.my_family()), 'the aunt, without contact details';
+end $$;
+reset role;
+set request.jwt.claims to '';
+set role anon;
+do $$ begin
+  perform public.gate_load('pickup');
+  raise exception 'FAIL: anon read the gate load';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
