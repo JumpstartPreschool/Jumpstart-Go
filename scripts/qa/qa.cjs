@@ -93,25 +93,37 @@ async function signIn(p, chip, area) {
     ['code', async (p) => { await p.getByRole('button', { name: 'Admin', exact: true }).click(); await p.getByRole('button', { name: 'Send me a code' }).click(); await p.getByRole('button', { name: 'Sign in' }).waitFor() }],
     ['areas', async (p) => { await p.getByRole('button', { name: 'Sign in' }).click(); await p.getByText('Where would you like to start?', { exact: false }).waitFor() }],
   ])
+  const dlg = (p) => p.locator('dialog[open]').last()
   await session('Admin', [
     ['children', async (p) => p.goto(BASE + '/admin')],
-    ['parents', tab('Parents')],
+    ['family', tab('Parents and family')],
     ['staff', tab('Staff')],
     ['classes', tab('Classes')],
-    ['add-staff', async (p) => { await tab('Staff')(p); await p.getByRole('button', { name: 'Add staff' }).first().click() }, esc],
-    ['add-parent', async (p) => { await tab('Parents')(p); await p.getByRole('button', { name: 'Add parent' }).first().click() }, esc],
-    ['add-child', async (p) => { await tab('Children')(p); await p.getByRole('button', { name: 'Add child' }).first().click() }],
-    ['picker-level', async (p) => { await p.getByRole('button', { name: /Choose the programme/ }).click() }],
-    ['picker-plan', async (p) => { await p.getByRole('button', { name: /^Nursery/ }).click() }],
-    ['picker-class', async (p) => { await p.locator('dialog[open]').last().locator('.choice').first().click() }, async (p) => { await esc(p); await esc(p) }],
+    ['add-staff', async (p) => { await tab('Staff')(p); await p.getByRole('button', { name: 'Add staff' }).first().click(); await dlg(p).getByRole('checkbox', { name: /Coordinator/ }).click() }, esc],
+    ['add-child', async (p) => { await tab('Children')(p); await p.getByRole('button', { name: 'Add child' }).first().click(); await dlg(p).getByRole('button', { name: /^Add child/ }).click() }],
+    ['relation', async (p) => dlg(p).getByRole('button', { name: 'Add a parent or relative' }).click()],
+    ['relation-side', async (p) => dlg(p).getByRole('radio', { name: 'Aunt' }).click(), esc],
+    ['picker-level', async (p) => { await p.locator('dialog[open]').last().getByRole('button', { name: /Choose the class and programme/ }).click() }],
+    ['picker-plan', async (p) => { await dlg(p).getByRole('button', { name: /^Nursery/ }).click(); await dlg(p).getByRole('radio').first().click() }, async (p) => { await esc(p); await esc(p) }],
+    ['child-page', async (p) => { await p.goto(BASE + '/admin'); await p.getByRole('button', { name: /^Isha Patil/ }).click() }],
+    ['child-access', async (p) => p.getByRole('switch', { name: /App access for Rohan/ }).click(), esc],
+    ['child-edit', async (p) => p.getByRole('button', { name: 'Edit details' }).click(), esc],
+    ['child-left', async (p) => p.getByRole('button', { name: /has left the school/ }).click(), esc],
+    ['child-add-person', async (p) => p.getByRole('button', { name: 'Add a parent or relative' }).click(), esc],
     ['account', async (p) => p.getByRole('button', { name: /^Account/ }).click(), esc],
-    ['turn-off', async (p) => { await tab('Parents')(p); await p.getByRole('button', { name: 'Turn off' }).first().click() }, esc],
     ['coordinators', async (p) => p.goto(BASE + '/admin/coordinators')],
     ['add-coordinator', async (p) => p.getByRole('button', { name: 'Add coordinator' }).first().click(), esc],
     ['edit-coordinator', async (p) => p.getByRole('button', { name: 'Edit' }).first().click(), esc],
   ])
   await session('Core team', [['today', async (p) => p.goto(BASE + '/core')], ['coordinators', async (p) => p.goto(BASE + '/core/coordinators')]])
-  await session('Parent', [['today', async (p) => p.goto(BASE + '/parent')]])
+  await session('Parent', [
+    ['today', async (p) => p.goto(BASE + '/parent')],
+  ])
+  await session('Admin', [
+    ['parent-else', async (p) => { await p.goto(BASE + '/parent'); await p.waitForTimeout(800); if (await p.getByRole('button', { name: 'I agree, continue' }).count()) { await p.getByRole('button', { name: 'I agree, continue' }).click(); await p.waitForTimeout(900) } await p.getByRole('button', { name: 'Someone else is collecting' }).first().click(); const d = p.locator('dialog[open]'); await d.getByLabel('Full name').fill('Ramesh Kulkarni'); await d.getByLabel('Mobile').fill('98123 45678'); await d.getByRole('button', { name: 'Create the link' }).click(); await d.getByText('Link ready', { exact: false }).waitFor() }, esc],
+    ['parent-trip-else', async (p) => p.waitForTimeout(600)],
+    ['parent-resend', async (p) => p.getByRole('button', { name: 'Resend link' }).click(), esc],
+  ])
   await session('Coordinator', [
     ['start', async (p) => p.goto(BASE + '/coordinator')],
     ['voices', async (p) => p.getByRole('button', { name: 'Change voice' }).click(), esc],

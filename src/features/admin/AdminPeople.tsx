@@ -1,50 +1,47 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Baby, CircleCheck, Hourglass, Plus, School, ShieldOff, UserCog, Users } from 'lucide-react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { Baby, CircleCheck, Globe, GraduationCap, Lock, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
-import { ListRow } from '../../ui/ListRow'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
+import { Switch } from '../../ui/Switch'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
 import { formatMobile } from '../../domain/contact'
-import { AREA_ICON, AREA_LABEL, AreaShell } from '../auth/AreaShell'
+import { AreaShell } from '../auth/AreaShell'
 import { useSession } from '../auth/session'
-import { addClass, explainDbError, loadDirectory, setPersonActive, type ClassRow, type Directory, type Profile } from './api'
-import { AddChildForm, AddPersonForm } from './AdminForms'
-import { formatAge } from './programmeCatalogue'
+import { explainDbError, loadDirectory, setAppAccess, setPersonActive, type Directory, type Profile } from './api'
+import { AccessState, ChildPage } from './ChildPage'
+import { AddChildSheet } from './ChildForms'
+import { StaffSheet } from './StaffSheet'
+import { levelOf } from './programmeCatalogue'
+import { LEVEL_ICON } from './ProgrammePicker'
+import { ROLE } from './roles'
 
-type Tab = 'children' | 'parents' | 'staff' | 'classes'
-const TABS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
-  { key: 'children', label: 'Children', icon: <Baby /> },
-  { key: 'parents', label: 'Parents', icon: <Users /> },
-  { key: 'staff', label: 'Staff', icon: <UserCog /> },
-  { key: 'classes', label: 'Classes', icon: <School /> },
-]
-const ADD_LABEL: Record<Tab, string> = { children: 'Add child', parents: 'Add parent', staff: 'Add staff', classes: 'Add class' }
+type Tab = 'children' | 'family' | 'staff' | 'classes'
 
-function Status({ person }: { person: Profile }) {
-  if (!person.active) return <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>
-  if (person.user_id) return <Pill tone="live" icon={<CircleCheck />}>Signed in</Pill>
-  return <Pill tone="recent" icon={<Hourglass />}>Invited</Pill>
-}
-
-/** Admin: people and classes (J10, PRO-1…PRO-4). The admin alone adds, edits or removes children and parents (D1). */
+/**
+ * Admin → People (Screen Book v3): children first, each with a page of their own; parents and family (added inside a
+ * child, each with an app-access switch); staff by role, with the two admins protected; and the classes (the levels).
+ */
 export function AdminPeople() {
+  const { childId } = useParams()
+  const navigate = useNavigate()
   const { state } = useSession()
   const toast = useToast()
   const [dir, setDir] = useState<Directory | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('children')
   const [query, setQuery] = useState('')
-  const [adding, setAdding] = useState<Tab | null>(null)
-  const [confirm, setConfirm] = useState<Profile | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [adding, setAdding] = useState<null | 'child' | 'staff'>(null)
+  const [confirm, setConfirm] = useState<null | { person: Profile; what: 'staff' | 'access' }>(null)
   const [busy, setBusy] = useState(false)
-  const [newClass, setNewClass] = useState('')
+  const [actionError, setActionError] = useState<string | null>(null)
+  const myId = state.status === 'signed-in' ? state.me?.profile_id : undefined
 
   const reload = useCallback(async () => {
     setLoadError(null)
@@ -56,163 +53,180 @@ export function AdminPeople() {
   }, [])
   useEffect(() => { void reload() }, [reload])
 
-  const myId = state.status === 'signed-in' ? state.me?.profile_id : undefined
+  const child = childId && dir ? dir.children.find((c) => c.id === childId && c.active) : null
+  if (childId && dir && !child) return <AreaShell area="admin" title="People"><EmptyState title="This child isn't on the list" action={<Button onClick={() => navigate('/admin')}>Back to children</Button>}>They may have left the school, or the link is old.</EmptyState></AreaShell>
+  if (child && dir) {
+    return (
+      <AreaShell area="admin" title="People">
+        <ChildPage key={child.id} dir={dir} child={child} onBack={() => navigate('/admin')} onChanged={reload} />
+      </AreaShell>
+    )
+  }
+
   const q = query.trim().toLowerCase()
+  const hit = (...xs: Array<string | null | undefined>) => !q || xs.some((x) => x?.toLowerCase().includes(q))
+  const kids = dir ? dir.children.filter((c) => c.active) : []
+  const guardianRows = dir ? dir.profiles.filter((p) => p.active && dir.guardianships.some((g) => g.guardian_id === p.id && kids.some((k) => k.id === g.child_id))) : []
+  const staffRows = dir ? dir.profiles.filter((p) => (dir.roles.get(p.id)?.length ?? 0) > 0) : []
+  const kidsOf = (pid: string) => dir!.guardianships.filter((g) => g.guardian_id === pid).map((g) => ({ g, k: kids.find((k) => k.id === g.child_id) })).filter((x) => x.k)
+  const lists = dir && {
+    children: kids.filter((c) => hit(c.full_name, c.preferred_name, dir.programmes.find((p) => p.id === c.programme_id)?.name,
+      ...dir.guardianships.filter((g) => g.child_id === c.id).flatMap((g) => { const p = dir.profiles.find((x) => x.id === g.guardian_id); return [p?.full_name, p?.email, p?.phone] }))),
+    family: guardianRows.filter((p) => hit(p.full_name, p.email, p.phone, ...kidsOf(p.id).map((x) => x.k!.full_name))),
+    staff: staffRows.filter((p) => hit(p.full_name, p.email, p.phone, ...(dir.roles.get(p.id) ?? []).map((r) => ROLE[r].name))),
+    classes: dir.classes.filter((c) => c.active && hit(c.name)),
+  }
 
-  const lists = useMemo(() => {
-    if (!dir) return null
-    const match = (...parts: Array<string | null | undefined>) => !q || parts.some((p) => p?.toLowerCase().includes(q))
-    const isStaff = (p: Profile) => (dir.roles.get(p.id)?.length ?? 0) > 0
-    const guardianIds = new Set(dir.guardianships.map((g) => g.guardian_id))
-    return {
-      children: dir.children.filter((c) => match(c.full_name, c.preferred_name)),
-      parents: dir.profiles.filter((p) => (!isStaff(p) || guardianIds.has(p.id)) && match(p.full_name, p.email, p.phone)),
-      staff: dir.profiles.filter((p) => isStaff(p) && match(p.full_name, p.email, p.phone)),
-      classes: dir.classes.filter((c) => match(c.name)),
-    }
-  }, [dir, q])
-
-  async function toggleActive(person: Profile) {
-    setActionError(null)
+  async function act(fn: () => Promise<void>, done: string) {
     setBusy(true)
+    setActionError(null)
     try {
-      await setPersonActive(person.id, !person.active)
-      // Show the change straight away; the reload confirms it from the server.
-      setDir((d) => d && { ...d, profiles: d.profiles.map((p) => (p.id === person.id ? { ...p, active: !person.active } : p)) })
+      await fn()
+      await reload()
       setConfirm(null)
-      toast(person.active ? `Access turned off for ${person.full_name}.` : `${person.full_name} can sign in again.`)
-      void reload()
+      toast(done)
     } catch (e) {
-      setActionError(explainDbError(e as { code?: string }))
+      setActionError(explainDbError(e as { code?: string; message?: string }))
     } finally {
       setBusy(false)
     }
   }
 
-  async function createClass() {
-    if (!newClass.trim()) return setActionError('Give the class group a name first.')
-    setActionError(null)
-    try {
-      const added = await addClass(newClass)
-      onClassAdded(added)
-      toast(`Class group ${added.name} added.`)
-      setNewClass('')
-    } catch (e) {
-      const err = e as { code?: string }
-      setActionError(err.code === '23505' ? 'A class with this name already exists.' : explainDbError(err))
-    }
+  function accessSwitch(p: Profile) {
+    if (p.app_access) return setConfirm({ person: p, what: 'access' })
+    if (!p.email) return toast(`${p.full_name.split(' ')[0]} has no email yet. Add it from the child's page to give app access.`)
+    void act(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent to ${p.email}.`)
   }
 
-  /** After a save: refresh the list first, so the new row is already there when the sheet closes and the toast confirms. */
-  async function added(what: string) {
-    await reload()
-    setAdding(null)
-    toast(what)
-  }
-
-  const onClassAdded = (c: ClassRow) => setDir((d) => (d ? { ...d, classes: [...d.classes, c].sort((a, b) => a.name.localeCompare(b.name)) } : d))
-  const people = lists ? (tab === 'parents' ? lists.parents : lists.staff) : []
+  const none = <EmptyState title={`No one matches "${query.trim()}"`}>Try a first name, an email or part of a phone number.</EmptyState>
+  const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(', ') || 'No contact details'
+  const TABS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
+    { key: 'children', label: 'Children', icon: <Baby /> },
+    { key: 'family', label: 'Parents and family', icon: <Users /> },
+    { key: 'staff', label: 'Staff', icon: <ShieldCheck /> },
+    { key: 'classes', label: 'Classes', icon: <GraduationCap /> },
+  ]
 
   return (
-    <AreaShell area="admin" title="People" subtitle="Children, their parents and the staff at Karve Road. Only the admin adds or removes them."
-      actions={tab !== 'classes' && <Button icon={<Plus />} onClick={() => setAdding(tab)}>{ADD_LABEL[tab]}</Button>}>
+    <AreaShell area="admin" title="People" subtitle="Children, their parents and family, and the staff at Karve Road. Only the admin adds or removes them."
+      actions={tab === 'staff' ? <Button icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</Button>
+        : tab === 'classes' ? null : <Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button>}>
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
-        <Tabs id="people" label="People" value={tab} onChange={setTab}
-          items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
-        <SearchField label="Search people" className="min-w-0 lg:flex-1"value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, email or phone" />
+        <Tabs id="people" label="People" value={tab} onChange={setTab} items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
+        <SearchField label="Search people" className="min-w-0 lg:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, emails or phones" />
       </div>
-
-      {actionError && <Notice tone="danger" className="mt-4">{actionError}</Notice>}
+      {actionError && !confirm && <Notice tone="danger" className="mt-4">{actionError}</Notice>}
 
       <section id="people-panel" role="tabpanel" aria-labelledby={`people-${tab}`} className="mt-5">
-        {loadError ? (
-          <ErrorState title="Couldn't load people" onRetry={() => void reload()}>{loadError}</ErrorState>
-        ) : !dir || !lists ? (
-          <SkeletonList />
-        ) : tab === 'children' ? (
-          lists.children.length === 0 ? (
-            q ? <EmptyState title="No children match">Try a different name, or clear the search.</EmptyState>
-              : <EmptyState title="No children yet" action={<Button icon={<Plus />} onClick={() => setAdding('children')}>Add child</Button>}>Add the parents first, then add each child and link them.</EmptyState>
-          ) : (
-            <ul className="grid gap-3 md:grid-cols-2">
-              {lists.children.map((c) => {
-                const programme = dir.programmes.find((p) => p.id === c.programme_id)
-                const klass = dir.classes.find((k) => k.id === c.class_id)
-                const guardians = dir.guardianships.filter((g) => g.child_id === c.id)
-                return (
-                  <ListRow key={c.id} avatar={<Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />} title={c.full_name}
-                    detail={[programme?.name ?? 'Programme not found', klass?.name, formatAge(c.date_of_birth)].filter(Boolean).join(' · ')}
-                    badges={guardians.length ? guardians.map((g) => (
-                      <Pill key={g.guardian_id} icon={<Users />}>{dir.profiles.find((p) => p.id === g.guardian_id)?.full_name ?? 'Unknown'} · {g.relation}</Pill>
-                    )) : <Pill tone="warning">No parent linked</Pill>} />
-                )
-              })}
-            </ul>
-          )
-        ) : tab === 'classes' ? (
-          <>
-            <form className="mb-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); void createClass() }}>
-              <label className="input min-w-0 flex-1">
-                <School aria-hidden />
-                <input value={newClass} onChange={(e) => setNewClass(e.target.value)} placeholder="New class group, e.g. Sunflowers" aria-label="New class group name" />
-              </label>
-              <Button type="submit" icon={<Plus />}>Add class</Button>
-            </form>
-            {lists.classes.length === 0 ? (
-              <EmptyState title={q ? 'No classes match' : 'No class groups yet'}>{q ? 'Try a different name, or clear the search.' : 'Coordinators are assigned to classes, and each child belongs to one.'}</EmptyState>
-            ) : (
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {lists.classes.map((k) => {
-                  const n = dir.children.filter((c) => c.class_id === k.id).length
-                  return <ListRow key={k.id} avatar={<Avatar name={k.name} color={childColor(k.id)} icon={<School />} />} title={k.name} detail={`${n} ${n === 1 ? 'child' : 'children'}`} />
+        {loadError ? <ErrorState title="Couldn't load people" onRetry={() => void reload()}>{loadError}</ErrorState>
+          : !dir || !lists ? <SkeletonList />
+          : tab === 'children' ? (
+            lists.children.length === 0 ? (q ? none : <EmptyState title="No children yet" action={<Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button>}>Add each child with their parents and family in one step.</EmptyState>) : (
+              <ul className="grid gap-3 md:grid-cols-2">
+                {lists.children.map((c) => {
+                  const programme = dir.programmes.find((p) => p.id === c.programme_id)
+                  const people = dir.guardianships.filter((g) => g.child_id === c.id).map((g) => `${dir.profiles.find((p) => p.id === g.guardian_id)?.full_name.split(' ')[0] ?? '?'} (${g.relation.split(',')[0]})`)
+                  return (
+                    <li key={c.id}>
+                      <button type="button" onClick={() => navigate(`/admin/child/${c.id}`)} className="card flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
+                        <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-h3">{c.full_name}</span>
+                          <span className="block truncate text-small font-semibold text-ink-2">{programme?.name ?? 'No programme'}</span>
+                          <span className="block truncate text-small font-semibold">{people.join(', ') || 'Nobody listed yet'}</span>
+                        </span>
+                      </button>
+                    </li>
+                  )
                 })}
               </ul>
-            )}
-          </>
-        ) : people.length === 0 ? (
-          q ? <EmptyState title="Nobody matches">Try a different name, email or phone number.</EmptyState>
-            : tab === 'parents'
-              ? <EmptyState title="No parents yet" action={<Button icon={<Plus />} onClick={() => setAdding('parents')}>Add parent</Button>}>Add each parent with the email they will sign in with.</EmptyState>
-              : <EmptyState title="No staff yet" action={<Button icon={<Plus />} onClick={() => setAdding('staff')}>Add staff</Button>}>Add coordinators and the core team with their roles.</EmptyState>
-        ) : (
-          <ul className="grid gap-3 md:grid-cols-2">
-            {people.map((p) => {
-              const roles = dir.roles.get(p.id) ?? []
-              const kids = dir.guardianships.filter((g) => g.guardian_id === p.id).length
-              return (
-                <ListRow key={p.id} avatar={<Avatar name={p.full_name} color={childColor(p.id)} />} title={p.id === myId ? `${p.full_name} (you)` : p.full_name}
-                  detail={[p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'}
-                  badges={<>
-                    <Status person={p} />
-                    {roles.map((r) => <Pill key={r} icon={AREA_ICON[r]}>{AREA_LABEL[r]}</Pill>)}
-                    {tab === 'parents' && <Pill icon={<Baby />}>{kids} {kids === 1 ? 'child' : 'children'}</Pill>}
-                  </>}
-                  action={p.id === myId ? null : (
-                    <Button size="md" variant={p.active ? 'secondary' : 'primary'} onClick={() => { setActionError(null); setConfirm(p) }}>{p.active ? 'Turn off' : 'Turn on'}</Button>
-                  )} />
-              )
-            })}
-          </ul>
-        )}
+            )
+          ) : tab === 'family' ? (
+            lists.family.length === 0 ? (q ? none : <EmptyState title="No parents yet">Parents and family are added inside a child. Add a child to begin.</EmptyState>) : (
+              <>
+                <ul className="grid gap-3 md:grid-cols-2">
+                  {lists.family.map((p) => {
+                    const ks = kidsOf(p.id)
+                    const parent = ks.some((x) => x.g.kind === 'parent')
+                    return (
+                      <li key={p.id} className="card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3.5">
+                        <Avatar name={p.full_name} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} />
+                        <div className="min-w-0 flex-1 basis-[180px]">
+                          <p className="flex items-center gap-2 text-h4"><span className="truncate">{p.full_name}</span>{p.abroad && <Pill icon={<Globe />}>Abroad</Pill>}</p>
+                          <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
+                          <p className="truncate text-small font-semibold">{ks.map((x) => `${x.g.relation.split(',')[0]} of ${x.k!.preferred_name ?? x.k!.full_name.split(' ')[0]}`).join(', ')}</p>
+                        </div>
+                        <AccessState person={p} />
+                        <Switch on={p.app_access} busy={busy} label={`App access for ${p.full_name}`} onChange={() => accessSwitch(p)} />
+                      </li>
+                    )
+                  })}
+                </ul>
+                <p className="mt-3 text-caption font-semibold text-ink-3">Parents and family are added inside a child, so everyone here is linked to a child.</p>
+              </>
+            )
+          ) : tab === 'staff' ? (
+            <>
+              <div className="card mb-4 flex items-start gap-3 rounded-xl p-4">
+                <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-5" aria-hidden><ShieldCheck /></span>
+                <div><p className="text-h4">Admin: Ankit Singh and Aditya Tapadia only</p><p className="text-small font-semibold text-ink-2">Nobody else can be given Admin, and admins can't be switched off here.</p></div>
+              </div>
+              {lists.staff.length === 0 ? (q ? none : <EmptyState title="No staff yet">Add the core team, the front desk and the coordinators.</EmptyState>) : (
+                <ul className="grid gap-3 md:grid-cols-2">
+                  {lists.staff.map((p) => {
+                    const roles = dir.roles.get(p.id) ?? []
+                    const admin = roles.includes('admin')
+                    return (
+                      <li key={p.id} className={`card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3.5 ${p.active ? '' : 'opacity-75'}`}>
+                        <Avatar name={p.full_name} color={childColor(p.id)} />
+                        <div className="min-w-0 flex-1 basis-[180px]">
+                          <p className="truncate text-h4">{p.full_name}{p.id === myId && <span className="font-semibold text-ink-3"> (you)</span>}</p>
+                          <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
+                        </div>
+                        {p.active ? <AccessState person={p} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
+                        {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
+                          : p.active ? <Button size="md" variant="secondary" onClick={() => { setActionError(null); setConfirm({ person: p, what: 'staff' }) }}>Turn off</Button>
+                          : <Button size="md" icon={<CircleCheck />} loading={busy} onClick={() => void act(() => setPersonActive(p.id, true), `${p.full_name.split(' ')[0]} can sign in again.`)}>Turn on</Button>}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </>
+          ) : (
+            <>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {lists.classes.map((c) => {
+                  const n = kids.filter((k) => k.class_id === c.id).length
+                  const who = dir.coordinatorClasses.filter((a) => a.class_id === c.id).map((a) => dir.profiles.find((p) => p.id === a.profile_id)).filter((p) => p?.active)
+                  const level = dir.programmes.find((p) => p.class_id === c.id)
+                  return (
+                    <li key={c.id} className="card flex items-center gap-3.5 rounded-xl p-3.5">
+                      <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{level ? LEVEL_ICON[levelOf(level).level] : <GraduationCap />}</span>
+                      <span className="min-w-0">
+                        <span className="block text-h4">{c.name}</span>
+                        <span className={`block text-small font-semibold ${who.length ? 'text-ink-2' : 'text-warning'}`}>{n} {n === 1 ? 'child' : 'children'}, {who.length ? who.map((p) => p!.full_name.split(' ')[0]).join(' and ') : 'no coordinator'}</span>
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="mt-3 text-caption font-semibold text-ink-3">A child's class is their level, or a programme of its own like the Learning Center. Choose who looks after each class in Coordinators.</p>
+            </>
+          )}
       </section>
 
-      <Sheet open={adding === 'children'} onClose={() => setAdding(null)} title="Add a child" description="Their details, programme and the parents who can sign in." wide>
-        {dir && adding === 'children' && <AddChildForm directory={dir} onClassAdded={onClassAdded} onDone={(name) => added(`${name} added.`)} />}
-      </Sheet>
-      <Sheet open={adding === 'parents'} onClose={() => setAdding(null)} title="Add a parent" description="They sign in with a one-time code sent to their email.">
-        {adding === 'parents' && <AddPersonForm kind="parent" onDone={(name) => added(`${name} added. They can sign in now.`)} />}
-      </Sheet>
-      <Sheet open={adding === 'staff'} onClose={() => setAdding(null)} title="Add a staff member" description="Choose what they can see and do.">
-        {adding === 'staff' && <AddPersonForm kind="staff" onDone={(name) => added(`${name} added. They can sign in now.`)} />}
-      </Sheet>
-      <Sheet open={!!confirm} onClose={() => setConfirm(null)} title={confirm?.active ? `Turn off ${confirm.full_name}?` : `Turn on ${confirm?.full_name ?? ''}?`}
-        description={confirm?.active ? 'They lose access straight away and are signed out on every device. Their records stay.' : 'They can sign in again with their email.'}>
+      {dir && adding === 'child' && <AddChildSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(id, name) => void reload().then(() => { setAdding(null); toast(`${name} added.`); navigate(`/admin/child/${id}`) })} />}
+      {dir && adding === 'staff' && <StaffSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(m) => void reload().then(() => { setAdding(null); setTab('staff'); toast(m) })} />}
+      <Sheet open={!!confirm} onClose={() => setConfirm(null)}
+        title={confirm ? (confirm.what === 'staff' ? `Turn off ${confirm.person.full_name.split(' ')[0]}'s access?` : `Turn off app access for ${confirm.person.full_name.split(' ')[0]}?`) : ''}
+        description={confirm?.what === 'staff' ? `${confirm.person.full_name.split(' ')[0]} is signed out everywhere at once and stops hearing announcements. You can turn it back on later.`
+          : `${confirm?.person.full_name.split(' ')[0] ?? ''} is signed out everywhere at once. They stay listed, so the gate can still hand over to them.`}>
         {actionError && <Notice tone="danger" className="mb-4">{actionError}</Notice>}
         <div className="grid gap-2.5 sm:grid-cols-2">
-          <Button variant="secondary" onClick={() => setConfirm(null)}>Cancel</Button>
-          <Button variant={confirm?.active ? 'danger' : 'primary'} icon={confirm?.active ? <ShieldOff /> : <CircleCheck />} loading={busy} onClick={() => confirm && void toggleActive(confirm)}>
-            {confirm?.active ? 'Turn off access' : 'Turn on access'}
-          </Button>
+          <Button variant="secondary" onClick={() => setConfirm(null)}>Keep access</Button>
+          <Button variant="danger" icon={<Lock />} loading={busy} onClick={() => confirm && void act(() => (confirm.what === 'staff' ? setPersonActive(confirm.person.id, false) : setAppAccess(confirm.person.id, false)), `${confirm.person.full_name.split(' ')[0]} is signed out everywhere.`)}>Turn off access</Button>
         </div>
       </Sheet>
     </AreaShell>

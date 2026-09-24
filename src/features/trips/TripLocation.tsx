@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { FlaskConical, Map as MapIcon, MapPin, MapPinOff, RotateCcw } from 'lucide-react'
 import { Button } from '../../ui/Button'
+import { Switch } from '../../ui/Switch'
 import { FreshnessBadge } from '../../ui/FreshnessBadge'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
@@ -12,16 +13,6 @@ import { formatDistance, SCHOOL, type Point, type Position } from './geo'
 import { locationHelp, locationPermission, shareLocation, stopSharing, useSendLocation, useSimulatedTrip, useTripPosition, useTripTrail, type LocationPermission } from './tracking'
 
 const TripMap = lazy(() => import('../../ui/TripMap'))
-
-/** A proper switch: the whole row is the 48px target, and the state is said in words as well as shown. */
-function Switch({ on, busy, label, onChange }: { on: boolean; busy?: boolean; label: string; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={busy} onClick={() => onChange(!on)}
-      className={`relative h-8 w-[52px] shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? 'bg-live' : 'bg-line-2'}`}>
-      <span className={`absolute top-1 left-1 size-6 rounded-full bg-surface shadow-[0_1px_3px_rgb(0_0_0/0.25)] transition-transform duration-200 ease-[var(--ease-spring)] ${on ? 'translate-x-5' : ''}`} aria-hidden />
-    </button>
-  )
-}
 
 /** "Live · 1.2 km from school", "Last seen 3 min ago, 1.2 km away", or "No location". Never makes old data look live. */
 export function PositionLine({ pos, who, simulated }: { pos: Position; who: string; simulated?: boolean }) {

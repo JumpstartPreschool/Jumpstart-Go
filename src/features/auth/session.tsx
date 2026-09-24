@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { leaveDemo } from '../../demo/demo'
 
 export type Area = 'admin' | 'core' | 'coordinator' | 'parent'
-export type StaffRole = 'admin' | 'core' | 'coordinator'
+export type StaffRole = 'admin' | 'core' | 'coordinator' | 'pro'
 
 /** What public.whoami() returns for the signed-in person. */
 export interface Me {

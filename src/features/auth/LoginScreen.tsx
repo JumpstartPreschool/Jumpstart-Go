@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { LogIn, Mail } from 'lucide-react'
+import { Heart, LogIn, Mail } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { TextField } from '../../ui/Field'
@@ -214,8 +214,8 @@ export function LoginScreen() {
             {DEMO_ACCOUNTS.map((a) => (
               <button key={a.email} type="button" className="chipb" aria-pressed={demoPick && email === a.email}
                 onClick={() => { setEmail(a.email); setDemoPick(true); setError(null) }}>
-                {AREA_ICON[a.area]}
-                {AREA_LABEL[a.area]}
+                {a.label === 'Family' ? <Heart aria-hidden /> : AREA_ICON[a.area]}
+                {a.label ?? AREA_LABEL[a.area]}
               </button>
             ))}
           </div>

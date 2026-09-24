@@ -24,6 +24,7 @@ function AreaPages({ area, index }: { area: 'admin' | 'core'; index: ReactNode }
   return (
     <Routes>
       <Route index element={index} />
+      {area === 'admin' && <Route path="child/:childId" element={index} />}
       <Route path="coordinators" element={<CoordinatorsPage area={area} />} />
       <Route path="*" element={<Navigate to={`/${area}`} replace />} />
     </Routes>

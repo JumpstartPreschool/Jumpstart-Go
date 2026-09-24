@@ -13,9 +13,9 @@ export interface CoordinatorData {
 
 export async function loadCoordinators(): Promise<CoordinatorData> {
   const [people, roles, classes, assignments, guardianships] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, active, user_id').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id').order('full_name'),
     supabase.from('staff_roles').select('profile_id, role'),
-    supabase.from('classes').select('id, name, active').eq('active', true).order('name'),
+    supabase.from('classes').select('id, name, active, sort').eq('active', true).order('sort'),
     supabase.from('coordinator_classes').select('profile_id, class_id'),
     supabase.from('guardianships').select('guardian_id'),
   ])

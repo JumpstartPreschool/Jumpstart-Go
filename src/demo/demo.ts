@@ -11,21 +11,23 @@ import type { Area } from '../features/auth/session'
 import { indiaClock } from '../domain/time'
 import PROGRAMMES from './programmes.json'
 import { trackingRpc, type TrackingDb } from './demoTracking'
+import { adminRpc, checkWrite, kindOfRelation, LEVELS, levelId, levelOfProgramme, type AdminDb } from './demoAdmin'
 
 export const DEMO_AVAILABLE = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true'
 export const DEMO_EMAIL = 'ai@jumpstartpreschool.in'
 /** The dummy one-time code, filled in for you on the demo sign-in. Any other code is refused, so the error can be tried too. */
 export const DEMO_CODE = '246810'
 /** One sample account per area, offered as chips on the sign-in screen (the Screen Book's demo accounts). */
-export const DEMO_ACCOUNTS: Array<{ area: Area; email: string }> = [
+export const DEMO_ACCOUNTS: Array<{ area: Area; email: string; label?: string }> = [
   { area: 'parent', email: 'neha@example.com' },
+  { area: 'parent', email: 'lata@example.com', label: 'Family' },
   { area: 'coordinator', email: 'sunita@example.com' },
   { area: 'core', email: 'meera@example.com' },
   { area: 'admin', email: DEMO_EMAIL },
 ]
 
 const FLAG = 'jumpstart-demo'
-export const DEMO_DB_KEY = 'jumpstart-demo-db'
+export const DEMO_DB_KEY = 'jumpstart-demo-db-v2'
 const CLOCK = 'jumpstart-demo-clock'
 /** The demo's "now": Thursday 24 September 2026, 12:10 PM India time, running on from when the demo began. */
 const DEMO_START = Date.parse('2026-09-24T12:10:00+05:30')
@@ -92,14 +94,14 @@ function seed(): Db {
     { id: 'demo-rohan', full_name: 'Rohan Patil', email: 'rohan@example.com', phone: '+919800000012', active: true, user_id: null },
     { id: 'demo-anjali', full_name: 'Anjali Joshi', email: 'anjali@example.com', phone: '+919800000013', active: true, user_id: 'u-anjali' },
     { id: 'demo-priti', full_name: 'Priti Mehta', email: null, phone: '+919800000014', active: false, user_id: 'u-priti' },
-  ]
-  const classes = [
-    { id: 'demo-bluebells', name: 'Bluebells', active: true },
-    { id: 'demo-sunflowers', name: 'Sunflowers', active: true },
-    { id: 'demo-tulips', name: 'Tulips', active: true },
-  ]
-  const child = (id: string, full_name: string, preferred_name: string | null, date_of_birth: string, class_id: string, programme: string) =>
-    ({ id, full_name, preferred_name, date_of_birth, class_id, programme_id: programmeId(programme), active: true })
+    // Isha's grandmother: family who collects and has the app (D26).
+    { id: 'demo-lata', full_name: 'Lata Patil', email: 'lata@example.com', phone: '+919800000015', active: true, user_id: null },
+    { id: 'demo-desk', full_name: 'Front Desk', email: 'frontdesk@example.com', phone: null, active: true, user_id: null },
+  ].map((p) => ({ app_access: p.active, abroad: false, ...p }))
+  // The classes are the levels (D18); each programme belongs to one, and a child's class follows their programme.
+  const classes = LEVELS.map((name, i) => ({ id: levelId(name), name, active: true, sort: i + 1 }))
+  const child = (id: string, full_name: string, preferred_name: string | null, date_of_birth: string, programme: string) =>
+    ({ id, full_name, preferred_name, date_of_birth, class_id: levelOfProgramme(programme), programme_id: programmeId(programme), active: true })
   return {
     profiles,
     staff_roles: [
@@ -107,26 +109,28 @@ function seed(): Db {
       { profile_id: 'demo-meera', role: 'core' },
       { profile_id: 'demo-sunita', role: 'coordinator' },
       { profile_id: 'demo-farah', role: 'coordinator' },
+      { profile_id: 'demo-desk', role: 'pro' },
     ],
     classes,
-    programmes: PROGRAMMES.map((p) => ({ ...p, active: true })),
+    programmes: PROGRAMMES.map((p) => ({ ...p, active: true, class_id: levelOfProgramme(p.name) })),
     children: [
-      child('demo-anaya', 'Anaya Singh', null, '2022-03-14', 'demo-sunflowers', 'Jr KG · Half day'),
-      child('demo-kabir', 'Kabir Shah', null, '2023-01-20', 'demo-bluebells', 'Nursery · 360°'),
-      child('demo-isha', 'Isha Patil', 'Ishu', '2020-11-02', 'demo-tulips', 'Sr KG · Half day'),
-      child('demo-riya', 'Riya Joshi', null, '2020-08-09', 'demo-bluebells', 'Learning Center'),
+      child('demo-anaya', 'Anaya Singh', null, '2022-03-14', 'Jr KG · Half day'),
+      child('demo-kabir', 'Kabir Shah', null, '2023-01-20', 'Nursery · 360°'),
+      child('demo-isha', 'Isha Patil', 'Ishu', '2020-11-02', 'Sr KG · Half day'),
+      child('demo-riya', 'Riya Joshi', null, '2020-08-09', 'Learning Center'),
     ],
     guardianships: [
-      { child_id: 'demo-anaya', guardian_id: OWNER, relation: 'Parent' },
+      { child_id: 'demo-anaya', guardian_id: OWNER, relation: 'Father' },
       { child_id: 'demo-kabir', guardian_id: 'demo-neha', relation: 'Mother' },
       { child_id: 'demo-isha', guardian_id: 'demo-rohan', relation: 'Father' },
+      { child_id: 'demo-isha', guardian_id: 'demo-lata', relation: "Grandmother, father's side" },
       { child_id: 'demo-riya', guardian_id: 'demo-anjali', relation: 'Mother' },
-    ],
-    // Sunita covers Bluebells and Sunflowers, the owner covers Sunflowers, and Tulips has nobody yet.
+    ].map((g) => ({ ...g, kind: kindOfRelation(g.relation) })),
+    // Sunita covers Nursery and Jr KG, the owner covers Jr KG, and Sr KG has nobody yet (announced to everyone).
     coordinator_classes: [
-      { profile_id: 'demo-sunita', class_id: 'demo-bluebells' },
-      { profile_id: 'demo-sunita', class_id: 'demo-sunflowers' },
-      { profile_id: OWNER, class_id: 'demo-sunflowers' },
+      { profile_id: 'demo-sunita', class_id: levelId('Nursery') },
+      { profile_id: 'demo-sunita', class_id: levelId('Jr KG') },
+      { profile_id: OWNER, class_id: levelId('Jr KG') },
     ],
     // Kabir has regular times set by the core team; the others still show their programme's windows.
     child_schedules: [1, 2, 3, 4, 5, 6].map((weekday) => ({ child_id: 'demo-kabir', weekday, dropoff: '09:15:00', pickup: '16:15:00' })),
@@ -349,13 +353,14 @@ function rpc(db: Db, fn: string, args: Row, email: string | null): Response {
     case 'gate_step':
       return gateStep(db, me, args)
     default:
-      return trackingRpc(db as unknown as TrackingDb, fn, args, me, { json, fail, startTrip: startTrip as never })
+      return adminRpc(db as unknown as AdminDb, fn, args, me, { json, fail, startTrip: startTrip as never })
+        ?? trackingRpc(db as unknown as TrackingDb, fn, args, me, { json, fail, startTrip: startTrip as never })
         ?? pgError(404, 'PGRST202', `Demo mode has no function ${fn}`)
   }
 }
 
 /** Just the PostgREST features this app uses: eq filters, order, embeds on children, single-row replies. */
-function rest(db: Db, method: string, table: string, params: URLSearchParams, headers: Headers, body: unknown): Response {
+function rest(db: Db, method: string, table: string, params: URLSearchParams, headers: Headers, body: unknown, me: Row | undefined): Response {
   const rows = (db as Record<string, Row[] | undefined>)[table]
   if (!rows) return pgError(404, '42P01', `Demo mode has no table ${table}`)
   const filters = [...params].filter(([k, v]) => !['select', 'order', 'limit', 'offset', 'columns'].includes(k) && v.startsWith('eq.'))
@@ -364,6 +369,10 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
       if (k === 'guardianships.guardian_id') return db.guardianships.some((g) => g.child_id === row.id && g.guardian_id === v.slice(3))
       return String(row[k]) === v.slice(3)
     })
+  if (method !== 'GET') {
+    const refused = checkWrite(db as unknown as AdminDb, method, table, rows.filter(matches), body as Row | null, me, { json, fail, startTrip: startTrip as never })
+    if (refused) return refused
+  }
   const representation = headers.get('prefer')?.includes('return=representation')
   const single = headers.get('accept')?.includes('vnd.pgrst.object')
 
@@ -433,7 +442,7 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   } else if (path.startsWith('/rest/v1/rpc/')) {
     response = rpc(db, path.slice('/rest/v1/rpc/'.length), body, email)
   } else if (path.startsWith('/rest/v1/')) {
-    response = rest(db, method, path.slice('/rest/v1/'.length), url.searchParams, headers, init?.body ? JSON.parse(String(init.body)) : null)
+    response = rest(db, method, path.slice('/rest/v1/'.length), url.searchParams, headers, init?.body ? JSON.parse(String(init.body)) : null, db.profiles.find((p) => p.email === email))
   } else {
     response = json({ message: 'Not available in demo mode' }, 404)
   }

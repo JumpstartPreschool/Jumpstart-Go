@@ -10,7 +10,8 @@ import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
 import { formatMobile } from '../../domain/contact'
-import { AREA_ICON, AREA_LABEL, AreaShell } from '../auth/AreaShell'
+import { AREA_ICON, AreaShell } from '../auth/AreaShell'
+import { ROLE } from '../admin/roles'
 import { useSession, type Area } from '../auth/session'
 import { explainDbError, type ClassRow, type Profile } from '../admin/api'
 import { loadCoordinators, removeCoordinator, setCoordinator, type CoordinatorData } from './api'
@@ -252,7 +253,7 @@ function AddCoordinator({ data, area, onDone }: { data: CoordinatorData; area: '
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-h4">{p.full_name}</span>
                   <span className="mt-1.5 flex flex-wrap gap-1.5">
-                    {(data.roles.get(p.id) ?? []).map((r) => <Pill key={r} icon={AREA_ICON[r]}>{AREA_LABEL[r]}</Pill>)}
+                    {(data.roles.get(p.id) ?? []).map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}
                     {data.parentIds.has(p.id) && <Pill icon={AREA_ICON.parent}>Parent</Pill>}
                   </span>
                 </span>

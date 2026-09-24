@@ -22,7 +22,7 @@ import { CodeSheet } from './CodeSheet'
 import { PRIORITY, type Announcer } from './announcer'
 import { cancelledText, shouldAnnounce, spokenText, type GateChild } from './gate'
 
-interface Guardian { id: string; name: string; relation: string; active: boolean }
+interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
 interface GateData { children: Map<string, GateChild & { guardians: Guardian[] }>; myClasses: Set<string>; covered: Set<string> }
 
 /** The children, their guardians and who covers which class: everything the gate needs besides the trips. */
@@ -33,18 +33,18 @@ function useGateData() {
   const [error, setError] = useState(false)
   const load = useCallback(async () => {
     const [kids, people, assigned] = await Promise.all([
-      supabase.from('children').select('id, full_name, preferred_name, class_id, classes(name), programmes(name), guardianships(guardian_id, relation)').eq('active', true),
-      supabase.from('profiles').select('id, full_name, active'),
+      supabase.from('children').select('id, full_name, preferred_name, class_id, classes(name), programmes(name), guardianships(guardian_id, relation, kind)').eq('active', true),
+      supabase.from('profiles').select('id, full_name, active, abroad'),
       supabase.from('coordinator_classes').select('profile_id, class_id'),
     ])
     if (kids.error || people.error || assigned.error) return setError(true)
     setError(false)
-    const names = new Map((people.data ?? []).map((p) => [p.id as string, p as { id: string; full_name: string; active: boolean }]))
-    type Kid = { id: string; full_name: string; preferred_name: string | null; class_id: string; classes: { name: string } | null; programmes: { name: string } | null; guardianships: Array<{ guardian_id: string; relation: string }> }
+    const names = new Map((people.data ?? []).map((p) => [p.id as string, p as { id: string; full_name: string; active: boolean; abroad: boolean }]))
+    type Kid = { id: string; full_name: string; preferred_name: string | null; class_id: string; classes: { name: string } | null; programmes: { name: string } | null; guardianships: Array<{ guardian_id: string; relation: string; kind: 'parent' | 'family' }> }
     const children = new Map(((kids.data ?? []) as unknown as Kid[]).map((c) => [c.id, {
       id: c.id, name: c.preferred_name ?? c.full_name.split(' ')[0]!, fullName: c.full_name, classId: c.class_id,
       className: c.classes?.name ?? '', programmeName: c.programmes?.name ?? '',
-      guardians: c.guardianships.map((g) => ({ id: g.guardian_id, name: names.get(g.guardian_id)?.full_name ?? 'Guardian', relation: g.relation, active: names.get(g.guardian_id)?.active ?? false })),
+      guardians: c.guardianships.map((g) => ({ id: g.guardian_id, name: names.get(g.guardian_id)?.full_name ?? 'Guardian', relation: g.relation, active: names.get(g.guardian_id)?.active ?? false, kind: g.kind ?? 'parent', abroad: names.get(g.guardian_id)?.abroad ?? false })),
     }]))
     const rows = (assigned.data ?? []) as Array<{ profile_id: string; class_id: string }>
     setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), covered: new Set(rows.map((r) => r.class_id)) })
@@ -232,19 +232,27 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       </aside>
 
       <Sheet open={!!handover} onClose={() => setHandover(null)} title={handover ? `Hand over ${children.get(handover.child_id)?.name ?? ''}` : 'Hand over'}
-        description="Only to one of the child's registered guardians. Check who is at the gate.">
+        description="Who is collecting? Only the parents and family the school has added are listed. Anyone else needs a link and a code from a parent.">
         {handover && (
           <div className="grid gap-2.5">
-            {(children.get(handover.child_id)?.guardians ?? []).filter((g) => g.active).map((g) => (
-              <button key={g.id} type="button" className="choice flex items-center gap-3 p-3" disabled={busy === handover.id} onClick={() => void act(handover, 'close', g.id)}>
-                <Avatar name={g.name} color={childColor(g.id)} size="sm" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-h4">{g.name}</span>
-                  <span className="block text-small font-semibold text-ink-2">{g.relation}{g.id === handover.created_by ? ' · said they were coming' : ''}</span>
-                </span>
-                <UserCheck className="size-5 text-accent" aria-hidden />
-              </button>
-            ))}
+            {(['parent', 'family'] as const).map((kind) => {
+              const list = (children.get(handover.child_id)?.guardians ?? []).filter((g) => g.active && g.kind === kind)
+              return list.length > 0 && (
+                <div key={kind} className="grid gap-2.5">
+                  <p className="kicker mt-1">{kind === 'parent' ? 'Parents' : 'Family'}</p>
+                  {list.map((g) => (
+                    <button key={g.id} type="button" className="choice flex items-center gap-3 p-3 text-left" disabled={busy === handover.id} onClick={() => void act(handover, 'close', g.id)}>
+                      <Avatar name={g.name} color={kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-h4">{g.name}</span>
+                        <span className="block text-small font-semibold text-ink-2">{g.relation}{g.abroad ? ', lives outside India' : ''}{g.id === handover.created_by ? ", said they're on the way" : ''}</span>
+                      </span>
+                      <UserCheck className="size-5 text-accent" aria-hidden />
+                    </button>
+                  ))}
+                </div>
+              )
+            })}
             {error && <Notice tone="danger">{error}</Notice>}
             <Notice tone="warning">Someone not on this list? Don't hand over. Call the parent first.</Notice>
           </div>
