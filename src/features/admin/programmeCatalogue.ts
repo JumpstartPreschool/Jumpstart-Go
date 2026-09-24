@@ -23,7 +23,7 @@ export const LEVELS: Level[] = [
   { key: 'Nursery', label: 'Nursery', ages: '3–4 years', months: [36, 48], blurb: 'Learning through exploration and early academic readiness.', standalone: false },
   { key: 'Jr KG', label: 'Jr KG', ages: '4–5 years', months: [48, 60], blurb: 'Logic, reasoning and more focus on academic readiness.', standalone: false },
   { key: 'Sr KG', label: 'Sr KG', ages: '5–6 years', months: [60, 72], blurb: 'Preparation for primary school and confidence building.', standalone: false },
-  { key: 'Learning Center', label: 'Learning Center', ages: '6 months–8 years', months: [6, 96], blurb: 'Daycare with meals and activities; parents choose their hours between 9 AM and 7 PM.', standalone: true },
+  { key: 'Learning Center', label: 'Learning Center', ages: '6 months–8 years', months: [6, 96], blurb: 'Daycare with meals and activities; children come in at 8:45 to 9 AM and can be collected any time until 7 PM.', standalone: true },
   { key: 'Preschool Readiness Program', label: 'Preschool Readiness', ages: '18 months–2 years', months: [18, 24], blurb: 'A 3-month course that gets toddlers ready for Playgroup.', standalone: true },
   { key: 'After School Program', label: 'After School', ages: '4–8 years', months: [48, 96], blurb: 'Sports, art, language and life skills after primary school.', standalone: true },
 ]
@@ -36,7 +36,7 @@ export function planInfo(plan: string): PlanInfo {
     const shift = plan.includes('morning') ? ' · morning' : plan.includes('afternoon') ? ' · afternoon' : ''
     return { title: `Half day${shift}`, blurb: 'The core preschool hours.', meals: 'Meals not included (available at extra cost)' }
   }
-  if (plan === '360°+') return { title: '360°+', blurb: 'Preschool plus the Learning Center all year (June–May), 9 AM to 7 PM.', meals: 'Meals included' }
+  if (plan === '360°+') return { title: '360°+', blurb: 'Preschool plus the Learning Center all year (June to May): in school for the class hours, collected any time until 7 PM.', meals: 'Meals included' }
   if (plan === '360°') return { title: '360°', blurb: 'Full-day preschool: lunch, milk, snacks, fruit and a 45-minute rest.', meals: 'Meals included' }
   return { title: plan, blurb: '', meals: '' }
 }

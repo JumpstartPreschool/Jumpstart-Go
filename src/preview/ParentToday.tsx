@@ -189,7 +189,7 @@ export function ParentToday() {
       </main>
 
       <Sheet open={sheet === 'time'} onClose={() => setSheet(null)} title="Meera's pickup time">
-        <p className="text-[16px] leading-6 text-ink-2">Learning Center: any time from 9 AM to 7 PM. Busy slots are shown so you can skip the rush.</p>
+        <p className="text-[16px] leading-6 text-ink-2">Learning Center: collect any time until 7 PM. Busy slots are shown so you can skip the rush.</p>
         <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4" role="radiogroup" aria-label="Pickup time">
           {PICKUP_SLOTS.map((slot) => {
             const busy = slot.load >= BUSY_FROM

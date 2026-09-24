@@ -2,10 +2,17 @@
 -- Each block signs in as one user (JWT claims + the authenticated role) and asserts what they can and cannot do.
 
 -- Seed (as the database owner) -------------------------------------------------
--- 0003 loads the 17 Karve Road programmes, each passing the programme constraints; check, then start clean.
+-- 0003 loads the 17 Karve Road programmes and 0007 gives them the owner's windows (D24); check, then start clean.
 do $$ begin
   assert (select count(*) from public.programmes) = 17, 'Karve Road programmes loaded';
-  assert (select count(*) from public.programmes where flexible) = 5, 'the 360°+ programmes and the Learning Center are flexible';
+  assert (select count(*) from public.programmes where flexible) = 0, 'every programme has explicit windows (D24)';
+  assert (select dropoff_from = '08:45' and dropoff_to = '09:00' and pickup_from = '13:00' and pickup_to = '13:15'
+          from public.programmes where name = 'Jr KG · Half day'), 'Jr KG half day: the 15 minutes before and after';
+  assert (select starts = '11:45' and ends = '17:30' and dropoff_from = '09:00' and dropoff_to = '11:45' and pickup_from = '17:30' and pickup_to = '19:00'
+          from public.programmes where name = 'Nursery · 360°+'), '360°+: in school 11:45–17:30, drop-off from 9, pickup until 7';
+  assert (select dropoff_from = '08:45' and dropoff_to = '09:00' and pickup_to = '19:00' from public.programmes where name = 'Learning Center'),
+    'Learning Center: in at 8:45–9:00, collected any time until 7';
+  assert (select pickup_from = '19:00' and pickup_to = '19:15' from public.programmes where name = 'After School Program'), 'After School pickup 7:00–7:15';
 end $$;
 delete from public.programmes;
 -- People are invited first (profiles), then sign in (auth.users); the trigger links them by email.
@@ -130,9 +137,15 @@ do $$ begin
   raise exception 'FAIL: programme before 9 AM accepted';
 exception when check_violation then null;
 end $$;
+-- Windows may sit just outside the class (D24), but never outside the gate day 08:45–19:15.
 do $$ begin
-  update public.programmes set pickup_to = '13:30' where name = 'Jr KG · Half day';
-  raise exception 'FAIL: window outside the programme hours accepted';
+  update public.programmes set pickup_to = '19:30' where name = 'Jr KG · Half day';
+  raise exception 'FAIL: pickup after the gate closes accepted';
+exception when check_violation then null;
+end $$;
+do $$ begin
+  update public.programmes set dropoff_from = '08:30' where name = 'Jr KG · Half day';
+  raise exception 'FAIL: drop-off before the gate opens accepted';
 exception when check_violation then null;
 end $$;
 -- The core team moves the pickup window; Aarav's 12:45 no longer fits and is listed (SCH-9).

@@ -1,5 +1,5 @@
 import type { ProgrammeRow } from '../admin/api'
-import { SCHOOL_CLOSES, SCHOOL_OPENS, formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
+import { GATE_CLOSES, GATE_OPENS, formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
 import { windowFor, type Direction, type Programme, type TimeWindow } from '../../domain/programme'
 
 /** How soon a parent can say they'll arrive (the "I'm on my way" choices, in minutes). */
@@ -24,9 +24,9 @@ export function programmeOf(p: Pick<ProgrammeRow, 'name' | 'flexible' | 'starts'
 
 export type Arrival = 'closed' | 'early' | 'inside' | 'late'
 
-/** Where an arrival time falls: outside school hours (not allowed), or early, inside or late for the child's window. */
+/** Where an arrival time falls: outside the gate day, 8:45 AM to 7:15 PM (not allowed), or early, inside or late for the child's window. */
 export function checkArrival(p: Programme, direction: Direction, arrival: Minutes): Arrival {
-  if (arrival < SCHOOL_OPENS || arrival > SCHOOL_CLOSES) return 'closed'
+  if (arrival < GATE_OPENS || arrival > GATE_CLOSES) return 'closed'
   const w = windowFor(p, direction)
   return arrival < w.from ? 'early' : arrival > w.to ? 'late' : 'inside'
 }

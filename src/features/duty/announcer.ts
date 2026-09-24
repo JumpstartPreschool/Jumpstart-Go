@@ -27,6 +27,8 @@ export interface Announcement {
 export interface AnnouncerOutput {
   chime(kind: ChimeKind): Promise<void>
   speak(text: string): Promise<void>
+  /** Cut the current speech short (someone has already handled it). */
+  stop?(): void
 }
 
 export interface AnnouncerState {
@@ -104,6 +106,8 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     /** Someone acknowledged it (on any iPad): stop repeating. */
     acknowledge(id: string) {
       items.delete(id)
+      // If it's being said right now, stop: the gate has already dealt with it.
+      if (playing?.id === id) output.stop?.()
       emit()
     },
     /** Hold announcements for `ms` (recorded by the caller). They play when the mute ends. */

@@ -11,6 +11,13 @@ import { areasFor, useSession, type Area } from './session'
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', coordinator: 'Coordinator', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
 export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, coordinator: <BellRing />, parent: <UserRound /> }
+/** What each area gives access to, shown when choosing where to start. */
+export const AREA_DOES: Record<Area, string> = {
+  admin: 'Everything, including people and roles',
+  core: 'Timings, attendance and coordinators',
+  coordinator: 'The gate, on the iPad',
+  parent: 'Your own children',
+}
 
 /** Pages inside an area, shown as tabs under the top bar. */
 const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode }>>> = {

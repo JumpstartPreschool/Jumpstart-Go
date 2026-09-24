@@ -4,6 +4,9 @@ export type Minutes = number
 /** School hours are fixed (PRD D6). Nothing can be requested outside them. */
 export const SCHOOL_OPENS: Minutes = 9 * 60
 export const SCHOOL_CLOSES: Minutes = 19 * 60
+/** The gate day (D24): drop-off opens 15 minutes before school and pickup runs 15 minutes after it, 8:45 AM to 7:15 PM. */
+export const GATE_OPENS: Minutes = SCHOOL_OPENS - 15
+export const GATE_CLOSES: Minutes = SCHOOL_CLOSES + 15
 
 const IST_OFFSET_MS = 330 * 60_000
 

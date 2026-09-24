@@ -77,3 +77,16 @@ describe('announcer', () => {
     expect(states.at(-1)).toEqual({ speaking: 'one', waiting: 1 })
   })
 })
+
+describe('acknowledging what is being said', () => {
+  it('stops the speech at once', async () => {
+    let stopped = 0
+    let finish: () => void = () => {}
+    const out = { chime: async () => {}, speak: () => new Promise<void>((r) => { finish = r }), stop: () => { stopped++; finish() } }
+    const a = createAnnouncer(out)
+    a.announce({ id: 'trip:1', text: 'Kabir is coming', chime: 'normal', priority: 1 })
+    await new Promise((r) => setTimeout(r, 0))
+    a.acknowledge('trip:1')
+    expect(stopped).toBe(1)
+  })
+})

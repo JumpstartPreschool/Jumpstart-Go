@@ -14,7 +14,8 @@ const jrKgHalfDay: Programme = {
   saturdayRule: 'every',
   term: { start: '2026-06-01', end: '2027-03-31' },
   hours: { from: t('09:00'), to: t('13:00') },
-  windows: { dropoff: { from: t('09:00'), to: t('09:30') }, pickup: { from: t('12:30'), to: t('13:00') } },
+  // D24: the 15 minutes before the class starts and the 15 minutes after it ends.
+  windows: { dropoff: { from: t('08:45'), to: t('09:00') }, pickup: { from: t('13:00'), to: t('13:15') } },
 }
 const learningCenter: Programme = {
   name: 'Learning Center',
@@ -22,7 +23,8 @@ const learningCenter: Programme = {
   saturdayRule: 'except_2nd_and_last',
   term: null,
   hours: { from: t('09:00'), to: t('19:00') },
-  windows: 'flexible',
+  // In at 8:45–9:00, collected any time until 7 PM (D24).
+  windows: { dropoff: { from: t('08:45'), to: t('09:00') }, pickup: { from: t('09:00'), to: t('19:00') } },
 }
 
 describe('time', () => {
@@ -43,12 +45,12 @@ describe('programmes', () => {
     expect(programmeErrors(jrKgHalfDay)).toEqual([])
     expect(programmeErrors(learningCenter)).toEqual([])
   })
-  it('rejects hours outside school hours and windows outside the programme', () => {
+  it('rejects hours outside school hours and windows outside the gate day', () => {
     expect(programmeErrors({ ...learningCenter, hours: { from: t('08:30'), to: t('19:00') } })).toContain(
       'Hours must be within school hours, 9:00 AM to 7:00 PM.',
     )
-    const badWindow = { ...jrKgHalfDay, windows: { dropoff: { from: t('09:00'), to: t('09:30') }, pickup: { from: t('12:30'), to: t('13:30') } } }
-    expect(programmeErrors(badWindow)).toEqual(['The pickup window must be within the programme hours.'])
+    const badWindow = { ...jrKgHalfDay, windows: { dropoff: { from: t('08:45'), to: t('09:00') }, pickup: { from: t('13:00'), to: t('19:30') } } }
+    expect(programmeErrors(badWindow)).toEqual(['The pickup window must be within 8:45 AM to 7:15 PM.'])
   })
   it('knows which days a programme runs', () => {
     expect(runsOn(jrKgHalfDay, '2026-09-24', noHolidays)).toBe(true) // Thursday
@@ -67,18 +69,21 @@ describe('programmes', () => {
 
 describe('checkTime', () => {
   it('allows a time inside the window with no flags', () => {
-    expect(checkTime(jrKgHalfDay, 'pickup', t('12:45'), t('10:00'))).toEqual({ ok: true, offSchedule: false, shortNotice: false })
+    expect(checkTime(jrKgHalfDay, 'pickup', t('13:05'), t('10:00'))).toEqual({ ok: true, offSchedule: false, shortNotice: false })
   })
   it('flags off-schedule and short notice, but still allows them', () => {
     expect(checkTime(jrKgHalfDay, 'pickup', t('11:00'), t('10:50'))).toEqual({ ok: true, offSchedule: true, shortNotice: true })
-    expect(checkTime(jrKgHalfDay, 'pickup', t('13:10'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
+    expect(checkTime(jrKgHalfDay, 'pickup', t('13:30'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
   })
-  it('treats the whole day as the window for flexible programmes', () => {
+  it('lets the Learning Center collect any time until 7 PM', () => {
     expect(checkTime(learningCenter, 'pickup', t('17:40'), null)).toEqual({ ok: true, offSchedule: false, shortNotice: false })
+    expect(checkTime(learningCenter, 'dropoff', t('10:30'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
   })
-  it('refuses times outside 9 AM–7 PM and in the past', () => {
-    expect(checkTime(learningCenter, 'pickup', t('19:15'), null)).toEqual({ ok: false, reason: 'outside_school_hours' })
-    expect(checkTime(learningCenter, 'dropoff', t('08:45'), null)).toEqual({ ok: false, reason: 'outside_school_hours' })
+  it('refuses times outside the gate day (8:45 AM–7:15 PM) and in the past', () => {
+    expect(checkTime(learningCenter, 'pickup', t('19:15'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
+    expect(checkTime(learningCenter, 'pickup', t('19:20'), null)).toEqual({ ok: false, reason: 'outside_school_hours' })
+    expect(checkTime(learningCenter, 'dropoff', t('08:45'), null)).toEqual({ ok: true, offSchedule: false, shortNotice: false })
+    expect(checkTime(learningCenter, 'dropoff', t('08:40'), null)).toEqual({ ok: false, reason: 'outside_school_hours' })
     expect(checkTime(jrKgHalfDay, 'pickup', t('12:30'), t('12:40'))).toEqual({ ok: false, reason: 'in_the_past' })
   })
 })

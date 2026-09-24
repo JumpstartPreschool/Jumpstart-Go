@@ -75,13 +75,13 @@ begin
 end $$;
 reset role;
 
--- School hours and school days.
+-- The gate day (08:45–19:15, D24) and school days.
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
 set role authenticated;
 set app.now = '2026-09-24 18:50:00+05:30';
 do $$ begin
-  perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'pickup', 20);
-  raise exception 'FAIL: pickup after 7 PM';
+  perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'pickup', 30);
+  raise exception 'FAIL: pickup after 7:15 PM';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
   assert sqlerrm like 'outside_hours%', sqlerrm;
@@ -89,7 +89,7 @@ end $$;
 set app.now = '2026-09-24 08:30:00+05:30';
 do $$ begin
   perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'dropoff', 10);
-  raise exception 'FAIL: drop-off before 9 AM';
+  raise exception 'FAIL: drop-off before 8:45 AM';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
   assert sqlerrm like 'outside_hours%', sqlerrm;

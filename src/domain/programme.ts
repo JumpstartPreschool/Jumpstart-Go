@@ -1,4 +1,4 @@
-import { SCHOOL_CLOSES, SCHOOL_OPENS, weekdayOf, type Minutes } from './time'
+import { GATE_CLOSES, GATE_OPENS, SCHOOL_CLOSES, SCHOOL_OPENS, weekdayOf, type Minutes } from './time'
 
 export type Direction = 'dropoff' | 'pickup'
 export type SaturdayRule = 'every' | 'except_2nd_and_last'
@@ -38,7 +38,8 @@ export function programmeErrors(p: Programme): string[] {
   if (p.windows !== 'flexible') {
     for (const [label, w] of [['drop-off', p.windows.dropoff], ['pickup', p.windows.pickup]] as const) {
       if (w.from > w.to) errors.push(`The ${label} window must end after it starts.`)
-      else if (!inside(w.from, p.hours) || !inside(w.to, p.hours)) errors.push(`The ${label} window must be within the programme hours.`)
+      // Windows sit around the class (D24): drop-off before it starts, pickup after it ends, inside the gate day.
+      else if (w.from < GATE_OPENS || w.to > GATE_CLOSES) errors.push(`The ${label} window must be within 8:45 AM to 7:15 PM.`)
     }
   }
   return errors
@@ -74,7 +75,7 @@ export type TimeCheck =
  * Off-schedule and short-notice times are allowed but flagged; the server asks for a reason when off-schedule.
  */
 export function checkTime(p: Programme, direction: Direction, requested: Minutes, now: Minutes | null): TimeCheck {
-  if (requested < SCHOOL_OPENS || requested > SCHOOL_CLOSES) return { ok: false, reason: 'outside_school_hours' }
+  if (requested < GATE_OPENS || requested > GATE_CLOSES) return { ok: false, reason: 'outside_school_hours' }
   if (now !== null && requested < now) return { ok: false, reason: 'in_the_past' }
   return {
     ok: true,

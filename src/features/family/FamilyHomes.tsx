@@ -6,7 +6,7 @@ import { childColor } from '../../ui/childColor'
 import { formatTime, indiaClock, toMinutes } from '../../domain/time'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
-import { useSession, type Area } from '../auth/session'
+import type { Area } from '../auth/session'
 
 interface ChildToday {
   id: string
@@ -109,11 +109,7 @@ function ChildrenToday({ area, title, empty, guardianId }: { area: Area; title: 
   )
 }
 
-export function ParentHome() {
-  const { state } = useSession()
-  const me = state.status === 'signed-in' ? state.me : null
-  return <ChildrenToday area="parent" title="Today" guardianId={me?.profile_id ?? null} empty="No children are linked to your account yet. Please contact the school." />
-}
+export { ParentToday as ParentHome } from './ParentToday'
 
 export function CoreHome() {
   return <ChildrenToday area="core" title="Today" guardianId={null} empty="The admin adds children from People." />

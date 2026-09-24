@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
-import { CircleCheck, MapPin, Play, Power, RotateCcw, TriangleAlert, Volume2, Wifi } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { AudioLines, CircleCheck, MapPin, Play, Power, RotateCcw, TriangleAlert, Volume2, Wifi } from 'lucide-react'
+import { useVoiceName, VoicePicker } from './VoicePicker'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
@@ -40,11 +41,15 @@ function Shell({ children }: { children: ReactNode }) {
 
 export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const installed = isInstalled()
+  const [voicesOpen, setVoicesOpen] = useState(false)
+  const voiceName = useVoiceName()
+  const picker = <VoicePicker open={voicesOpen} onClose={() => setVoicesOpen(false)} />
 
   if (duty.phase === 'check') {
     const struggling = duty.testsPlayed >= 2 && !duty.testing
     return (
       <Shell>
+        {picker}
         <div className="card page-in mx-auto w-full max-w-[580px] rounded-2xl p-7 text-center sm:p-10">
           <div className="relative mx-auto grid size-24 place-items-center">
             {duty.testing && <span className="absolute inset-0 animate-ping rounded-full bg-accent-soft" aria-hidden />}
@@ -70,6 +75,9 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
             <Button size="lg" variant="secondary" icon={<RotateCcw />} loading={duty.testing} onClick={() => void duty.playTest()}>
               Play again
             </Button>
+            <Button size="md" variant="quiet" icon={<AudioLines />} disabled={duty.testing} onClick={() => setVoicesOpen(true)}>
+              Try a different voice
+            </Button>
             <Button size="md" variant="quiet" onClick={duty.back}>
               Back
             </Button>
@@ -83,6 +91,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
 
   return (
     <Shell>
+      {picker}
       <div className="page-in grid items-center gap-8 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
         <section className="text-center lg:text-left">
           <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
@@ -123,6 +132,10 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
             {duty.soundSupported ? (
               <CheckRow tone="info" icon={<Volume2 />} title="Sound check">
                 A short test plays when you start. Turn the volume up.
+                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-small font-semibold">
+                  Voice: <span className="font-bold text-ink">{voiceName ?? 'the device voice'}</span>
+                  <button type="button" className="linkbtn -my-2" onClick={() => setVoicesOpen(true)}>Change voice</button>
+                </span>
               </CheckRow>
             ) : (
               <CheckRow tone="error" icon={<TriangleAlert />} title="This browser can't play announcements">

@@ -16,6 +16,14 @@ export interface Me {
   children: number
 }
 
+const CHOOSE_KEY = 'jumpstart.chooseArea'
+/** Set right after a sign-in, so someone with several areas is asked once where to start (Screen Book sign-in). */
+export const chooseArea = {
+  ask() { try { sessionStorage.setItem(CHOOSE_KEY, '1') } catch { /* storage blocked: go straight to the first area */ } },
+  pending() { try { return sessionStorage.getItem(CHOOSE_KEY) === '1' } catch { return false } },
+  done() { try { sessionStorage.removeItem(CHOOSE_KEY) } catch { /* nothing to clear */ } },
+}
+
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
 export const CONSENT_VERSION = '2026-09-24'
 

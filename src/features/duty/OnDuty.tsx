@@ -7,12 +7,15 @@ import { Sheet } from '../../ui/Sheet'
 import { useNow } from '../../ui/hooks'
 import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
+import { VoicePicker } from './VoicePicker'
+import { GateQueue } from './GateQueue'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
 
 export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const now = useNow(1000)
   const [ending, setEnding] = useState(false)
+  const [voicesOpen, setVoicesOpen] = useState(false)
   const { speaking, waiting, mutedUntil } = duty.ann
 
   return (
@@ -100,17 +103,19 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
       </header>
 
       <main className="gutter pt-6">
-        <section className="card rounded-2xl p-6 sm:p-8">
-          <h2 className="text-h2">Gate queue</h2>
-          {import.meta.env.DEV && (
-            <p className="mt-1 text-body text-ink-2">Development build: the live queue connects to the school server in milestone M3.</p>
-          )}
-          <Button className="mt-5" size="lg" variant="secondary" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
+        <GateQueue announcer={duty.announcer} />
+        <section className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-line pt-5" aria-label="Sound">
+          <Button size="md" variant="secondary" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
             Test the speaker
           </Button>
+          <Button size="md" variant="quiet" icon={<AudioLines />} disabled={!!speaking || duty.testing} onClick={() => setVoicesOpen(true)}>
+            Change voice
+          </Button>
+          <p className="text-caption font-semibold text-ink-3">Sound plays through the iPad's speaker, or a Bluetooth speaker when one is connected.</p>
         </section>
       </main>
 
+      <VoicePicker open={voicesOpen} onClose={() => setVoicesOpen(false)} />
       <Sheet open={ending} onClose={() => setEnding(false)} title="End your duty?" description="Announcements will stop on this iPad. Coordinators still on duty will keep hearing them.">
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Button variant="secondary" autoFocus onClick={() => setEnding(false)}>

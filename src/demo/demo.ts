@@ -8,15 +8,22 @@
  * The clock is pinned to a school day at 12:10 PM, so every flow can be tried at any hour.
  */
 import type { Area } from '../features/auth/session'
+import { indiaClock } from '../domain/time'
 import PROGRAMMES from './programmes.json'
 
 export const DEMO_AVAILABLE = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true'
 export const DEMO_EMAIL = 'ai@jumpstartpreschool.in'
-/** The dummy one-time code. Any other code is refused, so the error state can be tried too. */
+/** The dummy one-time code, filled in for you on the demo sign-in. Any other code is refused, so the error can be tried too. */
 export const DEMO_CODE = '246810'
+/** One sample account per area, offered as chips on the sign-in screen (the Screen Book's demo accounts). */
+export const DEMO_ACCOUNTS: Array<{ area: Area; email: string }> = [
+  { area: 'parent', email: 'neha@example.com' },
+  { area: 'coordinator', email: 'sunita@example.com' },
+  { area: 'core', email: 'meera@example.com' },
+  { area: 'admin', email: DEMO_EMAIL },
+]
 
 const FLAG = 'jumpstart-demo'
-const LANDING = 'jumpstart-demo-area'
 export const DEMO_DB_KEY = 'jumpstart-demo-db'
 const CLOCK = 'jumpstart-demo-clock'
 /** The demo's "now": Thursday 24 September 2026, 12:10 PM India time, running on from when the demo began. */
@@ -54,9 +61,8 @@ export function isDemo(): boolean {
   return DEMO_AVAILABLE && store()?.getItem(FLAG) === '1'
 }
 
-export function enterDemo(area: Area) {
+export function enterDemo() {
   store()?.setItem(FLAG, '1')
-  store()?.setItem(LANDING, area)
 }
 
 export function leaveDemo() {
@@ -67,19 +73,10 @@ export function leaveDemo() {
   }
 }
 
-/** The area picked on the demo login, so the person lands there once instead of their first area. */
-export function demoLanding(): Area | null {
-  return isDemo() ? (store()?.getItem(LANDING) as Area | null) : null
-}
-
-export function clearDemoLanding() {
-  if (DEMO_AVAILABLE) store()?.removeItem(LANDING)
-}
-
 // ---- Sample data ------------------------------------------------------------------------------------
 
 type Row = Record<string, unknown>
-type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes', Row[]>
+type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance', Row[]>
 
 const programmeId = (name: string) => PROGRAMMES.find((p) => p.name === name)!.id
 const OWNER = 'demo-owner'
@@ -132,6 +129,17 @@ function seed(): Db {
     ],
     // Kabir has regular times set by the core team; the others still show their programme's windows.
     child_schedules: [1, 2, 3, 4, 5, 6].map((weekday) => ({ child_id: 'demo-kabir', weekday, dropoff: '09:15:00', pickup: '16:15:00' })),
+    // The demo day so far: Anaya was checked in this morning, and Isha's father is on his way to collect her.
+    trips: [
+      demoTrip({ id: 'demo-trip-anaya-in', child_id: 'demo-anaya', direction: 'dropoff', status: 'checked_in', arrive_at: demoAt('09:05'), created_by: OWNER,
+        traveller_name: 'Ankit Singh', traveller_relation: 'Parent', created_at: demoAt('08:48'), acknowledged_by: 'demo-sunita', acknowledged_at: demoAt('08:50'),
+        closed_by: 'demo-sunita', closed_at: demoAt('09:04') }),
+      demoTrip({ id: 'demo-trip-isha-out', child_id: 'demo-isha', direction: 'pickup', arrive_at: demoAt('12:40'), created_by: 'demo-rohan',
+        traveller_name: 'Rohan Patil', traveller_relation: 'Father', created_at: demoAt('12:04') }),
+    ],
+    attendance: [
+      { child_id: 'demo-anaya', day: DEMO_DAY, status: 'present', checked_in_at: demoAt('09:04'), checked_out_at: null },
+    ],
   }
 }
 
@@ -197,6 +205,103 @@ function whoami(db: Db, email: string | null) {
   }
 }
 
+// ---- Trips, following the same rules as migration 0006 (start_trip, cancel_trip, gate_step) ----------------
+
+const DEMO_DAY = '2026-09-24'
+/** A time on the demo day, India time, as an ISO instant. */
+function demoAt(hhmm: string): string {
+  return new Date(`${DEMO_DAY}T${hhmm}:00+05:30`).toISOString()
+}
+function demoTrip(t: Row): Row {
+  return {
+    day: DEMO_DAY, status: 'en_route', off_schedule: false, reason: null, traveller_relation: null, updated_at: t.created_at,
+    acknowledged_by: null, acknowledged_at: null, ready_by: null, ready_at: null, closed_by: null, closed_at: null, handed_to: null, ...t,
+  }
+}
+const demoNow = () => Date.now() + demoClockOffset()
+const hhmmMinutes = (t: unknown) => { const [h, m] = String(t).split(':').map(Number); return h! * 60 + m! }
+const fail = (message: string, code = 'P0001') => pgError(code === '42501' ? 403 : 400, code, message)
+
+function startTrip(db: Db, me: Row | undefined, args: Row): Response {
+  const child = db.children.find((c) => c.id === args.p_child)
+  const isGuardian = !!me && db.guardianships.some((g) => g.child_id === args.p_child && g.guardian_id === me.id)
+  const isPlanner = !!me && db.staff_roles.some((r) => r.profile_id === me.id && (r.role === 'admin' || r.role === 'core'))
+  if (!me || !(isGuardian || isPlanner)) return fail("Only this child's parents or the school can do this.", '42501')
+  const minutes = Number(args.p_minutes)
+  if (!Number.isFinite(minutes) || minutes < 0 || minutes > 180) return fail('Choose when you will reach the school.')
+  if (!child?.active) return fail('This child is not registered with the school.')
+  const p = db.programmes.find((x) => x.id === child.programme_id)!
+  const now = new Date(Math.floor(demoNow() / 60_000) * 60_000)
+  const today = indiaClock(now)
+  if (!(p.weekdays as number[]).includes(today.weekday)) return fail('no_school: There is no school for this child today.')
+  const arrive = new Date(now.getTime() + minutes * 60_000)
+  const local = indiaClock(arrive)
+  if (local.date !== today.date || local.minutes < 8 * 60 + 45 || local.minutes > 19 * 60 + 15) return fail('outside_hours: The gate is open from 8:45 AM to 7:15 PM. Choose a time inside those hours.')
+  if (db.attendance.some((a) => a.child_id === child.id && a.day === today.date && a.status !== 'present')) return fail('not_coming: This child is marked as not coming today. Call the school to change that.')
+  if (db.trips.some((x) => x.child_id === child.id && x.direction === args.p_direction && x.day === today.date && (x.status === 'handed_over' || x.status === 'checked_in'))) {
+    return fail(`already_done: ${args.p_direction === 'pickup' ? 'This child has already been collected today.' : 'This child has already been checked in today.'}`)
+  }
+  const [from, to] = p.flexible ? [p.starts, p.ends] : args.p_direction === 'pickup' ? [p.pickup_from, p.pickup_to] : [p.dropoff_from, p.dropoff_to]
+  const flagged = local.minutes < hhmmMinutes(from) || local.minutes > hhmmMinutes(to)
+  const why = typeof args.p_reason === 'string' && args.p_reason.trim() ? args.p_reason.trim() : null
+  if (flagged && !why) return fail("reason_required: This time is outside the child's window. Tell the school why.")
+  const relation = db.guardianships.find((g) => g.child_id === child.id && g.guardian_id === me.id)?.relation ?? null
+  const fields = {
+    arrive_at: arrive.toISOString(), off_schedule: flagged, reason: flagged ? why : null, created_by: me.id,
+    traveller_name: me.full_name, traveller_relation: relation, updated_at: new Date(demoNow()).toISOString(), acknowledged_by: null, acknowledged_at: null,
+  }
+  const open = db.trips.find((x) => x.child_id === child.id && x.direction === args.p_direction && x.day === today.date && x.status === 'en_route')
+  if (open) return json(Object.assign(open, fields))
+  const trip = demoTrip({ id: crypto.randomUUID(), child_id: child.id, direction: args.p_direction, day: today.date, created_at: fields.updated_at, ...fields })
+  db.trips.push(trip)
+  return json(trip)
+}
+
+function cancelTrip(db: Db, me: Row | undefined, args: Row): Response {
+  const t = db.trips.find((x) => x.id === args.p_trip)
+  const allowed = !!me && !!t && (db.guardianships.some((g) => g.child_id === t.child_id && g.guardian_id === me.id)
+    || db.staff_roles.some((r) => r.profile_id === me.id && (r.role === 'admin' || r.role === 'core')))
+  if (!t || !allowed) return fail("Only this child's parents or the school can do this.", '42501')
+  if (t.status !== 'en_route') return fail('This trip is already finished.')
+  const at = new Date(demoNow()).toISOString()
+  return json(Object.assign(t, { status: 'cancelled', closed_by: me!.id, closed_at: at, updated_at: at }))
+}
+
+function gateStep(db: Db, me: Row | undefined, args: Row): Response {
+  if (!me || !db.staff_roles.some((r) => r.profile_id === me.id && (r.role === 'admin' || r.role === 'coordinator'))) return fail('Only coordinators can do this at the gate.', '42501')
+  const t = db.trips.find((x) => x.id === args.p_trip)
+  if (!t) return fail('This trip no longer exists.')
+  if (t.status !== 'en_route') return fail('This trip is already finished.')
+  const at = new Date(demoNow()).toISOString()
+  const seen = { acknowledged_by: t.acknowledged_by ?? me.id, acknowledged_at: t.acknowledged_at ?? at, updated_at: at }
+  const mark = (child_id: unknown, patch: Row) => {
+    const row = db.attendance.find((a) => a.child_id === child_id && a.day === t.day)
+    if (row) Object.assign(row, { status: 'present', ...patch })
+    else db.attendance.push({ child_id, day: t.day, status: 'present', checked_in_at: null, checked_out_at: null, ...patch })
+  }
+  switch (args.p_step) {
+    case 'acknowledge':
+      return json(Object.assign(t, seen))
+    case 'ready':
+      if (t.direction !== 'pickup') return fail('Only a pickup can be marked ready.')
+      return json(Object.assign(t, seen, { ready_by: t.ready_by ?? me.id, ready_at: t.ready_at ?? at }))
+    case 'close':
+      if (t.direction === 'pickup') {
+        const ok = db.guardianships.some((g) => g.child_id === t.child_id && g.guardian_id === args.p_handed_to && db.profiles.find((p) => p.id === g.guardian_id)?.active)
+        if (!ok) return fail("Choose one of the child's registered guardians.")
+        Object.assign(t, seen, { status: 'handed_over', handed_to: args.p_handed_to, closed_by: me.id, closed_at: at })
+        mark(t.child_id, { checked_out_at: at })
+      } else {
+        Object.assign(t, seen, { status: 'checked_in', closed_by: me.id, closed_at: at })
+        const row = db.attendance.find((a) => a.child_id === t.child_id && a.day === t.day)
+        mark(t.child_id, { checked_in_at: row?.checked_in_at ?? at })
+      }
+      return json(t)
+    default:
+      return fail('Unknown step.')
+  }
+}
+
 function rpc(db: Db, fn: string, args: Row, email: string | null): Response {
   const me = db.profiles.find((p) => p.email === email)
   switch (fn) {
@@ -233,6 +338,12 @@ function rpc(db: Db, fn: string, args: Row, email: string | null): Response {
       ]
       return json(null)
     }
+    case 'start_trip':
+      return startTrip(db, me, args)
+    case 'cancel_trip':
+      return cancelTrip(db, me, args)
+    case 'gate_step':
+      return gateStep(db, me, args)
     default:
       return pgError(404, 'PGRST202', `Demo mode has no function ${fn}`)
   }
@@ -318,5 +429,9 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     response = json({ message: 'Not available in demo mode' }, 404)
   }
   save(db)
+  // Like Realtime: screens in this tab hear about a change (other tabs get the storage event).
+  const fn = path.startsWith('/rest/v1/rpc/') ? path.slice('/rest/v1/rpc/'.length) : null
+  const wrote = fn ? !['login_allowed', 'whoami'].includes(fn) && response.ok : path.startsWith('/rest/v1/') && method !== 'GET' && response.ok
+  if (wrote) setTimeout(() => window.dispatchEvent(new Event(DEMO_CHANGE_EVENT)), 0)
   return response
 }
