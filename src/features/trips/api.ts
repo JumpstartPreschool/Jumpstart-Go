@@ -27,6 +27,12 @@ export interface Trip {
   ready_at: string | null
   closed_at: string | null
   handed_to: string | null
+  // 0008: someone else collecting, and location sharing (absent before that migration is applied)
+  traveller_kind?: 'guardian' | 'third_person'
+  traveller_phone?: string | null
+  sharing?: boolean
+  handed_to_name?: string | null
+  home_at?: string | null
 }
 
 export type GateStep = 'acknowledge' | 'ready' | 'close'
