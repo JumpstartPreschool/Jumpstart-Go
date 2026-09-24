@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, TriangleAlert, Users } from 'lucide-react'
+import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, TriangleAlert, Users } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { EmptyState, ErrorState } from '../../ui/States'
 import { childColor } from '../../ui/childColor'
 import { useNow } from '../../ui/hooks'
-import { formatTime, indiaClock, toMinutes } from '../../domain/time'
+import { formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
 import { runsOn, windowFor, type Direction, type Programme } from '../../domain/programme'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
@@ -18,18 +18,23 @@ import { CancelSheet, LateSheet, OnMyWaySheet } from '../trips/TripSheets'
 import { ResendSheet, SomeoneElseSheet } from '../trips/CollectorSheets'
 import { ShareMyLocation, TravellerPosition } from '../trips/TripLocation'
 import { collectorCode } from '../trips/tracking'
+import { gateLoad, undoAbsence, useToday, type Attendance, type DayTime } from '../school/api'
+import { AWAY_LABEL } from '../school/dayModel'
+import { TimeSheet } from '../school/TimeSheet'
+import { AbsenceSheet } from './ParentPages'
+import { useToast } from '../../ui/Toast'
+import { explainDbError } from '../admin/api'
 
 interface ChildRow {
   id: string
   full_name: string
   preferred_name: string | null
   programmes: ProgrammeRow | null
-  classes: { name: string } | null
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>
 }
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
-const FIELDS = 'id, full_name, preferred_name, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), classes(name), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
+const FIELDS = 'id, full_name, preferred_name, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
 
 /** The signed-in parent's own children (row-level security allows no more; a staff member who is also a parent sees only theirs). */
 function useMyChildren(guardianId: string | null) {
@@ -121,9 +126,10 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
   )
 }
 
-type Sheet = { kind: 'otw' | 'late' | 'cancel' | 'else' | 'resend'; direction: Direction } | null
+type Sheet = { kind: 'otw' | 'late' | 'cancel' | 'else' | 'resend' | 'time' | 'absence'; direction: Direction } | null
 
-function ChildCard({ child, trips, nowMs, meId }: { child: ChildRow; trips: Trip[]; nowMs: number; meId: string | null }) {
+function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: { child: ChildRow; trips: Trip[]; nowMs: number; meId: string | null; attendance: Attendance | null; times: DayTime[]; onChanged: () => void }) {
+  const toast = useToast()
   const [sheet, setSheet] = useState<Sheet>(null)
   const first = child.preferred_name ?? child.full_name.split(' ')[0]!
   const row = child.programmes
@@ -136,7 +142,10 @@ function ChildCard({ child, trips, nowMs, meId }: { child: ChildRow; trips: Trip
   const regular = child.child_schedules.find((s) => s.weekday === today.weekday)
   const school = programme ? runsOn(programme, today.date, new Set()) : false
 
+  const changedTime = (d: Direction) => times.find((t) => t.direction === d) ?? null
   const usual = (d: Direction) => {
+    const c = changedTime(d)
+    if (c) return { value: formatTime(toMinutes(c.at.slice(0, 5))), detail: c.reason ? `Changed for today: ${c.reason.toLowerCase()}` : 'Changed for today', today: true }
     if (regular) return { value: formatTime(toMinutes((d === 'pickup' ? regular.pickup : regular.dropoff).slice(0, 5))), detail: 'Regular time' }
     if (!programme) return { value: 'Not set', detail: 'No programme yet' }
     const w = windowFor(programme, d)
@@ -145,7 +154,12 @@ function ChildCard({ child, trips, nowMs, meId }: { child: ChildRow; trips: Trip
   }
   // Drop-off first; after it (or once its time has clearly passed) the pickup.
   const dropoffOver = programme ? today.minutes > (programme.windows === 'flexible' ? programme.hours.from + 180 : windowFor(programme, 'dropoff').to + 30) : true
-  const next: Direction | null = !school || pickDone ? null : !dropDone && !dropoffOver ? 'dropoff' : 'pickup'
+  const away = attendance && attendance.status !== 'present' ? attendance : null
+  const next: Direction | null = !school || pickDone || away ? null : !dropDone && !dropoffOver ? 'dropoff' : 'pickup'
+  const expectedAt = (d: Direction): Minutes | null => { const c = changedTime(d); return c ? toMinutes(c.at.slice(0, 5)) : regular ? toMinutes((d === 'pickup' ? regular.pickup : regular.dropoff).slice(0, 5)) : null }
+  async function undo() {
+    try { await undoAbsence(child.id, today.date); toast(`${first} is expected today again.`); onChanged() } catch (e) { toast(explainDbError(e as { code?: string; message?: string })) }
+  }
 
   const status = open ? null : pickDone ? <Pill icon={<House />}>Home time</Pill> : dropDone ? <Pill tone="live" icon={<School />}>At school</Pill> : null
   const drop = usual('dropoff')
@@ -157,16 +171,16 @@ function ChildCard({ child, trips, nowMs, meId }: { child: ChildRow; trips: Trip
         <Avatar name={first} color={childColor(child.id)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-h2">{first}</h2>
-          <p className="truncate text-small font-semibold text-ink-2">{[row?.name, child.classes?.name].filter(Boolean).join(' · ') || 'No programme yet'}</p>
+          <p className="truncate text-small font-semibold text-ink-2">{row?.name ?? 'No programme yet'}</p>
         </div>
         {status}
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         {dropDone ? <Tile done icon={<Sunrise />} label="Drop-off" value={clockTime(dropDone.closed_at!)} detail="Checked in" />
-          : <Tile icon={<Sunrise />} label="Drop-off" value={drop.value} detail={drop.detail} />}
+          : <Tile icon={<Sunrise />} label={'today' in drop ? 'Drop-off, today' : 'Drop-off'} value={drop.value} detail={drop.detail} />}
         {pickDone ? <Tile done icon={<House />} label="Pickup" value={clockTime(pickDone.closed_at!)} detail={pickDone.traveller_kind === 'third_person' ? `By ${pickDone.traveller_name.split(' ')[0]}` : 'Collected'} />
-          : <Tile icon={<House />} label="Pickup" value={pick.value} detail={pick.detail} />}
+          : <Tile icon={<House />} label={'today' in pick ? 'Pickup, today' : 'Pickup'} value={pick.value} detail={pick.detail} />}
       </div>
 
       {/* The way home with the person who collected (TRK-7): until they say they're home, at most an hour. */}
@@ -183,11 +197,21 @@ function ChildCard({ child, trips, nowMs, meId }: { child: ChildRow; trips: Trip
         <div className="mt-4">
           <Button size="xl" className="w-full" icon={<Navigation />} onClick={() => setSheet({ kind: 'otw', direction: next })}>I'm on my way</Button>
           <p className="mt-2 text-center text-caption font-semibold text-ink-3">For {first}'s {WORD[next]}, {next === 'pickup' ? pick.detail.toLowerCase() : drop.detail.toLowerCase()}</p>
-          {next === 'pickup' && <Button size="md" variant="secondary" className="mt-3 w-full" icon={<Users />} onClick={() => setSheet({ kind: 'else', direction: 'pickup' })}>Someone else is collecting</Button>}
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
+            <Button size="md" variant="secondary" icon={<Clock />} className={next === 'pickup' ? '' : 'col-span-2'} onClick={() => setSheet({ kind: 'time', direction: next })}>Change time</Button>
+            {next === 'pickup' && <Button size="md" variant="secondary" icon={<Users />} onClick={() => setSheet({ kind: 'else', direction: 'pickup' })}>Someone else</Button>}
+          </div>
+        </div>
+      ) : away ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-4 py-3">
+          <CalendarX className="size-5 shrink-0 text-ink-2" aria-hidden />
+          <p className="min-w-0 flex-1 text-small font-bold">{AWAY_LABEL[away.status] ?? 'Away'} today{away.note ? `: ${away.note.toLowerCase()}` : ''}</p>
+          {away.status === 'absent' && <Button size="md" variant="secondary" onClick={() => void undo()}>Undo</Button>}
         </div>
       ) : (
         <p className="mt-4 text-body text-ink-2">{!school ? `No school for ${first} today.` : 'All done for today.'}</p>
       )}
+      {school && !away && !pickDone && <button type="button" className="linkbtn mt-3 text-small" onClick={() => setSheet({ kind: 'absence', direction: 'dropoff' })}>{first} won't come today</button>}
 
       {programme && sheet?.kind === 'otw' && (
         <OnMyWaySheet open onClose={() => setSheet(null)} childId={child.id} first={first} direction={sheet.direction} programme={programme} trip={open} nowMs={nowMs} />
@@ -196,8 +220,24 @@ function ChildCard({ child, trips, nowMs, meId }: { child: ChildRow; trips: Trip
       {open && sheet?.kind === 'cancel' && <CancelSheet open onClose={() => setSheet(null)} trip={open} first={first} />}
       {programme && sheet?.kind === 'else' && <SomeoneElseSheet open onClose={() => setSheet(null)} childId={child.id} first={first} programme={programme} nowMs={nowMs} />}
       {open && sheet?.kind === 'resend' && <ResendSheet open onClose={() => setSheet(null)} trip={open} first={first} nowMs={nowMs} />}
+      {programme && sheet?.kind === 'time' && <ParentTimeSheet childId={child.id} first={first} direction={sheet.direction} programme={programme} nowMs={nowMs}
+        current={changedTime(sheet.direction) ? expectedAt(sheet.direction) : null} usual={regular ? toMinutes((sheet.direction === 'pickup' ? regular.pickup : regular.dropoff).slice(0, 5)) : null}
+        onClose={() => setSheet(null)} onSaved={onChanged} />}
+      {sheet?.kind === 'absence' && <AbsenceSheet kids={[child]} initialChild={child.id} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); onChanged() }} />}
     </li>
   )
+}
+
+/** Change time for a parent, with how busy each slot is from the gate's load (counts only, D15). */
+function ParentTimeSheet({ childId, first, direction, programme, nowMs, current, usual, onClose, onSaved }: {
+  childId: string; first: string; direction: Direction; programme: Programme; nowMs: number; current: Minutes | null; usual: Minutes | null; onClose: () => void; onSaved: () => void
+}) {
+  const [load, setLoad] = useState<Array<{ at: Minutes; n: number }>>([])
+  useEffect(() => { void gateLoad(direction).then((rows) => setLoad(rows.map((r) => ({ at: toMinutes(r.at.slice(0, 5)), n: r.children }))), () => setLoad([])) }, [direction])
+  // Others near a time: everyone due within 8 minutes, less this child if they're one of them.
+  const mineAt = current ?? usual
+  const busy = (at: Minutes) => load.filter((l) => Math.abs(l.at - at) < 8).reduce((a, l) => a + l.n, 0) - (mineAt !== null && Math.abs(mineAt - at) < 8 ? 1 : 0)
+  return <TimeSheet open onClose={onClose} childId={childId} first={first} direction={direction} programme={programme} current={current} usual={usual} nowMs={nowMs} busy={(at) => Math.max(0, busy(at))} onSaved={onSaved} />
 }
 
 const greeting = (minutes: number) => (minutes < 12 * 60 ? 'Good morning' : minutes < 17 * 60 ? 'Good afternoon' : 'Good evening')
@@ -208,6 +248,7 @@ export function ParentToday() {
   const me = state.status === 'signed-in' ? state.me : null
   const children = useMyChildren(me?.profile_id ?? null)
   const trips = useTodayTrips()
+  const { attendance, times } = useToday()
   const nowMs = useNow(15_000)
   const clock = indiaClock(new Date(nowMs))
   const date = new Date(nowMs).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })
@@ -224,7 +265,9 @@ export function ParentToday() {
           <EmptyState title="No children yet">No children are linked to your account yet. Please contact the school.</EmptyState>
         ) : (
           <ul className="grid gap-4 md:grid-cols-2">
-            {children.rows.map((c) => <ChildCard key={c.id} child={c} trips={trips.trips!} nowMs={nowMs} meId={me?.profile_id ?? null} />)}
+            {children.rows.map((c) => <ChildCard key={c.id} child={c} trips={trips.trips!} nowMs={nowMs} meId={me?.profile_id ?? null}
+              attendance={attendance.rows?.find((a) => a.child_id === c.id) ?? null} times={times.rows?.filter((t) => t.child_id === c.id) ?? []}
+              onChanged={() => { void trips.reload(); void attendance.reload(); void times.reload() }} />)}
           </ul>
         )}
       </section>

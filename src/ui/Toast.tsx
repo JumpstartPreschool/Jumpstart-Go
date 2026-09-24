@@ -30,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[max(16px,env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
+      <div className="toast-region pointer-events-none fixed inset-x-0 bottom-[max(16px,env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
         {items.map((t) => (
           <div key={t.id} data-leaving={t.leaving || undefined} role={t.tone === 'danger' ? 'alert' : 'status'}
             className="toast glass pointer-events-auto flex w-full max-w-[460px] items-center gap-3 rounded-lg py-2 pl-4 pr-2 [&>svg]:size-5 [&>svg]:shrink-0">

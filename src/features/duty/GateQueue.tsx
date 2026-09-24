@@ -296,7 +296,7 @@ function TripDetail({ trip, child, busy, pos, locked, onStep }: { trip: Trip; ch
         <div className="min-w-0">
           <p className="kicker">{pickup ? 'Pickup' : 'Drop-off'} · {clockTime(trip.arrive_at)}</p>
           <h3 className="truncate text-h2">{child.fullName}</h3>
-          <p className="truncate text-small font-semibold text-ink-2">{[child.programmeName, child.className].filter(Boolean).join(' · ')}</p>
+          <p className="truncate text-small font-semibold text-ink-2">{child.programmeName || child.className}</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2.5">

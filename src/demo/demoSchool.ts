@@ -187,6 +187,27 @@ export function schoolRpc(db: SchoolDb, fn: string, a: Row, me: Row | undefined,
       db.calls.push({ id, child_id: a.p_child, guardian_id: a.p_guardian, what: a.p_what, summary, logged_by: me!.id, created_at: iso() })
       return h.json(id)
     }
+    case 'gate_load': {
+      // Counts only, like the database: expected time per child today, never who.
+      const d = today(), wd = indiaClock(new Date(demoNow())).weekday, counts = new Map<string, number>()
+      for (const c of db.children.filter((x) => x.active)) {
+        const p = db.programmes.find((x) => x.id === c.programme_id)
+        if (!p || !(p.weekdays as number[]).includes(wd)) continue
+        if (db.attendance.some((x) => x.child_id === c.id && x.day === d && x.status !== 'present')) continue
+        if (db.trips.some((x) => x.child_id === c.id && x.day === d && x.direction === a.p_direction && (x.status === 'handed_over' || x.status === 'checked_in'))) continue
+        const open = db.trips.find((x) => x.child_id === c.id && x.day === d && x.direction === a.p_direction && x.status === 'en_route')
+        const dt = db.day_times.find((x) => x.child_id === c.id && x.day === d && x.direction === a.p_direction)
+        const reg = db.child_schedules.find((x) => x.child_id === c.id && x.weekday === wd)
+        const at = open ? t(indiaClock(new Date(String(open.arrive_at))).minutes) : dt ? String(dt.at) : reg ? String(a.p_direction === 'pickup' ? reg.pickup : reg.dropoff) : null
+        if (at) counts.set(at, (counts.get(at) ?? 0) + 1)
+      }
+      return h.json([...counts].map(([at, children]) => ({ at, children })))
+    }
+    case 'my_family':
+      return h.json(me ? db.guardianships.filter((g) => g.guardian_id !== me.id && isGuardian(db, me, g.child_id) && db.children.find((c) => c.id === g.child_id)?.active).map((g) => {
+        const p = db.profiles.find((x) => x.id === g.guardian_id)!
+        return { child_id: g.child_id, full_name: p.full_name, relation: g.relation, kind: g.kind ?? 'parent', abroad: !!p.abroad, has_app: p.app_access !== false && !!p.user_id }
+      }) : [])
     case 'set_my_notifications':
       if (me) Object.assign(me, { notify_morning: !!a.p_morning, notify_family: !!a.p_family })
       return h.json(null)

@@ -34,7 +34,7 @@ async function signIn(p, chip, area) {
   await parent.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith('jumpstart-')) localStorage.removeItem(k) })
   await signIn(parent, 'Admin', 'Parent')
   const card = parent.locator('li', { has: parent.getByRole('heading', { name: 'Anaya' }) })
-  await card.getByRole('button', { name: 'Someone else is collecting' }).click()
+  await card.getByRole('button', { name: 'Someone else', exact: true }).click()
   const sheet = parent.locator('dialog[open]')
   await sheet.waitFor()
   ok('else sheet: arrival times around the window, one chosen', (await sheet.getByRole('radio', { checked: true }).count()) >= 1 && (await sheet.getByText('In window').count()) >= 1)

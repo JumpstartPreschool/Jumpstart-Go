@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Check, Copy, Link2, MessageCircle, Send } from 'lucide-react'
+import { Check, Copy, Link2, MessageCircle, Send, UserPlus } from 'lucide-react'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { CodeTiles } from '../../ui/CodeTiles'
 import { SelectField, TextField } from '../../ui/Field'
@@ -11,6 +12,9 @@ import { windowFor, type Programme } from '../../domain/programme'
 import { now } from '../../lib/clock'
 import { explainTripError, type Trip } from './api'
 import { formatMobile, normalizeMobile, whatsappUrl } from '../../domain/contact'
+import { supabase } from '../../lib/supabase'
+import { savePerson, useLive, type SavedPerson } from '../school/api'
+import { useMyId } from '../family/parentData'
 import { arrivalSlots, clockTime, formatRange } from './rules'
 import { inviteCollector, whatsappText, type Invite } from './tracking'
 import { ReasonPicker } from './TripSheets'
@@ -73,6 +77,19 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState<{ invite: Invite; sendTo: string } | null>(null)
+  // Saved people (Account): a regular driver is one tap away. Someone new can be saved for next time.
+  const me = useMyId()
+  const saved = useLive<SavedPerson>('saved_people', () => supabase.from('saved_people').select('id, full_name, phone, relation').order('created_at'), [])
+  const [who, setWho] = useState<string>('new')
+  const [remember, setRemember] = useState(true)
+  const pickSaved = (id: string) => {
+    setWho(id)
+    const p = saved.rows?.find((x) => x.id === id)
+    if (!p) { setName(''); setPhone(''); setRelation('Driver'); return }
+    setName(p.full_name); setPhone(formatMobile(p.phone))
+    if ((RELATIONS as readonly string[]).includes(p.relation)) setRelation(p.relation)
+    else { setRelation('Other'); setOtherRel(p.relation) }
+  }
 
   const slot = slots.find((s) => s.at === at)
   const needsReason = !!slot && slot.state !== 'inside'
@@ -95,6 +112,7 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
     try {
       const invite = await inviteCollector(childId, Math.max(0, at! - indiaClock(new Date(now())).minutes), name.trim(), mobile!, rel, needsReason ? reason.trim() : null)
       setSent({ invite, sendTo: whatsapp! })
+      if (who === 'new' && remember && me) void savePerson(me, { full_name: name.trim(), phone: mobile!, relation: rel }).then(() => saved.reload(), () => {})
     } catch (err) {
       setError(explainTripError(err as { code?: string; message?: string }))
     } finally {
@@ -114,7 +132,24 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
   return (
     <Sheet open={open} onClose={onClose} title={`Someone else is collecting ${first}`}
       description="For someone the school hasn't added as family. They get a link with a 4-digit code for the gate. No app, no sign-in.">
-      <div className="grid gap-4">
+      {!!saved.rows?.length && (
+        <fieldset className="mb-5">
+          <legend className="kicker mb-2.5">Who</legend>
+          <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Who">
+            {saved.rows.map((p) => (
+              <button key={p.id} type="button" role="radio" aria-checked={who === p.id} onClick={() => pickSaved(p.id)} className="choice flex items-center gap-3 p-3 text-left">
+                <Avatar name={p.full_name} color="var(--ink-3)" size="sm" />
+                <span className="min-w-0"><span className="block truncate text-h4">{p.full_name}</span><span className="block truncate text-caption font-semibold text-ink-2">{p.relation}, {formatMobile(p.phone)}</span></span>
+              </button>
+            ))}
+            <button type="button" role="radio" aria-checked={who === 'new'} onClick={() => pickSaved('new')} className="choice flex items-center gap-3 p-3 text-left">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent" aria-hidden><UserPlus className="size-5" /></span>
+              <span className="min-w-0"><span className="block text-h4">Someone new</span><span className="block text-caption font-semibold text-ink-2">Name, mobile and relation</span></span>
+            </button>
+          </div>
+        </fieldset>
+      )}
+      <div className={`grid gap-4 ${who !== 'new' ? 'hidden' : ''}`}>
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example, Ramesh Kulkarni" autoComplete="off" maxLength={80} error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Mobile" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" autoComplete="off" error={errors.phone} />
@@ -124,7 +159,12 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
         </div>
         {relation === 'Other' && <TextField label="How they know the child" value={otherRel} onChange={(e) => setOtherRel(e.target.value)} maxLength={40} placeholder="For example, Swimming coach" error={errors.rel} />}
         <TextField label="WhatsApp number, if different (optional)" type="tel" inputMode="tel" value={wa} onChange={(e) => setWa(e.target.value)} autoComplete="off" error={errors.wa} />
+        <label className="flex min-h-11 items-center gap-3 text-small font-bold">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-5 accent-[var(--accent)]" />
+          Save them for next time
+        </label>
       </div>
+      {who !== 'new' && (errors.name || errors.phone) && <Notice tone="danger">{errors.name ?? errors.phone}</Notice>}
 
       <fieldset className="mt-6">
         <legend className="kicker">Arriving about</legend>

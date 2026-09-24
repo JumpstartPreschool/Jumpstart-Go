@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { FlaskConical } from 'lucide-react'
 import { ToastProvider } from '../ui/Toast'
 import { SessionProvider, useSession } from '../features/auth/session'
@@ -16,6 +16,9 @@ const Schedules = lazy(() => import('../features/school/Schedules').then((m) => 
 const FrontDesk = lazy(() => import('../features/school/FrontDesk').then((m) => ({ default: m.FrontDesk })))
 const OfficeMessages = lazy(() => import('../features/school/Messages').then((m) => ({ default: m.OfficeMessages })))
 const Announce = lazy(() => import('../features/school/Announce').then((m) => ({ default: m.Announce })))
+const ParentUpdates = lazy(() => import('../features/family/ParentPages').then((m) => ({ default: m.ParentUpdates })))
+const ParentMessages = lazy(() => import('../features/family/ParentPages').then((m) => ({ default: m.ParentMessages })))
+const ParentAccount = lazy(() => import('../features/family/ParentPages').then((m) => ({ default: m.ParentAccount })))
 const CoordinatorsPage = lazy(() => import('../features/coordinators/CoordinatorsPage').then((m) => ({ default: m.CoordinatorsPage })))
 const CoordinatorDuty = lazy(() => import('../features/duty/CoordinatorDuty'))
 // The page a person collecting opens from WhatsApp: no sign-in, so it loads nothing else.
@@ -42,15 +45,31 @@ function AreaPages({ area, index }: { area: 'admin' | 'core' | 'pro'; index: Rea
   )
 }
 
+/** The parent's pages (Today loads with the app; the others on first use). */
+function ParentPages() {
+  return (
+    <Routes>
+      <Route index element={<ParentHome />} />
+      <Route path="updates" element={<ParentUpdates />} />
+      <Route path="messages" element={<ParentMessages />} />
+      <Route path="messages/:childId" element={<ParentMessages />} />
+      <Route path="account" element={<ParentAccount />} />
+      <Route path="*" element={<Navigate to="/parent" replace />} />
+    </Routes>
+  )
+}
+
 /** Always visible while demo mode is on, so sample data is never mistaken for the school's real records. */
 function DemoBanner() {
   const { state, signOut } = useSession()
+  // Above the parent's tab bar on phones.
+  const parent = useLocation().pathname.startsWith('/parent')
   if (!DEMO_AVAILABLE || !isDemo() || state.status !== 'signed-in') return null
   return (
     <>
       {/* Room at the end of the page so the pill never covers the last row. */}
       <div className="h-20" aria-hidden />
-      <div role="status" className="glass fixed inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] z-50 mx-auto flex w-max max-w-[calc(100vw-32px)] items-center gap-2 rounded-full py-1 pl-3.5 pr-1 text-caption font-extrabold">
+      <div role="status" className={`glass fixed inset-x-0 z-50 mx-auto flex w-max max-w-[calc(100vw-32px)] items-center gap-2 rounded-full py-1 pl-3.5 pr-1 text-caption font-extrabold ${parent ? 'bottom-[calc(96px+env(safe-area-inset-bottom))] md:bottom-[max(12px,env(safe-area-inset-bottom))]' : 'bottom-[max(12px,env(safe-area-inset-bottom))]'}`}>
         <FlaskConical className="size-4 shrink-0 text-ink-2" aria-hidden />
         <span className="whitespace-nowrap">Demo · sample data</span>
         <button type="button" onClick={() => void signOut()} className="h-11 whitespace-nowrap rounded-full bg-sunken px-4 text-ink transition-colors duration-150 hover:bg-[var(--sunken-hover)]">Exit demo</button>
@@ -70,7 +89,7 @@ export function App() {
               <Route path="/core/*" element={<AreaRoute area="core"><AreaPages index={<CoreHome />} area="core" /></AreaRoute>} />
               <Route path="/pro/*" element={<AreaRoute area="pro"><AreaPages index={<FrontDesk />} area="pro" /></AreaRoute>} />
               <Route path="/coordinator/*" element={<AreaRoute area="coordinator"><CoordinatorDuty /></AreaRoute>} />
-              <Route path="/parent/*" element={<AreaRoute area="parent"><ParentHome /></AreaRoute>} />
+              <Route path="/parent/*" element={<AreaRoute area="parent"><ParentPages /></AreaRoute>} />
               <Route path="/t/:token" element={<CollectorLink />} />
               {Preview && <Route path="/preview/*" element={<Preview />} />}
               {/* Anything else: the login screen, or the person's home area once signed in. */}

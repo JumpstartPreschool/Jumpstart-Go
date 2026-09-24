@@ -7,6 +7,7 @@ import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
 import { areasFor, useSession, type Area } from './session'
+import { PARENT_PAGES, ParentTabBar } from '../family/ParentNav'
 
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', pro: 'Front desk', coordinator: 'Coordinator', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
@@ -35,6 +36,7 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: 
     { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
     { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
   ],
+  parent: PARENT_PAGES,
   pro: [
     { to: '/pro', label: 'Front desk', icon: <Headset /> },
     { to: '/pro/messages', label: 'Messages', icon: <MessageSquare /> },
@@ -125,9 +127,9 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
         </div>
         <OfflineNotice />
       </header>
-      <main id="main" className="gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6">
+      <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${area === 'parent' ? 'max-md:pb-[calc(96px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className="seg mb-6">
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden' : ''}`}>
             {pages.map((page) => {
               // An area's first page stays selected on the pages it opens (a child's page under People).
               const active = pathname === page.to || (page.to === `/${area}` && pathname.startsWith(`/${area}/child/`))
@@ -146,6 +148,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           {children}
         </div>
       </main>
+      {area === 'parent' && <ParentTabBar />}
     </div>
   )
 }

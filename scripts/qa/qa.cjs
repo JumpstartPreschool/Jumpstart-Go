@@ -139,9 +139,16 @@ async function signIn(p, chip, area) {
   ])
   await session('Parent', [
     ['today', async (p) => p.goto(BASE + '/parent')],
+    ['time', async (p) => p.getByRole('button', { name: 'Change time' }).first().click(), esc],
+    ['absence', async (p) => p.getByRole('button', { name: /won't come today/ }).first().click(), esc],
+    ['updates', async (p) => p.goto(BASE + '/parent/updates')],
+    ['messages', async (p) => p.goto(BASE + '/parent/messages')],
+    ['thread', async (p) => p.getByRole('button', { name: /Kabir and the school/ }).click()],
+    ['account', async (p) => p.goto(BASE + '/parent/account')],
+    ['add-person', async (p) => p.getByRole('button', { name: 'Add a person' }).click(), esc],
   ])
   await session('Admin', [
-    ['parent-else', async (p) => { await p.goto(BASE + '/parent'); await p.waitForTimeout(800); if (await p.getByRole('button', { name: 'I agree, continue' }).count()) { await p.getByRole('button', { name: 'I agree, continue' }).click(); await p.waitForTimeout(900) } await p.getByRole('button', { name: 'Someone else is collecting' }).first().click(); const d = p.locator('dialog[open]'); await d.getByLabel('Full name').fill('Ramesh Kulkarni'); await d.getByLabel('Mobile').fill('98123 45678'); await d.getByRole('button', { name: 'Create the link' }).click(); await d.getByText('Link ready', { exact: false }).waitFor() }, esc],
+    ['parent-else', async (p) => { await p.goto(BASE + '/parent'); await p.waitForTimeout(800); if (await p.getByRole('button', { name: 'I agree, continue' }).count()) { await p.getByRole('button', { name: 'I agree, continue' }).click(); await p.waitForTimeout(900) } await p.getByRole('button', { name: 'Someone else', exact: true }).first().click(); const d = p.locator('dialog[open]'); await d.getByLabel('Full name').fill('Ramesh Kulkarni'); await d.getByLabel('Mobile').fill('98123 45678'); await d.getByRole('button', { name: 'Create the link' }).click(); await d.getByText('Link ready', { exact: false }).waitFor() }, esc],
     ['parent-trip-else', async (p) => p.waitForTimeout(600)],
     ['parent-resend', async (p) => p.getByRole('button', { name: 'Resend link' }).click(), esc],
   ])

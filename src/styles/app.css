@@ -444,6 +444,8 @@
 
   /* Toasts (src/ui/Toast.tsx) */
   .toast { animation: toast-in var(--dur-slow) var(--ease-spring) both; }
+  /* Above the parent's tab bar on phones, never on top of it. */
+  @media (max-width: 767px) { body:has(nav[aria-label='Parent pages']) .toast-region { bottom: calc(96px + env(safe-area-inset-bottom)); } }
   .toast[data-leaving] { animation: toast-out var(--dur-base) var(--ease-exit) both; }
 
   /* Route changes: the new page settles in; it never waits on the animation to be usable. */

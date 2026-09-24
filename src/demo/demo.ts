@@ -99,7 +99,7 @@ function seed(): Db {
     // Isha's grandmother: family who collects and has the app (D26).
     { id: 'demo-lata', full_name: 'Lata Patil', email: 'lata@example.com', phone: '+919800000015', active: true, user_id: null },
     { id: 'demo-desk', full_name: 'Front Desk', email: 'frontdesk@example.com', phone: null, active: true, user_id: null },
-  ].map((p) => ({ app_access: p.active, abroad: false, ...p }))
+  ].map((p) => ({ app_access: p.active, abroad: false, notify_morning: true, notify_family: true, ...p }))
   // The classes are the levels (D18); each programme belongs to one, and a child's class follows their programme.
   const classes = LEVELS.map((name, i) => ({ id: levelId(name), name, active: true, sort: i + 1 }))
   const child = (id: string, full_name: string, preferred_name: string | null, date_of_birth: string, programme: string) =>
@@ -429,7 +429,7 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
   return json(single ? result[0] ?? null : result)
 }
 
-const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points', 'announcement_stats', 'recipient_count'])
+const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points', 'announcement_stats', 'recipient_count', 'gate_load', 'my_family'])
 
 /** Stands in for window.fetch inside the Supabase client while demo mode is on. */
 export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
