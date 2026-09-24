@@ -11,12 +11,12 @@ Release 1 has five roles. Each staff and parent role gets its **own area** in th
 | **Third person** | Standalone web page — `/t/{token}` | Phone, from a WhatsApp or email link | "What do I do next?" | No account. The link gives access to one trip only. |
 
 **How roles are assigned:**
-- The **admin assigns roles** to each staff member. One person can hold several roles; for example, someone on the core team who also works the gate has both Core team and Coordinator. A person with several roles, or a staff member who is also a parent, gets an area switcher.
+- The **admin assigns roles** to each staff member; the **core team can give or remove the Coordinator role** (D23). One person can hold several roles; for example, someone on the core team who also works the gate has both Core team and Coordinator. A person with several roles, or a staff member who is also a parent, gets an area switcher.
 - The **server checks the role on every request.** Hiding a button is never the only protection.
 
 ## Admin
 Full access to everything in the branch, CEO-level. The admin alone holds the main access.
-- **People:** the only role that adds, edits or removes parents and children and their details (single entry or CSV upload); invites staff and assigns roles; **assigns coordinators to classes**, which decides whose iPad announces which children; deactivates anyone, which logs them out everywhere immediately.
+- **People:** the only role that adds, edits or removes parents and children and their details (single entry or CSV upload); invites staff and assigns roles; **assigns coordinators to classes** (the core team can too), which decides whose iPad announces which children; deactivates anyone, which logs them out everywhere immediately.
 - **Dashboard:** today at a glance: present, absent, on leave, off, not yet arrived; pickups and drop-offs expected, in progress and done; gate rush by time slot; off-schedule and short-notice requests; open alerts.
 - **Reports:** 30-day trends, including children collected, third-person pickups, on-time readiness, time from arrival to handover, and the busiest time slots; long-term trends come from anonymous daily totals. CSV export.
 - **Settings:** announcement wording, how much notice changes need, "get ready" lead time, running-late threshold, arrival radius.
@@ -30,6 +30,7 @@ Plans the day and keeps records accurate.
 - **Attendance:** marks each child **present, absent, on leave or off** (off = not a scheduled day for that child, or a school holiday); reviews absences reported by parents.
 - **Today board:** every child's expected times for today, parent changes to times, and who has arrived or been collected.
 - **Messages** with parents about schedules; **announcements** to all parents or to one class (e.g. "Early closing Friday").
+- **Coordinators:** gives or removes the Coordinator role and chooses each coordinator's classes, which decides whose iPad announces which children (D11, D23). Cannot give the Admin or Core team role.
 
 ## Coordinator
 Brings children between the gate and the classrooms, working from an iPad.

@@ -71,12 +71,13 @@ Coordinators carry iPads between the gate and the classrooms, so this area is de
 **Announcements** have a persistent mini-player at the top showing what's being read, with Mute for 5 minutes (the mute time is recorded).
 
 ## 5. Core team — `/core` (phone and iPad)
-**Bottom navigation:** Today · Schedules · Messages · Announcements
+**Bottom navigation:** Today · Schedules · Coordinators · Messages · Announcements
 
 | Screen | Purpose | Main action | States |
 |---|---|---|---|
 | **Today board** | Every child: expected times, today's changes, status; mark attendance in the same row | Change status (present / absent / on leave / off) | Filter by class · Changes highlighted · Skeleton · Empty (holiday) |
 | **Schedules** | Two tabs. **Children:** each child's regular weekday times, picked inside the programme windows. **Programmes:** each programme's days, term, hours and windows (or flexible), drawn on a 9 AM–7 PM timeline | **Save schedule** / **Apply to class** / **Save programme** | Missing schedule (warning badge) · Outside the programme window after a programme change (warning, listed first) · Window outside the programme hours (error) |
+| **Coordinators** | Each class with its coordinators (a class with nobody is flagged: its requests go to everyone on duty); the coordinators with their classes. Add a coordinator (pick a person the admin added, then tick classes; warning if they are also a parent), edit classes, remove the role | **Add coordinator** / **Save classes** | Loading · Empty · No classes yet · Access off · Save error · Also a parent (warning) |
 | **Messages** | All parent conversations | **Reply** | Unread first |
 | **Announcements** | Write and send, with read receipts | **Send** | Draft · Sending · Sent (x of y read) |
 

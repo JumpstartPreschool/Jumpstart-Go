@@ -17,8 +17,8 @@ Each requirement is testable. "Server" means it is enforced on the backend and d
 - **PRO-1** Only the admin adds, edits or removes parents and children, one at a time or by CSV → preview → errors per row → confirm. Uploading again updates matching records and never duplicates them. Each child has exactly one programme and one class. *(Server)*
 - **PRO-2** A child can have several guardians; a guardian can have several children.
 - **PRO-3** Parents manage saved people: name, phone, relation, and optionally a WhatsApp number (when it differs from the phone) and an email address. Phone and WhatsApp numbers are validated as Indian mobile numbers; emails are validated. No photos of third persons anywhere.
-- **PRO-4** The admin assigns and removes roles; one person can hold several roles. Every change is recorded in the audit log. *(Server)*
-- **PRO-5** The admin assigns coordinators to classes; a class can have several coordinators and a coordinator several classes (D11). *(Server)*
+- **PRO-4** The admin assigns and removes roles; the core team can give and remove only the Coordinator role (D23). One person can hold several roles. Every change is recorded in the audit log. *(Server)*
+- **PRO-5** The core team or the admin assigns coordinators to classes; only people with the Coordinator role can have classes, and removing the role removes them; a class can have several coordinators and a coordinator several classes (D11). *(Server)*
 
 ### Schedules (SCH)
 - **SCH-1** The core team or admin sets each child's regular drop-off and pickup times for each of the programme's days, inside the programme's windows; one schedule can be copied to a whole class. *(Server)*

@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Mumbai (ap-south-1) |
 | Postgres | 17.6 |
-| Migrations applied | `0001_foundation` (2026-09-24, via `supabase db push`) |
+| Migrations applied | `0001`–`0005` (2026-09-24, via `supabase db push`) |
 | App hosting | Cloudflare Workers static assets, `jumpstart-preschool` (production) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
