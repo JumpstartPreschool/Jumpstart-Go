@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
 import { chime, deviceOutput, soundSupported, speak, stopSound, unlockSound } from './sound'
 import { createWakeLock } from './wakeLock'
+import { now } from '../../lib/clock'
 
 export type DutyPhase = 'idle' | 'check' | 'on'
 
@@ -12,7 +13,7 @@ const SINCE_KEY = 'jumpstart.dutySince'
 function readSince(): number | null {
   try {
     const v = Number(localStorage.getItem(SINCE_KEY))
-    return Number.isFinite(v) && v > 0 && new Date(v).toDateString() === new Date().toDateString() ? v : null
+    return Number.isFinite(v) && v > 0 && new Date(v).toDateString() === new Date(now()).toDateString() ? v : null
   } catch {
     return null
   }
@@ -66,7 +67,7 @@ export function useDuty() {
   }, [wake, playTest])
 
   const confirmHeard = useCallback(() => {
-    const t = since ?? Date.now()
+    const t = since ?? now()
     setSince(t)
     writeSince(t)
     setPhase('on')

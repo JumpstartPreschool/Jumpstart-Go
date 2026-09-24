@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { now as clockNow } from '../lib/clock'
 
 function subscribeOnline(cb: () => void) {
   window.addEventListener('online', cb)
@@ -13,11 +14,11 @@ export function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true)
 }
 
-/** Current time in ms, updated every `everyMs`. */
+/** The app's current time in ms (see lib/clock), updated every `everyMs`. */
 export function useNow(everyMs = 1000): number {
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(clockNow)
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), everyMs)
+    const id = setInterval(() => setNow(clockNow()), everyMs)
     return () => clearInterval(id)
   }, [everyMs])
   return now

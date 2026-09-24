@@ -3,7 +3,9 @@
  *
  * Available only in development and design-review builds (never production). While it is on, the Supabase
  * client talks to the tiny in-browser backend below instead of the network, so nothing reaches the school's
- * real database. Everything lives in this browser tab (sessionStorage) and is gone when the tab closes.
+ * real database. Sign-in stays in each tab (sessionStorage); the sample data is shared by this browser's demo tabs
+ * (localStorage), so a parent's phone in one window and a coordinator's iPad in another see each other live.
+ * The clock is pinned to a school day at 12:10 PM, so every flow can be tried at any hour.
  */
 import type { Area } from '../features/auth/session'
 import PROGRAMMES from './programmes.json'
@@ -15,7 +17,11 @@ export const DEMO_CODE = '246810'
 
 const FLAG = 'jumpstart-demo'
 const LANDING = 'jumpstart-demo-area'
-const DB = 'jumpstart-demo-db'
+export const DEMO_DB_KEY = 'jumpstart-demo-db'
+const CLOCK = 'jumpstart-demo-clock'
+/** The demo's "now": Thursday 24 September 2026, 12:10 PM India time, running on from when the demo began. */
+const DEMO_START = Date.parse('2026-09-24T12:10:00+05:30')
+export const DEMO_CHANGE_EVENT = 'jumpstart-demo-change'
 
 function store(): Storage | null {
   try {
@@ -23,6 +29,25 @@ function store(): Storage | null {
   } catch {
     return null
   }
+}
+function shared(): Storage | null {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+/** Milliseconds to add to the device clock (0 outside demo mode). */
+export function demoClockOffset(): number {
+  if (!isDemo()) return 0
+  const s = shared()
+  let realStart = Number(s?.getItem(CLOCK))
+  if (!realStart) {
+    realStart = Date.now()
+    s?.setItem(CLOCK, String(realStart))
+  }
+  return DEMO_START - realStart
 }
 
 export function isDemo(): boolean {
@@ -35,9 +60,11 @@ export function enterDemo(area: Area) {
 }
 
 export function leaveDemo() {
-  const s = DEMO_AVAILABLE ? store() : null
-  if (!s) return
-  for (const key of Object.keys(s)) if (key.startsWith('jumpstart-demo') || key.startsWith('sb-')) s.removeItem(key)
+  if (!DEMO_AVAILABLE) return
+  for (const s of [store(), shared()]) {
+    if (!s) continue
+    for (const key of Object.keys(s)) if (key.startsWith('jumpstart-demo') || (s === store() && key.startsWith('sb-'))) s.removeItem(key)
+  }
 }
 
 /** The area picked on the demo login, so the person lands there once instead of their first area. */
@@ -110,7 +137,7 @@ function seed(): Db {
 
 function load(): Db {
   try {
-    const saved = store()?.getItem(DB)
+    const saved = shared()?.getItem(DEMO_DB_KEY)
     // Demo data saved before a table was added gets that table from the sample.
     if (saved) return { ...seed(), ...(JSON.parse(saved) as Partial<Db>) }
   } catch {
@@ -121,7 +148,7 @@ function load(): Db {
 
 function save(db: Db) {
   try {
-    store()?.setItem(DB, JSON.stringify(db))
+    shared()?.setItem(DEMO_DB_KEY, JSON.stringify(db))
   } catch {
     // Storage full or blocked: the demo keeps working for this page view.
   }
