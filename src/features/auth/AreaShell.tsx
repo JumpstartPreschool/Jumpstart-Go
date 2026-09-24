@@ -1,24 +1,37 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, LogOut, Repeat, UsersRound } from 'lucide-react'
+import { BellRing, CalendarClock, ChevronDown, LogOut, ShieldCheck, UserRound, UsersRound, WifiOff } from 'lucide-react'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
+import { useOnline } from '../../ui/hooks'
 import { areasFor, useSession, type Area } from './session'
 
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', coordinator: 'Coordinator', parent: 'Parent' }
-export const AREA_COLOR: Record<Area, string> = { admin: 'var(--rb-violet)', core: 'var(--rb-green)', coordinator: 'var(--rb-orange)', parent: 'var(--rb-blue)' }
+/** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
+export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, coordinator: <BellRing />, parent: <UserRound /> }
 
 /** Pages inside an area, shown as tabs under the top bar. */
-const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode; color: string }>>> = {
+const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode }>>> = {
   admin: [
-    { to: '/admin', label: 'People', icon: <UsersRound />, color: 'var(--rb-violet)' },
-    { to: '/admin/coordinators', label: 'Coordinators', icon: <BellRing />, color: 'var(--rb-orange)' },
+    { to: '/admin', label: 'People', icon: <UsersRound /> },
+    { to: '/admin/coordinators', label: 'Coordinators', icon: <BellRing /> },
   ],
   core: [
-    { to: '/core', label: 'Today', icon: <CalendarClock />, color: 'var(--rb-green)' },
-    { to: '/core/coordinators', label: 'Coordinators', icon: <BellRing />, color: 'var(--rb-orange)' },
+    { to: '/core', label: 'Today', icon: <CalendarClock /> },
+    { to: '/core/coordinators', label: 'Coordinators', icon: <BellRing /> },
   ],
+}
+
+/** The dark area label in the top bar: which part of the app this is, with its icon. */
+export function AreaChip({ area }: { area: Area }) {
+  return (
+    <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-secondary pl-2.5 pr-3 text-caption font-extrabold text-canvas shadow-[0_2px_0_var(--secondary-lip)] [&_svg]:size-4 max-[374px]:pr-2.5" aria-label={AREA_LABEL[area]}>
+      {AREA_ICON[area]}
+      <span className="max-[374px]:hidden">{AREA_LABEL[area]}</span>
+    </span>
+  )
 }
 
 /** Signed-in person's button: shows who is signed in, switches area (D16) and signs out. */
@@ -31,26 +44,28 @@ export function AccountButton({ area }: { area: Area }) {
   const areas = areasFor(me)
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label={`Account: ${me.full_name}`} className="glass flex h-12 items-center gap-2 rounded-full py-1 pl-1 pr-4 font-extrabold transition-transform duration-200 ease-spring active:scale-95">
-        <span className="grid size-10 place-items-center rounded-full font-display text-[18px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${AREA_COLOR[area]}, color-mix(in oklab, ${AREA_COLOR[area]} 65%, white))` }} aria-hidden>
-          {me.full_name[0]}
-        </span>
-        <span className="hidden text-[15px] sm:inline">{me.full_name.split(' ')[0]}</span>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Account: ${me.full_name}`}
+        className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-line bg-surface p-0.5 pr-2 text-small font-bold transition-colors duration-150 hover:bg-sunken sm:pr-3">
+        <Avatar name={me.full_name} color="var(--accent)" size="sm" />
+        <span className="hidden sm:inline">{me.full_name.split(' ')[0]}</span>
+        <ChevronDown className="size-4 text-ink-3" aria-hidden />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={me.full_name}>
+      <Sheet open={open} onClose={() => setOpen(false)} title={me.full_name} description={`Signed in as ${AREA_LABEL[area]}`}>
         {areas.length > 1 && (
           <>
-            <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-ink-2">Switch area</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <p className="kicker">Switch area</p>
+            <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
               {areas.map((a) => (
-                <Button key={a} variant={a === area ? 'primary' : 'secondary'} icon={<Repeat />} onClick={() => { setOpen(false); navigate(`/${a}`) }}>
+                <button key={a} type="button" className="choice flex h-14 items-center gap-3 px-4 text-h4 [&>svg]:size-5 [&>svg]:text-accent" aria-pressed={a === area}
+                  onClick={() => { setOpen(false); if (a !== area) navigate(`/${a}`) }}>
+                  {AREA_ICON[a]}
                   {AREA_LABEL[a]}
-                </Button>
+                </button>
               ))}
             </div>
           </>
         )}
-        <Button variant="danger" className="mt-4 w-full" icon={<LogOut />} onClick={() => void signOut()}>
+        <Button variant="danger" className="mt-6 w-full" icon={<LogOut />} onClick={() => void signOut()}>
           Sign out
         </Button>
       </Sheet>
@@ -58,32 +73,57 @@ export function AccountButton({ area }: { area: Area }) {
   )
 }
 
-/** Page frame for the admin, core team and parent areas: glass top bar with the logo, area name and account. */
-export function AreaShell({ area, title, children }: { area: Area; title: string; children: ReactNode }) {
+/** Shown under the top bar while the device is offline, so a failed save is never a surprise. */
+export function OfflineNotice() {
+  const online = useOnline()
+  if (online) return null
   return (
-    <div className="min-h-dvh pb-[max(24px,env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-10 px-4 pt-[max(12px,env(safe-area-inset-top))] sm:px-6">
-        <div className="glass mx-auto flex max-w-[1180px] items-center gap-4 rounded-[30px] py-2.5 pl-5 pr-2.5">
-          <Logo className="h-9 sm:h-10" />
-          <span className="rounded-full px-3 py-1 text-[13px] font-extrabold text-white" style={{ background: AREA_COLOR[area] }}>{AREA_LABEL[area]}</span>
-          <span className="ml-auto" />
+    <div role="status" className="mx-auto mt-3 flex max-w-[var(--content)] items-center gap-2.5 rounded-md bg-warning-soft px-4 py-3 text-small font-bold text-warning [&>svg]:size-[18px] [&>svg]:shrink-0">
+      <WifiOff aria-hidden />
+      You're offline. What's on screen may be out of date, and changes can't be saved until you're back online.
+    </div>
+  )
+}
+
+/**
+ * Page frame for the admin, core team and parent areas: a floating top bar (logo, area, account), the area's
+ * page tabs, then the page title with its optional description and actions.
+ */
+export function AreaShell({ area, title, subtitle, actions, children }: { area: Area; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  const pages = AREA_PAGES[area]
+  return (
+    <div className="min-h-dvh">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-[max(12px,env(safe-area-inset-top))] focus:z-50 focus:rounded-sm focus:bg-surface focus:px-4 focus:py-3 focus:font-bold focus:shadow-float">
+        Skip to content
+      </a>
+      <header className="gutter sticky top-0 z-30 pt-[max(12px,env(safe-area-inset-top))]">
+        <div className="glass mx-auto flex h-16 max-w-[var(--content)] items-center gap-3 rounded-xl pl-4 pr-2.5 sm:gap-4 sm:pl-5">
+          <Logo className="h-7 sm:h-8" />
+          <span className="h-6 w-px bg-line-2 max-[359px]:hidden" aria-hidden />
+          <AreaChip area={area} />
+          <span className="flex-1" />
           <AccountButton area={area} />
         </div>
+        <OfflineNotice />
       </header>
-      <main className="mx-auto w-full max-w-[1180px] px-4 pt-6 sm:px-6">
-        {AREA_PAGES[area] && (
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className="glass mb-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-full p-1.5">
-            {AREA_PAGES[area].map((page) => (
-              <NavLink key={page.to} to={page.to} end
-                className={({ isActive }) => `flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] font-extrabold transition-transform duration-200 ease-spring active:scale-95 motion-reduce:active:scale-100 [&_svg]:size-[18px] ${isActive ? 'text-white' : 'text-ink-2'}`}
-                style={({ isActive }) => (isActive ? { background: `linear-gradient(135deg, ${page.color}, color-mix(in oklab, ${page.color} 70%, white))`, boxShadow: `0 10px 20px -10px ${page.color}` } : undefined)}>
-                {({ isActive }) => <><span style={isActive ? undefined : { color: page.color }}>{page.icon}</span>{page.label}</>}
-              </NavLink>
+      <main id="main" className="gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6">
+        {pages && (
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className="seg mb-6">
+            {pages.map((page) => (
+              <NavLink key={page.to} to={page.to} end>{page.icon}{page.label}</NavLink>
             ))}
           </nav>
         )}
-        <h1 className="px-1 text-[34px] font-bold leading-10 sm:text-[42px] sm:leading-[48px]">{title}</h1>
-        {children}
+        <div className="page-in">
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+            <div className="min-w-0">
+              <h1 className="text-h1">{title}</h1>
+              {subtitle && <p className="mt-2 max-w-[68ch] text-lead text-ink-2">{subtitle}</p>}
+            </div>
+            {actions && <div className="flex flex-wrap gap-2.5">{actions}</div>}
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   )

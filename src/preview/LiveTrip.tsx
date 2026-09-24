@@ -55,7 +55,7 @@ export function LiveTrip() {
         <Link to="/preview/parent" aria-label="Back to Today" className="glass grid size-12 place-items-center rounded-full text-ink transition-transform duration-200 ease-spring active:scale-90">
           <ChevronLeft className="size-6" aria-hidden />
         </Link>
-        <div className="glass rounded-full px-5 py-2.5 font-display text-[18px] font-bold">Aarav's pickup</div>
+        <div className="glass rounded-full px-5 py-2.5 tracking-[-0.02em] text-[18px] font-bold">Aarav's pickup</div>
       </header>
 
       {/* Preview only: switch the location state to review each design. */}
@@ -81,7 +81,7 @@ export function LiveTrip() {
       {/* Trip panel: a bottom sheet on phones, a floating side panel on iPad. */}
       <section
         aria-label="Trip details"
-        className={`card absolute z-10 overflow-y-auto px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 transition-[max-height] duration-300 ease-out md:bottom-6 md:left-6 md:top-[max(116px,calc(env(safe-area-inset-top)+104px))] md:w-[420px] md:rounded-[36px] md:p-6 ${
+        className={`card absolute z-10 overflow-y-auto px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 transition-[max-height] duration-300 ease-out md:bottom-6 md:left-6 md:top-[max(116px,calc(env(safe-area-inset-top)+104px))] md:w-[420px] md:rounded-2xl md:p-6 ${
           expanded ? 'inset-x-0 bottom-0 max-h-[88dvh] rounded-t-[34px]' : 'inset-x-0 bottom-0 max-h-[54dvh] rounded-t-[34px]'
         } md:inset-x-auto md:max-h-none`}
       >
@@ -95,9 +95,9 @@ export function LiveTrip() {
           <div>
             <p className="text-[14px] font-extrabold uppercase tracking-[0.07em] text-ink-2">On the way to school</p>
             {showEta ? (
-              <p className="font-display text-[44px] font-bold leading-[48px] tabular-nums">3–5 min</p>
+              <p className="tracking-[-0.02em] text-[44px] font-bold leading-[48px] tabular-nums">3–5 min</p>
             ) : (
-              <p className="mt-1 font-display text-[28px] font-bold leading-8">{freshness === 'stale' ? 'Location not updating' : 'Location not shared'}</p>
+              <p className="mt-1 tracking-[-0.02em] text-[28px] font-bold leading-8">{freshness === 'stale' ? 'Location not updating' : 'Location not shared'}</p>
             )}
           </div>
           <FreshnessBadge state={freshness} age={AGE[freshness]} className="mt-1 shrink-0" />
@@ -119,12 +119,12 @@ export function LiveTrip() {
           ))}
         </ol>
 
-        <p className="mt-5 flex items-center gap-2.5 rounded-[20px] bg-live-soft px-4 py-3 text-[16px] font-extrabold text-live">
+        <p className="mt-5 flex items-center gap-2.5 rounded-lg bg-live-soft px-4 py-3 text-[16px] font-extrabold text-live">
           <CircleCheck className="size-5" aria-hidden /> Aarav is ready at the gate
         </p>
 
-        <div className="mt-3 flex items-center gap-4 rounded-[24px] bg-sunken p-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,var(--rb-teal),var(--rb-green))] font-display text-[24px] font-bold text-white" aria-hidden>R</span>
+        <div className="mt-3 flex items-center gap-4 rounded-xl bg-sunken p-4">
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-rb-teal tracking-[-0.02em] text-[24px] font-bold text-white" aria-hidden>R</span>
           <div className="min-w-0 flex-1">
             <p className="text-[18px] font-extrabold">Ramesh Kulkarni</p>
             <p className="text-[14px] font-semibold text-ink-2">Grandfather · chosen by you</p>
@@ -134,7 +134,7 @@ export function LiveTrip() {
           </Button>
         </div>
 
-        <div className="mt-3 rounded-[24px] bg-sunken p-4 text-center">
+        <div className="mt-3 rounded-xl bg-sunken p-4 text-center">
           <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-ink-2">Handoff code · Ramesh shows this at the gate</p>
           <div className="mt-3"><CodeTiles code={SAMPLE_CODE} size="md" /></div>
         </div>
@@ -145,7 +145,7 @@ export function LiveTrip() {
             <ol className="mt-2 border-l-[3px] border-line-strong pl-5">
               {SAMPLE_TIMELINE.map((e, i) => (
                 <li key={e.time + e.text} className="relative py-2">
-                  <span className="absolute -left-[29px] top-3.5 size-3.5 rounded-full ring-4 ring-[var(--glass-strong)]" style={{ background: STEP_COLORS[i % STEP_COLORS.length] }} aria-hidden />
+                  <span className="absolute -left-[29px] top-3.5 size-3.5 rounded-full ring-4 ring-[var(--surface)]" style={{ background: STEP_COLORS[i % STEP_COLORS.length] }} aria-hidden />
                   <p className="text-[13px] font-extrabold tabular-nums text-ink-2">{e.time}</p>
                   <p className="text-[16px] font-semibold">{e.text}</p>
                 </li>

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, Link2, MapPinned, Power, Smartphone, Tablet } from 'lucide-react'
-import { Logo } from '../ui/Logo'
-import { Mascot } from '../ui/Backdrop'
+import { Logo, Mascot } from '../ui/Logo'
 
 const SCREENS: Array<{ to: string; title: string; detail: string; device: string; icon: ReactNode; color: string }> = [
   { to: '/preview/parent', title: 'Parent · Today', detail: "Each child's day, change time with busy slots, running late, choosing who picks up.", device: 'Phone · iPad', icon: <Smartphone />, color: 'var(--rb-blue)' },
@@ -26,16 +25,16 @@ export function PreviewIndex() {
       <ul className="mt-10 grid gap-4 md:grid-cols-2">
         {SCREENS.map((s) => (
           <li key={s.to}>
-            <Link to={s.to} className="card flex h-full items-center gap-4 rounded-[30px] p-5 transition-transform duration-200 ease-spring hover:-translate-y-0.5 active:scale-[0.98]">
+            <Link to={s.to} className="card flex h-full items-center gap-4 rounded-2xl p-5 transition-transform duration-200 ease-spring hover:-translate-y-0.5 active:scale-[0.98]">
               <span
-                className="grid size-14 shrink-0 place-items-center rounded-[20px] text-white [&_svg]:size-7"
-                style={{ background: `linear-gradient(135deg, ${s.color}, color-mix(in oklab, ${s.color} 65%, white))`, boxShadow: `0 12px 24px -10px ${s.color}` }}
+                className="grid size-14 shrink-0 place-items-center rounded-lg text-white [&_svg]:size-7"
+                style={{ background: s.color }}
                 aria-hidden
               >
                 {s.icon}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-display text-[20px] font-bold leading-6">{s.title}</span>
+                <span className="block tracking-[-0.02em] text-[20px] font-bold leading-6">{s.title}</span>
                 <span className="mt-0.5 block text-[15px] font-semibold leading-[22px] text-ink-2">{s.detail}</span>
                 <span className="mt-2 inline-block rounded-full bg-sunken px-2.5 py-0.5 text-[12px] font-extrabold text-ink-2">{s.device}</span>
               </span>

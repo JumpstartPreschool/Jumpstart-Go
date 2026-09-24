@@ -16,15 +16,14 @@ import { BUSY_FROM, PICKUP_SLOTS, SAMPLE_CODE, SAVED_PEOPLE } from './sample'
 
 type SheetName = 'time' | 'late' | 'who' | null
 
-/** Each child gets a colour from the logo's rainbow, used for their avatar and card glow. */
+/** Each child gets a colour from the logo's rainbow, used for their avatar. */
 function ChildCard({ name, group, color, status, children }: { name: string; group: string; color: string; status: ReactNode; children: ReactNode }) {
   return (
-    <section className="card relative overflow-hidden rounded-[34px] p-5 sm:p-6">
-      <span className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full opacity-40 blur-3xl" style={{ background: color }} aria-hidden />
+    <section className="card relative overflow-hidden rounded-2xl p-5 sm:p-6">
       <div className="relative flex items-center gap-4">
         <span
-          className="relative grid size-16 shrink-0 place-items-center rounded-full font-display text-[30px] font-bold text-white ring-4 ring-white/70"
-          style={{ background: `linear-gradient(135deg, ${color}, color-mix(in oklab, ${color} 65%, white))`, boxShadow: `0 12px 24px -10px ${color}` }}
+          className="relative grid size-16 shrink-0 place-items-center rounded-full tracking-[-0.02em] text-[30px] font-bold text-white ring-4 ring-white/70"
+          style={{ background: color }}
           aria-hidden
         >
           {name[0]}
@@ -50,7 +49,7 @@ function TripLine({ icon, label, time, detail, color }: { icon: ReactNode; label
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-extrabold uppercase tracking-[0.06em] text-ink-2">{label}</p>
-        <p className="font-display text-[22px] font-bold leading-7 tabular-nums">{time}</p>
+        <p className="tracking-[-0.02em] text-[22px] font-bold leading-7 tabular-nums">{time}</p>
       </div>
       <div className="text-right text-[15px] font-bold text-ink-2">{detail}</div>
     </div>
@@ -61,13 +60,13 @@ function TripLine({ icon, label, time, detail, color }: { icon: ReactNode; label
 function ActionTile({ icon, label, tone, onClick }: { icon: ReactNode; label: string; tone: 'glass' | 'sunshine'; onClick: () => void }) {
   const look =
     tone === 'sunshine'
-      ? 'bg-[linear-gradient(135deg,var(--rb-yellow),var(--rb-orange))] text-[#3a2200] shadow-[0_14px_30px_-12px_rgb(247_133_42/0.75),inset_0_1px_0_rgb(255_255_255/0.5)]'
+      ? 'bg-[var(--sun)] text-[var(--sun-ink)] shadow-[0_4px_0_var(--sun-lip)]'
       : 'card text-ink'
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-[26px] text-[16px] font-extrabold transition-transform duration-200 ease-spring active:scale-95 [&_svg]:size-7 ${look}`}
+      className={`flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-2xl text-[16px] font-extrabold transition-transform duration-200 ease-spring active:scale-95 [&_svg]:size-7 ${look}`}
     >
       {icon}
       {label}
@@ -80,9 +79,9 @@ function PersonOption({ icon, name, detail, onClick }: { icon: ReactNode; name: 
     <button
       type="button"
       onClick={onClick}
-      className="card flex min-h-[72px] items-center gap-4 rounded-[24px] px-4 py-3 text-left transition-transform duration-200 ease-spring active:scale-[0.98]"
+      className="card flex min-h-[72px] items-center gap-4 rounded-xl px-4 py-3 text-left transition-transform duration-200 ease-spring active:scale-[0.98]"
     >
-      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[color-mix(in_oklab,var(--rb-blue)_14%,transparent)] text-accent-ink [&_svg]:size-6" aria-hidden>{icon}</span>
+      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent-ink [&_svg]:size-6" aria-hidden>{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block text-[18px] font-extrabold">{name}</span>
         <span className="block text-[14px] font-semibold text-ink-2">{detail}</span>
@@ -103,10 +102,10 @@ export function ParentToday() {
       <PreviewRibbon />
       <AppNav
         items={[
-          { label: 'Today', icon: <CalendarHeart />, color: 'var(--rb-blue)', active: true },
-          { label: 'Updates', icon: <Bell />, color: 'var(--rb-orange)', badge: true },
-          { label: 'Messages', icon: <MessagesSquare />, color: 'var(--rb-green)' },
-          { label: 'Account', icon: <UserRound />, color: 'var(--rb-violet)' },
+          { label: 'Today', icon: <CalendarHeart />, active: true },
+          { label: 'Updates', icon: <Bell />, badge: true },
+          { label: 'Messages', icon: <MessagesSquare /> },
+          { label: 'Account', icon: <UserRound /> },
         ]}
       />
 
@@ -129,16 +128,16 @@ export function ParentToday() {
             name="Aarav"
             group="Jr KG · Sunflowers"
             color={childColor('aarav')}
-            status={<span className="rounded-full bg-[color-mix(in_oklab,var(--rb-blue)_16%,transparent)] px-3.5 py-1.5 text-[14px] font-extrabold text-accent-ink">On the way</span>}
+            status={<span className="rounded-full bg-accent-soft px-3.5 py-1.5 text-[14px] font-extrabold text-accent-ink">On the way</span>}
           >
-            <Link to="/preview/trip" className="mt-5 block rounded-[26px] bg-[color-mix(in_oklab,var(--rb-blue)_9%,var(--glass-strong))] p-5 ring-1 ring-inset ring-[color-mix(in_oklab,var(--rb-blue)_22%,transparent)] transition-transform duration-200 ease-spring active:scale-[0.98]">
+            <Link to="/preview/trip" className="mt-5 block rounded-2xl bg-accent-soft p-5 ring-1 ring-inset ring-[color-mix(in_oklab,var(--rb-blue)_22%,transparent)] transition-transform duration-200 ease-spring active:scale-[0.98]">
               <div className="flex items-center justify-between gap-3">
                 <FreshnessBadge state="live" />
-                <span className="flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,var(--accent),var(--accent-2))] py-1.5 pl-3.5 pr-2.5 text-[14px] font-extrabold text-white shadow-[var(--accent-glow)]">
+                <span className="flex items-center gap-1 rounded-full bg-accent py-1.5 pl-3.5 pr-2.5 text-[14px] font-extrabold text-white shadow-[0_3px_0_var(--accent-lip)]">
                   Track <ChevronRight className="size-4" aria-hidden />
                 </span>
               </div>
-              <p className="mt-3 font-display text-[34px] font-bold leading-10 tabular-nums">about 3–5 min</p>
+              <p className="mt-3 tracking-[-0.02em] text-[34px] font-bold leading-10 tabular-nums">about 3–5 min</p>
               <p className="text-[16px] font-semibold text-ink-2">Ramesh (Grandfather) is on the way · Aarav is ready at the gate</p>
               <div className="relative mt-4 h-3 rounded-full bg-sunken" aria-hidden>
                 <div className="rainbow-bar h-full w-[70%] rounded-full" />
@@ -174,14 +173,14 @@ export function ParentToday() {
             </div>
           </ChildCard>
 
-          <section className="card relative flex items-start gap-4 overflow-hidden rounded-[30px] p-5 sm:p-6 lg:col-span-2">
+          <section className="card relative flex items-start gap-4 overflow-hidden rounded-2xl p-5 sm:p-6 lg:col-span-2">
             <span className="rainbow-bar absolute inset-x-0 top-0 h-1.5" aria-hidden />
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,var(--rb-orange),var(--rb-yellow))] text-white shadow-[0_10px_20px_-8px_var(--rb-orange)]" aria-hidden>
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--sun)] text-white shadow-[0_10px_20px_-8px_var(--rb-orange)]" aria-hidden>
               <Megaphone className="size-6" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-extrabold uppercase tracking-[0.06em] text-ink-2">From Jumpstart · 10:05 AM</p>
-              <p className="mt-0.5 font-display text-[22px] font-bold leading-7">Early closing on Friday at 12:00</p>
+              <p className="mt-0.5 tracking-[-0.02em] text-[22px] font-bold leading-7">Early closing on Friday at 12:00</p>
               <p className="mt-1 text-[16px] leading-6 text-ink-2">Please plan pickups before noon. The Learning Center stays open as usual.</p>
             </div>
             <span className="mt-2 size-3 shrink-0 rounded-full" style={{ background: 'var(--rb-red)' }} aria-label="Unread" />
@@ -202,12 +201,12 @@ export function ParentToday() {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setChosenTime(slot.time)}
-                className={`flex h-[76px] flex-col items-center justify-center rounded-[22px] transition-transform duration-200 ease-spring active:scale-95 ${
-                  selected ? 'bg-[linear-gradient(135deg,var(--accent),var(--accent-2))] text-white shadow-[var(--accent-glow)]' : 'card'
+                className={`flex h-[76px] flex-col items-center justify-center rounded-xl transition-transform duration-200 ease-spring active:scale-95 ${
+                  selected ? 'bg-accent text-white shadow-[0_3px_0_var(--accent-lip)]' : 'card'
                 }`}
               >
-                <span className="font-display text-[22px] font-bold leading-7 tabular-nums">{slot.time.replace(' PM', '')}</span>
-                <span className={`text-[12px] font-extrabold ${selected ? 'text-white/90' : busy ? 'text-flag' : 'text-ink-2'}`}>
+                <span className="tracking-[-0.02em] text-[22px] font-bold leading-7 tabular-nums">{slot.time.replace(' PM', '')}</span>
+                <span className={`text-[12px] font-extrabold ${selected ? 'text-white/90' : busy ? 'text-warning' : 'text-ink-2'}`}>
                   {busy ? `Busy · ${slot.load}` : slot.load <= 2 ? 'Quiet' : `${slot.load} pickups`}
                 </span>
               </button>
@@ -245,7 +244,7 @@ export function ParentToday() {
             <p className="text-[18px] leading-7">
               <span className="font-extrabold">{who.name}</span> ({who.relation}) will pick up Meera at <span className="font-extrabold">{pickupTime}</span>.
             </p>
-            <div className="card mt-5 rounded-[28px] p-5 text-center">
+            <div className="card mt-5 rounded-2xl p-5 text-center">
               <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-ink-2">Handoff code</p>
               <div className="mt-3"><CodeTiles code={SAMPLE_CODE} /></div>
               <p className="mt-3 text-[14px] font-semibold text-ink-2">{who.name.split(' ')[0]} shows this at the gate. It's in the link too.</p>

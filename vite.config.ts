@@ -8,8 +8,15 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': a new version waits for the person to tap Update (src/app/UpdatePrompt.tsx), never mid-duty.
+      registerType: 'prompt',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'brand/*.webp'],
+      // Precache only the app shell and its assets. School data always comes live from the server, never from a cache.
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,png,webp}', '**/*latin*.woff2'],
+        navigateFallback: 'index.html',
+        cleanupOutdatedCaches: true,
+      },
       manifest: {
         name: 'Jumpstart',
         short_name: 'Jumpstart',
@@ -21,8 +28,8 @@ export default defineConfig({
         orientation: 'any',
         categories: ['education'],
         lang: 'en-IN',
-        background_color: '#fff8f0',
-        theme_color: '#fff8f0',
+        background_color: '#fdfbf8',
+        theme_color: '#fdfbf8',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },

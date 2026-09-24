@@ -2,17 +2,17 @@ import { useEffect, type ReactNode } from 'react'
 import { Navigate } from 'react-router'
 import { LogOut, RotateCcw, UserX } from 'lucide-react'
 import { Button } from '../../ui/Button'
-import { Logo } from '../../ui/Logo'
-import { Mascot } from '../../ui/Backdrop'
+import { Logo, Mascot } from '../../ui/Logo'
 import { clearDemoLanding, demoLanding } from '../../demo/demo'
 import { ConsentScreen } from './ConsentScreen'
 import { LoginScreen } from './LoginScreen'
 import { areasFor, CONSENT_VERSION, useSession, type Area } from './session'
 
-function Splash() {
+/** While the account or a screen is loading: the star on the canvas, never a blank page. */
+export function Splash() {
   return (
     <main className="grid min-h-dvh place-items-center" aria-busy="true" aria-label="Loading">
-      <Mascot size={120} />
+      <Mascot size={96} />
     </main>
   )
 }
@@ -20,13 +20,13 @@ function Splash() {
 function Problem({ title, children, retry }: { title: string; children: ReactNode; retry?: () => void }) {
   const { signOut } = useSession()
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col justify-center px-5">
+    <main className="gutter mx-auto flex min-h-dvh w-full max-w-[calc(480px+2*var(--gutter))] flex-col justify-center">
       <Logo className="mx-auto h-12" />
-      <div className="card mt-6 rounded-[34px] p-7 text-center">
-        <div className="mx-auto grid size-16 place-items-center rounded-full bg-flag-soft text-flag"><UserX className="size-8" aria-hidden /></div>
-        <h1 className="mt-4 text-[28px] font-bold leading-8">{title}</h1>
-        <p className="mt-2 text-[16px] font-semibold leading-6 text-ink-2">{children}</p>
-        <div className="mt-6 grid gap-2">
+      <div className="card page-in mt-6 rounded-2xl p-7 text-center" role="alert">
+        <div className="mx-auto grid size-14 place-items-center rounded-lg bg-warning-soft text-warning"><UserX className="size-7" aria-hidden /></div>
+        <h1 className="mt-4 text-h2">{title}</h1>
+        <p className="mt-2 text-body text-ink-2">{children}</p>
+        <div className="mt-6 grid gap-2.5">
           {retry && <Button icon={<RotateCcw />} onClick={retry}>Try again</Button>}
           <Button variant="secondary" icon={<LogOut />} onClick={() => void signOut()}>Sign out</Button>
         </div>

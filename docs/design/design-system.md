@@ -1,52 +1,101 @@
 # Design System
 
-**Status:** Started in M0 (2026-09-24). The tokens live in code, in [src/styles/tokens.css](../../src/styles/tokens.css); this page explains them.
+**Status:** Rebuilt 2026-09-24 to match the owner-approved Screen Book v3. The tokens live in code, in [src/styles/tokens.css](../../src/styles/tokens.css) and the Tailwind theme in [src/styles/app.css](../../src/styles/app.css); this page explains them. Every screen in the app uses these tokens and the components below. Pages don't define their own colours, sizes or buttons.
 
 ## Direction
-**Playful rainbow glass** (owner's direction, 2026-09-24): a preschool app that feels joyful but stays simple and easy to read.
-- The logo's rainbow (red, orange, yellow, green, teal, blue, plus violet) drives the decoration: soft glowing backgrounds, a colour for each child, coloured navigation icons, rainbow progress bars and the handoff-code tiles.
-- **Frosted glass** for cards (80% opaque, so text reads clearly) and lighter glass for floating bars, sheets and panels, over soft rainbow glows. Everything turns solid when blur isn't supported or reduced transparency is on.
-- **Pill buttons with a glow** for the next action; a warm "sunshine" button for friendly secondary actions such as Running late.
-- **The smiling star** from the logo is the mascot for hero spots (Start duty, the link page, success states) and the school pin on maps.
-- **Status colours keep their meaning.** Live, recent, stale, flags and errors always pair their colour with an icon and words, so the decorative rainbow never changes what they say.
-- Light is warm cream; dark is a night sky with twinkling stars. Each is designed separately.
-- Layouts are built for iPad first: side rail navigation, two columns in landscape and one in portrait, and floating map panels. Phones get a bottom tab bar and bottom sheets.
+**Calm, solid and warm** (owner's corrections, 2026-09-24, replacing the earlier "rainbow glass"):
+- Solid, readable surfaces on a warm canvas. The logo's rainbow shows only as a faint whisper behind the page, on child avatars and on the handoff-code tiles.
+- **No gradients, glow or shine.** Buttons are solid with a darker lip that presses down; hover is a real colour change.
+- **Icons, not colours**, tell roles and class levels apart (the same lucide icons as the Screen Book). Colour is never the only signal.
+- **Plus Jakarta Sans only**, with emphasis in bold or italic of the same font.
+- Floating layers only (the top bar, toasts, the on-duty bar) are lightly frosted. Content cards are solid. Blur turns solid when it isn't supported or when Reduce Transparency is on.
+- Light and dark are designed separately. Dark is a calm night sky, with surfaces that step lighter as they rise.
+- The smiling star from the logo is the friendly mark for welcome, empty and loading moments.
 
 ## Logo
 - **Files:** `public/brand/logo.webp` (light), `logo-dark.webp` (dark theme, with the dotted flight path lightened so it stays visible) and `star.webp` (the smiling star). Transparent masters are in [brand/](brand/): the wordmark at 1796×584 and the star.
 - **App icons:** the smiling star on white. `apple-touch-icon.png` (180, opaque, because iOS rounds the corners), `icon-192.png` and `icon-512.png`, `icon-maskable-512.png` (the star inside the 80% safe zone), and `favicon.png` (64).
-- **Where it appears:** Start duty, the parent's Today header, the third person's link page (large, since a stranger opening a WhatsApp link needs to see it's really from the school), the login screen, and the school pin on maps (the star). Working screens such as the gate queue and the on-duty bar leave it out to keep attention on the children.
+- **Where it appears:** every top bar, Start duty, the login screen, the third person's link page (large, since a stranger opening a WhatsApp link needs to see it's really from the school), and the school pin on maps (the star).
 - **Rules:** never recolour, stretch or crop the wordmark; no busy backgrounds behind it; at least 28 px tall; clear space around it at least the height of the star.
-- **Source:** file provided by the owner on 2026-09-24 (1975×796, white background, cut out for the app). A vector original is better for print if one exists.
-
-## Foundations
-- **Type:** Baloo 2 for headings and big numbers (rounded and playful; made by Ek Type in India, with Devanagari for Hindi and Marathi later), Nunito for body text (rounded, very readable). Both open source and bundled. iPad sizes: 48 hero, 36 page title, 26–28 section, 17–18 body, 15 secondary, 12–13 labels. Times and codes use tabular numbers.
-- **Spacing:** 4-point scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64).
-- **Radii:** full pills for buttons; 20–26 for tiles and inner panels; 28–36 for cards, bars and sheets.
-- **Touch:** every target at least 44 pt; the main action on an iPad screen is 64 pt tall; action tiles are 88 pt.
-- **Motion:** buttons squeeze to 95% and spring back; stars twinkle; the mascot floats. Reduced motion turns it all off.
-- **Home Screen app:** translucent status bar with safe-area padding on every screen, no rubber-band scrolling, no double-tap zoom or long-press callouts on controls, portrait and landscape.
 
 ## Colour roles
-| Role | Use | Contrast (checked) |
-|---|---|---|
-| `ink`, `ink-2` | Text, secondary text | ≥ 7:1 on cards in both themes |
-| `ink-3` | Icons and non-essential text only | — |
-| `accent` → `accent-2` | The next action (gradient with glow) | White text ≥ 4.6:1 across the whole gradient |
-| Sunshine (`rb-yellow` → `rb-orange`) | Friendly secondary actions | Dark brown text ≥ 5.9:1 |
-| `rb-*` rainbow | Decoration, child colours, nav icons, code tiles | Never used alone for text |
-| `live`, `recent`, `stale` | Freshness (TRK-3), always with an icon and text | ≥ 4.7:1 on their tints |
-| `flag` | Off-schedule, short notice, warnings | ≥ 4.6:1 |
-| `danger`, `danger-strong` | Errors; `danger-strong` for filled alerts with white text | ≥ 4.8:1 |
+Semantic tokens; components use only these. Light values shown; dark has its own set in the same file.
 
-## Components so far
-- **Logo, BrandStar:** the wordmark, which switches to the dark version automatically, and the star ([src/ui/Logo.tsx](../../src/ui/Logo.tsx)).
-- **Backdrop, Mascot:** twinkling rainbow stars and the dotted flight path behind every screen; the floating smiling star ([src/ui/Backdrop.tsx](../../src/ui/Backdrop.tsx)).
-- **Button:** primary (blue glow), secondary (glass), sunshine, quiet and danger, in md (44), lg (56) and xl (64); circles when icon-only; hover, pressed, focus, disabled and loading states ([src/ui/Button.tsx](../../src/ui/Button.tsx)).
-- **AppNav:** bottom tab bar on phones, floating side rail on iPad, each section in its own rainbow colour ([src/ui/AppNav.tsx](../../src/ui/AppNav.tsx)).
-- **CodeTiles:** the 4-digit handoff code, one soft rainbow tile per digit, in three sizes ([src/ui/CodeTiles.tsx](../../src/ui/CodeTiles.tsx)).
-- **childColor:** one stable rainbow colour per child, used for avatars and card glows on every screen ([src/ui/childColor.ts](../../src/ui/childColor.ts)).
-- **FreshnessBadge:** LIVE, RECENT · age, STALE · age, UNAVAILABLE, each with its own colour, icon and text ([src/ui/FreshnessBadge.tsx](../../src/ui/FreshnessBadge.tsx)).
-- **TripMap:** MapLibre with OpenFreeMap light and dark styles; travelled route solid, remaining route dotted; the traveller pulses only while LIVE, stops and turns grey when STALE, and disappears when UNAVAILABLE; the smiling star marks the school; Recenter after panning ([src/ui/TripMap.tsx](../../src/ui/TripMap.tsx)).
-- **Sheet:** frosted `<dialog>`: a bottom sheet on phones, a centred floating card on iPad ([src/ui/Sheet.tsx](../../src/ui/Sheet.tsx)).
-- **Coordinator duty screens:** Start duty (two columns on iPad landscape), rainbow sound check, the on-duty bar with clock, mute and end duty, the now-announcing strip, offline and screen-awake banners, and the end-duty confirmation.
+| Token | Use | Contrast (checked) |
+|---|---|---|
+| `canvas`, `surface`, `elevated`, `sunken` | Page, cards and inputs, sheets, tracks and tiles inside cards | |
+| `ink`, `ink-2` | Primary and secondary text | 15.9:1 and 7.8:1 on `surface`; dark 15.6:1 and 9.3:1 |
+| `ink-3` | Icons, placeholders, non-essential text only | 3.2:1 (non-text) |
+| `line`, `line-2` | Dividers and card edges; input edges and button lips | |
+| `accent` (+ `-hover`, `-lip`, `-soft`, `-ink`) | Primary: the one next action on a screen; selected state | White text 5.7:1 (dark 4.7:1); `accent-ink` 7.3:1 |
+| `secondary` | Area chips and solid labels (ink in light, near-white in dark) | |
+| `sun` (+ `-hover`, `-lip`, `-ink`) | Warm accent: friendly secondary actions such as Unmute or Running late | Dark text 11:1 |
+| `success` | Success actions ("Yes, I heard it") | White text 5.1:1 |
+| `live`, `recent`, `stale` | Freshness (TRK-3), always with an icon and words | ≥ 4.7:1 on their tints |
+| `warning` | Off-schedule, short notice, "No coordinator" | ≥ 4.6:1 on `warning-soft` |
+| `danger`, `danger-strong` | Errors; `danger-strong` for filled alerts with white text | ≥ 4.8:1 |
+| `info` | Informational notices | 7.3:1 on `info-soft` |
+| `focus` | The focus ring on every control | |
+| `rb-*` rainbow | Child avatars (`childColor`), code tiles, small accents; never text on its own | |
+
+## Type
+One family, Plus Jakarta Sans (variable, bundled, Latin and Latin Extended cached for offline). Every text style is a Tailwind class from this scale. Headings balance their line breaks; paragraphs avoid orphans.
+
+| Class | Size | Weight | Use |
+|---|---|---|---|
+| `text-display` | 36 → 56 px (fluid) | 800, −0.04em | Hero moments (Start duty) |
+| `text-h1` | 30 → 42 px (fluid) | 800, −0.035em | Page titles |
+| `text-h2` | 22 → 28 px (fluid) | 800, −0.03em | Sheet titles, card headings |
+| `text-h3` | 19 px | 800 | List item names, choice titles |
+| `text-h4` | 17 px | 750 | Small headings, choice labels |
+| `text-lead` | 17 px | 500 | Page descriptions |
+| `text-body` | 16 px | 500 | Body text |
+| `text-small` | 14 px | | Details, field labels |
+| `text-caption` | 13 px | | Pills, hints |
+| `text-label` / `kicker` | 12 px | 750, uppercase, +0.08em | Section labels |
+| `text-nav` | 12 px | 700 | Tab bar labels |
+| `text-numeral` | 22 px | 800, tabular | Times and counts |
+
+Nothing is smaller than 12 px. Inputs use 17 px so iOS never zooms in on focus. Times, codes and counts use tabular figures.
+
+## Space, shape and depth
+- **Spacing:** Tailwind's 4-point scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64). Groups use `gap`, not margins between siblings.
+- **Layout:** side gutter 16 / 24 / 32 px (phone / tablet / desktop), which also clears the notch in landscape (`gutter` utility). Content is at most 1180 px wide and centred on wide and ultra-wide screens. Lists are one column on phones and two from 768 px.
+- **Radii:** `xs` 8, `sm` 12, `md` 16 (buttons, inputs), `lg` 20 (choices, tiles), `xl` 24 (cards, top bar), `2xl` 32 (large cards, sheets).
+- **Elevation:** `shadow-card` for content, `shadow-float` for floating bars and toasts, `shadow-lift` for sheets. Nothing else casts a shadow.
+- **Touch:** every target is at least 44 × 44 pt (checked by the QA sweep); the main action of an iPad screen is 64 pt tall.
+
+## Motion
+Motion confirms what happened; nobody ever waits for it.
+- **Durations:** press 80 ms, hover and colour 150 ms, small entrances 220 ms, sheets and pages 360 ms.
+- **Easing:** `ease-standard` for almost everything, `ease-exit` for leaving, `ease-spring` only for small things (the selected-choice tick, toasts).
+- **What moves:** buttons and choices press down onto their lip; new pages and sheet steps settle in (fade and rise 8 px); sheets slide up on phones and scale in on iPad; toasts rise in; the star floats; the on-duty dot pulses; the traveller on the map pulses only while LIVE.
+- Only `transform` and `opacity` are animated. Hover styles apply only on devices that can hover, so nothing sticks on touch.
+- **Reduced motion:** every animation and transition becomes instant; everything still works.
+
+## Components
+All in [src/ui](../../src/ui):
+- **Button:** primary, secondary, sunshine, success, quiet and danger; md (44), lg (52) and xl (64); icon-only buttons are square. States: hover, pressed, focus, disabled, and loading (keeps its colour, shows a spinner and ignores presses so a double tap can't send twice).
+- **TextField, SelectField, SearchField:** label, optional icon, hint or announced error, invalid and disabled states.
+- **Tabs:** segmented, with arrow keys, Home and End. On phones it becomes an even two-column grid, so no tab hides off the edge. The area page tabs in AreaShell use the same look.
+- **Choice (`.choice`):** pressable tile for roles, classes, levels and programmes; the chosen one gets the accent edge and a tick.
+- **Pill:** tags and statuses in neutral, accent, live, warning, danger, recent, stale and solid, with an icon.
+- **Avatar:** a person's or child's initial on their own stable colour, or an icon.
+- **ListRow:** avatar, name, detail, tags and an action that drops under the text on narrow phones.
+- **Sheet and SheetFooter:** native `<dialog>` (focus trap, Escape, backdrop tap). It is a bottom sheet on phones and a centred card on iPad and desktop, with a fixed header and the main action pinned to the bottom.
+- **Toast:** confirmations and background news, read out by screen readers. Toasts with an action stay until used.
+- **EmptyState, ErrorState, SkeletonList, Notice:** every data screen shows a skeleton while loading, says what is empty and what to do next, and explains errors in plain words with Try again. ErrorState recognises when the device is offline.
+- **AreaShell:** skip link, floating top bar (logo, area chip with its icon, account), offline notice, page tabs, then the title with its description and actions.
+- **Logo, BrandStar, Mascot; CodeTiles; FreshnessBadge; TripMap; AppNav** (phone tab bar and iPad side rail, used by the design preview).
+
+## Responsive behaviour
+Checked automatically on every page and sheet in light and dark at 320, 360, 375, 390, 414 and 430 (phones), 667×375, 844×390 and 932×430 (phones in landscape), 600, 768, 820, 834, 1024 and 1180 (tablets, both orientations), and 1280 to 2560 (desktop). The checks cover horizontal overflow, text under 12 px, targets under 40 px and clipped text.
+- Phones: compact top bar (the area label becomes icon-only under 375 px, and the account shows just the avatar), tabs in a two-column grid, one-column lists, bottom sheets with the action pinned in thumb reach.
+- iPad: two-column lists, centred sheets, and Start duty in two columns in landscape.
+- Desktop and wide: the same layout, centred at a readable width.
+
+## Installed app (PWA)
+- Manifest with name, short name, description, standalone display, any orientation, theme and background colours, 192, 512 and maskable icons; iOS Home Screen tags, a translucent status bar and safe-area padding on every screen.
+- The service worker caches only the app shell (code, styles, fonts, icons), so the app opens offline and says so. School data always comes live from the server and is never served from a cache.
+- **Safe updates:** a new version never reloads the app by itself. A toast offers Update, so a coordinator's iPad is never interrupted during gate duty. Long-running iPads check for a new version every hour.
+- Each staff area loads on first use, so a parent's phone doesn't download the admin or duty screens.

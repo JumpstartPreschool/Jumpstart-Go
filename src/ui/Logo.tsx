@@ -15,3 +15,11 @@ export function Logo({ className = 'h-8' }: { className?: string }) {
 export function BrandStar({ className = 'size-8' }: { className?: string }) {
   return <img src="/brand/star.webp" alt="" aria-hidden width={128} height={128} className={className} decoding="async" />
 }
+
+/** The smiling star, gently floating: the friendly mark for welcome, empty and success moments. Still with reduced motion. */
+export function Mascot({ size = 120, className = '' }: { size?: number; className?: string }) {
+  return (
+    <img src="/brand/star.webp" alt="" aria-hidden width={size} height={size} decoding="async"
+      className={`float shrink-0 drop-shadow-[0_10px_14px_rgb(22_25_58/0.16)] ${className}`} style={{ width: size, height: size }} />
+  )
+}

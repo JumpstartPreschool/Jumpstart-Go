@@ -1,11 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { registerSW } from 'virtual:pwa-register'
 import './styles/app.css'
 import { App } from './app/App'
 
-registerSW({ immediate: true })
-
+// The service worker is registered by <UpdatePrompt />, which waits for the person to tap Update.
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

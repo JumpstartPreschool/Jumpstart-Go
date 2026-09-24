@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { CalendarClock, House, RotateCcw, Sparkles } from 'lucide-react'
-import { Button } from '../../ui/Button'
-import { Mascot } from '../../ui/Backdrop'
+import { useEffect, useState, type ReactNode } from 'react'
+import { House, School, Sparkles, Sunrise } from 'lucide-react'
+import { Avatar } from '../../ui/Avatar'
+import { EmptyState, ErrorState, Notice } from '../../ui/States'
 import { childColor } from '../../ui/childColor'
 import { formatTime, indiaClock, toMinutes } from '../../domain/time'
 import { supabase } from '../../lib/supabase'
@@ -17,17 +17,17 @@ interface ChildToday {
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>
 }
 
-const t = (v: string | null) => (v ? formatTime(toMinutes(v.slice(0, 5))) : '—')
+const t = (v: string | null) => (v ? formatTime(toMinutes(v.slice(0, 5))) : 'Not set')
 
 /** Today's drop-off and pickup for a child: their regular times, or the programme's windows until those are set. */
 function todayLine(c: ChildToday, weekday: number): { dropoff: string; pickup: string; fromWindows: boolean } {
   const s = c.child_schedules.find((x) => x.weekday === weekday)
   if (s) return { dropoff: t(s.dropoff), pickup: t(s.pickup), fromWindows: false }
   const p = c.programmes
-  if (!p) return { dropoff: '—', pickup: '—', fromWindows: true }
+  if (!p) return { dropoff: 'Not set', pickup: 'Not set', fromWindows: true }
   return p.flexible
-    ? { dropoff: `from ${t(p.starts)}`, pickup: `by ${t(p.ends)}`, fromWindows: true }
-    : { dropoff: `${t(p.dropoff_from)}–${t(p.dropoff_to)}`, pickup: `${t(p.pickup_from)}–${t(p.pickup_to)}`, fromWindows: true }
+    ? { dropoff: `From ${t(p.starts)}`, pickup: `By ${t(p.ends)}`, fromWindows: true }
+    : { dropoff: `${t(p.dropoff_from)} to ${t(p.dropoff_to)}`, pickup: `${t(p.pickup_from)} to ${t(p.pickup_to)}`, fromWindows: true }
 }
 
 const CHILD_FIELDS = 'id, full_name, preferred_name, programmes(name, flexible, starts, ends, dropoff_from, dropoff_to, pickup_from, pickup_to), classes(name), child_schedules(weekday, dropoff, pickup)'
@@ -52,54 +52,51 @@ function useChildrenToday(guardianId: string | null) {
   return { rows, error, reload: load }
 }
 
+function TimeTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-sunken p-3.5">
+      <p className="kicker flex items-center gap-1.5 [&_svg]:size-4">{icon}{label}</p>
+      <p className="mt-1.5 text-numeral tabular-nums">{value}</p>
+    </div>
+  )
+}
+
 function ChildrenToday({ area, title, empty, guardianId }: { area: Area; title: string; empty: string; guardianId: string | null }) {
   const { rows, error, reload } = useChildrenToday(guardianId)
   const { weekday } = indiaClock(new Date())
   return (
-    <AreaShell area={area} title={title}>
-      <p className="mt-1 px-1 text-[16px] font-semibold text-ink-2">
-        {weekday === 7 ? 'Sunday: the school is closed today.' : "Today's regular drop-off and pickup times."}
-      </p>
-      <section className="mt-5" aria-live="polite">
+    <AreaShell area={area} title={title} subtitle={weekday === 7 ? 'Sunday: the school is closed today.' : "Today's regular drop-off and pickup times."}>
+      <section className="mt-6" aria-live="polite" aria-busy={!rows && !error}>
         {error ? (
-          <div className="card rounded-[30px] p-6 text-center">
-            <p className="text-[16px] font-bold text-danger">Couldn't load the children. Check your connection.</p>
-            <Button className="mt-4" variant="secondary" icon={<RotateCcw />} onClick={reload}>Try again</Button>
-          </div>
+          <ErrorState title="Couldn't load the children" onRetry={reload}>Check your connection and try again.</ErrorState>
         ) : !rows ? (
-          <ul className="grid gap-4 md:grid-cols-2" aria-label="Loading">{[0, 1].map((i) => <li key={i} className="card h-40 animate-pulse rounded-[30px]" />)}</ul>
+          <ul className="grid gap-4 md:grid-cols-2" aria-label="Loading">
+            {[0, 1].map((i) => <li key={i} className="card h-[212px] animate-pulse rounded-2xl" />)}
+          </ul>
         ) : rows.length === 0 ? (
-          <div className="card flex flex-col items-center rounded-[30px] p-8 text-center"><Mascot size={96} /><p className="mt-2 text-[16px] font-semibold text-ink-2">{empty}</p></div>
+          <EmptyState title="No children yet">{empty}</EmptyState>
         ) : (
           <ul className="grid gap-4 md:grid-cols-2">
             {rows.map((c) => {
-              const color = childColor(c.id)
               const today = todayLine(c, weekday)
               return (
-                <li key={c.id} className="card relative overflow-hidden rounded-[32px] p-5 sm:p-6">
-                  <span className="pointer-events-none absolute -right-20 -top-24 size-60 rounded-full opacity-35 blur-3xl" style={{ background: color }} aria-hidden />
-                  <div className="relative flex items-center gap-4">
-                    <span className="grid size-14 shrink-0 place-items-center rounded-full font-display text-[26px] font-bold text-white ring-4 ring-white/70"
-                      style={{ background: `linear-gradient(135deg, ${color}, color-mix(in oklab, ${color} 62%, white))`, boxShadow: `0 12px 24px -10px ${color}` }} aria-hidden>
-                      {(c.preferred_name ?? c.full_name)[0]}
-                    </span>
+                <li key={c.id} className="card rounded-2xl p-5 sm:p-6">
+                  <div className="flex items-center gap-4">
+                    <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} size="lg" />
                     <div className="min-w-0">
-                      <h2 className="truncate text-[26px] font-bold leading-8">{c.preferred_name ?? c.full_name}</h2>
-                      <p className="truncate text-[14px] font-semibold text-ink-2">{c.programmes?.name ?? '—'} · {c.classes?.name ?? '—'}</p>
+                      <h2 className="truncate text-h2">{c.preferred_name ?? c.full_name}</h2>
+                      <p className="flex items-center gap-1.5 truncate text-small font-semibold text-ink-2">
+                        <School className="size-4 shrink-0 text-ink-3" aria-hidden />
+                        {[c.programmes?.name, c.classes?.name].filter(Boolean).join(' · ') || 'No programme yet'}
+                      </p>
                     </div>
                   </div>
-                  <div className="relative mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-[20px] bg-sunken p-3.5">
-                      <p className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-2"><CalendarClock className="size-4" aria-hidden />Drop-off</p>
-                      <p className="mt-0.5 font-display text-[20px] font-bold tabular-nums">{today.dropoff}</p>
-                    </div>
-                    <div className="rounded-[20px] bg-sunken p-3.5">
-                      <p className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-2"><House className="size-4" aria-hidden />Pickup</p>
-                      <p className="mt-0.5 font-display text-[20px] font-bold tabular-nums">{today.pickup}</p>
-                    </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <TimeTile icon={<Sunrise />} label="Drop-off" value={today.dropoff} />
+                    <TimeTile icon={<House />} label="Pickup" value={today.pickup} />
                   </div>
                   {today.fromWindows && (
-                    <p className="relative mt-3 text-[13px] font-semibold text-ink-2">These are the programme's windows; the core team hasn't set regular times yet.</p>
+                    <p className="mt-3 text-caption font-semibold text-ink-2">These are the programme's windows. The core team hasn't set regular times yet.</p>
                   )}
                 </li>
               )
@@ -107,9 +104,7 @@ function ChildrenToday({ area, title, empty, guardianId }: { area: Area; title: 
           </ul>
         )}
       </section>
-      <p className="mt-6 flex items-center gap-2 px-1 text-[14px] font-semibold text-ink-2">
-        <Sparkles className="size-4 text-rb-orange" aria-hidden /> Changing today's time, pickups and live tracking arrive in the next updates.
-      </p>
+      <Notice className="mt-6" icon={<Sparkles aria-hidden />}>Changing today's time, pickups and live tracking arrive in the next updates.</Notice>
     </AreaShell>
   )
 }
@@ -121,5 +116,5 @@ export function ParentHome() {
 }
 
 export function CoreHome() {
-  return <ChildrenToday area="core" title="Today" guardianId={null} empty="No children yet. The admin adds children from People." />
+  return <ChildrenToday area="core" title="Today" guardianId={null} empty="The admin adds children from People." />
 }

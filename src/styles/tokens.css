@@ -1,13 +1,14 @@
 /*
- * Jumpstart design tokens: the rainbow of the logo on a calm canvas, frosted glass surfaces and soft glows.
- * Light is warm cream; dark is a night sky. Text colours meet WCAG 2.2 AA on their surfaces, and status colours
- * (live, recent, stale, flag, danger) always come with an icon and words, so the decorative rainbow never
- * changes their meaning. See docs/design/design-system.md.
+ * Jumpstart design tokens (docs/design/design-system.md). One source for colour, type, shape, depth and motion.
+ * Direction (owner, 2026-09-24): calm solid surfaces on a warm canvas, the logo's rainbow only as a whisper,
+ * solid buttons with a darker lip, no gradients, glow or shine; icons, not colours, tell roles and classes apart.
+ * Light and dark are designed separately. Text tokens meet WCAG 2.2 AA on their surfaces; status colours always
+ * come with an icon and words.
  */
 :root {
   color-scheme: light;
 
-  /* Rainbow from the logo: decoration, child colours, navigation icons */
+  /* Brand rainbow (from the logo): child avatars, handoff-code tiles and small accents. Never text on its own. */
   --rb-red: #ef3b3f;
   --rb-orange: #f7852a;
   --rb-yellow: #ffc21a;
@@ -17,61 +18,95 @@
   --rb-violet: #8b5cf6;
   --rainbow: linear-gradient(90deg, var(--rb-red), var(--rb-orange), var(--rb-yellow), var(--rb-green), var(--rb-teal), var(--rb-blue));
 
-  /* Canvas and text */
-  --canvas: #fff8f0;
-  --sunken: rgb(27 31 59 / 0.05);
-  --line: rgb(27 31 59 / 0.09);
-  --line-strong: rgb(27 31 59 / 0.16);
-  --ink: #1b1f3b;
-  --ink-2: #4e5472;
-  --ink-3: #8a8fa8;
+  /* Surfaces */
+  --canvas: #fdfbf8; /* page background */
+  --surface: #ffffff; /* cards, inputs, sheets */
+  --elevated: #ffffff; /* sheets and menus, lifted by shadow */
+  --sunken: #f4f2f7; /* tracks, tiles inside cards */
+  --sunken-hover: #ebe8f1;
+  --bar: rgb(255 255 255 / 0.86); /* floating bars over scrolling content (with blur) */
+  --scrim: rgb(22 25 58 / 0.32);
 
-  /* Frosted glass: cards are strong (readable), floating bars lighter */
-  --glass: rgb(255 255 255 / 0.62);
-  --glass-strong: rgb(255 255 255 / 0.8);
-  --glass-bar: rgb(255 255 255 / 0.92); /* tab bar over scrolling content */
-  --glass-sheet: #fffdfa; /* pop-ups are solid: they can stack on each other */
-  --glass-edge: rgb(255 255 255 / 0.9);
-  --glass-blur: blur(22px) saturate(180%);
-  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 18px 40px -18px rgb(40 46 110 / 0.28), 0 2px 6px rgb(40 46 110 / 0.06);
-  --surface: #ffffff; /* solid fallback when blur is unavailable or reduced transparency is on */
-
-  /* The next action: Jumpstart blue, with a glow */
-  --accent: #1560d4;
-  --accent-2: #1a72d4; /* white text stays ≥ 4.5:1 across the whole gradient */
-  --accent-ink: #0f55bd;
+  /* Text */
+  --ink: #16193a; /* primary: 15.9:1 on surface */
+  --ink-2: #4b5070; /* secondary: 7.8:1 */
+  --ink-3: #8a8ea6; /* muted: icons, placeholders and non-essential text only (3.2:1) */
   --on-accent: #ffffff;
-  --accent-glow: 0 14px 30px -12px rgb(21 96 212 / 0.65);
-  --focus: #1560d4;
+
+  /* Lines */
+  --line: #ece8f1; /* dividers, card edges */
+  --line-2: #ddd8e6; /* input edges, button lips on light surfaces */
+  --line-hover: #cfc9dc;
+
+  /* Primary: Jumpstart blue, the one next action on a screen (white text 5.7:1) */
+  --accent: #1560d4;
+  --accent-hover: #0f4fb8;
+  --accent-lip: #0c3e8f;
+  --accent-soft: #eaf2ff;
+  --accent-ink: #0f4aae; /* accent text on light surfaces, 7.3:1 */
+
+  /* Secondary: ink, for area chips and solid labels */
+  --secondary: #16193a;
+  --secondary-lip: #000000;
+
+  /* Warm accent: sunshine, for friendly secondary actions such as Running late (dark text 11:1) */
+  --sun: #ffc21a;
+  --sun-hover: #ffb300;
+  --sun-lip: #d18e00;
+  --sun-ink: #2b1a00;
 
   /* Status */
-  --live: #147a3c;
-  --live-soft: #dcf5e4;
+  --success: #157f40; /* white text 5.1:1 */
+  --success-hover: #106c36;
+  --success-lip: #0d5a2c;
+  --live: #137a3b;
+  --live-soft: #e1f5e8;
+  --warning: #b4430b; /* also "flag": off-schedule, short notice */
+  --warning-soft: #ffeedf;
+  --danger: #c4231f;
+  --danger-soft: #ffe9e8;
+  --danger-hover: #fff0ef;
+  --danger-line: #f0c6c4;
+  --danger-strong: #b91c1c; /* filled alerts with white text */
+  --info: #0f4aae;
+  --info-soft: #eaf2ff;
   --recent: #8f5a00;
   --recent-soft: #fff0cc;
   --stale: #5b6478;
   --stale-soft: #e9ecf3;
-  --flag: #b8430a;
-  --flag-soft: #ffe9d9;
-  --danger: #c4231f;
-  --danger-soft: #ffe4e3;
-  --danger-strong: #b91c1c;
 
-  /* Ambient background glow */
-  --glow-a: rgb(239 59 63 / 0.2);
-  --glow-b: rgb(31 139 230 / 0.22);
-  --glow-c: rgb(60 180 75 / 0.18);
-  --glow-d: rgb(255 194 26 / 0.3);
-  --glow-e: rgb(20 175 165 / 0.14);
-  --star-opacity: 0.55;
+  --focus: rgb(21 96 212 / 0.55);
+  --focus-ring: 0 0 0 4px rgb(21 96 212 / 0.16);
 
-  --shadow-1: 0 1px 2px rgb(40 46 110 / 0.06), 0 1px 1px rgb(40 46 110 / 0.04);
-  --shadow-2: 0 22px 48px -20px rgb(40 46 110 / 0.35), 0 3px 8px rgb(40 46 110 / 0.07);
+  /* Whisper of the logo's colours behind every page */
+  --whisper-a: rgb(239 59 63 / 0.07);
+  --whisper-b: rgb(31 139 230 / 0.09);
+  --whisper-c: rgb(255 194 26 / 0.11);
 
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  /* Depth: one shadow per role */
+  --shadow-card: 0 1px 2px rgb(22 25 58 / 0.05), 0 14px 34px -22px rgb(22 25 58 / 0.3);
+  --shadow-float: 0 16px 36px -20px rgb(22 25 58 / 0.35), 0 2px 6px rgb(22 25 58 / 0.05);
+  --shadow-lift: 0 30px 70px -30px rgb(22 25 58 / 0.55), 0 10px 22px -14px rgb(22 25 58 / 0.25);
+
+  /* Shape */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  /* Motion: fast enough to feel immediate, never waiting on an animation */
+  --dur-press: 80ms;
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1); /* small things only: badges, switches, checks */
 }
 
+/* Dark: a calm night sky. Surfaces step lighter as they rise; text and accents re-tuned for contrast. */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
@@ -84,48 +119,67 @@
     --rb-blue: #4aa6ff;
     --rb-violet: #a78bfa;
 
-    --canvas: #0b0e23;
-    --sunken: rgb(255 255 255 / 0.06);
-    --line: rgb(255 255 255 / 0.09);
-    --line-strong: rgb(255 255 255 / 0.16);
-    --ink: #f4f5ff;
-    --ink-2: #b6badb;
-    --ink-3: #7c81a6;
+    --canvas: #0d0f22;
+    --surface: #161a35;
+    --elevated: #1c2041;
+    --sunken: #20254a;
+    --sunken-hover: #292e57;
+    --bar: rgb(22 26 53 / 0.86);
+    --scrim: rgb(4 5 16 / 0.6);
 
-    --glass: rgb(28 33 72 / 0.52);
-    --glass-strong: rgb(28 33 72 / 0.74);
-    --glass-bar: rgb(22 26 60 / 0.92);
-    --glass-sheet: #181c40;
-    --glass-edge: rgb(255 255 255 / 0.1);
-    --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.07) inset, 0 20px 44px -18px rgb(0 0 0 / 0.7);
-    --surface: #1a1f45;
+    --ink: #f3f4ff; /* 15.6:1 on surface */
+    --ink-2: #b8bcdc; /* 9.3:1 */
+    --ink-3: #8185aa;
+    --on-accent: #ffffff;
 
-    --accent: #2f6fe4;
-    --accent-2: #2a6fdc;
-    --accent-ink: #8cbcff;
-    --accent-glow: 0 14px 34px -12px rgb(61 140 242 / 0.7);
-    --focus: #8cbcff;
+    --line: #262a4d;
+    --line-2: #343960;
+    --line-hover: #444a74;
 
+    --accent: #2f6fe4; /* white text 4.7:1 */
+    --accent-hover: #3d7cf0;
+    --accent-lip: #1c47a3;
+    --accent-soft: rgb(74 140 255 / 0.16);
+    --accent-ink: #9cc3ff;
+
+    --secondary: #f3f4ff;
+    --secondary-lip: #9da2c8;
+
+    --sun-lip: #b37a00;
+
+    --success: #1a8a47;
+    --success-hover: #1f9a50;
+    --success-lip: #0e5a2d;
     --live: #5de08f;
-    --live-soft: rgb(93 224 143 / 0.15);
-    --recent: #ffc857;
-    --recent-soft: rgb(255 200 87 / 0.15);
-    --stale: #a1a8c3;
-    --stale-soft: rgb(161 168 195 / 0.15);
-    --flag: #ffa062;
-    --flag-soft: rgb(255 160 98 / 0.15);
-    --danger: #ff8080;
-    --danger-soft: rgb(255 128 128 / 0.15);
+    --live-soft: rgb(93 224 143 / 0.14);
+    --warning: #ffa062;
+    --warning-soft: rgb(255 160 98 / 0.14);
+    --danger: #ff8a86;
+    --danger-soft: rgb(255 128 128 / 0.14);
+    --danger-hover: rgb(255 128 128 / 0.2);
+    --danger-line: rgb(255 128 128 / 0.35);
     --danger-strong: #c42b2b;
+    --info: #9cc3ff;
+    --info-soft: rgb(74 140 255 / 0.16);
+    --recent: #ffc857;
+    --recent-soft: rgb(255 200 87 / 0.14);
+    --stale: #a1a8c3;
+    --stale-soft: rgb(161 168 195 / 0.14);
 
-    --glow-a: rgb(255 90 94 / 0.2);
-    --glow-b: rgb(74 166 255 / 0.26);
-    --glow-c: rgb(85 207 101 / 0.14);
-    --glow-d: rgb(255 210 63 / 0.12);
-    --glow-e: rgb(167 139 250 / 0.2);
-    --star-opacity: 0.8;
+    --focus: rgb(140 188 255 / 0.75);
+    --focus-ring: 0 0 0 4px rgb(140 188 255 / 0.2);
 
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-2: 0 22px 48px -18px rgb(0 0 0 / 0.75);
+    --whisper-a: rgb(255 90 94 / 0.08);
+    --whisper-b: rgb(74 166 255 / 0.12);
+    --whisper-c: rgb(167 139 250 / 0.08);
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35), 0 14px 34px -22px rgb(0 0 0 / 0.8);
+    --shadow-float: 0 16px 36px -18px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.3);
+    --shadow-lift: 0 30px 70px -26px rgb(0 0 0 / 0.85), 0 10px 22px -14px rgb(0 0 0 / 0.5);
   }
 }
+
+/* Layout: the side gutter grows with the screen; content stays at a readable width on very wide screens. */
+:root { --gutter: 16px; --content: 1180px; }
+@media (min-width: 640px) { :root { --gutter: 24px; } }
+@media (min-width: 1024px) { :root { --gutter: 32px; } }

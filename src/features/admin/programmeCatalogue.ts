@@ -13,20 +13,19 @@ export interface Level {
   ages: string
   /** Age range in months, for the suggestion from the date of birth (upper bound exclusive). */
   months: [number, number]
-  color: string
   blurb: string
   /** Standalone programmes have no plans to choose from. */
   standalone: boolean
 }
 
 export const LEVELS: Level[] = [
-  { key: 'Playgroup', label: 'Playgroup', ages: '2–3 years', months: [24, 36], color: 'var(--rb-red)', blurb: 'Independent learners, social skills and motor skills.', standalone: false },
-  { key: 'Nursery', label: 'Nursery', ages: '3–4 years', months: [36, 48], color: 'var(--rb-orange)', blurb: 'Learning through exploration and early academic readiness.', standalone: false },
-  { key: 'Jr KG', label: 'Jr KG', ages: '4–5 years', months: [48, 60], color: 'var(--rb-green)', blurb: 'Logic, reasoning and more focus on academic readiness.', standalone: false },
-  { key: 'Sr KG', label: 'Sr KG', ages: '5–6 years', months: [60, 72], color: 'var(--rb-teal)', blurb: 'Preparation for primary school and confidence building.', standalone: false },
-  { key: 'Learning Center', label: 'Learning Center', ages: '6 months–8 years', months: [6, 96], color: 'var(--rb-blue)', blurb: 'Daycare with meals and activities; parents choose their hours between 9 AM and 7 PM.', standalone: true },
-  { key: 'Preschool Readiness Program', label: 'Preschool Readiness', ages: '18 months–2 years', months: [18, 24], color: 'var(--rb-violet)', blurb: 'A 3-month course that gets toddlers ready for Playgroup.', standalone: true },
-  { key: 'After School Program', label: 'After School', ages: '4–8 years', months: [48, 96], color: 'var(--rb-yellow)', blurb: 'Sports, art, language and life skills after primary school.', standalone: true },
+  { key: 'Playgroup', label: 'Playgroup', ages: '2–3 years', months: [24, 36], blurb: 'Independent learners, social skills and motor skills.', standalone: false },
+  { key: 'Nursery', label: 'Nursery', ages: '3–4 years', months: [36, 48], blurb: 'Learning through exploration and early academic readiness.', standalone: false },
+  { key: 'Jr KG', label: 'Jr KG', ages: '4–5 years', months: [48, 60], blurb: 'Logic, reasoning and more focus on academic readiness.', standalone: false },
+  { key: 'Sr KG', label: 'Sr KG', ages: '5–6 years', months: [60, 72], blurb: 'Preparation for primary school and confidence building.', standalone: false },
+  { key: 'Learning Center', label: 'Learning Center', ages: '6 months–8 years', months: [6, 96], blurb: 'Daycare with meals and activities; parents choose their hours between 9 AM and 7 PM.', standalone: true },
+  { key: 'Preschool Readiness Program', label: 'Preschool Readiness', ages: '18 months–2 years', months: [18, 24], blurb: 'A 3-month course that gets toddlers ready for Playgroup.', standalone: true },
+  { key: 'After School Program', label: 'After School', ages: '4–8 years', months: [48, 96], blurb: 'Sports, art, language and life skills after primary school.', standalone: true },
 ]
 
 export interface PlanInfo { title: string; blurb: string; meals: string }
