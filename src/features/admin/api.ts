@@ -12,6 +12,7 @@ export interface ProgrammeRow {
   id: string
   name: string
   class_id?: string
+  extended?: boolean
   flexible: boolean
   starts: string
   ends: string
@@ -54,7 +55,7 @@ export async function loadDirectory(): Promise<Directory> {
     supabase.from('children').select('id, full_name, preferred_name, date_of_birth, class_id, programme_id, active').order('full_name'),
     supabase.from('guardianships').select('child_id, guardian_id, relation, kind'),
     supabase.from('classes').select('id, name, active, sort').order('sort'),
-    supabase.from('programmes').select('id, name, class_id, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to').eq('active', true).order('name'),
+    supabase.from('programmes').select('id, name, class_id, extended, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to').eq('active', true).order('name'),
     supabase.from('coordinator_classes').select('profile_id, class_id'),
     supabase.from('child_schedules').select('child_id, weekday, dropoff, pickup'),
   ])

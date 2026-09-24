@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BellRing, CircleCheck, DoorOpen, Eye, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from 'lucide-react'
+import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { FreshnessBadge } from '../../ui/FreshnessBadge'
@@ -189,6 +189,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
                 {pos && pos.state !== 'unavailable' && <FreshnessBadge state={pos.state} age={pos.ageMs !== null ? formatAge(pos.ageMs) : undefined} />}
                 {pos && pos.state !== 'unavailable' && <Pill icon={<MapPin />}>{awayText(pos)}</Pill>}
+                {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
                 {!done && !mine && <Pill icon={<BellRing />}>Other class</Pill>}
               </span>
             </span>

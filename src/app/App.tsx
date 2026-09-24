@@ -12,6 +12,10 @@ import { UpdatePrompt } from './UpdatePrompt'
 const AdminPeople = lazy(() => import('../features/admin/AdminPeople').then((m) => ({ default: m.AdminPeople })))
 const AdminSettings = lazy(() => import('../features/admin/AdminSettings').then((m) => ({ default: m.AdminSettings })))
 const AuditLog = lazy(() => import('../features/admin/AuditLog').then((m) => ({ default: m.AuditLog })))
+const Schedules = lazy(() => import('../features/school/Schedules').then((m) => ({ default: m.Schedules })))
+const FrontDesk = lazy(() => import('../features/school/FrontDesk').then((m) => ({ default: m.FrontDesk })))
+const OfficeMessages = lazy(() => import('../features/school/Messages').then((m) => ({ default: m.OfficeMessages })))
+const Announce = lazy(() => import('../features/school/Announce').then((m) => ({ default: m.Announce })))
 const CoordinatorsPage = lazy(() => import('../features/coordinators/CoordinatorsPage').then((m) => ({ default: m.CoordinatorsPage })))
 const CoordinatorDuty = lazy(() => import('../features/duty/CoordinatorDuty'))
 // The page a person collecting opens from WhatsApp: no sign-in, so it loads nothing else.
@@ -21,15 +25,18 @@ const CollectorLink = lazy(() => import('../features/link/CollectorLink'))
 // never the production app (NFR-7).
 const Preview = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true' ? lazy(() => import('../preview/PreviewRoutes')) : null
 
-/** The pages inside the admin and core areas (the tabs in AreaShell). */
-function AreaPages({ area, index }: { area: 'admin' | 'core'; index: ReactNode }) {
+/** The pages inside the admin, core and front desk areas (the tabs in AreaShell). */
+function AreaPages({ area, index }: { area: 'admin' | 'core' | 'pro'; index: ReactNode }) {
   return (
     <Routes>
       <Route index element={index} />
       {area === 'admin' && <Route path="child/:childId" element={index} />}
       {area === 'admin' && <Route path="settings" element={<AdminSettings />} />}
       {area === 'admin' && <Route path="audit" element={<AuditLog />} />}
-      <Route path="coordinators" element={<CoordinatorsPage area={area} />} />
+      {area === 'core' && <Route path="schedules" element={<Schedules />} />}
+      {area !== 'admin' && <Route path="messages" element={<OfficeMessages area={area} />} />}
+      {area !== 'admin' && <Route path="announce" element={<Announce area={area} />} />}
+      {area !== 'pro' && <Route path="coordinators" element={<CoordinatorsPage area={area} />} />}
       <Route path="*" element={<Navigate to={`/${area}`} replace />} />
     </Routes>
   )
@@ -61,6 +68,7 @@ export function App() {
             <Routes>
               <Route path="/admin/*" element={<AreaRoute area="admin"><AreaPages index={<AdminPeople />} area="admin" /></AreaRoute>} />
               <Route path="/core/*" element={<AreaRoute area="core"><AreaPages index={<CoreHome />} area="core" /></AreaRoute>} />
+              <Route path="/pro/*" element={<AreaRoute area="pro"><AreaPages index={<FrontDesk />} area="pro" /></AreaRoute>} />
               <Route path="/coordinator/*" element={<AreaRoute area="coordinator"><CoordinatorDuty /></AreaRoute>} />
               <Route path="/parent/*" element={<AreaRoute area="parent"><ParentHome /></AreaRoute>} />
               <Route path="/t/:token" element={<CollectorLink />} />

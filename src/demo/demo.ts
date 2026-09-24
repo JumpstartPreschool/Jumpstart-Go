@@ -11,6 +11,7 @@ import type { Area } from '../features/auth/session'
 import { indiaClock } from '../domain/time'
 import PROGRAMMES from './programmes.json'
 import { trackingRpc, type TrackingDb } from './demoTracking'
+import { schoolRpc, visibleRows, type SchoolDb } from './demoSchool'
 import { adminRpc, auditChanges, checkWrite, kindOfRelation, LEVELS, levelId, levelOfProgramme, type AdminDb } from './demoAdmin'
 
 export const DEMO_AVAILABLE = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true'
@@ -23,6 +24,7 @@ export const DEMO_ACCOUNTS: Array<{ area: Area; email: string; label?: string }>
   { area: 'parent', email: 'lata@example.com', label: 'Family' },
   { area: 'coordinator', email: 'sunita@example.com' },
   { area: 'core', email: 'meera@example.com' },
+  { area: 'pro', email: 'frontdesk@example.com' },
   { area: 'admin', email: DEMO_EMAIL },
 ]
 
@@ -79,7 +81,7 @@ export function leaveDemo() {
 // ---- Sample data ------------------------------------------------------------------------------------
 
 type Row = Record<string, unknown>
-type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links' | 'settings' | 'audit_log', Row[]>
+type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links' | 'settings' | 'audit_log' | 'day_times' | 'messages' | 'message_reads' | 'announcements' | 'announcement_reads' | 'calls' | 'saved_people', Row[]>
 
 const programmeId = (name: string) => PROGRAMMES.find((p) => p.name === name)!.id
 const OWNER = 'demo-owner'
@@ -133,7 +135,7 @@ function seed(): Db {
       { profile_id: OWNER, class_id: levelId('Jr KG') },
     ],
     // Kabir has regular times set by the core team; the others still show their programme's windows.
-    child_schedules: [1, 2, 3, 4, 5, 6].map((weekday) => ({ child_id: 'demo-kabir', weekday, dropoff: '09:15:00', pickup: '16:15:00' })),
+    child_schedules: [1, 2, 3, 4, 5].map((weekday) => ({ child_id: 'demo-kabir', weekday, dropoff: '11:40:00', pickup: '17:35:00' })),
     // The demo day so far: Anaya was checked in this morning, and Isha's father is on his way to collect her.
     trips: [
       demoTrip({ id: 'demo-trip-anaya-in', child_id: 'demo-anaya', direction: 'dropoff', status: 'checked_in', arrive_at: demoAt('09:05'), created_by: OWNER,
@@ -147,8 +149,21 @@ function seed(): Db {
     ],
     trip_points: [],
     trip_links: [],
-    settings: [{ id: true, arrival_radius_m: 200, get_ready_lead_min: 10, late_threshold_min: 10, morning_reminder: true, school_phone: null }],
+    settings: [{ id: true, arrival_radius_m: 200, get_ready_lead_min: 10, late_threshold_min: 10, morning_reminder: true, school_phone: '+912025451234' }],
     audit_log: [],
+    day_times: [],
+    // A conversation and an announcement, so Messages and Updates have something to show.
+    messages: [
+      { id: 1, child_id: 'demo-kabir', sender: 'demo-neha', sender_name: 'Neha Shah', sender_role: 'parent', body: 'Kabir has a slight cough today. Please keep his water bottle handy.', created_at: demoAt('09:20') },
+      { id: 2, child_id: 'demo-kabir', sender: 'demo-meera', sender_name: 'Meera Kulkarni', sender_role: 'core', body: "Thanks, Neha. We'll keep an eye on him and remind him to drink water.", created_at: demoAt('09:32') },
+    ],
+    message_reads: [{ profile_id: 'demo-neha', child_id: 'demo-kabir', read_at: demoAt('09:20') }, { profile_id: 'demo-meera', child_id: 'demo-kabir', read_at: demoAt('09:32') }],
+    announcements: [
+      { id: 'demo-ann-1', title: 'Early closing on Friday', body: 'The school closes at 5:00 PM this Friday for Dussehra. Please plan pickups a little earlier.', class_id: null, sent_by: 'demo-meera', sender_name: 'Meera Kulkarni', sender_role: 'core team', created_at: demoAt('08:30') },
+    ],
+    announcement_reads: [],
+    calls: [],
+    saved_people: [],
   }
 }
 
@@ -355,7 +370,8 @@ function rpc(db: Db, fn: string, args: Row, email: string | null): Response {
     case 'gate_step':
       return gateStep(db, me, args)
     default:
-      return adminRpc(db as unknown as AdminDb, fn, args, me, { json, fail, startTrip: startTrip as never })
+      return schoolRpc(db as unknown as SchoolDb, fn, args, me, { json, fail, startTrip: startTrip as never })
+        ?? adminRpc(db as unknown as AdminDb, fn, args, me, { json, fail, startTrip: startTrip as never })
         ?? trackingRpc(db as unknown as TrackingDb, fn, args, me, { json, fail, startTrip: startTrip as never })
         ?? pgError(404, 'PGRST202', `Demo mode has no function ${fn}`)
   }
@@ -396,7 +412,7 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
     return representation ? json(changed) : json(null, 204)
   }
 
-  let result = rows.filter(matches).map((r) => ({ ...r }))
+  let result = visibleRows(db as unknown as SchoolDb, table, rows.filter(matches), me).map((r) => ({ ...r }))
   if (table === 'children' && params.get('select')?.includes('(')) {
     result = result.map((c) => ({
       ...c,
@@ -413,7 +429,7 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
   return json(single ? result[0] ?? null : result)
 }
 
-const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points'])
+const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points', 'announcement_stats', 'recipient_count'])
 
 /** Stands in for window.fetch inside the Supabase client while demo mode is on. */
 export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { leaveDemo } from '../../demo/demo'
 
-export type Area = 'admin' | 'core' | 'coordinator' | 'parent'
+export type Area = 'admin' | 'core' | 'pro' | 'coordinator' | 'parent'
 export type StaffRole = 'admin' | 'core' | 'coordinator' | 'pro'
 
 /** What public.whoami() returns for the signed-in person. */
@@ -32,6 +32,7 @@ export function areasFor(me: Me): Area[] {
   const areas: Area[] = []
   if (me.roles.includes('admin')) areas.push('admin')
   if (me.roles.includes('core')) areas.push('core')
+  if (me.roles.includes('pro')) areas.push('pro')
   if (me.roles.includes('coordinator')) areas.push('coordinator')
   if (me.children > 0) areas.push('parent')
   return areas

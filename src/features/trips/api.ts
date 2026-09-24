@@ -33,6 +33,8 @@ export interface Trip {
   sharing?: boolean
   handed_to_name?: string | null
   home_at?: string | null
+  // 0011: booked by staff for a parent who phoned
+  phoned_in_by?: string | null
 }
 
 export type GateStep = 'acknowledge' | 'ready' | 'close'

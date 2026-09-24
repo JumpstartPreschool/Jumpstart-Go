@@ -97,6 +97,9 @@ export function checkWrite(db: AdminDb, method: string, table: string, rows: Row
   if (table === 'staff_roles' && byApp && ((method === 'POST' && (body as Row | null)?.role === 'admin') || (method === 'DELETE' && rows.some((r) => r.role === 'admin')))) {
     return h.fail("admin_locked: Only the school's owners are admins, and that can't be changed in the app.", '42501')
   }
+  if (table === 'saved_people' && (method === 'POST' ? (body as Row | null)?.owner !== me?.id : rows.some((r) => r.owner !== me?.id))) {
+    return h.fail('new row violates row-level security policy', '42501')
+  }
   if (table === 'guardianships' && method === 'DELETE') {
     for (const g of rows) {
       if (!db.guardianships.some((x) => x.child_id === g.child_id && x.guardian_id !== g.guardian_id)) return h.fail("last_guardian: The last parent or relative can't be removed. Add another first.")

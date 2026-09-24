@@ -28,6 +28,7 @@ async function signIn(p, chip, area) {
   await parent.goto(BASE + '/', { waitUntil: 'networkidle' })
   await parent.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith('jumpstart-')) localStorage.removeItem(k) })
   await signIn(parent, 'Parent')
+  await parent.getByRole('heading', { name: 'Kabir' }).waitFor({ timeout: 10000 }).catch(() => {})
   ok('parent: greeting and Kabir card', await parent.getByRole('heading', { name: /Good (morning|afternoon|evening), Neha/ }).isVisible() && await parent.getByRole('heading', { name: 'Kabir' }).isVisible())
   if (shots) await parent.screenshot({ path: `${shots}/p-today.png`, fullPage: true })
   await parent.getByRole('button', { name: "I'm on my way" }).click()

@@ -117,7 +117,26 @@ async function signIn(p, chip, area) {
     ['add-coordinator', async (p) => p.getByRole('button', { name: 'Add coordinator' }).first().click(), esc],
     ['edit-coordinator', async (p) => p.getByRole('button', { name: 'Edit' }).first().click(), esc],
   ])
-  await session('Core team', [['today', async (p) => p.goto(BASE + '/core')], ['coordinators', async (p) => p.goto(BASE + '/core/coordinators')]])
+  await session('Core team', [
+    ['today', async (p) => p.goto(BASE + '/core')],
+    ['kid', async (p) => p.getByRole('button', { name: /^Anaya Singh/ }).click()],
+    ['kid-time', async (p) => p.getByRole('button', { name: /Change today's/ }).click(), async (p) => { await esc(p); await esc(p) }],
+    ['schedules', async (p) => p.goto(BASE + '/core/schedules')],
+    ['programme', async (p) => p.getByRole('button', { name: 'Edit' }).first().click(), esc],
+    ['children-times', tab("Children's times")],
+    ['regular', async (p) => p.getByRole('button', { name: 'Edit' }).first().click(), esc],
+    ['coordinators', async (p) => p.goto(BASE + '/core/coordinators')],
+    ['messages', async (p) => p.goto(BASE + '/core/messages')],
+    ['thread', async (p) => p.getByRole('button', { name: /^Kabir Shah/ }).click()],
+    ['announce', async (p) => p.goto(BASE + '/core/announce')],
+  ])
+  await session('Front desk', [
+    ['desk', async (p) => p.goto(BASE + '/pro')],
+    ['call', async (p) => p.getByRole('button', { name: 'Log a call' }).first().click()],
+    ['call-time', async (p) => p.locator('dialog[open]').getByRole('radio', { name: /New time today/ }).click()],
+    ['call-absent', async (p) => p.locator('dialog[open]').getByRole('radio', { name: /Absent today/ }).click(), esc],
+    ['info', async (p) => p.getByRole('button', { name: /^Kabir Shah/ }).click(), esc],
+  ])
   await session('Parent', [
     ['today', async (p) => p.goto(BASE + '/parent')],
   ])

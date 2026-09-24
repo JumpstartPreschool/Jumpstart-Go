@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, ChevronDown, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from 'lucide-react'
+import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
@@ -8,13 +8,14 @@ import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
 import { areasFor, useSession, type Area } from './session'
 
-export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', coordinator: 'Coordinator', parent: 'Parent' }
+export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', pro: 'Front desk', coordinator: 'Coordinator', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
-export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, coordinator: <BellRing />, parent: <UserRound /> }
+export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, pro: <Headset />, coordinator: <BellRing />, parent: <UserRound /> }
 /** What each area gives access to, shown when choosing where to start. */
 export const AREA_DOES: Record<Area, string> = {
   admin: 'Everything, including people and roles',
   core: 'Timings, attendance and coordinators',
+  pro: 'Calls, messages and announcements',
   coordinator: 'The gate, on the iPad',
   parent: 'Your own children',
 }
@@ -29,7 +30,15 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: 
   ],
   core: [
     { to: '/core', label: 'Today', icon: <CalendarClock /> },
+    { to: '/core/schedules', label: 'Schedules', icon: <Clock /> },
     { to: '/core/coordinators', label: 'Coordinators', icon: <BellRing /> },
+    { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
+    { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
+  ],
+  pro: [
+    { to: '/pro', label: 'Front desk', icon: <Headset /> },
+    { to: '/pro/messages', label: 'Messages', icon: <MessageSquare /> },
+    { to: '/pro/announce', label: 'Announce', icon: <Megaphone /> },
   ],
 }
 
