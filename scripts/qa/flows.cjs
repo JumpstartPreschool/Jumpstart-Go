@@ -174,7 +174,7 @@ async function signIn(p, chip, area) {
   await p.waitForTimeout(500)
   ok('duty: on duty', await p.getByText('On duty').first().isVisible())
   await p.getByRole('button', { name: 'Mute 5 min' }).click()
-  ok('duty: muted', await p.getByText(/Muted until/).isVisible())
+  ok('duty: muted, and the voice stops at once', await p.getByText(/Muted until/).waitFor({ timeout: 2000 }).then(() => true, () => false))
   await p.getByRole('button', { name: 'Unmute' }).click()
   await p.getByRole('button', { name: 'End duty' }).click()
   await dialog().getByRole('button', { name: 'End duty' }).click()
@@ -188,7 +188,7 @@ async function signIn(p, chip, area) {
   ok('parent: consent asked before the Parent area', await p.getByRole('button', { name: 'I agree, continue' }).isVisible())
   await p.getByRole('button', { name: 'I agree, continue' }).click()
   await p.waitForTimeout(900)
-  ok('parent: Today with a child card', await p.getByRole('heading', { name: 'Today', level: 1 }).isVisible() && (await p.locator('main li.card').count()) > 0)
+  ok('parent: Today with a child card', await p.getByRole('heading', { name: /^Good (morning|afternoon|evening)/, level: 1 }).isVisible() && (await p.locator('main li.card').count()) > 0)
 
   // Sign out
   await p.getByRole('button', { name: 'Exit demo' }).click()

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { AudioLines, Play, Sparkles } from 'lucide-react'
+import { AudioLines, Download, Play, Sparkles } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { EmptyState, Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { chooseVoice, currentVoice, rankedVoices, soundSupported, speak, stopSound, voiceGender, voiceQuality, type VoiceQuality } from './sound'
+import { audioContext, chooseVoice, currentVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, voiceGender, voiceQuality, type VoiceQuality } from './sound'
+import { NATURAL_VOICES, onNaturalStatus, prepareNaturalVoice, type NaturalStatus, type NaturalVoiceId } from './naturalVoice'
 
 const SAMPLE = 'Please get Aarav ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
 const ACCENT: Record<string, string> = {
@@ -41,11 +42,74 @@ export function useVoices() {
   return voices
 }
 
-/** The voice in use, for showing next to the sound check. */
+export function useNaturalStatus(): NaturalStatus {
+  const [s, setS] = useState<NaturalStatus>({ state: 'idle' })
+  useEffect(() => onNaturalStatus(setS), [])
+  return s
+}
+
+/** The voice in use, for showing next to the sound check: "Heart" (natural), or the device voice. */
 export function useVoiceName(): string | null {
   const voices = useVoices()
+  const status = useNaturalStatus()
+  const natural = naturalChoice()
+  if (natural) {
+    const name = NATURAL_VOICES.find((v) => v.id === natural)!.name
+    return status.state === 'ready' ? `${name} (natural)` : status.state === 'failed' ? `${voices.length ? voiceLabel(currentVoice()!) : 'the device voice'} (natural voice unavailable)` : `${name} (getting ready)`
+  }
   const v = voices.length ? currentVoice() : null
   return v ? voiceLabel(v) : null
+}
+
+const mb = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`
+
+/** Kokoro's women's voices, made on this iPad: download state, a sample, and the choice. */
+function NaturalVoices({ chosen, playing, onPlay, onUse }: { chosen: string | null; playing: string | null; onPlay: (id: NaturalVoiceId) => void; onUse: (id: NaturalVoiceId) => void }) {
+  const status = useNaturalStatus()
+  const ready = status.state === 'ready'
+  return (
+    <section className="grid gap-2.5" aria-labelledby="natural-voices">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="natural-voices" className="kicker">Natural voices · made on this iPad</h3>
+        {status.state === 'loading' && <Pill tone="accent">{status.total ? `Downloading ${Math.floor((status.loaded / status.total) * 100)}%` : 'Getting ready'}</Pill>}
+        {ready && <Pill tone="live">Ready, works offline</Pill>}
+      </div>
+      {status.state === 'loading' && status.total > 0 && (
+        <div className="h-2 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor((status.loaded / status.total) * 100)} aria-label="Natural voice download">
+          <div className="h-full origin-left rounded-full bg-accent transition-transform duration-300" style={{ transform: `scaleX(${status.loaded / status.total})` }} />
+        </div>
+      )}
+      <ul className="grid gap-2.5">
+        {NATURAL_VOICES.map((v) => {
+          const on = v.id === chosen
+          return (
+            <li key={v.id} className="flex items-center gap-2">
+              <button type="button" role="radio" aria-checked={on} onClick={() => onUse(v.id)} className="choice flex min-w-0 flex-1 items-center gap-3 p-3">
+                <span className={`grid size-10 shrink-0 place-items-center rounded-sm [&_svg]:size-5 ${on ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>
+                  <AudioLines className={playing === v.id ? 'animate-pulse' : ''} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-h4">{v.name}</span>
+                  <span className="block truncate text-small font-semibold text-ink-2">Woman's voice · {v.note}</span>
+                </span>
+                <Pill tone="live" className="max-[379px]:hidden">Natural</Pill>
+              </button>
+              <Button size="md" variant="secondary" icon={<Play />} aria-label={`Play ${v.name}`} loading={playing === v.id} disabled={!ready} onClick={() => onPlay(v.id)} />
+            </li>
+          )
+        })}
+      </ul>
+      {status.state === 'idle' && (
+        <Button size="md" variant="secondary" icon={<Download />} className="justify-self-start" onClick={prepareNaturalVoice}>Download the natural voice</Button>
+      )}
+      {status.state === 'failed' && (
+        <Notice tone="warning">The natural voice couldn't start on this device{typeof navigator !== 'undefined' && !navigator.onLine ? ' while offline' : ''}. Announcements use the device voice below. <button type="button" className="linkbtn" onClick={prepareNaturalVoice}>Try again</button></Notice>
+      )}
+      {status.state !== 'ready' && status.state !== 'failed' && (
+        <p className="text-caption font-semibold text-ink-2">A one-time download{status.state === 'loading' && status.total ? ` of ${mb(status.total)}` : ''}, best on Wi-Fi. Until it's ready, the device voice speaks.</p>
+      )}
+    </section>
+  )
 }
 
 /**
@@ -55,7 +119,8 @@ export function useVoiceName(): string | null {
 export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast()
   const voices = useVoices()
-  const [chosen, setChosen] = useState<string | null>(() => currentVoice()?.name ?? null)
+  const chosenNow = () => naturalChoice() ?? currentVoice()?.name ?? null
+  const [chosen, setChosen] = useState<string | null>(chosenNow)
   const [playing, setPlaying] = useState<string | null>(null)
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
   // iPadOS reports itself as a Mac; a touch screen tells them apart.
@@ -63,23 +128,28 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
   const mac = /Macintosh/.test(ua) && !mobileApple
   const hasNatural = voices.some((v) => ['natural', 'premium', 'enhanced'].includes(voiceQuality(v.name)))
 
-  useEffect(() => { if (open) setChosen(currentVoice()?.name ?? null) }, [open, voices])
+  useEffect(() => { if (open) { setChosen(chosenNow()); if (naturalChoice()) prepareNaturalVoice() } }, [open, voices])
 
-  async function play(v: SpeechSynthesisVoice) {
+  async function play(v: SpeechSynthesisVoice | NaturalVoiceId) {
+    const key = typeof v === 'string' ? v : v.name
     stopSound()
-    setPlaying(v.name)
+    audioContext() // this tap allows sound
+    setPlaying(key)
     await speak(SAMPLE, v)
-    setPlaying((p) => (p === v.name ? null : p))
+    setPlaying((p) => (p === key ? null : p))
   }
 
-  function use(v: SpeechSynthesisVoice) {
-    chooseVoice(v.name)
-    setChosen(v.name)
-    toast(`Announcements will use ${voiceLabel(v)}.`)
+  function use(v: SpeechSynthesisVoice | NaturalVoiceId) {
+    const key = typeof v === 'string' ? v : v.name
+    chooseVoice(key)
+    setChosen(key)
+    toast(`Announcements will use ${typeof v === 'string' ? NATURAL_VOICES.find((x) => x.id === v)!.name : voiceLabel(v)}.`)
   }
 
   return (
-    <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Choose the voice that sounds most natural on this device. Tap Play to hear it read a pickup.">
+    <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear each voice read a pickup, then choose one. Remembered on this iPad.">
+      <NaturalVoices chosen={chosen} playing={playing} onPlay={(id) => void play(id)} onUse={use} />
+      <h3 className="kicker mt-7 mb-2.5">This device's voices</h3>
       {voices.length === 0 ? (
         <EmptyState title="No English voices yet">This browser hasn't loaded its voices. Try again in a moment, or open Jumpstart in Safari.</EmptyState>
       ) : (

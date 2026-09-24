@@ -1,4 +1,5 @@
 import type { AnnouncerOutput, ChimeKind } from './announcer'
+import { DEFAULT_NATURAL, NATURAL_VOICES, naturalAudio, naturalStatus, playBuffer, prepareNaturalVoice, stopNatural, type NaturalVoiceId } from './naturalVoice'
 
 /**
  * Chime (Web Audio) and speech (Web Speech) for announcements on the coordinator's iPad (PRD D7).
@@ -9,6 +10,8 @@ let ctx: AudioContext | null = null
 let voice: SpeechSynthesisVoice | null = null
 // Safari can skip `onend` for utterances that were garbage-collected, so keep the current one referenced.
 let current: SpeechSynthesisUtterance | null = null
+// Ends the device voice's pending sentence at once: browsers don't always fire onend/onerror after cancel().
+let endCurrent: (() => void) | null = null
 
 export const soundSupported = typeof window !== 'undefined' && 'speechSynthesis' in window && 'AudioContext' in window
 
@@ -62,12 +65,24 @@ export function rankedVoices(): SpeechSynthesisVoice[] {
 }
 
 const VOICE_KEY = 'jumpstart.voice'
+const NATURAL_PREFIX = 'natural:'
 
-/** The voice this iPad uses: the one chosen in Start duty, or the most human-sounding one available. */
+function savedChoice(): string | null {
+  try { return localStorage.getItem(VOICE_KEY) } catch { return null }
+}
+
+/** The natural voice this iPad uses (the default), or null when a device voice was chosen instead. */
+export function naturalChoice(): NaturalVoiceId | null {
+  const saved = savedChoice()
+  if (!saved) return DEFAULT_NATURAL
+  const id = saved.startsWith(NATURAL_PREFIX) ? saved.slice(NATURAL_PREFIX.length) : null
+  return NATURAL_VOICES.find((v) => v.id === id)?.id ?? null
+}
+
+/** The device voice: the one chosen, or the most human-sounding one (also the stand-in while the natural voice loads). */
 function pickVoice() {
   const voices = rankedVoices()
-  let saved: string | null = null
-  try { saved = localStorage.getItem(VOICE_KEY) } catch { /* storage blocked: use the best voice */ }
+  const saved = savedChoice()
   voice = voices.find((v) => v.name === saved) ?? voices[0] ?? null
 }
 
@@ -76,10 +91,12 @@ export function currentVoice(): SpeechSynthesisVoice | null {
   return voice
 }
 
-/** Remember a voice for this device. */
+/** Remember a voice for this device: a device voice's name, or a natural voice's id. */
 export function chooseVoice(name: string): void {
-  try { localStorage.setItem(VOICE_KEY, name) } catch { /* not remembered; still used now */ }
+  const natural = NATURAL_VOICES.some((v) => v.id === name)
+  try { localStorage.setItem(VOICE_KEY, natural ? NATURAL_PREFIX + name : name) } catch { /* not remembered; still used now */ }
   pickVoice()
+  if (natural) prepareNaturalVoice()
 }
 
 /** Call from a tap. Unlocks the chime and the voice for the rest of the session. */
@@ -93,6 +110,14 @@ export function unlockSound(): void {
   speechSynthesis.speak(new SpeechSynthesisUtterance(' '))
   pickVoice()
   speechSynthesis.onvoiceschanged = pickVoice
+  if (naturalChoice()) prepareNaturalVoice()
+}
+
+/** Makes sure the chime and the natural voice can play (call from a tap, e.g. a voice sample). */
+export function audioContext(): AudioContext {
+  ctx ??= new AudioContext()
+  void ctx.resume()
+  return ctx
 }
 
 // Flagged requests get a different, rising three-note pattern (ANN-2).
@@ -121,7 +146,35 @@ export function chime(kind: ChimeKind): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function speak(text: string, voiceOverride?: SpeechSynthesisVoice): Promise<void> {
+// Bumped by stopSound, so a sentence still being made is never played after Stop or Mute.
+let spoken = 0
+
+/**
+ * Says `text`: with the natural voice when it's chosen and ready, otherwise with the device voice. A failure of the
+ * natural voice falls back to the device voice, so the gate always hears it.
+ */
+export async function speak(text: string, override?: SpeechSynthesisVoice | NaturalVoiceId): Promise<void> {
+  const natural = typeof override === 'string' ? override : override ? null : naturalChoice()
+  if (natural && ctx && naturalStatus().state === 'ready') {
+    const mine = ++spoken
+    try {
+      const buf = await naturalAudio(ctx, text, natural)
+      if (mine === spoken) await playBuffer(ctx, buf)
+      return
+    } catch {
+      if (mine !== spoken) return
+    }
+  }
+  return speakDevice(text, typeof override === 'object' ? override : undefined)
+}
+
+/** Get an announcement ready with the natural voice while earlier ones play. */
+export function prepare(text: string): void {
+  const natural = naturalChoice()
+  if (natural && ctx && naturalStatus().state === 'ready') void naturalAudio(ctx, text, natural).catch(() => {})
+}
+
+function speakDevice(text: string, voiceOverride?: SpeechSynthesisVoice): Promise<void> {
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text)
     const v = voiceOverride ?? currentVoice()
@@ -136,6 +189,7 @@ export function speak(text: string, voiceOverride?: SpeechSynthesisVoice): Promi
       done = true
       clearTimeout(fallback)
       if (current === u) current = null
+      if (endCurrent === finish) endCurrent = null
       resolve()
     }
     // ponytail: Safari occasionally never fires onend; a length-based timeout keeps the queue moving.
@@ -143,12 +197,16 @@ export function speak(text: string, voiceOverride?: SpeechSynthesisVoice): Promi
     u.onend = finish
     u.onerror = finish
     current = u
+    endCurrent = finish
     speechSynthesis.speak(u)
   })
 }
 
 export function stopSound(): void {
-  speechSynthesis.cancel()
+  spoken += 1
+  stopNatural()
+  if (soundSupported) speechSynthesis.cancel()
+  endCurrent?.()
 }
 
-export const deviceOutput: AnnouncerOutput = { chime, speak, stop: stopSound }
+export const deviceOutput: AnnouncerOutput = { chime, speak: (text) => speak(text), stop: stopSound, prepare }

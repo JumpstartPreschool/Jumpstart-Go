@@ -27,8 +27,10 @@ export interface Announcement {
 export interface AnnouncerOutput {
   chime(kind: ChimeKind): Promise<void>
   speak(text: string): Promise<void>
-  /** Cut the current speech short (someone has already handled it). */
+  /** Cut the current speech short (someone has already handled it, or Mute). */
   stop?(): void
+  /** Get the words ready ahead of time (the natural voice takes a moment to make them). */
+  prepare?(text: string): void
 }
 
 export interface AnnouncerState {
@@ -87,11 +89,13 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     emit()
     try {
       await output.chime(next.chime)
-      if (items.get(next.id) === next) await output.speak(next.text)
+      // Muted during the chime: say nothing now; it plays when the mute ends.
+      if (items.get(next.id) === next && Date.now() >= mutedUntil) await output.speak(next.text)
     } catch {
       // A failed chime or voice must never stall the gate; the item repeats as usual.
     } finally {
-      if (items.get(next.id) === next) next.dueAt = Date.now() + repeatMs
+      // Cut off by Mute: it wasn't heard, so it plays as soon as the mute ends rather than in 2 minutes.
+      if (items.get(next.id) === next) next.dueAt = Date.now() < mutedUntil ? mutedUntil : Date.now() + repeatMs
       playing = null
       void pump()
     }
@@ -101,6 +105,7 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     announce(a: Announcement) {
       const existing = items.get(a.id)
       items.set(a.id, { ...a, seq: existing?.seq ?? seq++, dueAt: Date.now() })
+      output.prepare?.(a.text)
       void pump()
     },
     /** Someone acknowledged it (on any iPad): stop repeating. */
@@ -110,11 +115,11 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       if (playing?.id === id) output.stop?.()
       emit()
     },
-    /** Hold announcements for `ms` (recorded by the caller). They play when the mute ends. */
+    /** Silence now and hold announcements for `ms`. Whatever was cut off plays first when the mute ends. */
     mute(ms: number) {
       mutedUntil = Date.now() + ms
-      if (!playing) void pump()
-      else emit()
+      if (playing) output.stop?.()
+      void pump()
     },
     unmute() {
       mutedUntil = 0

@@ -89,4 +89,29 @@ describe('acknowledging what is being said', () => {
     a.acknowledge('trip:1')
     expect(stopped).toBe(1)
   })
+
+  it('Mute stops the voice at once and replays what was cut off when the mute ends', async () => {
+    vi.useFakeTimers()
+    const said: string[] = []
+    let cut: (() => void) | null = null
+    const ann = createAnnouncer({
+      chime: async () => {},
+      speak: (text: string) => new Promise<void>((r) => {
+        const t = setTimeout(() => (said.push(text), r()), 3000)
+        cut = () => { clearTimeout(t); r() }
+      }),
+      stop: () => cut?.(),
+    })
+    ann.announce(a('new-1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1_000)
+    ann.mute(300_000)
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(said).toEqual([])
+    let muted: number | null = null
+    ann.subscribe((st) => { muted = st.mutedUntil })
+    expect(muted).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(said).toEqual(['new-1'])
+    vi.useRealTimers()
+  })
 })
