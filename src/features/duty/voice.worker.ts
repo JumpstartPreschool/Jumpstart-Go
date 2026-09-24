@@ -21,18 +21,13 @@ const post = (m: VoiceReply, transfer: Transferable[] = []) => (self as unknown 
 let device: 'webgpu' | 'wasm' = 'wasm'
 function load(): Promise<KokoroTTS> {
   if (!tts) {
-    // Several files download at once; report their sum so the progress bar only moves forward.
-    const files = new Map<string, { loaded: number; total: number }>()
+    // The model file is almost all of the download, so its progress is the bar (small files would make it jump back).
     tts = KokoroTTS.from_pretrained(MODEL, {
       // The GPU runs the full-precision model several times faster than real time; without one, the 8-bit model on the CPU.
       dtype: device === 'webgpu' ? 'fp32' : 'q8',
       device,
       progress_callback: (p: { status: string; file?: string; loaded?: number; total?: number }) => {
-        if (p.status !== 'progress' || !p.file) return
-        files.set(p.file, { loaded: p.loaded ?? 0, total: p.total ?? 0 })
-        let loaded = 0, total = 0
-        for (const f of files.values()) { loaded += f.loaded; total += f.total }
-        post({ type: 'progress', loaded, total })
+        if (p.status === 'progress' && p.file?.endsWith('.onnx')) post({ type: 'progress', loaded: p.loaded ?? 0, total: p.total ?? 0 })
       },
     })
     // One short sentence first, so the first real announcement isn't slowed by the model warming up.
