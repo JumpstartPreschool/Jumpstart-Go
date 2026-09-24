@@ -1,13 +1,14 @@
 # User Roles
 
-Release 1 has five roles. Each staff and parent role gets its **own area** in the web app, with a home screen built for that job. Areas share the design system and components, but never reuse screens from another role. The third person gets a separate, lightweight web page.
+Release 1 has six roles. Each staff and parent role gets its **own area** in the web app, with a home screen built for that job. Areas share the design system and components, but never reuse screens from another role. The third person gets a separate, lightweight web page.
 
 | Role | Surface | Main device | Home screen answers | Login |
 |---|---|---|---|---|
 | **Admin** | Web app — `/admin` | Laptop (desktop layout), also works on phone | "How is the branch doing today?" | Invite only, one-time code by phone or email |
 | **Core team** | Web app — `/core` | Phone or iPad | "Who is expected when today, and who is here?" | Invite only, one-time code by phone or email |
+| **PRO team** | Web app — `/pro` | Front-desk computer or iPad | "Who is asking what, and has the gate heard it?" | Invite only, one-time code by phone or email |
 | **Coordinator** | Web app — `/coordinator` | **iPad** (their own, carried between the gate and the classrooms); also works on a phone | "Who is arriving next, and what do I do now?" | Invite only, one-time code by phone or email |
-| **Parent** | Web app — `/parent` | Phone | "Where is my child, and when is pickup?" | Invite only (admin adds them), one-time code by phone or email |
+| **Parent or family** | Web app — `/parent` | Phone | "Where is my child, and when is pickup?" | Invite only (admin adds them), one-time code by phone or email. Family: grandparents, aunts, uncles, older siblings (D26) |
 | **Third person** | Standalone web page — `/t/{token}` | Phone, from a WhatsApp or email link | "What do I do next?" | No account. The link gives access to one trip only. |
 
 **How roles are assigned:**
@@ -15,6 +16,7 @@ Release 1 has five roles. Each staff and parent role gets its **own area** in th
 - The **server checks the role on every request.** Hiding a button is never the only protection.
 
 ## Admin
+Only **Ankit Singh and Aditya Tapadia** hold Admin (D27); nobody else can be given it.
 Full access to everything in the branch, CEO-level. The admin alone holds the main access.
 - **People:** the only role that adds, edits or removes parents and children and their details (single entry or CSV upload); invites staff and assigns roles; **assigns coordinators to classes** (the core team can too), which decides whose iPad announces which children; deactivates anyone, which logs them out everywhere immediately.
 - **Dashboard:** today at a glance: present, absent, on leave, off, not yet arrived; pickups and drop-offs expected, in progress and done; gate rush by time slot; off-schedule and short-notice requests; open alerts.
@@ -25,12 +27,19 @@ Full access to everything in the branch, CEO-level. The admin alone holds the ma
 
 ## Core team
 Plans the day and keeps records accurate.
-- **Programme timings:** sets each programme's days, term, hours and drop-off / pickup windows (e.g. Jr KG Half day 09:00–13:00: drop-off 09:00–09:30, pickup 12:30–13:00), or marks it flexible (Learning Center, 360°+). School hours are fixed at 09:00–19:00. The admin can do this too.
+- **Programme timings:** sets each programme's days, term, hours and drop-off / pickup windows (e.g. Jr KG Half day 09:00–13:00: drop-off 08:45–09:00, pickup 13:00–13:15; D24), or marks it flexible (Learning Center, 360°+). School hours are fixed at 09:00–19:00. The admin can do this too.
 - **Regular schedules:** decides each child's regular pickup and drop-off times for each weekday, inside the child's programme windows (e.g. Aarav, Jr KG Half day: drop-off 9:15, pickup 12:45, Mon–Fri). The admin can do this too.
 - **Attendance:** marks each child **present, absent, on leave or off** (off = not a scheduled day for that child, or a school holiday); reviews absences reported by parents.
 - **Today board:** every child's expected times for today, parent changes to times, and who has arrived or been collected.
 - **Messages** with parents about schedules; **announcements** to all parents or to one class (e.g. "Early closing Friday").
 - **Coordinators:** gives or removes the Coordinator role and chooses each coordinator's classes, which decides whose iPad announces which children (D11, D23). Cannot give the Admin or Core team role.
+
+## PRO team
+The front office (D25). Handles parents who phone or walk in.
+- **Front desk:** today at a glance (read only), each child's parents and family with their numbers, and the calls logged today.
+- **Log a call:** on the way, a new time today, an absence, or a message. On-the-way and time changes reach the gate's iPads like a parent's own tap, marked "Phoned in".
+- **Messages** with parents and family; **announcements** to all parents or one class.
+- Cannot change programmes, children, roles or attendance rules.
 
 ## Coordinator
 Brings children between the gate and the classrooms, working from an iPad.
@@ -39,8 +48,8 @@ Brings children between the gate and the classrooms, working from an iPad.
 - **Actions:** Acknowledge → **Ready** (child prepared) → **Handed over** (after entering the handoff code for a third person, or confirming the guardian for a parent); **Check in** at drop-off; log a request for a parent who phoned in.
 - **Messages** with parents about today's pickup or drop-off.
 
-## Parent
-A guardian linked to children by the admin. A child can have several guardians, each with their own login.
+## Parent or family
+A parent (mother, father, legal guardian) or a family member (grandparent, aunt, uncle, older sibling, cousin) linked to children by the admin, who chooses the relation in a pop-up (D26). A child can have several, each with their own login. Family collect from the gate without a link. A parent can be marked **Lives outside India**: they get every update, and the family here collects.
 - **Today:** each child's status and today's pickup and drop-off times; **change today's time** or send someone else in a few taps.
 - **Pickup / Drop-off now:** choose who goes (me / a saved person / a new person), send the link by WhatsApp or email, and track the trip live, minute by minute.
 - **Running late:** one tap to tell the school (+10 / +20 / +30 minutes).

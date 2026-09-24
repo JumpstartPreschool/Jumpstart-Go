@@ -2,7 +2,7 @@
 
 Step-by-step flows. Screens and their states are in [feature-specification.md](feature-specification.md). Trip states and tracking rules are in [tracking-architecture.md](../architecture/tracking-architecture.md).
 
-The running example: **Aarav**, Jr KG · Half day (Mon–Fri, June–March, 09:00–13:00; drop-off window 09:00–09:30, pickup window 12:30–13:00), class "Sunflowers", regular times drop-off 09:15 and pickup 12:45. Coordinator **Priya** is assigned to Sunflowers.
+The running example: **Aarav**, Jr KG · Half day (Mon–Fri, June–March, 09:00–13:00; drop-off window 08:45–09:00, pickup window 13:00–13:15, D24), class Jr KG, regular times drop-off 08:50 and pickup 13:05. Coordinator **Priya** is assigned to Jr KG.
 
 ## J0. How a school day starts (automatic)
 At 00:05 the system creates each child's **expected drop-off and pickup** for the day from their regular times (D13). Children marked absent, on leave or off, and school holidays, are skipped. At 08:00 parents get: "Today: drop-off 9:15, pickup 12:45. Tap to change." (D17)
@@ -34,7 +34,7 @@ At 00:05 the system creates each child's **expected drop-off and pickup** for th
 - Still open at 19:30 → the admin is alerted.
 
 ## J3. Parent: "Pick up now" (not scheduled)
-**Pickup now** → who goes → **Send**. Priya's iPad announces within 3 seconds: "New pickup now: Aarav, Sunflowers. Please get Aarav ready." The child is prepared straight away; nobody approves anything first (D2). It's short notice by definition, so the row is flagged until Priya taps **Acknowledge**. If Priya isn't on duty, or nobody acknowledges within 2 minutes, every coordinator on duty hears it (D11). Then the same as J2 from step 2.
+**Pickup now** → who goes → **Send**. Priya's iPad announces within 3 seconds: "New pickup now: Aarav, Jr KG. Please get Aarav ready." The child is prepared straight away; nobody approves anything first (D2). It's short notice by definition, so the row is flagged until Priya taps **Acknowledge**. If Priya isn't on duty, or nobody acknowledges within 2 minutes, every coordinator on duty hears it (D11). Then the same as J2 from step 2.
 
 ## J4. Parent: collects the child in person
 The parent is the default person on the Today card. Sharing their own location is optional (one switch) and gives Priya their ETA and running-late alerts. At the gate, Priya taps the guardian's name on the child's guardian list → **Handed over**; the record shows which guardian and who confirmed them (D4). A guardian who arrives without anything changed in the app is handled the same way.

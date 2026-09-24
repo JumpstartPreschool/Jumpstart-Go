@@ -7,6 +7,11 @@ const map = {
   vol: 'volume-2', mute: 'volume-x', out: 'log-out', shield: 'shield-check', spark: 'sparkles', search: 'search', plus: 'plus',
   timer: 'timer', power: 'power', wifi: 'wifi', sun: 'sun', smile: 'baby', reset: 'rotate-ccw', school: 'graduation-cap',
   star: 'star', steth: 'stethoscope', cake: 'cake', thermo: 'thermometer', pencil: 'pencil', mail: 'mail', phone: 'smartphone', link: 'link',
+  megaphone: 'megaphone', send: 'send', call: 'phone', gear: 'settings', audit: 'scroll-text', headset: 'headset', adduser: 'user-plus',
+  lock: 'lock', trash: 'trash', chat: 'message-circle', copy: 'copy', pin: 'map-pin', key: 'key-round', login: 'log-in', inbox: 'inbox',
+  swap: 'arrow-left-right', info: 'info', calx: 'calendar-x', hand: 'hand', building: 'building', done: 'circle-check', history: 'rotate-ccw-clock',
+  bellring: 'bell-ring', calclock: 'calendar-clock', brick: 'shapes', puzzle: 'puzzle', book: 'book-open', househeart: 'house-heart', sprout: 'sprout', backpack: 'backpack',
+  userround: 'user-round', usersround: 'users-round', grand: 'glasses', heart: 'heart', shielduser: 'shield-user', cousin: 'user-round-plus', userpen: 'user-pen', globe: 'globe', handheart: 'hand-heart',
 }
 const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 let out = ''
