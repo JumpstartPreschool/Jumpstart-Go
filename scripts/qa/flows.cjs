@@ -136,6 +136,26 @@ async function signIn(p, chip, area) {
   await p.waitForTimeout(1200)
   ok('staff: front desk added', /Kiran added/.test(await toast()) && await p.locator('li', { hasText: 'Kiran Desai' }).getByText('Front desk').isVisible())
 
+  // Settings: minutes save at once; the school number takes a landline, and refuses nonsense
+  await p.getByRole('link', { name: 'Settings' }).click()
+  await p.waitForTimeout(800)
+  await p.getByRole('radiogroup', { name: 'Running-late alert' }).getByRole('radio', { name: '15 min' }).click()
+  await p.waitForTimeout(900)
+  ok('settings: running-late alert saved', /Saved/.test(await toast()) && (await p.getByRole('radiogroup', { name: 'Running-late alert' }).getByRole('radio', { name: '15 min' }).getAttribute('aria-checked')) === 'true')
+  await p.getByLabel('Call the school number').fill('12345')
+  await p.getByRole('button', { name: 'Save' }).click()
+  ok('settings: a wrong number is explained', await p.getByText('Enter a 10-digit Indian number', { exact: false }).isVisible())
+  await p.getByLabel('Call the school number').fill('020 2545 1234')
+  await p.getByRole('button', { name: 'Save' }).click()
+  await p.waitForTimeout(900)
+  ok('settings: landline saved', /Saved/.test(await toast()))
+
+  // Audit log: the changes above, in words, with who made them
+  await p.getByRole('link', { name: 'Audit log' }).click()
+  await p.waitForTimeout(1200)
+  ok('audit: tells what happened, by whom', await p.getByText('Added Priya Menon as Tara\'s mother').isVisible() && await p.getByText('Kiran Desai is now Front desk').isVisible()
+    && await p.getByText('Turned off app access for Priya Menon').isVisible() && (await p.getByText('Ankit Singh', { exact: false }).count()) > 0)
+
   // Coordinators
   await p.getByRole('link', { name: 'Coordinators' }).click()
   await p.waitForTimeout(600)

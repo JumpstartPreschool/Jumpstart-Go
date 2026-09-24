@@ -111,6 +111,8 @@ async function signIn(p, chip, area) {
     ['child-left', async (p) => p.getByRole('button', { name: /has left the school/ }).click(), esc],
     ['child-add-person', async (p) => p.getByRole('button', { name: 'Add a parent or relative' }).click(), esc],
     ['account', async (p) => p.getByRole('button', { name: /^Account/ }).click(), esc],
+    ['settings', async (p) => p.goto(BASE + '/admin/settings')],
+    ['audit', async (p) => p.goto(BASE + '/admin/audit')],
     ['coordinators', async (p) => p.goto(BASE + '/admin/coordinators')],
     ['add-coordinator', async (p) => p.getByRole('button', { name: 'Add coordinator' }).first().click(), esc],
     ['edit-coordinator', async (p) => p.getByRole('button', { name: 'Edit' }).first().click(), esc],

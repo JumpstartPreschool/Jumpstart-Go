@@ -11,7 +11,7 @@ import type { Area } from '../features/auth/session'
 import { indiaClock } from '../domain/time'
 import PROGRAMMES from './programmes.json'
 import { trackingRpc, type TrackingDb } from './demoTracking'
-import { adminRpc, checkWrite, kindOfRelation, LEVELS, levelId, levelOfProgramme, type AdminDb } from './demoAdmin'
+import { adminRpc, auditChanges, checkWrite, kindOfRelation, LEVELS, levelId, levelOfProgramme, type AdminDb } from './demoAdmin'
 
 export const DEMO_AVAILABLE = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true'
 export const DEMO_EMAIL = 'ai@jumpstartpreschool.in'
@@ -79,7 +79,7 @@ export function leaveDemo() {
 // ---- Sample data ------------------------------------------------------------------------------------
 
 type Row = Record<string, unknown>
-type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links', Row[]>
+type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links' | 'settings' | 'audit_log', Row[]>
 
 const programmeId = (name: string) => PROGRAMMES.find((p) => p.name === name)!.id
 const OWNER = 'demo-owner'
@@ -147,6 +147,8 @@ function seed(): Db {
     ],
     trip_points: [],
     trip_links: [],
+    settings: [{ id: true, arrival_radius_m: 200, get_ready_lead_min: 10, late_threshold_min: 10, morning_reminder: true, school_phone: null }],
+    audit_log: [],
   }
 }
 
@@ -423,6 +425,7 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   // A short pause so loading states show the way they do on a real connection.
   await new Promise((r) => setTimeout(r, 150 + Math.random() * 250))
   const db = load()
+  const before = method === 'GET' && !url.pathname.includes('/rpc/') ? null : (JSON.parse(JSON.stringify(db)) as Record<string, Row[]>)
   let response: Response
 
   const path = url.pathname
@@ -445,6 +448,12 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     response = rest(db, method, path.slice('/rest/v1/'.length), url.searchParams, headers, init?.body ? JSON.parse(String(init.body)) : null, db.profiles.find((p) => p.email === email))
   } else {
     response = json({ message: 'Not available in demo mode' }, 404)
+  }
+  // Like the audit trigger: what changed, by whom (their sign-in id, as auth.uid()).
+  if (before && response.ok) {
+    const actor = db.profiles.find((p) => p.email === email)?.user_id ?? null
+    let n = db.audit_log.length
+    db.audit_log.push(...auditChanges(before, db as unknown as Record<string, Row[]>, actor, new Date(demoNow()).toISOString(), () => ++n))
   }
   save(db)
   // Like Realtime: screens in this tab hear about a change (other tabs get the storage event).

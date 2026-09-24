@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, ChevronDown, LogOut, ShieldCheck, UserRound, UsersRound, WifiOff } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { BellRing, CalendarClock, ChevronDown, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
@@ -24,6 +24,8 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: 
   admin: [
     { to: '/admin', label: 'People', icon: <UsersRound /> },
     { to: '/admin/coordinators', label: 'Coordinators', icon: <BellRing /> },
+    { to: '/admin/settings', label: 'Settings', icon: <Settings /> },
+    { to: '/admin/audit', label: 'Audit log', icon: <ScrollText /> },
   ],
   core: [
     { to: '/core', label: 'Today', icon: <CalendarClock /> },
@@ -98,6 +100,7 @@ export function OfflineNotice() {
  */
 export function AreaShell({ area, title, subtitle, actions, children }: { area: Area; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   const pages = AREA_PAGES[area]
+  const { pathname } = useLocation()
   return (
     <div className="min-h-dvh">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-[max(12px,env(safe-area-inset-top))] focus:z-50 focus:rounded-sm focus:bg-surface focus:px-4 focus:py-3 focus:font-bold focus:shadow-float">
@@ -116,9 +119,11 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
       <main id="main" className="gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6">
         {pages && (
           <nav aria-label={`${AREA_LABEL[area]} pages`} className="seg mb-6">
-            {pages.map((page) => (
-              <NavLink key={page.to} to={page.to} end>{page.icon}{page.label}</NavLink>
-            ))}
+            {pages.map((page) => {
+              // An area's first page stays selected on the pages it opens (a child's page under People).
+              const active = pathname === page.to || (page.to === `/${area}` && pathname.startsWith(`/${area}/child/`))
+              return <Link key={page.to} to={page.to} aria-current={active ? 'page' : undefined}>{page.icon}{page.label}</Link>
+            })}
           </nav>
         )}
         <div className="page-in">

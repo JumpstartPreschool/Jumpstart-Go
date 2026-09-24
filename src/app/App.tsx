@@ -10,6 +10,8 @@ import { UpdatePrompt } from './UpdatePrompt'
 
 // Each staff area loads on first use, so a parent's phone never downloads the admin or iPad duty screens.
 const AdminPeople = lazy(() => import('../features/admin/AdminPeople').then((m) => ({ default: m.AdminPeople })))
+const AdminSettings = lazy(() => import('../features/admin/AdminSettings').then((m) => ({ default: m.AdminSettings })))
+const AuditLog = lazy(() => import('../features/admin/AuditLog').then((m) => ({ default: m.AuditLog })))
 const CoordinatorsPage = lazy(() => import('../features/coordinators/CoordinatorsPage').then((m) => ({ default: m.CoordinatorsPage })))
 const CoordinatorDuty = lazy(() => import('../features/duty/CoordinatorDuty'))
 // The page a person collecting opens from WhatsApp: no sign-in, so it loads nothing else.
@@ -25,6 +27,8 @@ function AreaPages({ area, index }: { area: 'admin' | 'core'; index: ReactNode }
     <Routes>
       <Route index element={index} />
       {area === 'admin' && <Route path="child/:childId" element={index} />}
+      {area === 'admin' && <Route path="settings" element={<AdminSettings />} />}
+      {area === 'admin' && <Route path="audit" element={<AuditLog />} />}
       <Route path="coordinators" element={<CoordinatorsPage area={area} />} />
       <Route path="*" element={<Navigate to={`/${area}`} replace />} />
     </Routes>

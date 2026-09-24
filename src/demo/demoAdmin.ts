@@ -106,3 +106,25 @@ export function checkWrite(db: AdminDb, method: string, table: string, rows: Row
 }
 
 export const kindOfRelation = (relation: string) => (PARENTS.includes(relation.split(',')[0]!.trim().toLowerCase()) ? 'parent' : 'family')
+
+/** Like app.audit(): every changed row of an audited table, before and after, with who did it. */
+const AUDITED: Record<string, (r: Row) => string> = {
+  profiles: (r) => String(r.id), staff_roles: (r) => `${r.profile_id}|${r.role}`, programmes: (r) => String(r.id), classes: (r) => String(r.id),
+  children: (r) => String(r.id), guardianships: (r) => `${r.child_id}|${r.guardian_id}`, coordinator_classes: (r) => `${r.profile_id}|${r.class_id}`,
+  child_schedules: (r) => `${r.child_id}|${r.weekday}`, attendance: (r) => `${r.child_id}|${r.day}`, settings: () => 'settings', trips: (r) => String(r.id),
+}
+export function auditChanges(before: Record<string, Row[]>, after: Record<string, Row[]>, actor: unknown, at: string, nextId: () => number): Row[] {
+  const out: Row[] = []
+  for (const [table, key] of Object.entries(AUDITED)) {
+    const was = new Map((before[table] ?? []).map((r) => [key(r), r]))
+    const now = new Map((after[table] ?? []).map((r) => [key(r), r]))
+    const push = (action: string, old_row: Row | null, new_row: Row | null) => out.push({ id: nextId(), at, actor, action, table_name: table, old_row, new_row })
+    for (const [k, r] of now) {
+      const o = was.get(k)
+      if (!o) push('insert', null, r)
+      else if (JSON.stringify(o) !== JSON.stringify(r)) push('update', o, r)
+    }
+    for (const [k, r] of was) if (!now.has(k)) push('delete', r, null)
+  }
+  return out
+}
