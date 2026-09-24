@@ -16,6 +16,7 @@
 - Invite-only login enforced by the database (`0002`): profiles exist before sign-in; the first email code links the account; anyone else is refused, verified against the live Supabase project. Deactivation ends access and saved sessions.
 - Karve Road programmes loaded (`0003`, 17 programmes from PRD §5).
 - Admin functions that save a person with roles, or a child with guardians, all-or-nothing (`0004`).
+- The core team chooses the coordinators (`0005`, D23): Core team → Coordinators and Admin → Coordinators show each class's coverage, add a coordinator with their classes, edit classes, or remove the role. The database lets the core team give only the Coordinator role. Applied to the live project.
 - App: 6-digit email-code login, consent notice for parents, a home area per role with an area switcher, admin People (children, parents, staff, classes, access on/off), the three-step programme picker (level → plan → class, suggesting the level from the age), and read-only Today pages for parents and the core team.
 - Routing and ETA server function with the OpenRouteService key (`supabase/functions/route`, not yet deployed).
 - Rainbow-glass design system and iPad layouts; the owner's logo; the design preview.

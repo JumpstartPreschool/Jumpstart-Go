@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
-import { LogOut, Repeat } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router'
+import { BellRing, CalendarClock, LogOut, Repeat, UsersRound } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
@@ -8,6 +8,18 @@ import { areasFor, useSession, type Area } from './session'
 
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', coordinator: 'Coordinator', parent: 'Parent' }
 export const AREA_COLOR: Record<Area, string> = { admin: 'var(--rb-violet)', core: 'var(--rb-green)', coordinator: 'var(--rb-orange)', parent: 'var(--rb-blue)' }
+
+/** Pages inside an area, shown as tabs under the top bar. */
+const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode; color: string }>>> = {
+  admin: [
+    { to: '/admin', label: 'People', icon: <UsersRound />, color: 'var(--rb-violet)' },
+    { to: '/admin/coordinators', label: 'Coordinators', icon: <BellRing />, color: 'var(--rb-orange)' },
+  ],
+  core: [
+    { to: '/core', label: 'Today', icon: <CalendarClock />, color: 'var(--rb-green)' },
+    { to: '/core/coordinators', label: 'Coordinators', icon: <BellRing />, color: 'var(--rb-orange)' },
+  ],
+}
 
 /** Signed-in person's button: shows who is signed in, switches area (D16) and signs out. */
 export function AccountButton({ area }: { area: Area }) {
@@ -59,6 +71,17 @@ export function AreaShell({ area, title, children }: { area: Area; title: string
         </div>
       </header>
       <main className="mx-auto w-full max-w-[1180px] px-4 pt-6 sm:px-6">
+        {AREA_PAGES[area] && (
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className="glass mb-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-full p-1.5">
+            {AREA_PAGES[area].map((page) => (
+              <NavLink key={page.to} to={page.to} end
+                className={({ isActive }) => `flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] font-extrabold transition-transform duration-200 ease-spring active:scale-95 motion-reduce:active:scale-100 [&_svg]:size-[18px] ${isActive ? 'text-white' : 'text-ink-2'}`}
+                style={({ isActive }) => (isActive ? { background: `linear-gradient(135deg, ${page.color}, color-mix(in oklab, ${page.color} 70%, white))`, boxShadow: `0 10px 20px -10px ${page.color}` } : undefined)}>
+                {({ isActive }) => <><span style={isActive ? undefined : { color: page.color }}>{page.icon}</span>{page.label}</>}
+              </NavLink>
+            ))}
+          </nav>
+        )}
         <h1 className="px-1 text-[34px] font-bold leading-10 sm:text-[42px] sm:leading-[48px]">{title}</h1>
         {children}
       </main>

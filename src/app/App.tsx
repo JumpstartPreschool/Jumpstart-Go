@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { lazy, Suspense, type ReactNode } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { useOnline } from '../ui/hooks'
 import { Backdrop } from '../ui/Backdrop'
 import { useDuty } from '../features/duty/useDuty'
@@ -11,6 +11,7 @@ import { AreaRoute } from '../features/auth/AreaRoute'
 import { AccountButton } from '../features/auth/AreaShell'
 import { AdminPeople } from '../features/admin/AdminPeople'
 import { CoreHome, ParentHome } from '../features/family/FamilyHomes'
+import { CoordinatorsPage } from '../features/coordinators/CoordinatorsPage'
 
 // Design preview with sample data: development builds and the separate design-review deployment only,
 // never the production app (NFR-7).
@@ -27,6 +28,17 @@ function CoordinatorDuty() {
       </div>
       <StartDuty duty={duty} online={online} />
     </>
+  )
+}
+
+/** The pages inside the admin and core areas (the tabs in AreaShell). */
+function AreaPages({ area, index }: { area: 'admin' | 'core'; index: ReactNode }) {
+  return (
+    <Routes>
+      <Route index element={index} />
+      <Route path="coordinators" element={<CoordinatorsPage area={area} />} />
+      <Route path="*" element={<Navigate to={`/${area}`} replace />} />
+    </Routes>
   )
 }
 
@@ -54,8 +66,8 @@ export function App() {
         <Backdrop />
         <Suspense fallback={null}>
           <Routes>
-            <Route path="/admin/*" element={<AreaRoute area="admin"><AdminPeople /></AreaRoute>} />
-            <Route path="/core/*" element={<AreaRoute area="core"><CoreHome /></AreaRoute>} />
+            <Route path="/admin/*" element={<AreaRoute area="admin"><AreaPages index={<AdminPeople />} area="admin" /></AreaRoute>} />
+            <Route path="/core/*" element={<AreaRoute area="core"><AreaPages index={<CoreHome />} area="core" /></AreaRoute>} />
             <Route path="/coordinator/*" element={<AreaRoute area="coordinator"><CoordinatorDuty /></AreaRoute>} />
             <Route path="/parent/*" element={<AreaRoute area="parent"><ParentHome /></AreaRoute>} />
             {Preview && <Route path="/preview/*" element={<Preview />} />}

@@ -52,7 +52,7 @@ export function clearDemoLanding() {
 // ---- Sample data ------------------------------------------------------------------------------------
 
 type Row = Record<string, unknown>
-type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules', Row[]>
+type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes', Row[]>
 
 const programmeId = (name: string) => PROGRAMMES.find((p) => p.name === name)!.id
 const OWNER = 'demo-owner'
@@ -97,6 +97,12 @@ function seed(): Db {
       { child_id: 'demo-isha', guardian_id: 'demo-rohan', relation: 'Father' },
       { child_id: 'demo-riya', guardian_id: 'demo-anjali', relation: 'Mother' },
     ],
+    // Sunita covers Bluebells and Sunflowers, the owner covers Sunflowers, and Tulips has nobody yet.
+    coordinator_classes: [
+      { profile_id: 'demo-sunita', class_id: 'demo-bluebells' },
+      { profile_id: 'demo-sunita', class_id: 'demo-sunflowers' },
+      { profile_id: OWNER, class_id: 'demo-sunflowers' },
+    ],
     // Kabir has regular times set by the core team; the others still show their programme's windows.
     child_schedules: [1, 2, 3, 4, 5, 6].map((weekday) => ({ child_id: 'demo-kabir', weekday, dropoff: '09:15:00', pickup: '16:15:00' })),
   }
@@ -105,7 +111,8 @@ function seed(): Db {
 function load(): Db {
   try {
     const saved = store()?.getItem(DB)
-    if (saved) return JSON.parse(saved) as Db
+    // Demo data saved before a table was added gets that table from the sample.
+    if (saved) return { ...seed(), ...(JSON.parse(saved) as Partial<Db>) }
   } catch {
     // Unreadable demo data: start again from the sample.
   }
@@ -190,6 +197,15 @@ function rpc(db: Db, fn: string, args: Row, email: string | null): Response {
       for (const g of args.p_guardians as Row[]) db.guardianships.push({ child_id: id, guardian_id: g.guardian_id, relation: g.relation })
       return json(id)
     }
+    case 'set_coordinator': {
+      if (!db.profiles.some((p) => p.id === args.p_profile && p.active)) return pgError(400, 'P0001', "That person's access is turned off, or they are no longer registered.")
+      if (!db.staff_roles.some((r) => r.profile_id === args.p_profile && r.role === 'coordinator')) db.staff_roles.push({ profile_id: args.p_profile, role: 'coordinator' })
+      db.coordinator_classes = [
+        ...db.coordinator_classes.filter((a) => a.profile_id !== args.p_profile),
+        ...((args.p_classes as string[]) ?? []).map((class_id) => ({ profile_id: args.p_profile, class_id })),
+      ]
+      return json(null)
+    }
     default:
       return pgError(404, 'PGRST202', `Demo mode has no function ${fn}`)
   }
@@ -212,6 +228,13 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
     const added = (Array.isArray(body) ? body : [body]).map((r) => ({ id: crypto.randomUUID(), active: true, ...(r as Row) }))
     rows.push(...added)
     return representation ? json(single ? added[0] : added, 201) : json(null, 204)
+  }
+  if (method === 'DELETE') {
+    const gone = rows.filter(matches)
+    db[table as keyof Db] = rows.filter((r) => !gone.includes(r))
+    // Like the database trigger (0005): removing the Coordinator role removes that person's classes.
+    if (table === 'staff_roles') for (const r of gone) if (r.role === 'coordinator') db.coordinator_classes = db.coordinator_classes.filter((a) => a.profile_id !== r.profile_id)
+    return json(null, 204)
   }
   if (method === 'PATCH') {
     const changed = rows.filter(matches)

@@ -19,7 +19,7 @@ const TABS: Array<{ key: Tab; label: string; icon: ReactNode; color: string }> =
   { key: 'classes', label: 'Classes', icon: <School />, color: 'var(--rb-green)' },
 ]
 
-function Avatar({ name, color }: { name: string; color: string }) {
+export function Avatar({ name, color }: { name: string; color: string }) {
   return (
     <span className="grid size-12 shrink-0 place-items-center rounded-full font-display text-[20px] font-bold text-white ring-[3px] ring-white/70"
       style={{ background: `linear-gradient(135deg, ${color}, color-mix(in oklab, ${color} 62%, white))`, boxShadow: `0 10px 20px -10px ${color}` }} aria-hidden>
@@ -34,7 +34,7 @@ function Status({ person }: { person: Profile }) {
   return <span className="inline-flex items-center gap-1 rounded-full bg-recent-soft px-2.5 py-1 text-[12px] font-extrabold text-recent"><Hourglass className="size-3.5" aria-hidden />Invited</span>
 }
 
-function Row({ avatar, title, detail, badges, action }: { avatar: ReactNode; title: string; detail: ReactNode; badges?: ReactNode; action?: ReactNode }) {
+export function Row({ avatar, title, detail, badges, action }: { avatar: ReactNode; title: string; detail: ReactNode; badges?: ReactNode; action?: ReactNode }) {
   return (
     <li className="card flex items-center gap-3.5 rounded-[26px] p-3.5 pr-4">
       {avatar}
@@ -48,7 +48,7 @@ function Row({ avatar, title, detail, badges, action }: { avatar: ReactNode; tit
   )
 }
 
-function Empty({ children }: { children: ReactNode }) {
+export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className="card flex flex-col items-center rounded-[30px] p-8 text-center">
       <Mascot size={96} />
