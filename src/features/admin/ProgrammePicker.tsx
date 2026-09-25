@@ -1,15 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { ArrowLeft, Backpack, BookOpen, CalendarDays, Check, Clock, GraduationCap, HouseHeart, Puzzle, Shapes, Sparkles, Sprout, Sun, Utensils } from 'lucide-react'
+import { ArrowLeft, Backpack, BookOpen, CalendarDays, Check, Clock, GraduationCap, HouseHeart, Puzzle, Shapes, Sparkles, Sprout, Sun, Utensils } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { formatTime, toMinutes } from '../../domain/time'
 import type { ProgrammeRow } from './api'
-import { formatAge, LEVELS, levelOf, planInfo, planRank, suggestedLevel, type LevelKey } from './programmeCatalogue'
+import { formatAge, levelInfo, levelOf, planInfo, planRank, suggestedLevel, type KnownLevel, type LevelKey } from './programmeCatalogue'
 
 /** Each class level has its own icon (the same as the Screen Book), so levels are told apart without colour. */
-export const LEVEL_ICON: Record<LevelKey, ReactNode> = {
+const LEVEL_ICON: Record<KnownLevel, ReactNode> = {
   Playgroup: <Shapes />,
   Nursery: <Puzzle />,
   'Jr KG': <BookOpen />,
@@ -18,6 +18,8 @@ export const LEVEL_ICON: Record<LevelKey, ReactNode> = {
   'Preschool Readiness Program': <Sprout />,
   'After School Program': <Backpack />,
 }
+/** A class's icon; classes the admin adds share the mortarboard. */
+export const levelIcon = (key: LevelKey): ReactNode => LEVEL_ICON[key as KnownLevel] ?? <GraduationCap />
 
 const hhmm = (t: string | null | undefined) => (t ? formatTime(toMinutes(t.slice(0, 5))) : '')
 const range = (a?: string | null, b?: string | null) => `${hhmm(a)} to ${hhmm(b)}`
@@ -40,6 +42,8 @@ function Fact({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 }
 
 const STEPS = ['Class', 'Programme'] as const
+const ORDER: LevelKey[] = ['Playgroup', 'Nursery', 'Jr KG', 'Sr KG', 'Learning Center', 'Preschool Readiness Program', 'After School Program']
+const rank = (k: LevelKey) => (ORDER.includes(k) ? ORDER.indexOf(k) : ORDER.length)
 
 /**
  * The class and programme for a child (PRD D18, D19, D28): the class (a level, suggested from the age on 1 June), then
@@ -65,7 +69,9 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
     [programmes, level],
   )
   const chosen = programmes.find((p) => p.id === programmeId) ?? null
-  const available = LEVELS.filter((l) => programmes.some((p) => levelOf(p).level === l.key))
+  // Every class with a programme: the school's own in their usual order, then any the admin added.
+  const available = [...new Set(programmes.map((p) => levelOf(p).level))].map((k) => levelInfo(k, programmes))
+    .sort((a, b) => rank(a.key) - rank(b.key))
   const firstName = childName.trim().split(' ')[0] || 'the child'
 
   function chooseLevel(key: LevelKey) {
@@ -82,7 +88,7 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
     <Sheet open={open} onClose={onClose} title={titles[step]} wide>
       <div className="mb-6 flex items-center gap-3">
         {step > 1 && (
-          <Button size="md" variant="quiet" icon={<ArrowLeft />} onClick={() => setStep(1)}>All classes</Button>
+          <Button size="md" variant="quiet" className="shrink-0" icon={<ArrowLeft />} onClick={() => setStep(1)}>All classes</Button>
         )}
         <ol className="ml-auto grid w-full max-w-[240px] grid-cols-2 gap-2" aria-label={`Step ${step} of 2: ${STEPS[step - 1]}`}>
           {STEPS.map((label, i) => (
@@ -98,21 +104,21 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
         <div key="levels" className="page-in">
           {dateOfBirth && suggestion && (
             <Notice className="mb-4" icon={<Sparkles aria-hidden />}>
-              {firstName} is {formatAge(dateOfBirth)} today. Suggested: {LEVELS.find((l) => l.key === suggestion)?.label}.
+              {firstName} is {formatAge(dateOfBirth)} today. Suggested: {levelInfo(suggestion, programmes).label}.
             </Notice>
           )}
           <p className="kicker mb-2.5">Preschool classes</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {available.filter((l) => !l.standalone).map((l) => (
               <button key={l.key} type="button" onClick={() => chooseLevel(l.key)} aria-pressed={l.key === level} className="choice flex items-start gap-3.5 p-4">
-                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{LEVEL_ICON[l.key]}</span>
+                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{levelIcon(l.key)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-h3">{l.label}</span>
                     {l.key === suggestion && <Pill tone="accent" icon={<Sparkles />}>Suggested</Pill>}
                   </span>
-                  <span className="mt-0.5 block text-small font-bold text-ink">{l.ages}</span>
-                  <span className="mt-1 block text-small font-medium text-ink-2">{l.blurb}</span>
+                  {l.ages && <span className="mt-0.5 block text-small font-bold text-ink">{l.ages}</span>}
+                  {l.blurb && <span className="mt-1 block text-small font-medium text-ink-2">{l.blurb}</span>}
                 </span>
               </button>
             ))}
@@ -121,14 +127,14 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {available.filter((l) => l.standalone).map((l) => (
               <button key={l.key} type="button" onClick={() => chooseLevel(l.key)} aria-pressed={l.key === level} className="choice flex items-start gap-3.5 p-4">
-                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{LEVEL_ICON[l.key]}</span>
+                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{levelIcon(l.key)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-h3">{l.label}</span>
                     {l.key === suggestion && <Pill tone="accent" icon={<Sparkles />}>Suggested</Pill>}
                   </span>
-                  <span className="mt-0.5 block text-small font-bold text-ink">{l.ages}</span>
-                  <span className="mt-1 block text-small font-medium text-ink-2">{l.blurb}</span>
+                  {l.ages && <span className="mt-0.5 block text-small font-bold text-ink">{l.ages}</span>}
+                  {l.blurb && <span className="mt-1 block text-small font-medium text-ink-2">{l.blurb}</span>}
                 </span>
               </button>
             ))}
@@ -138,7 +144,7 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
 
       {step === 2 && (
         <div key="plans" className="page-in grid gap-3" role="radiogroup" aria-label="Programme">
-          <p className="text-body text-ink-2">Drop-off opens 15 minutes before a class starts; pickup runs until 15 minutes after it ends.</p>
+          <p className="text-body text-ink-2">Each programme has its own drop-off and pickup times.</p>
           {plans.map((p) => {
             const info = planInfo(levelOf(p).plan ?? '')
             return (

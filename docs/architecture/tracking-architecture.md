@@ -1,5 +1,7 @@
 # Tracking Architecture — Release 1 (Stage 3)
 
+> **Who shares and who sees (PRD D38, migration 0024):** only someone collecting with a one-time link shares their location, if they agree, and only the parent who sent the link sees it. Parents and family never share; the school and the gate never see location. Where this document describes parents sharing or the gate seeing a position, D38 applies instead.
+
 **Status:** Draft for owner review (2026-09-24) · Covers trip states, location collection and checks, freshness, ETA, arrival detection, "get ready" and running-late timing, live delivery, replay, privacy and failure handling.
 
 Related: [prd.md](../product/prd.md) (D2, D4, D8, D12–D14, D19–D21) · [requirements.md](../product/requirements.md) (TRIP, TRK, ANN) · [user-journeys.md](../product/user-journeys.md)

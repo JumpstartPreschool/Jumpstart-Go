@@ -68,6 +68,7 @@ export function describe(r: AuditRow, n: Names): { what: string; detail?: string
       if (r.action === 'insert') return { what: `Added ${row.full_name}`, detail: row.app_access === false ? 'Contact only, without the app' : row.email ? `Invitation to ${row.email}` : undefined }
       if (changed(r, 'app_access')) return { what: `Turned ${row.app_access ? 'on' : 'off'} app access for ${row.full_name}`, detail: row.app_access ? undefined : 'Signed out everywhere' }
       if (changed(r, 'active')) return { what: `Turned ${row.active ? 'on' : 'off'} access for ${row.full_name}`, detail: row.active ? undefined : 'Signed out everywhere' }
+      if (changed(r, 'invited_at')) return { what: `Invited ${row.full_name} by ${row.invited_via === 'sms' ? 'text message' : row.invited_via === 'whatsapp' ? 'WhatsApp' : 'email'}` }
       if (changed(r, 'consent_version')) return { what: `${row.full_name} agreed to the privacy notice` }
       if (changed(r, 'user_id')) return null // first sign-in links the account: not a change anyone made
       return { what: `Edited ${row.full_name}'s details` }
@@ -75,14 +76,17 @@ export function describe(r: AuditRow, n: Names): { what: string; detail?: string
       return { what: `${n.person(row.profile_id)} ${r.action === 'delete' ? 'is no longer' : 'is now'} ${ROLE_NAME[String(row.role)] ?? row.role}` }
     case 'coordinator_classes':
       return { what: `${n.person(row.profile_id)} ${r.action === 'delete' ? 'no longer covers' : 'covers'} ${n.className(row.class_id)}` }
+    case 'classes':
+      return { what: r.action === 'insert' ? `Added the class ${row.name}` : `Changed the class ${row.name}` }
     case 'programmes':
+      if (r.action === 'insert') return { what: `Added the programme ${row.name}` }
       return { what: `Changed the timings of ${row.name}` }
     case 'child_schedules':
       return { what: `${r.action === 'delete' ? 'Cleared' : 'Set'} ${n.child(row.child_id)}'s regular times` }
     case 'holidays':
       return { what: `${r.action === 'delete' ? 'Removed' : 'Added'} the holiday ${row.name} on ${row.day}` }
     case 'settings':
-      return { what: 'Changed the settings', detail: ['get_ready_lead_min', 'late_threshold_min', 'school_phone', 'morning_reminder'].filter((k) => changed(r, k)).map((k) => `${k.replace(/_/g, ' ').replace(' min', '')}: ${r.new_row?.[k]}`).join(', ') || undefined }
+      return { what: 'Changed the settings', detail: ['get_ready_lead_min', 'late_threshold_min', 'school_phone', 'morning_reminder', 'app_url'].filter((k) => changed(r, k)).map((k) => `${k.replace(/_/g, ' ').replace(' min', '')}: ${r.new_row?.[k]}`).join(', ') || undefined }
     default:
       return { what: `${r.action === 'insert' ? 'Added' : r.action === 'delete' ? 'Removed' : 'Changed'} ${r.table_name.replace(/_/g, ' ')}` }
   }

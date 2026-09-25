@@ -1,5 +1,5 @@
 /**
- * DEMO MODE — the in-browser stand-in for migration 0013 (attendance, today's times, programme hours, regular times,
+ * DEMO MODE — the in-browser stand-in for migrations 0013 and 0019 (attendance, today's times, classes and programme timings, regular times,
  * messages, announcements, logged calls, saved people), with the same rules. Sample data only.
  */
 import { indiaClock } from '../domain/time'
@@ -96,16 +96,46 @@ export function schoolRpc(db: SchoolDb, fn: string, a: Row, me: Row | undefined,
       const r = setDayTime(db, a.p_child, a.p_direction, a.p_at, a.p_reason, me!.id, h)
       return r instanceof Response ? r : h.json(r)
     }
-    case 'set_programme_hours': {
+    // 0019: the admin adds classes and programmes; drop-off and pickup are set by hand.
+    case 'admin_add_class': {
+      if (!has(db, me, 'admin')) return h.fail('Only the admin can add classes.', '42501')
+      const n = String(a.p_name ?? '').trim()
+      if (!n || n.length > 60 || n.includes('·')) return h.fail('bad_name: Give the class a name of up to 60 letters, without "·".')
+      if (db.classes.some((c) => String(c.name).toLowerCase() === n.toLowerCase())) return h.fail(`taken: There is already a class called ${n}.`)
+      const c = { id: crypto.randomUUID(), name: n, active: true, sort: Math.max(0, ...db.classes.map((x) => Number(x.sort))) + 1 }
+      db.classes.push(c)
+      return h.json(c)
+    }
+    case 'save_programme': {
+      const admin = has(db, me, 'admin')
       if (!planner) return h.fail('Only the core team or the admin can change timings.', '42501')
-      const p = db.programmes.find((x) => x.id === a.p_programme)
-      if (!p) return h.fail('This programme no longer exists.')
-      if (String(p.name).startsWith('Learning Center')) return h.fail("school_rule: The Learning Center's times are the school's rule: in at 8:45 to 9:00, collected any time until 7:00 PM.")
-      const s = hm(a.p_starts), e = hm(a.p_ends)
+      if (!admin && (a.p_programme == null || a.p_plan != null || a.p_weekdays != null || a.p_saturday_rule != null)) return h.fail('Only the admin can add a programme or change its name or days.', '42501')
+      const p = a.p_programme == null ? null : db.programmes.find((x) => x.id === a.p_programme)
+      if (a.p_programme != null && !p) return h.fail('gone: This programme no longer exists.')
+      if (p && String(p.name).startsWith('Learning Center') && !admin) return h.fail("school_rule: The Learning Center's times are the school's rule. Ask the admin to change them.")
+      const cls = db.classes.find((c) => c.id === (p ? p.class_id : a.p_class) && c.active)
+      if (!cls) return h.fail('gone: This class no longer exists.')
+      const plan = String(a.p_plan ?? '').trim()
+      if (plan.length > 40 || plan.includes('·')) return h.fail('bad_name: Give the programme a name of up to 40 letters, without "·".')
+      const name = !p || a.p_plan != null ? `${cls.name}${plan ? ` · ${plan}` : ''}` : String(p.name)
+      if (db.programmes.some((x) => String(x.name).toLowerCase() === name.toLowerCase() && x.id !== p?.id)) return h.fail(`taken: ${cls.name} already has a programme called that.`)
+      const wd = a.p_weekdays as number[] | null
+      if ((!p && !wd) || (wd && (wd.length < 1 || wd.length > 6 || wd.some((d) => d < 1 || d > 6)))) return h.fail('bad_days: Choose the days, Monday to Saturday.')
+      const [s, e, df, dt, pf, pt] = [a.p_starts, a.p_ends, a.p_dropoff_from, a.p_dropoff_to, a.p_pickup_from, a.p_pickup_to].map(hm) as [number, number, number, number, number, number]
       if (s < 540 || e > 1140) return h.fail('outside_hours: Classes run inside 9:00 AM to 7:00 PM.')
       if (e < s + 30) return h.fail('too_short: A class needs at least 30 minutes between start and end.')
-      const ext = !!a.p_extended
-      Object.assign(p, { starts: t(s), ends: t(e), extended: ext, flexible: false, dropoff_from: t(ext && s > 540 ? 540 : s - 15), dropoff_to: t(s), pickup_from: t(e), pickup_to: t(ext ? Math.max(e, 1140) : Math.min(e + 15, 1155)) })
+      if (df < 525 || pt > 1155) return h.fail('outside_gate: The gate is open from 8:45 AM to 7:15 PM.')
+      if (df >= dt) return h.fail('bad_dropoff: Drop-off must end after it starts.')
+      if (pf >= pt) return h.fail('bad_pickup: Pickup must end after it starts.')
+      if (dt > e) return h.fail('bad_dropoff: Drop-off must close by the time the class ends.')
+      if (pf < s) return h.fail("bad_pickup: Pickup can't open before the class starts.")
+      const times = { starts: t(s), ends: t(e), flexible: false, dropoff_from: t(df), dropoff_to: t(dt), pickup_from: t(pf), pickup_to: t(pt) }
+      if (!p) {
+        const row = { id: crypto.randomUUID(), name, class_id: cls.id, weekdays: wd, saturday_rule: a.p_saturday_rule ?? 'every', term_start: null, term_end: null, extended: !!a.p_extended, active: true, ...times }
+        db.programmes.push(row)
+        return h.json(row)
+      }
+      Object.assign(p, times, { name, extended: a.p_extended ?? p.extended }, wd ? { weekdays: wd } : {}, a.p_saturday_rule ? { saturday_rule: a.p_saturday_rule } : {})
       return h.json(p)
     }
     case 'set_regular_times': {
@@ -255,6 +285,8 @@ export function visibleRows(db: SchoolDb, table: string, rows: Row[], me: Row | 
     case 'calls': return staff ? rows : []
     case 'message_reads': case 'announcement_reads': return rows.filter((r) => r.profile_id === me?.id)
     case 'saved_people': return rows.filter((r) => r.owner === me?.id)
+    // 0024 (D38): a trip's location only for the parent who sent a one-off collector's link.
+    case 'trip_points': return rows.filter((r) => { const t = db.trips.find((x) => x.id === r.trip_id); return !!t && !!me && t.traveller_kind === 'third_person' && t.created_by === me.id && isGuardian(db, me, t.child_id) })
     default: return rows
   }
 }

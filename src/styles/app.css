@@ -1,4 +1,14 @@
 @import 'tailwindcss';
+/* Screens shorter than a 12.9-inch iPad in portrait: full-screen layouts tighten so they fit without scrolling. */
+@custom-variant short {
+  @media (orientation: portrait) and (max-height: 1300px) { @slot; }
+  @media (orientation: landscape) and (max-height: 900px) { @slot; }
+}
+/* The shortest screens (a 9.7-inch iPad upright, an 11-inch one sideways): tighter still. */
+@custom-variant shorter {
+  @media (orientation: portrait) and (max-height: 1060px) { @slot; }
+  @media (orientation: landscape) and (max-height: 860px) { @slot; }
+}
 @import '@fontsource-variable/plus-jakarta-sans/wght.css';
 @import './tokens.css';
 
@@ -215,15 +225,17 @@
     align-items: center;
     justify-content: center;
     gap: 0.5em;
-    height: var(--h);
+    /* A label that can't fit wraps inside the button (min-height, not height) instead of spilling past its edge. */
+    min-height: var(--h);
     min-width: var(--h);
-    padding-inline: var(--px);
+    padding: 6px var(--px);
     border-radius: var(--r);
     font-size: var(--fs);
     font-weight: 750;
-    line-height: 1;
+    line-height: 1.15;
     letter-spacing: -0.005em;
-    white-space: nowrap;
+    text-align: center;
+    text-wrap: balance;
     color: var(--fg);
     background: var(--b);
     box-shadow: 0 var(--lipw) 0 var(--lip), inset 0 0 0 1.5px var(--edge);
@@ -295,25 +307,67 @@
   }
   .choice:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* Quiet chips for quick picks (demo accounts). */
-  .chipb {
-    display: inline-flex;
+  /* 3D icons (src/ui/icons.tsx): a soft shadow gives them depth on flat surfaces. In a tinted icon tile (a grid span
+     marked aria-hidden, like the Start duty checks, role and class tiles) they fill more of it, as 3D art is meant to. */
+  .icon3d { filter: drop-shadow(0 1px 1.25px rgb(22 25 58 / 0.18)); overflow: visible; }
+  span[aria-hidden='true'].grid > .icon3d,
+  .demo-tile__badge > .icon3d { width: 64%; height: 64%; }
+  @media (prefers-reduced-transparency: reduce) { .icon3d { filter: none; } }
+
+  /* A screen that fills the viewport exactly: less the demo pill's spacer when it's on the page, so it never scrolls. */
+  :root:has(.demo-space) { --demo-space: 80px; }
+  .screen-h { min-height: calc(100dvh - var(--demo-space, 0px)); }
+
+  /* Demo account tiles on the sign-in page: a tinted icon badge (--tone per role), the role and what it opens. */
+  .demo-tile {
+    --tone: var(--accent);
+    position: relative;
+    display: flex;
     align-items: center;
-    gap: 8px;
-    height: 44px;
-    padding-inline: 16px;
-    border-radius: 999px;
-    border: 1px solid var(--line-2);
+    gap: 10px;
+    min-height: 64px;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
     background: var(--surface);
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--ink-2);
-    transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard), transform var(--dur-press) var(--ease-standard);
+    box-shadow: 0 2px 0 var(--line-2);
+    text-align: left;
+    transition: background-color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard), transform var(--dur-press) var(--ease-standard);
   }
-  .chipb svg { width: 18px; height: 18px; flex: none; }
-  @media (hover: hover) { .chipb:hover { background: color-mix(in oklab, var(--sunken) 60%, var(--surface)); color: var(--ink); } }
-  .chipb:active { transform: scale(0.97); }
-  .chipb[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+  .demo-tile__badge {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--tone) 13%, var(--surface));
+    color: color-mix(in oklab, var(--tone) 78%, var(--ink));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 18%, transparent);
+  }
+  .demo-tile__badge svg { width: 20px; height: 20px; stroke-width: 2.25; }
+  .demo-tile__check {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 0 0 2px var(--canvas);
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity var(--dur-fast) var(--ease-standard), transform var(--dur-base) var(--ease-spring);
+  }
+  .demo-tile__check svg { width: 13px; height: 13px; stroke-width: 3; }
+  @media (hover: hover) { .demo-tile:hover { border-color: var(--line-hover); background: color-mix(in oklab, var(--sunken) 45%, var(--surface)); } }
+  .demo-tile:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--line-2); }
+  .demo-tile[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 2px 0 var(--accent-lip); }
+  .demo-tile[aria-pressed='true'] .demo-tile__check { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .demo-tile, .demo-tile__check { transition: none; } .demo-tile:active { transform: none; } }
 
   /* A text-only action inside a card ("Change email"). */
   .linkbtn {
@@ -363,11 +417,15 @@
     box-shadow: 0 2px 0 var(--line-2), 0 1px 3px rgb(22 25 58 / 0.08);
   }
   .seg > :is([aria-selected='true'], [aria-current='page']) svg { color: var(--accent); }
-  .seg .count { font-size: 12px; font-weight: 750; padding: 2px 7px; border-radius: 999px; background: rgb(22 25 58 / 0.06); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .seg .count { flex: none; font-size: 12px; font-weight: 750; padding: 2px 7px; border-radius: 999px; background: rgb(22 25 58 / 0.06); color: var(--ink-2); font-variant-numeric: tabular-nums; }
   /* Phones: every tab stays in view as an even grid of two, never a strip that scrolls off the edge. */
   @media (max-width: 639px) {
     .seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-    .seg > * { justify-content: center; min-width: 0; }
+    /* A long label wraps onto two lines inside its tab instead of spilling past it. */
+    .seg > * { justify-content: center; min-width: 0; height: auto; min-height: 44px; padding: 6px 10px; gap: 6px; white-space: normal; text-align: center; line-height: 1.15; }
+    .seg-label { min-width: 0; line-height: 1.15; text-align: center; text-wrap: balance; }
+    /* The smallest phones: the label says it all, so the icon gives its room to the words. */
+    @media (max-width: 399px) { .seg > * svg { display: none; } }
     .seg > :last-child:nth-child(odd) { grid-column: span 2; }
   }
 

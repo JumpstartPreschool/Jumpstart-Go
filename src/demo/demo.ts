@@ -19,17 +19,18 @@ export const DEMO_EMAIL = 'ai@jumpstartpreschool.in'
 /** The dummy one-time code, filled in for you on the demo sign-in. Any other code is refused, so the error can be tried too. */
 export const DEMO_CODE = '246810'
 /** One sample account per area, offered as chips on the sign-in screen (the Screen Book's demo accounts). */
-export const DEMO_ACCOUNTS: Array<{ area: Area; email: string; label?: string }> = [
-  { area: 'parent', email: 'neha@example.com' },
-  { area: 'parent', email: 'lata@example.com', label: 'Family' },
-  { area: 'coordinator', email: 'sunita@example.com' },
-  { area: 'core', email: 'meera@example.com' },
-  { area: 'pro', email: 'frontdesk@example.com' },
-  { area: 'admin', email: DEMO_EMAIL },
+/** `hint` says what the account opens; `tone` tints its icon on the sign-in page. */
+export const DEMO_ACCOUNTS: Array<{ area: Area; email: string; label?: string; hint: string; tone: string }> = [
+  { area: 'parent', email: 'neha@example.com', hint: 'Today and trips', tone: 'var(--rb-blue)' },
+  { area: 'parent', email: 'lata@example.com', label: 'Family', hint: 'A grandparent', tone: 'var(--rb-red)' },
+  { area: 'coordinator', email: 'sunita@example.com', hint: 'The gate iPad', tone: 'var(--rb-orange)' },
+  { area: 'core', email: 'meera@example.com', hint: "Today's board", tone: 'var(--rb-teal)' },
+  { area: 'pro', email: 'frontdesk@example.com', hint: 'Phone calls', tone: 'var(--rb-violet)' },
+  { area: 'admin', email: DEMO_EMAIL, hint: 'Full access', tone: 'var(--rb-green)' },
 ]
 
 const FLAG = 'jumpstart-demo'
-export const DEMO_DB_KEY = 'jumpstart-demo-db-v2'
+export const DEMO_DB_KEY = 'jumpstart-demo-db-v3'
 const CLOCK = 'jumpstart-demo-clock'
 /** The demo's "now": Thursday 24 September 2026, 12:10 PM India time, running on from when the demo began. */
 const DEMO_START = Date.parse('2026-09-24T12:10:00+05:30')
@@ -102,8 +103,8 @@ function seed(): Db {
   ].map((p) => ({ app_access: p.active, abroad: false, notify_morning: true, notify_family: true, ...p }))
   // The classes are the levels (D18); each programme belongs to one, and a child's class follows their programme.
   const classes = LEVELS.map((name, i) => ({ id: levelId(name), name, active: true, sort: i + 1 }))
-  const child = (id: string, full_name: string, preferred_name: string | null, date_of_birth: string, programme: string) =>
-    ({ id, full_name, preferred_name, date_of_birth, class_id: levelOfProgramme(programme), programme_id: programmeId(programme), active: true })
+  const child = (id: string, full_name: string, preferred_name: string | null, date_of_birth: string, programme: string, gender: 'boy' | 'girl') =>
+    ({ id, full_name, preferred_name, date_of_birth, class_id: levelOfProgramme(programme), programme_id: programmeId(programme), active: true, gender })
   return {
     profiles,
     staff_roles: [
@@ -116,10 +117,10 @@ function seed(): Db {
     classes,
     programmes: PROGRAMMES.map((p) => ({ ...p, active: true, class_id: levelOfProgramme(p.name) })),
     children: [
-      child('demo-anaya', 'Anaya Singh', null, '2022-03-14', 'Jr KG · Half day'),
-      child('demo-kabir', 'Kabir Shah', null, '2023-01-20', 'Nursery · 360°'),
-      child('demo-isha', 'Isha Patil', 'Ishu', '2020-11-02', 'Sr KG · Half day'),
-      child('demo-riya', 'Riya Joshi', null, '2020-08-09', 'Learning Center'),
+      child('demo-anaya', 'Anaya Singh', null, '2022-03-14', 'Jr KG · Half day', 'girl'),
+      child('demo-kabir', 'Kabir Shah', null, '2023-01-20', 'Nursery · 360°', 'boy'),
+      child('demo-isha', 'Isha Patil', 'Ishu', '2020-11-02', 'Sr KG · Half day', 'girl'),
+      child('demo-riya', 'Riya Joshi', null, '2020-08-09', 'Learning Center', 'girl'),
     ],
     guardianships: [
       { child_id: 'demo-anaya', guardian_id: OWNER, relation: 'Father' },
@@ -149,7 +150,7 @@ function seed(): Db {
     ],
     trip_points: [],
     trip_links: [],
-    settings: [{ id: true, arrival_radius_m: 200, get_ready_lead_min: 10, late_threshold_min: 10, morning_reminder: true, school_phone: '+912025451234' }],
+    settings: [{ id: true, arrival_radius_m: 200, get_ready_lead_min: 10, late_threshold_min: 10, morning_reminder: true, school_phone: '+912025451234', app_url: null }],
     audit_log: [],
     day_times: [],
     // A conversation and an announcement, so Messages and Updates have something to show.
@@ -429,7 +430,7 @@ function rest(db: Db, method: string, table: string, params: URLSearchParams, he
   return json(single ? result[0] ?? null : result)
 }
 
-const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points', 'announcement_stats', 'recipient_count', 'gate_load', 'my_family'])
+const READ_ONLY = new Set(['login_allowed', 'whoami', 'collector_code', 'link_open', 'link_status', 'latest_points', 'announcement_stats', 'recipient_count', 'gate_load', 'my_family', 'invite_details'])
 
 /** Stands in for window.fetch inside the Supabase client while demo mode is on. */
 export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -441,7 +442,7 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   // A short pause so loading states show the way they do on a real connection.
   await new Promise((r) => setTimeout(r, 150 + Math.random() * 250))
   const db = load()
-  const before = method === 'GET' && !url.pathname.includes('/rpc/') ? null : (JSON.parse(JSON.stringify(db)) as Record<string, Row[]>)
+  const before = method === 'GET' && !url.pathname.includes('/rpc/') && !url.pathname.startsWith('/functions/') ? null : (JSON.parse(JSON.stringify(db)) as Record<string, Row[]>)
   let response: Response
 
   const path = url.pathname
@@ -458,6 +459,11 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     response = email ? json(sessionFor(db, email).user) : json({ msg: 'not signed in' }, 401)
   } else if (path === '/auth/v1/logout') {
     response = json(null, 204)
+  } else if (path === '/functions/v1/invite-send') {
+    // Like invite-send (0020): the same checks, then recorded as emailed. Demo mode sends no email.
+    const details = rpc(db, 'invite_details', { p_profile: body.profile }, email)
+    if (details.ok) rpc(db, 'mark_invited', { p_profile: body.profile, p_via: 'email' }, email)
+    response = details.ok ? json({ sent: true, demo: true }) : json({ error: String(((await details.json()) as Row).message ?? '').replace(/^[a-z_]+: /, '') }, details.status)
   } else if (path.startsWith('/rest/v1/rpc/')) {
     response = rpc(db, path.slice('/rest/v1/rpc/'.length), body, email)
   } else if (path.startsWith('/rest/v1/')) {
@@ -474,7 +480,7 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   save(db)
   // Like Realtime: screens in this tab hear about a change (other tabs get the storage event).
   const fn = path.startsWith('/rest/v1/rpc/') ? path.slice('/rest/v1/rpc/'.length) : null
-  const wrote = fn ? !READ_ONLY.has(fn) && response.ok : path.startsWith('/rest/v1/') && method !== 'GET' && response.ok
+  const wrote = fn ? !READ_ONLY.has(fn) && response.ok : (path.startsWith('/rest/v1/') || path.startsWith('/functions/')) && method !== 'GET' && response.ok
   if (wrote) setTimeout(() => window.dispatchEvent(new Event(DEMO_CHANGE_EVENT)), 0)
   return response
 }

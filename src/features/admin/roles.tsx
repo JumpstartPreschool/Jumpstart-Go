@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BellRing, CalendarClock, Headset, ShieldCheck } from 'lucide-react'
+import { BellRing, CalendarClock, Headset, ShieldCheck } from '../../ui/icons'
 import type { StaffRole } from '../auth/session'
 
 /** Staff roles as the school says them, told apart by icon (owner, 2026-09-24). Same icons as the Screen Book. */

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BellRing } from 'lucide-react'
+import { BellRing } from '../../ui/icons'
 import { Switch } from '../../ui/Switch'
 import { useToast } from '../../ui/Toast'
 import { explainDbError } from '../admin/api'

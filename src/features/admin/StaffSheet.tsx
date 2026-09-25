@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, Mail, Smartphone, UserPlus } from 'lucide-react'
+import { Lock, Mail, Smartphone, UserPlus } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'

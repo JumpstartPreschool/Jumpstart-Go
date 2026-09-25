@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AudioLines, Bell, BellOff, LogOut, Sun, TriangleAlert, Volume2, WifiOff } from 'lucide-react'
+import { AudioLines, Bell, BellOff, LogOut, Sun, TriangleAlert, Volume2, WifiOff } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
@@ -19,7 +19,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const { speaking, waiting, mutedUntil } = duty.ann
 
   return (
-    <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
+    <div className="screen-h pb-[env(safe-area-inset-bottom)]">
       {/* Floating bar: duty status, clock and the controls a coordinator needs mid-shift. */}
       <header className="gutter sticky top-0 z-10 pt-[max(12px,env(safe-area-inset-top))]">
         <div className="glass flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl py-2.5 pl-4 pr-2.5 sm:pl-5">

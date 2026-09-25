@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
-import { AudioLines, BellOff, CircleCheck, Delete, KeyRound, LogOut, Phone, ShieldAlert, Timer, TriangleAlert, UserCheck } from 'lucide-react'
+import { AudioLines, BellOff, CircleCheck, Delete, KeyRound, LogOut, Phone, ShieldAlert, Timer, TriangleAlert, UserCheck } from '../ui/icons'
 import { Button } from '../ui/Button'
 import { Logo } from '../ui/Logo'
 import { FreshnessBadge } from '../ui/FreshnessBadge'

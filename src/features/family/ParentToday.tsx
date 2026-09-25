@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, TriangleAlert, Users } from 'lucide-react'
-import { Avatar } from '../../ui/Avatar'
+import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, TriangleAlert, Users } from '../../ui/icons'
+import { Avatar, childKind } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { EmptyState, ErrorState } from '../../ui/States'
@@ -16,7 +16,7 @@ import { useTodayTrips, type Trip } from '../trips/api'
 import { clockTime, formatRange, programmeOf } from '../trips/rules'
 import { CancelSheet, LateSheet, OnMyWaySheet } from '../trips/TripSheets'
 import { ResendSheet, SomeoneElseSheet } from '../trips/CollectorSheets'
-import { ShareMyLocation, TravellerPosition } from '../trips/TripLocation'
+import { CollectorTracker } from '../trips/TripLocation'
 import { collectorCode } from '../trips/tracking'
 import { gateLoad, undoAbsence, useToday, type Attendance, type DayTime } from '../school/api'
 import { AWAY_LABEL } from '../school/dayModel'
@@ -29,12 +29,13 @@ interface ChildRow {
   id: string
   full_name: string
   preferred_name: string | null
+  gender?: string | null
   programmes: ProgrammeRow | null
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>
 }
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
-const FIELDS = 'id, full_name, preferred_name, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
+const FIELDS = 'id, full_name, preferred_name, gender, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
 
 /** The signed-in parent's own children (row-level security allows no more; a staff member who is also a parent sees only theirs). */
 function useMyChildren(guardianId: string | null) {
@@ -114,13 +115,15 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
           {code ? <span>{who} shows code <b className="text-ink tracking-[0.12em] tabular-nums">{code}</b> at the gate.</span> : <span>{who} shows their 4-digit code at the gate.</span>}
         </p>
       )}
-      {mine ? <ShareMyLocation trip={trip} /> : <TravellerPosition trip={trip} who={third ? who : trip.traveller_relation ? `${who} (${trip.traveller_relation.toLowerCase()})` : who} />}
+      {/* Location only for someone collecting with a link, and only for the parent who sent it (D38). */}
+      {third && trip.created_by === meId && <CollectorTracker trip={trip} child={first} />}
+      {third && trip.created_by !== meId && <p className="mt-3 text-small font-semibold text-ink-2">Only the parent who sent {who} the link can see where they are.</p>}
       <Steps items={steps} />
-      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+      <div className="mt-4 flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-32">
         <Button size="md" variant="sunshine" icon={<Timer />} onClick={onLate}>Running late</Button>
         {third ? <Button size="md" variant="secondary" icon={<Send />} onClick={onResend}>Resend link</Button>
           : <Button size="md" variant="secondary" icon={<Clock />} onClick={onChange}>Change time</Button>}
-        <Button size="md" variant="quiet" className="col-span-2 sm:col-span-1" onClick={onCancel}>Cancel {WORD[trip.direction]}</Button>
+        <Button size="md" variant="quiet" onClick={onCancel}>Cancel {WORD[trip.direction]}</Button>
       </div>
     </div>
   )
@@ -168,7 +171,7 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   return (
     <li className="card rounded-2xl p-5 sm:p-6">
       <div className="flex items-center gap-4">
-        <Avatar name={first} color={childColor(child.id)} size="lg" />
+        <Avatar name={first} color={childColor(child.id)} kind={childKind(child.gender)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-h2">{first}</h2>
           <p className="truncate text-small font-semibold text-ink-2">{row?.name ?? 'No programme yet'}</p>
@@ -184,8 +187,8 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
       </div>
 
       {/* The way home with the person who collected (TRK-7): until they say they're home, at most an hour. */}
-      {pickDone?.traveller_kind === 'third_person' && !pickDone.home_at && nowMs - Date.parse(pickDone.closed_at!) < 60 * 60_000 && (
-        <TravellerPosition trip={pickDone} who={pickDone.traveller_name.split(' ')[0]!} />
+      {pickDone?.traveller_kind === 'third_person' && pickDone.created_by === meId && !pickDone.home_at && nowMs - Date.parse(pickDone.closed_at!) < 60 * 60_000 && (
+        <CollectorTracker trip={pickDone} child={first} afterHandover />
       )}
       {open && programme ? (
         <TripBlock trip={open} first={first} meId={meId}

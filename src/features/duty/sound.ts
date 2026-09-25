@@ -41,15 +41,17 @@ export function voiceScore(v: Pick<SpeechSynthesisVoice, 'name' | 'lang'>): numb
   // Samantha, the warmest of them, leads when nothing better is installed.
   if (score === 0 && SMOOTH.test(v.name)) score += /^samantha\b/i.test(v.name) ? 45 : 40
   // The school wants a warm woman's voice for announcements (owner, 2026-09-25), so any woman's voice comes first.
-  if (voiceGender(v.name) === 'female') score += 60
-  score += lang === 'en-in' ? 30 : lang === 'en-gb' ? 15 : 10
+  if (voiceGender(v.name) === 'female') score += 100
+  // Indian English says the children's names the way families say them (owner, 2026-09-25), so it outranks a more
+  // polished American or British voice.
+  score += lang === 'en-in' ? 70 : lang === 'en-gb' ? 15 : 10
   return score
 }
-const SMOOTH = /^(samantha|daniel|karen|moira|tessa|serena|kate|oliver|arthur|martha|ava|allison|susan|tom|evan|nathan|zoe|nicky|aaron|fiona|isha|veena)\b/i
+const SMOOTH = /^(samantha|daniel|karen|moira|tessa|serena|kate|oliver|arthur|martha|ava|allison|susan|tom|evan|nathan|zoe|nicky|aaron|fiona|isha|veena|tara)\b/i
 
 // Browsers don't say whether a voice is a woman's or a man's, so it's recognised from the well-known voice names.
-const FEMALE = /\b(samantha|karen|moira|tessa|serena|kate|martha|ava|allison|susan|zoe|nicky|fiona|isha|veena|victoria|catherine|neerja|aria|jenny|sonia|libby|natasha|clara|emily|michelle|ana|maisie|hazel|heera|kalpana|zira|female)\b/i
-const MALE = /\b(daniel|rishi|oliver|arthur|tom|evan|nathan|aaron|prabhat|guy|ryan|thomas|alex|gordon|lee|ravi|george|david|mark|william|christopher|eric|brian|male)\b/i
+const FEMALE = /\b(tara|samantha|karen|moira|tessa|serena|kate|martha|ava|allison|susan|zoe|nicky|fiona|isha|veena|victoria|catherine|neerja|aria|jenny|sonia|libby|natasha|clara|emily|michelle|ana|maisie|hazel|heera|kalpana|zira|female)\b/i
+const MALE = /\b(daniel|rishi|aman|oliver|arthur|tom|evan|nathan|aaron|prabhat|guy|ryan|thomas|alex|gordon|lee|ravi|george|david|mark|william|christopher|eric|brian|male)\b/i
 
 export function voiceGender(name: string): 'female' | 'male' | null {
   if (FEMALE.test(name)) return 'female'
@@ -71,10 +73,18 @@ function savedChoice(): string | null {
   try { return localStorage.getItem(VOICE_KEY) } catch { return null }
 }
 
-/** The natural voice this iPad uses (the default), or null when a device voice was chosen instead. */
+/** An Indian English woman's voice on this device (Tara, Isha, Veena…), which says Indian names properly. */
+export function indianVoice(): SpeechSynthesisVoice | null {
+  return rankedVoices().find((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in' && voiceGender(v.name) === 'female') ?? null
+}
+
+/**
+ * The natural voice this iPad uses, or null when a device voice is used instead: the one chosen, else the device's
+ * Indian English woman's voice when it has one (names sound right), else the natural voice.
+ */
 export function naturalChoice(): NaturalVoiceId | null {
   const saved = savedChoice()
-  if (!saved) return DEFAULT_NATURAL
+  if (!saved) return indianVoice() ? null : DEFAULT_NATURAL
   const id = saved.startsWith(NATURAL_PREFIX) ? saved.slice(NATURAL_PREFIX.length) : null
   return NATURAL_VOICES.find((v) => v.id === id)?.id ?? null
 }

@@ -16,6 +16,9 @@ interface Helpers {
 
 const demoNow = () => Date.now() + demoClockOffset()
 const iso = (ms: number) => new Date(ms).toISOString()
+/** 0024 (D38): a trip's location is for the parent who sent a one-off collector's link, and nobody else. */
+export const canSeeLocation = (db: TrackingDb, me: Row | undefined, t: Row) =>
+  !!me && t.traveller_kind === 'third_person' && t.created_by === me.id && isGuardian(db, me, t.child_id)
 const hasRole = (db: TrackingDb, me: Row | undefined, ...roles: string[]) => !!me && db.staff_roles.some((r) => r.profile_id === me.id && roles.includes(String(r.role)))
 const isGuardian = (db: TrackingDb, me: Row | undefined, childId: unknown) => !!me && db.guardianships.some((g) => g.child_id === childId && g.guardian_id === me.id)
 
@@ -79,13 +82,9 @@ export function trackingRpc(db: TrackingDb, fn: string, args: Row, me: Row | und
     return l && l.link.device && l.link.device === args.p_device ? l : null
   }
   switch (fn) {
-    case 'share_location': {
-      const t = db.trips.find((x) => x.id === args.p_trip)
-      if (!t || (t.traveller_kind ?? 'guardian') !== 'guardian' || !me || t.created_by !== me.id) return h.fail('Only the person on the way can share their location.', '42501')
-      if (t.status !== 'en_route') return h.fail('trip_closed: This trip is finished, so sharing has stopped.')
-      const n = accept(db, t, args.p_points, h)
-      return typeof n === 'number' ? h.json(n) : n
-    }
+    case 'share_location':
+      // 0024 (D38): parents and family never share their own location.
+      return h.fail('no_location: Only someone collecting with a one-time link shares their location.')
     case 'stop_sharing': {
       const t = db.trips.find((x) => x.id === args.p_trip && x.created_by === me?.id && (x.traveller_kind ?? 'guardian') === 'guardian')
       if (!t) return h.fail('Only the person on the way can stop sharing.', '42501')
@@ -185,14 +184,13 @@ export function trackingRpc(db: TrackingDb, fn: string, args: Row, me: Row | und
       return h.json({ ok: true, trip: t })
     }
     case 'latest_points': {
-      // Staff see points up to the handover, guardians the whole trip (like the row-level security in 0008).
+      // Only the parent who sent the link, for a one-off collector (0024, D38); the school never sees location.
       const ids = new Set((args.p_trips as string[] | undefined ?? []).slice(0, 50))
       const out = new Map<unknown, Row>()
       for (const p of db.trip_points) {
         if (!ids.has(String(p.trip_id)) || p.backfill) continue
         const t = db.trips.find((x) => x.id === p.trip_id)
-        const staffOk = hasRole(db, me, 'admin', 'core', 'coordinator') && (!t?.closed_at || String(p.fix_at) <= String(t.closed_at))
-        if (!t || !(isGuardian(db, me, t.child_id) || staffOk)) continue
+        if (!t || !canSeeLocation(db, me, t)) continue
         const cur = out.get(p.trip_id)
         if (!cur || String(p.fix_at) > String(cur.fix_at)) out.set(p.trip_id, p)
       }

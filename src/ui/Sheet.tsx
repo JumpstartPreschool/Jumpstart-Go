@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { X } from './icons'
 
 /**
  * Sheet on the native <dialog>: a bottom sheet on phones, a centred card on iPad and desktop. The browser gives

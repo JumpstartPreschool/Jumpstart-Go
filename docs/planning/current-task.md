@@ -1,6 +1,6 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-25
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-25 (evening)
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
@@ -41,7 +41,24 @@
 - **Web push** (`0016`, D33, [notification-architecture.md](../architecture/notification-architecture.md)): outbox and triggers, `push-send`, service worker handler (tested by delivering a push to the built app), switches for parents and staff.
 - **Checks:** `LC_ALL=C TMPDIR=/tmp npm run test:db` (every role, 0007–0018), `npm test` (75), and the browser suites in `scripts/qa/` against `npm run dev` on port 5178: `flows.cjs` (44), `office.cjs` (16), `parent.cjs` (14), `collector.cjs` (18), `trip.cjs` (11), and `qa.cjs <dir> light` (every page and sheet at 23 sizes; 0 issues).
 
+## Done on 2026-09-25, evening (branch `claude/server-data-extraction-review-dd5a64`)
+- **Classes and timings for the admin** (`0019`, D35): Admin → People → Classes adds a class, opens it to list its programmes, adds programmes (name, days, hours) and edits each one's drop-off and pickup by hand. The shared timing editor (`school/ProgrammeSheet.tsx`) starts from the 15-minute rule and offers it back; the core team uses it in Schedules for timings only. Classes the admin adds appear in the programme picker with a plain icon.
+- **Layout fixes found by the sweep:** tab counts spilling out of their tab on phones, button icons pushed out of narrow buttons (parent trip card at every iPad size, pickup-link sheet, programme picker), side-by-side fields sliding out of line next to a hint or error, and time pickers cut off on the smallest phones. `scripts/qa/qa.cjs` now checks for all four: spill, off-centre icons, misaligned fields and cut-off dropdowns.
+- **Checks:** `npm test` (79), `npm run test:db` (with `zz_timings.test.sql`), `scripts/qa/classes.cjs` (18), the other browser suites (103) and `qa.cjs` (0 issues at 23 sizes).
+
+- **Invitations** (`0020`, D36): Invite on every person who hasn't signed in (People and the child page). The email always goes (`invite-send` through Brevo); WhatsApp and SMS from the admin's phone when there's a number. The app's web address is a setting. Pickup links now go by WhatsApp or SMS too. Found and fixed on the way: Settings could lose what the admin was typing when a late load arrived, and a web address without https was blocked by the browser without a message. `scripts/qa/invite.cjs` (10), `supabase/tests/zz_zz_invites.test.sql`.
+- **Sign-in and invitation emails** in the Jumpstart design with the logo: `supabase/templates/` (see environments.md).
+
+- **Production audit** (four parallel reviews: security, location, invitations, UI): `0021` removes the core team's direct writes to programmes, attendance, regular times and holidays (they skipped the function checks), makes the collector-link rate limit actually fire, limits sign-in codes to 5 an hour per email, and adds the daily clean-up promised in the consent notice (trips 30 days, attendance this and last academic year, audit log 1 year). The map shows a clear message when it can't load; sharing stops and says so when a trip ends; a crash shows a Reload screen; faint instructional text is darker; the app is kept out of search (`robots.txt`, `X-Robots-Tag`) except the new Privacy Policy and Terms (`/privacy`, `/terms`); the security policy now lets the natural voice download (it was blocked in production); `invite-send` no longer logs Brevo's error text.
+- **Coordinator start screen** redesigned to fill iPads in both orientations, with today's numbers at the gate. **Announcements** start "New announcement." and repeats "Reminder."; an Indian English woman's voice on the iPad is preferred (names said properly), with how to download Isha when there isn't one.
+- **Bulk upload** (`0022`, D37): Admin → People and Core team → Schedules; CSV or Excel (.xlsx read without a library); `scripts/qa/bulk.cjs` (12).
+
+- **Location only for a one-off collector** (`0024`, D38): parents and family no longer share location; the gate shows none; only the parent who sent the link sees the collector, on a new tracker (live map, distance, freshness, Call). Consent notice version raised, so parents agree again. Sign-in: a quick second request goes straight to the code (Supabase allows one a minute), codes 10 an hour per email (`0023`); the sign-in page has a welcome panel on tablets; privacy and terms updated.
+
+- **3D icons and people pictures** (D39, `0025`): `src/ui/icons.tsx` (92 Fluent 3D WebP files in `public/icons3d`, 248 KB), `Avatar` with 3D boy, girl, man, woman and older figures, Boy or girl on children (forms, bulk upload).
+
 ## Remaining work (in order)
+0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
 2. **Aditya Tapadia's email** (D27): invite him as the second admin in the database (the app refuses Admin by design).
 3. **Push notifications on:** follow "Turning on push notifications" in [environments.md](../infrastructure/environments.md) (VAPID keys, secrets, deploy `push-send`, `app.push_config`, pg_net and pg_cron). `push-send` hasn't been type-checked with Deno here (not installed); the CLI checks it on deploy.

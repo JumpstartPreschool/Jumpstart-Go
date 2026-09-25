@@ -1,9 +1,10 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical } from '../ui/icons'
 import { ToastProvider } from '../ui/Toast'
 import { SessionProvider, useSession } from '../features/auth/session'
 import { DEMO_AVAILABLE, isDemo } from '../demo/demo'
+import { ErrorBoundary } from '../ui/ErrorBoundary'
 import { AreaRoute, Splash } from '../features/auth/AreaRoute'
 import { CoreHome, ParentHome } from '../features/family/FamilyHomes'
 import { UpdatePrompt } from './UpdatePrompt'
@@ -12,6 +13,8 @@ import { UpdatePrompt } from './UpdatePrompt'
 const AdminPeople = lazy(() => import('../features/admin/AdminPeople').then((m) => ({ default: m.AdminPeople })))
 const AdminSettings = lazy(() => import('../features/admin/AdminSettings').then((m) => ({ default: m.AdminSettings })))
 const AuditLog = lazy(() => import('../features/admin/AuditLog').then((m) => ({ default: m.AuditLog })))
+const PrivacyPage = lazy(() => import('../features/legal/LegalPage').then((m) => ({ default: m.PrivacyPage })))
+const TermsPage = lazy(() => import('../features/legal/LegalPage').then((m) => ({ default: m.TermsPage })))
 const Schedules = lazy(() => import('../features/school/Schedules').then((m) => ({ default: m.Schedules })))
 const FrontDesk = lazy(() => import('../features/school/FrontDesk').then((m) => ({ default: m.FrontDesk })))
 const OfficeMessages = lazy(() => import('../features/school/Messages').then((m) => ({ default: m.OfficeMessages })))
@@ -68,7 +71,7 @@ function DemoBanner() {
   return (
     <>
       {/* Room at the end of the page so the pill never covers the last row. */}
-      <div className="h-20" aria-hidden />
+      <div className="demo-space h-20" aria-hidden />
       <div role="status" className={`glass fixed inset-x-0 z-50 mx-auto flex w-max max-w-[calc(100vw-32px)] items-center gap-2 rounded-full py-1 pl-3.5 pr-1 text-caption font-extrabold ${parent ? 'bottom-[calc(96px+env(safe-area-inset-bottom))] md:bottom-[max(12px,env(safe-area-inset-bottom))]' : 'bottom-[max(12px,env(safe-area-inset-bottom))]'}`}>
         <FlaskConical className="size-4 shrink-0 text-ink-2" aria-hidden />
         <span className="whitespace-nowrap">Demo · sample data</span>
@@ -83,8 +86,11 @@ export function App() {
     <SessionProvider>
       <ToastProvider>
         <BrowserRouter>
+          <ErrorBoundary>
           <Suspense fallback={<Splash />}>
             <Routes>
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
               <Route path="/admin/*" element={<AreaRoute area="admin"><AreaPages index={<AdminPeople />} area="admin" /></AreaRoute>} />
               <Route path="/core/*" element={<AreaRoute area="core"><AreaPages index={<CoreHome />} area="core" /></AreaRoute>} />
               <Route path="/pro/*" element={<AreaRoute area="pro"><AreaPages index={<FrontDesk />} area="pro" /></AreaRoute>} />
@@ -96,6 +102,7 @@ export function App() {
               <Route path="*" element={<AreaRoute area={null}>{null}</AreaRoute>} />
             </Routes>
           </Suspense>
+          </ErrorBoundary>
           <DemoBanner />
         </BrowserRouter>
         <UpdatePrompt />

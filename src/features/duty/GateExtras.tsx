@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { CalendarClock, CalendarX, DoorOpen, UserCheck } from 'lucide-react'
-import { Avatar } from '../../ui/Avatar'
+import { CalendarClock, CalendarX, DoorOpen, UserCheck } from '../../ui/icons'
+import { Avatar, childKind, adultKind } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
@@ -59,7 +59,7 @@ function WalkInSheet({ c, direction, onClose, onDone }: { c: SchoolChild; direct
               <p className="kicker mt-1">{kind === 'parent' ? 'Parents' : 'Family'}</p>
               {list.map((g) => (
                 <button key={g.id} type="button" className="choice flex items-center gap-3 p-3 text-left" disabled={busy} onClick={() => void go(g.id, g.full_name.split(' ')[0])}>
-                  <Avatar name={g.full_name} color={kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+                  <Avatar name={g.full_name} kind={adultKind(g.relation)} color={kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
                   <span className="min-w-0 flex-1"><span className="block truncate text-h4">{g.full_name}</span><span className="block text-small font-semibold text-ink-2">{g.relation}{g.abroad ? ', lives outside India' : ''}</span></span>
                   <UserCheck className="size-5 text-accent" aria-hidden />
                 </button>
@@ -93,7 +93,7 @@ export function ExpectedLists({ children, onDone }: { children: SchoolChild[]; o
           <ul className="grid gap-2.5">
             {coming.map(({ c, direction }) => (
               <li key={c.id} className="card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 pr-3.5">
-                <Avatar name={c.first} color={childColor(c.id)} />
+                <Avatar name={c.first} color={childColor(c.id)} kind={childKind(c.gender)} />
                 <span className="min-w-0 flex-1 basis-[180px]">
                   <span className="block truncate text-h4">{c.fullName}</span>
                   <span className="block truncate text-small font-semibold text-ink-2">

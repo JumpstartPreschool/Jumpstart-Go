@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, MouseEvent, ReactNode, Ref } from 'react'
-import { LoaderCircle } from 'lucide-react'
+import { LoaderCircle } from './icons'
 
 type Variant = 'primary' | 'secondary' | 'sunshine' | 'success' | 'quiet' | 'danger'
 type Size = 'md' | 'lg' | 'xl'

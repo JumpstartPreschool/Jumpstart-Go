@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
-import { CircleCheck, Clock, KeyRound, MapPin, MonitorSmartphone, ShieldCheck, Timer } from 'lucide-react'
+import { CircleCheck, Clock, KeyRound, MapPin, MonitorSmartphone, ShieldCheck, Timer } from '../ui/icons'
 import { Button } from '../ui/Button'
 import { Logo, Mascot } from '../ui/Logo'
 import { CodeTiles } from '../ui/CodeTiles'

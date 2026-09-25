@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from 'lucide-react'
-import { Avatar } from '../../ui/Avatar'
+import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
+import { Avatar, adultKind } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
@@ -11,7 +11,8 @@ import { normalizeEmail } from '../../domain/contact'
 import { addGuardian, explainDbError, saveChild, type Child, type Directory } from './api'
 import { blankPerson, kindOf, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
 import { formatAge, levelOf, suggestedLevel } from './programmeCatalogue'
-import { LEVEL_ICON, ProgrammePicker } from './ProgrammePicker'
+import { levelIcon, ProgrammePicker } from './ProgrammePicker'
+import { GenderChoice } from '../../ui/GenderChoice'
 
 const RELATION_ICON: Record<string, ReactNode> = {
   Mother: <UserRound />, Father: <UserRound />, 'Legal guardian': <ShieldUser />, Grandmother: <Glasses />, Grandfather: <Glasses />,
@@ -99,7 +100,7 @@ function PersonCard({ p, i, errors, onChange, onRemove, onRelation }: {
   return (
     <div className="grid gap-4 rounded-xl border border-line bg-canvas p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Avatar name={who} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+        <Avatar name={who} kind={adultKind(p.relation)} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
         <span className="min-w-0 flex-1 basis-[120px]">
           <span className="block truncate text-h4">{who}</span>
           {p.linkedNote && <span className="block text-caption font-semibold text-ink-2">{p.linkedNote}. Linked, not added twice.</span>}
@@ -149,6 +150,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
   const [name, setName] = useState('')
   const [called, setCalled] = useState('')
   const [dob, setDob] = useState('')
+  const [gender, setGender] = useState<'boy' | 'girl' | null>(null)
   const [programmeId, setProgrammeId] = useState<string | null>(null)
   const [people, setPeople] = useState<PersonDraft[]>([blankPerson('Mother')])
   const [picker, setPicker] = useState<null | 'programme' | { relationFor: number | 'new' }>(null)
@@ -188,7 +190,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     setBusy(true)
     setFormError(null)
     try {
-      const id = await saveChild({ full_name: words.join(' '), preferred_name: called.trim(), date_of_birth: dob, programme_id: programmeId! }, people.map(toInput))
+      const id = await saveChild({ full_name: words.join(' '), preferred_name: called.trim(), date_of_birth: dob, programme_id: programmeId!, gender }, people.map(toInput))
       onSaved(id, who)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
@@ -214,10 +216,11 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
         </div>
         <TextField label="Date of birth" type="date" min="2017-01-01" max={today} value={dob} onChange={(e) => setDob(e.target.value)} error={errors.dob}
           hint={dob && dob <= today ? `${formatAge(dob)} today${suggested ? `, ${suggested.replace(' Program', '')} age` : ''}` : undefined} />
+        <GenderChoice value={gender} onChange={setGender} />
 
         <h3 className="kicker mt-2">Class and programme</h3>
         <button type="button" onClick={() => setPicker('programme')} className={`choice flex w-full items-center gap-3.5 p-3.5 text-left ${errors.programme ? '[--edge:var(--danger)]' : ''}`} aria-describedby={errors.programme ? 'programme-msg' : undefined}>
-          <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden>{programme ? LEVEL_ICON[levelOf(programme).level] : <Plus />}</span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden>{programme ? levelIcon(levelOf(programme).level) : <Plus />}</span>
           <span className="min-w-0 flex-1">
             <span className="block text-h4">{programme ? programme.name : 'Choose the class and programme'}</span>
             <span className="block text-small font-semibold text-ink-2">{programme ? 'Change' : suggested ? `${suggested.replace(' Program', '')} is suggested from the date of birth` : 'The class, then the programme'}</span>

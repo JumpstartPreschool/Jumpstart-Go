@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Megaphone, Send, Users } from 'lucide-react'
+import { Megaphone, Send, Users } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'

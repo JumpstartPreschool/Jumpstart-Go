@@ -1,5 +1,6 @@
+import { Link } from 'react-router'
 import { useState, type ReactNode } from 'react'
-import { Clock, Eye, Lock, MapPin, ShieldCheck, Users } from 'lucide-react'
+import { Clock, Eye, Lock, MapPin, ShieldCheck, Users } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Notice } from '../../ui/States'
@@ -45,11 +46,11 @@ export function ConsentScreen() {
           <Point icon={<Users />} title="What we keep">
             Your name and contact details, your children's names, class and timings, and the people you choose to pick them up (name, phone, relation; never photos).
           </Point>
-          <Point icon={<MapPin />} title="Location, only during a trip">
-            The phone of the person doing a pickup or drop-off shares its location only while that trip is on, and only if they allow it. A child's location is never tracked.
+          <Point icon={<MapPin />} title="Location, only for someone you send">
+            You, your family and the school never share or see your location. If you send someone else to collect with a one-time link, they can choose to share where they are on the way, and only you see it. A child's location is never tracked.
           </Point>
           <Point icon={<Eye />} title="Who can see it">
-            You see your own children. School staff see what they need to run the gate and keep records. The school sees a trip's location only until your child is handed over.
+            You see your own children. School staff see what they need to run the gate and keep records, but never anyone's location.
           </Point>
           <Point icon={<Clock />} title="How long we keep it">
             Trip records and routes for 30 days; attendance for this and last academic year; a log of sensitive actions for one year.
@@ -58,6 +59,7 @@ export function ConsentScreen() {
             Ask the school at any time to correct or remove your information.
           </Point>
         </ul>
+        <p className="mt-6 text-small font-semibold text-ink-2">The full <Link to="/privacy" className="linkbtn px-0">Privacy Policy</Link> and <Link to="/terms" className="linkbtn px-0">Terms of Use</Link> say more.</p>
         {error && <Notice tone="danger" className="mt-6">{error}</Notice>}
         <Button size="xl" className="mt-8 w-full" icon={<ShieldCheck />} loading={busy} onClick={() => void accept()}>
           I agree, continue

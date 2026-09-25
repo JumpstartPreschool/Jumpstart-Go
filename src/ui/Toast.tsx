@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
-import { CircleAlert, CircleCheck, Info } from 'lucide-react'
+import { CircleAlert, CircleCheck, Info } from './icons'
 
 type ToastTone = 'success' | 'info' | 'danger'
 interface ToastItem { id: number; tone: ToastTone; text: string; action?: { label: string; run: () => void }; leaving?: boolean }

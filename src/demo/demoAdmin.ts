@@ -1,9 +1,9 @@
 /**
- * DEMO MODE — the in-browser stand-in for migrations 0011 and 0012 (classes as levels, family and app access, saving a
- * child with their family, the admin lock, Log a call), with the same rules. Sample data only.
+ * DEMO MODE — the in-browser stand-in for migrations 0011, 0012 and 0020 (classes as levels, family and app access, saving
+ * a child with their family, the admin lock, Log a call, invitations), with the same rules. Sample data only.
  */
 type Row = Record<string, unknown>
-export interface AdminDb { profiles: Row[]; staff_roles: Row[]; children: Row[]; guardianships: Row[]; programmes: Row[]; classes: Row[]; trips: Row[] }
+export interface AdminDb { profiles: Row[]; staff_roles: Row[]; children: Row[]; guardianships: Row[]; programmes: Row[]; classes: Row[]; trips: Row[]; settings: Row[] }
 interface Helpers { json: (body: unknown, status?: number) => Response; fail: (message: string, code?: string) => Response; startTrip: (db: never, me: Row | undefined, args: Row) => Response }
 
 /** The levels, in the school's order (D18). */
@@ -29,6 +29,44 @@ function personFor(db: AdminDb, p: Row, h: Helpers): string | Response {
 /** Returns the reply for an admin or front-desk function, or null when `fn` isn't one of them. */
 export function adminRpc(db: AdminDb, fn: string, args: Row, me: Row | undefined, h: Helpers): Response | null {
   switch (fn) {
+    case 'invite_details': {
+      if (!isAdmin(db, me)) return h.fail('Only the admin can send invitations.', '42501')
+      const p = db.profiles.find((x) => x.id === args.p_profile)
+      if (!p || !p.active) return h.fail('gone: This person is no longer on the list.')
+      if (!p.app_access) return h.fail(`no_access: Turn on app access for ${p.full_name} first.`)
+      if (p.user_id) return h.fail(`signed_in: ${p.full_name} has already signed in.`)
+      const url = db.settings[0]?.app_url
+      if (!url) return h.fail("no_app_url: Add the app's web address in Settings first.")
+      const children = db.guardianships.filter((g) => g.guardian_id === p.id).map((g) => db.children.find((c) => c.id === g.child_id && c.active)).filter(Boolean)
+        .map((c) => String(c!.preferred_name ?? String(c!.full_name).split(' ')[0])).sort()
+      return h.json({ full_name: p.full_name, email: p.email, phone: p.phone, app_url: url, staff: db.staff_roles.some((r) => r.profile_id === p.id), children })
+    }
+    case 'mark_invited': {
+      if (!isAdmin(db, me)) return h.fail('Only the admin can send invitations.', '42501')
+      if (!['email', 'sms', 'whatsapp'].includes(String(args.p_via))) return h.fail('bad_channel: Invite by email, text message or WhatsApp.')
+      const p = db.profiles.find((x) => x.id === args.p_profile && x.active && !x.user_id)
+      if (p) Object.assign(p, { invited_at: new Date().toISOString(), invited_via: args.p_via })
+      return h.json(null)
+    }
+    // 0022: the admin or the core team imports a child; people already on record (same email or mobile) are linked.
+    case 'import_child': {
+      if (!me || !db.staff_roles.some((r) => r.profile_id === me.id && (r.role === 'admin' || r.role === 'core'))) return h.fail('Only the admin or the core team can import children.', '42501')
+      const child = args.p_child as Row
+      const name = String(child.full_name ?? '').trim()
+      if (name.length < 2) return h.fail("name_required: Enter the child's first and last name.")
+      if (db.children.some((c) => c.active && String(c.full_name).toLowerCase() === name.toLowerCase() && c.date_of_birth === child.date_of_birth)) {
+        return h.fail(`duplicate: ${name} (born ${child.date_of_birth}) is already registered.`)
+      }
+      const people: Row[] = []
+      for (const p of (args.p_people as Row[] | undefined) ?? []) {
+        const byEmail = p.email ? db.profiles.find((x) => x.active && x.email === String(p.email).toLowerCase()) : undefined
+        const byPhone = p.phone ? db.profiles.find((x) => x.active && x.phone === p.phone) : undefined
+        if (byEmail && byPhone && byEmail.id !== byPhone.id) return h.fail(`person_conflict: ${p.full_name}'s email and mobile belong to two different people on the school's records.`)
+        const found = byEmail ?? byPhone
+        people.push(found ? { id: found.id, relation: p.relation, kind: p.kind } : p)
+      }
+      return adminRpc(db, 'admin_save_child', { p_child: child, p_people: people }, db.profiles.find((x) => db.staff_roles.some((r) => r.profile_id === x.id && r.role === 'admin')), h)
+    }
     case 'admin_save_child': {
       if (!isAdmin(db, me)) return h.fail('new row violates row-level security policy', '42501')
       const people = (args.p_people as Row[] | undefined) ?? []
@@ -45,7 +83,7 @@ export function adminRpc(db: AdminDb, fn: string, args: Row, me: Row | undefined
         if (typeof pid !== 'string') { Object.assign(db, before); return pid }
         db.guardianships.push({ child_id: id, guardian_id: pid, relation: String(p.relation), kind: p.kind ?? 'parent' })
       }
-      db.children.push({ id, full_name: String(child.full_name).trim(), preferred_name: child.preferred_name || null, date_of_birth: child.date_of_birth, class_id: programme.class_id, programme_id: programme.id, active: true })
+      db.children.push({ id, full_name: String(child.full_name).trim(), preferred_name: child.preferred_name || null, date_of_birth: child.date_of_birth, class_id: programme.class_id, programme_id: programme.id, active: true, gender: child.gender === 'boy' || child.gender === 'girl' ? child.gender : null })
       return h.json(id)
     }
     case 'admin_add_guardian': {

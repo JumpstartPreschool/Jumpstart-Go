@@ -1,4 +1,4 @@
-import { CircleSlash, Clock3, History } from 'lucide-react'
+import { CircleSlash, Clock3, History } from './icons'
 import type { Freshness } from '../domain/freshness'
 
 const styles: Record<Freshness, string> = {

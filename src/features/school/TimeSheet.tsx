@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Clock } from 'lucide-react'
+import { Clock } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'

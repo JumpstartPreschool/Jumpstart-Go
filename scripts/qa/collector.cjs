@@ -49,11 +49,13 @@ async function signIn(p, chip, area) {
   const wa = await sheet.getByRole('link', { name: 'Send on WhatsApp' }).getAttribute('href')
   const token = decodeURIComponent(wa).match(/\/t\/([\w-]+)/)?.[1]
   ok('link ready: 4-digit code and a WhatsApp message to +91 98123 45678 with the link', code.length === 4 && wa.startsWith('https://wa.me/919812345678?text=') && !!token, `code ${code}`)
+  const sms = await sheet.getByRole('link', { name: /^Send by text message/ }).getAttribute('href')
+  ok('link ready: the same message by text, to the same number', sms.startsWith('sms:+919812345678?&body=') && decodeURIComponent(sms.split('body=')[1]) === decodeURIComponent(wa.split('text=')[1]))
   await snap(parent, 'p-link-ready')
   await sheet.getByRole('button', { name: 'Done' }).click()
   await parent.waitForTimeout(900)
   ok('parent card: Ramesh arrives, with his code', await card.getByText(/Ramesh arrives about/).isVisible() && await card.getByText(code, { exact: true }).isVisible())
-  ok('parent card: no location yet, said plainly', await card.getByText("Ramesh isn't sharing their location.", { exact: false }).isVisible())
+  ok('parent card: no location yet, said plainly', await card.getByText("Ramesh hasn't shared their location", { exact: false }).isVisible() && await card.getByText('Only you can see this. The school can\'t.').isVisible())
 
   // 2. Ramesh's phone opens the link.
   const phone = await ctx.newPage(); watch(phone, 'collector')
@@ -97,7 +99,8 @@ async function signIn(p, chip, area) {
   await coord.getByRole('button', { name: 'Yes, I heard it' }).click()
   await coord.waitForTimeout(1500)
   const row = coord.locator('li', { hasText: 'Anaya Singh' }).first()
-  ok('gate: Anaya shows Code needed and a live position', await row.getByText('Code needed').isVisible() && await row.getByText(/Live|Recent/).first().isVisible())
+  // D38: the school never sees location, even while the collector shares it with the parent.
+  ok('gate: Anaya shows Code needed and no location at all', await row.getByText('Code needed').isVisible() && (await row.getByText(/Live|Recent|from school|away/).count()) === 0)
   if (await row.getByRole('button', { name: 'Acknowledge' }).count()) { await row.getByRole('button', { name: 'Acknowledge' }).click(); await coord.waitForTimeout(1000) }
   await row.getByRole('button', { name: 'Ready' }).click()
   await coord.waitForTimeout(1200)

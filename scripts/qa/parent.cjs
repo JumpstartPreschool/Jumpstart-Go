@@ -33,6 +33,8 @@ async function signIn(p, chip, area) {
 
   await signIn(p, 'Parent')
   await p.getByRole('heading', { name: 'Kabir' }).waitFor({ timeout: 10000 })
+  // The count of new updates loads just after the page; wait for it rather than checking the same instant.
+  await tabbar().getByLabel('1 new').waitFor({ timeout: 5000 }).catch(() => {})
   ok('tabs: bar at the thumb, Updates shows 1 new', await tabbar().isVisible() && await tabbar().getByLabel('1 new').isVisible())
   if (shots) await p.screenshot({ path: `${shots}/parent-today.png`, fullPage: true })
 

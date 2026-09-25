@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router'
-import { ChevronRight, LogOut, RotateCcw, UserX } from 'lucide-react'
+import { ChevronRight, LogOut, RotateCcw, UserX } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { ConsentScreen } from './ConsentScreen'

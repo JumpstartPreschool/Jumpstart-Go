@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Headset, Phone } from 'lucide-react'
+import { Headset, Phone } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { ErrorState, SkeletonList } from '../../ui/States'
 import { useNow } from '../../ui/hooks'

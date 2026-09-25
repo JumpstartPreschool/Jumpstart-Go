@@ -1,9 +1,10 @@
 import { supabase } from '../../lib/supabase'
+import type { InviteDetails } from '../../../supabase/functions/_shared/invite.ts'
 import type { StaffRole } from '../auth/session'
 
 /** A person on the school's records. `active`: on the record; `app_access`: can sign in (0012). */
-export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null }
-export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string; class_id: string; programme_id: string; active: boolean }
+export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'email' | 'sms' | 'whatsapp' | null }
+export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string; class_id: string; programme_id: string; active: boolean; gender?: 'boy' | 'girl' | null }
 export type GuardianKind = 'parent' | 'family'
 export interface Guardianship { child_id: string; guardian_id: string; relation: string; kind: GuardianKind }
 /** The classes are the levels (D18), fixed and in the school's order. */
@@ -50,9 +51,9 @@ export function explainDbError(e: { code?: string; message?: string } | null): s
 
 export async function loadDirectory(): Promise<Directory> {
   const [profiles, roles, children, guardianships, classes, programmes, coordinatorClasses, schedules] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id, invited_at, invited_via').order('full_name'),
     supabase.from('staff_roles').select('profile_id, role'),
-    supabase.from('children').select('id, full_name, preferred_name, date_of_birth, class_id, programme_id, active').order('full_name'),
+    supabase.from('children').select('id, full_name, preferred_name, date_of_birth, class_id, programme_id, active, gender').order('full_name'),
     supabase.from('guardianships').select('child_id, guardian_id, relation, kind'),
     supabase.from('classes').select('id, name, active, sort').order('sort'),
     supabase.from('programmes').select('id, name, class_id, extended, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to').eq('active', true).order('name'),
@@ -88,7 +89,7 @@ export type PersonInput =
   | { full_name: string; email: string | null; phone: string | null; abroad: boolean; app_access: boolean; relation: string; kind: GuardianKind }
 
 /** A child with everyone on their record, saved together or not at all (0012). Returns the child's id. */
-export async function saveChild(child: { full_name: string; preferred_name: string; date_of_birth: string; programme_id: string }, people: PersonInput[]): Promise<string> {
+export async function saveChild(child: { full_name: string; preferred_name: string; date_of_birth: string; programme_id: string; gender?: 'boy' | 'girl' | null }, people: PersonInput[]): Promise<string> {
   const { data, error } = await supabase.rpc('admin_save_child', { p_child: child, p_people: people })
   if (error) throw error
   return data as string
@@ -105,7 +106,7 @@ export async function removeGuardian(childId: string, guardianId: string): Promi
   if (error) throw error
 }
 
-export async function updateChild(childId: string, patch: Partial<Pick<Child, 'full_name' | 'preferred_name' | 'date_of_birth' | 'programme_id'>>): Promise<void> {
+export async function updateChild(childId: string, patch: Partial<Pick<Child, 'full_name' | 'preferred_name' | 'date_of_birth' | 'programme_id' | 'gender'>>): Promise<void> {
   const { error } = await supabase.from('children').update(patch).eq('id', childId)
   if (error) throw error
 }
@@ -124,4 +125,31 @@ export async function setAppAccess(profileId: string, on: boolean): Promise<void
 export async function setPersonActive(profileId: string, active: boolean) {
   const { error } = await supabase.from('profiles').update({ active }).eq('id', profileId)
   if (error) throw error
+}
+
+/** Invitations (0020, D36): what to say, the email (invite-send), and a record of a text or WhatsApp sent from the admin's phone. */
+export async function inviteDetails(profile: string): Promise<InviteDetails> {
+  const { data, error } = await supabase.rpc('invite_details', { p_profile: profile })
+  if (error) throw error
+  return data as InviteDetails
+}
+export async function sendInviteEmail(profile: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('invite-send', { body: { profile } })
+  if (!error) return
+  // The function answers with a sentence for the admin; a network failure has none.
+  const res = (error as { context?: Response }).context
+  const body = await res?.json?.().catch(() => null)
+  const fallback = res?.status === 404 ? "Email invitations aren't set up yet. Send it by WhatsApp or SMS for now." : "The email couldn't be sent. Check your connection and try again."
+  throw { code: 'P0001', message: body?.error ?? fallback }
+}
+export async function markInvited(profile: string, via: 'sms' | 'whatsapp'): Promise<void> {
+  const { error } = await supabase.rpc('mark_invited', { p_profile: profile, p_via: via })
+  if (error) throw error
+}
+
+/** Bulk upload (0022): one child and their family; people already on record are matched by email or mobile. */
+export async function importChild(child: { full_name: string; preferred_name: string | null; date_of_birth: string; programme_id: string; gender: 'boy' | 'girl' | null }, people: unknown[]): Promise<string> {
+  const { data, error } = await supabase.rpc('import_child', { p_child: child, p_people: people })
+  if (error) throw error
+  return data as string
 }

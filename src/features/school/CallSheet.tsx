@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CalendarX, Clock, Headset, MessageSquare, Navigation } from 'lucide-react'
+import { CalendarX, Clock, Headset, MessageSquare, Navigation } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'

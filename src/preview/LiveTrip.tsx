@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { ChevronLeft, CircleCheck, Phone, XCircle } from 'lucide-react'
+import { ChevronLeft, CircleCheck, Phone, XCircle } from '../ui/icons'
 import type { Freshness } from '../domain/freshness'
 import { Button } from '../ui/Button'
 import { CodeTiles } from '../ui/CodeTiles'

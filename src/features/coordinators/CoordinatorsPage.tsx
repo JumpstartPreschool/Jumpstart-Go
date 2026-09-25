@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BellRing, Check, Plus, School, TriangleAlert, UserMinus, UsersRound } from 'lucide-react'
+import { BellRing, Check, Plus, School, TriangleAlert, UserMinus, UsersRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'

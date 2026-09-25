@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { AudioLines, Download, Play, Sparkles } from 'lucide-react'
+import { AudioLines, Download, Play, Sparkles } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { EmptyState, Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { audioContext, chooseVoice, currentVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, voiceGender, voiceQuality, type VoiceQuality } from './sound'
+import { audioContext, chooseVoice, currentVoice, indianVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, voiceGender, voiceQuality, type VoiceQuality } from './sound'
 import { NATURAL_VOICES, onNaturalStatus, prepareNaturalVoice, type NaturalStatus, type NaturalVoiceId } from './naturalVoice'
 
-const SAMPLE = 'Please get Aarav ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
+const SAMPLE = 'New announcement. Please get Aarav Kulkarni ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
 const ACCENT: Record<string, string> = {
   'en-in': 'Indian English', 'en-gb': 'British English', 'en-us': 'American English', 'en-au': 'Australian English',
   'en-ie': 'Irish English', 'en-za': 'South African English', 'en-nz': 'New Zealand English', 'en-ca': 'Canadian English',
@@ -127,6 +127,7 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
   const mobileApple = /iPad|iPhone/.test(ua) || (/Macintosh/.test(ua) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1)
   const mac = /Macintosh/.test(ua) && !mobileApple
   const hasNatural = voices.some((v) => ['natural', 'premium', 'enhanced'].includes(voiceQuality(v.name)))
+  const hasIndian = voices.length > 0 && !!indianVoice()
 
   useEffect(() => { if (open) { setChosen(chosenNow()); if (naturalChoice()) prepareNaturalVoice() } }, [open, voices])
 
@@ -148,8 +149,15 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
 
   return (
     <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear each voice read a pickup, then choose one. Remembered on this iPad.">
-      <NaturalVoices chosen={chosen} playing={playing} onPlay={(id) => void play(id)} onUse={use} />
-      <h3 className="kicker mt-7 mb-2.5">This device's voices</h3>
+      {!hasIndian && voices.length > 0 && (
+        <Notice tone="warning" className="mb-5" icon={<Sparkles aria-hidden />}>
+          For children's names said the Indian way, add an Indian English voice for free: {mobileApple
+            ? 'Settings, then Accessibility, then Spoken Content, then Voices, then English, then English (India)'
+            : 'System Settings, then Accessibility, then Spoken Content, then System voice, then Manage Voices, then English (India)'}
+          . Download Isha (Enhanced), then reopen this list.
+        </Notice>
+      )}
+      <h3 className="kicker mb-2.5">This device's voices</h3>
       {voices.length === 0 ? (
         <EmptyState title="No English voices yet">This browser hasn't loaded its voices. Try again in a moment, or open Jumpstart in Safari.</EmptyState>
       ) : (
@@ -169,7 +177,9 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
                       {[GENDER[voiceGender(v.name) ?? 'unknown'], ACCENT[v.lang.replace('_', '-').toLowerCase()] ?? 'English'].filter(Boolean).join(' · ')}
                     </span>
                   </span>
-                  <Pill tone={q.tone} className="max-[379px]:hidden">{q.label}</Pill>
+                  {v.lang.replace('_', '-').toLowerCase() === 'en-in'
+                    ? <Pill tone="accent" className="max-[379px]:hidden">Says Indian names clearly</Pill>
+                    : <Pill tone={q.tone} className="max-[379px]:hidden">{q.label}</Pill>}
                 </button>
                 <Button size="md" variant="secondary" icon={<Play />} aria-label={`Play ${voiceLabel(v)}`} loading={playing === v.name} onClick={() => void play(v)} />
               </li>
@@ -177,6 +187,7 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
           })}
         </ul>
       )}
+      <div className="mt-7"><NaturalVoices chosen={chosen} playing={playing} onPlay={(id) => void play(id)} onUse={use} /></div>
       {(mobileApple || mac) && (
         <Notice className="mt-5" icon={<Sparkles aria-hidden />} tone={hasNatural ? 'info' : 'warning'}>
           {hasNatural ? 'Voices marked Premium or Enhanced sound most like a person.' : 'This device has only its basic voices, which can sound mechanical.'}{' '}

@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import {
   Bell, CalendarHeart, ChevronRight, CircleCheck, Clock, Copy, House, Mail, Megaphone, MessageCircle,
   MessagesSquare, Star, Timer, User, UserPlus, UserRound, Users,
-} from 'lucide-react'
+} from '../ui/icons'
 import { Button } from '../ui/Button'
 import { Logo } from '../ui/Logo'
 import { AppNav } from '../ui/AppNav'

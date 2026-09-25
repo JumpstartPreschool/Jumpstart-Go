@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight, Link2, MapPinned, Power, Smartphone, Tablet } from 'lucide-react'
+import { ChevronRight, Link2, MapPinned, Power, Smartphone, Tablet } from '../ui/icons'
 import { Logo, Mascot } from '../ui/Logo'
 
 const SCREENS: Array<{ to: string; title: string; detail: string; device: string; icon: ReactNode; color: string }> = [

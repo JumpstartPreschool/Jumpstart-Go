@@ -45,11 +45,13 @@ npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
 3. `npx supabase functions deploy push-send --project-ref <ref> --no-verify-jwt`
 4. In the SQL editor: enable the `pg_net` and `pg_cron` extensions, then
    `insert into app.push_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/push-send', '<the same PUSH_SECRET>');`
-   and re-run the `cron.schedule` blocks from `0013`/`0016` (they only schedule when `pg_cron` exists at migration time). `npm run check:routing` tests the key and the ETA maths from this machine.
+   and re-run the `cron.schedule` blocks from `0016` and `0021` (push delivery, morning reminders and the daily clean-up of old records; they only schedule when `pg_cron` exists at migration time). `npm run check:routing` tests the key and the ETA maths from this machine.
 
 ## Auth settings (Supabase dashboard)
 Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):
-- **Sign-ups off:** Authentication → Sign In / Providers → turn off "Allow new users to sign up". Users are created only by the admin flow.
+- **Sign-ups stay on:** a parent's first code creates their sign-in account (`shouldCreateUser`), and the database refuses anyone the school hasn't added (0002). Turning sign-ups off would stop every first sign-in.
 - **Codes, not links:** the email templates use `{{ .Token }}` so people receive a 6-digit code.
-- **Code lifetime:** email OTP expiry of 300 seconds.
+- **Sign-in code:** Authentication → Sign In / Providers → Email: Email OTP Length 6 (the app has exactly six boxes) and Email OTP Expiration 300 seconds (the app and the emails say 5 minutes).
 - **Email sender:** custom SMTP (Brevo). The built-in sender is only for testing and delivers only to the project team.
+- **Invitations (0020, D36):** set the app's https address in Admin → Settings. Create a Brevo API key (SMTP & API → API keys) and deploy the function: `npx supabase secrets set BREVO_API_KEY=…` then `npx supabase functions deploy invite-send`. The sender (`INVITE_FROM`, default ai@jumpstartpreschool.in) must be a verified Brevo sender. Once the app has its address, set `APP_ORIGIN` (for example `https://app.jumpstartpreschool.in`) so only the app can call `invite-send` and `route`. Without the key the Invite sheet says email isn't set up and SMS and WhatsApp still work.
+- **Sign-in emails:** `supabase/templates/magic_link.html` (subject "Your Jumpstart sign-in code") and `confirmation.html` (subject "Welcome to Jumpstart: your sign-in code", a parent's first sign-in), pasted into Authentication → Emails → Templates. They show the 6-digit `{{ .Token }}` and no link: the app signs in with the code only. Editing templates needs custom SMTP on. The logo is `jumpstart-email-logo.png` in a public Storage bucket named `brand`. In Brevo, turn off "block unknown IP addresses": Supabase sends from changing IPs.

@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Eye } from 'lucide-react'
+import { Eye } from '../ui/icons'
 
 /** Every preview screen carries this label: the data is sample data, not a real trip (NFR-7). */
 export function PreviewRibbon() {

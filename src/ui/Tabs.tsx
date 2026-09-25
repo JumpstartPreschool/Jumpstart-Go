@@ -23,7 +23,7 @@ export function Tabs<K extends string>({ id, label, items, value, onChange }: { 
         return (
           <button key={t.key} id={`${id}-${t.key}`} type="button" role="tab" aria-selected={on} aria-controls={`${id}-panel`} tabIndex={on ? 0 : -1} onClick={() => onChange(t.key)}>
             {t.icon}
-            {t.label}
+            <span className="seg-label">{t.label}</span>
             {t.count != null && <span className="count">{t.count}</span>}
           </button>
         )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ScrollText } from 'lucide-react'
+import { ScrollText } from '../../ui/icons'
 import { EmptyState, ErrorState, SkeletonList } from '../../ui/States'
 import { supabase } from '../../lib/supabase'
 import { indiaClock, formatTime } from '../../domain/time'

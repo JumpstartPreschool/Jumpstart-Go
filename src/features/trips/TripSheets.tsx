@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, CircleCheck, Timer, TriangleAlert, X } from 'lucide-react'
+import { Bell, CircleCheck, Timer, TriangleAlert, X } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'

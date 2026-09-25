@@ -7,6 +7,7 @@ export const FALLBACK_MS = 120_000
 export interface GateChild {
   id: string
   name: string
+  gender?: string | null
   fullName: string
   classId: string
   className: string

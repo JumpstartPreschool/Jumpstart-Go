@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Check, Copy, Link2, MessageCircle, Send, UserPlus } from 'lucide-react'
-import { Avatar } from '../../ui/Avatar'
+import { Check, Copy, Link2, MessageCircle, MessageSquareText, Send, UserPlus } from '../../ui/icons'
+import { Avatar, adultKind } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { CodeTiles } from '../../ui/CodeTiles'
 import { SelectField, TextField } from '../../ui/Field'
@@ -11,7 +11,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import { windowFor, type Programme } from '../../domain/programme'
 import { now } from '../../lib/clock'
 import { explainTripError, type Trip } from './api'
-import { formatMobile, normalizeMobile, whatsappUrl } from '../../domain/contact'
+import { formatMobile, normalizeMobile, smsUrl, whatsappUrl } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { savePerson, useLive, type SavedPerson } from '../school/api'
 import { useMyId } from '../family/parentData'
@@ -33,7 +33,7 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
       setCopied(true)
       toast('Copied. Paste it into any message.')
     } catch {
-      toast("Couldn't copy on this device. Use Send on WhatsApp instead.")
+      toast("Couldn't copy on this device. Send it by WhatsApp or text message instead.")
     }
   }
   return (
@@ -45,11 +45,17 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
       </div>
       <Notice tone="info" className="mt-4">Send it now: for safety the link is shown only once. Resend link makes a new link and code, and the old ones stop working.</Notice>
       <SheetFooter>
-        <a className="btn btn--primary btn--xl w-full" href={whatsappUrl(sendTo, text)} target="_blank" rel="noopener noreferrer">
-          <MessageCircle aria-hidden />Send on WhatsApp
-        </a>
-        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-          <Button variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy message'}</Button>
+        <p className="kicker mb-2.5">Send it to {first}</p>
+        <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
+          <a className="btn btn--primary btn--xl" href={whatsappUrl(sendTo, text)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(sendTo)}`}>
+            <MessageCircle aria-hidden />WhatsApp
+          </a>
+          <a className="btn btn--primary btn--xl" href={smsUrl(sendTo, text)} aria-label={`Send by text message to ${formatMobile(sendTo)}`}>
+            <MessageSquareText aria-hidden />SMS
+          </a>
+        </div>
+        <div className="mt-2.5 flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-36">
+          <Button variant="secondary" icon={copied ? <Check /> : <Copy />} aria-label={copied ? 'Copied' : 'Copy the message'} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</Button>
           <Button variant="quiet" onClick={onDone}>Done</Button>
         </div>
       </SheetFooter>
@@ -138,7 +144,7 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
           <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Who">
             {saved.rows.map((p) => (
               <button key={p.id} type="button" role="radio" aria-checked={who === p.id} onClick={() => pickSaved(p.id)} className="choice flex items-center gap-3 p-3 text-left">
-                <Avatar name={p.full_name} color="var(--ink-3)" size="sm" />
+                <Avatar name={p.full_name} kind={adultKind(p.relation)} color="var(--ink-3)" size="sm" />
                 <span className="min-w-0"><span className="block truncate text-h4">{p.full_name}</span><span className="block truncate text-caption font-semibold text-ink-2">{p.relation}, {formatMobile(p.phone)}</span></span>
               </button>
             ))}

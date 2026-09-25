@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Baby, CircleCheck, Globe, GraduationCap, Lock, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from 'lucide-react'
-import { Avatar } from '../../ui/Avatar'
+import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
+import { Avatar, childKind } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
@@ -18,8 +18,11 @@ import { explainDbError, loadDirectory, setAppAccess, setPersonActive, type Dire
 import { AccessState, ChildPage } from './ChildPage'
 import { AddChildSheet } from './ChildForms'
 import { StaffSheet } from './StaffSheet'
+import { AddClassSheet, ClassSheet } from './ClassSheets'
+import { InviteSheet } from './InviteSheet'
+import { BulkImportSheet } from './BulkImportSheet'
 import { levelOf } from './programmeCatalogue'
-import { LEVEL_ICON } from './ProgrammePicker'
+import { levelIcon } from './ProgrammePicker'
 import { ROLE } from './roles'
 
 type Tab = 'children' | 'family' | 'staff' | 'classes'
@@ -37,7 +40,10 @@ export function AdminPeople() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('children')
   const [query, setQuery] = useState('')
-  const [adding, setAdding] = useState<null | 'child' | 'staff'>(null)
+  const [adding, setAdding] = useState<null | 'child' | 'staff' | 'class'>(null)
+  const [openClass, setOpenClass] = useState<string | null>(null)
+  const [inviting, setInviting] = useState<Profile | null>(null)
+  const [bulk, setBulk] = useState(false)
   const [confirm, setConfirm] = useState<null | { person: Profile; what: 'staff' | 'access' }>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -95,7 +101,7 @@ export function AdminPeople() {
   function accessSwitch(p: Profile) {
     if (p.app_access) return setConfirm({ person: p, what: 'access' })
     if (!p.email) return toast(`${p.full_name.split(' ')[0]} has no email yet. Add it from the child's page to give app access.`)
-    void act(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent to ${p.email}.`)
+    void act(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent to ${p.email}. Tap Invite to tell them.`)
   }
 
   const none = <EmptyState title={`No one matches "${query.trim()}"`}>Try a first name, an email or part of a phone number.</EmptyState>
@@ -110,7 +116,8 @@ export function AdminPeople() {
   return (
     <AreaShell area="admin" title="People" subtitle="Children, their parents and family, and the staff at Karve Road. Only the admin adds or removes them."
       actions={tab === 'staff' ? <Button icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</Button>
-        : tab === 'classes' ? null : <Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button>}>
+        : tab === 'classes' ? <Button icon={<Plus />} onClick={() => setAdding('class')}>Add class</Button>
+        : <div className="flex flex-wrap gap-2.5"><Button variant="secondary" icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</Button><Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button></div>}>
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <Tabs id="people" label="People" value={tab} onChange={setTab} items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
         <SearchField label="Search people" className="min-w-0 lg:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, emails or phones" />
@@ -129,12 +136,13 @@ export function AdminPeople() {
                   return (
                     <li key={c.id}>
                       <button type="button" onClick={() => navigate(`/admin/child/${c.id}`)} className="card flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                        <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />
+                        <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} kind={childKind(c.gender)} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-h3">{c.full_name}</span>
                           <span className="block truncate text-small font-semibold text-ink-2">{programme?.name ?? 'No programme'}</span>
                           <span className="block truncate text-small font-semibold">{people.join(', ') || 'Nobody listed yet'}</span>
                         </span>
+                        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sunken [&_svg]:size-5" aria-hidden><ChevronRight /></span>
                       </button>
                     </li>
                   )
@@ -156,7 +164,7 @@ export function AdminPeople() {
                           <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
                           <p className="truncate text-small font-semibold">{ks.map((x) => `${x.g.relation.split(',')[0]} of ${x.k!.preferred_name ?? x.k!.full_name.split(' ')[0]}`).join(', ')}</p>
                         </div>
-                        <AccessState person={p} />
+                        <AccessState person={p} onInvite={setInviting} />
                         <Switch on={p.app_access} busy={busy} label={`App access for ${p.full_name}`} onChange={() => accessSwitch(p)} />
                       </li>
                     )
@@ -184,7 +192,7 @@ export function AdminPeople() {
                           <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
                           <div className="mt-1.5 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
                         </div>
-                        {p.active ? <AccessState person={p} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
+                        {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
                         {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
                           : p.active ? <Button size="md" variant="secondary" onClick={() => { setActionError(null); setConfirm({ person: p, what: 'staff' }) }}>Turn off</Button>
                           : <Button size="md" icon={<CircleCheck />} loading={busy} onClick={() => void act(() => setPersonActive(p.id, true), `${p.full_name.split(' ')[0]} can sign in again.`)}>Turn on</Button>}
@@ -201,23 +209,34 @@ export function AdminPeople() {
                   const n = kids.filter((k) => k.class_id === c.id).length
                   const who = dir.coordinatorClasses.filter((a) => a.class_id === c.id).map((a) => dir.profiles.find((p) => p.id === a.profile_id)).filter((p) => p?.active)
                   const level = dir.programmes.find((p) => p.class_id === c.id)
+                  const progs = dir.programmes.filter((p) => p.class_id === c.id).length
                   return (
-                    <li key={c.id} className="card flex items-center gap-3.5 rounded-xl p-3.5">
-                      <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{level ? LEVEL_ICON[levelOf(level).level] : <GraduationCap />}</span>
+                    <li key={c.id}>
+                      <button type="button" className="choice flex w-full items-center gap-3.5 p-3.5 text-left" onClick={() => setOpenClass(c.id)}>
+                      <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{level ? levelIcon(levelOf(level).level) : <GraduationCap />}</span>
                       <span className="min-w-0">
                         <span className="block text-h4">{c.name}</span>
                         <span className={`block text-small font-semibold ${who.length ? 'text-ink-2' : 'text-warning'}`}>{n} {n === 1 ? 'child' : 'children'}, {who.length ? who.map((p) => p!.full_name.split(' ')[0]).join(' and ') : 'no coordinator'}</span>
+                        <span className="block text-small font-semibold text-ink-3">{progs === 0 ? 'No programmes yet' : `${progs} ${progs === 1 ? 'programme' : 'programmes'}`}</span>
                       </span>
+                      <ChevronRight className="ml-auto size-5 shrink-0 text-ink-3" aria-hidden />
+                      </button>
                     </li>
                   )
                 })}
               </ul>
-              <p className="mt-3 text-caption font-semibold text-ink-3">A child's class is their level, or a programme of its own like the Learning Center. Choose who looks after each class in Coordinators.</p>
+              <p className="mt-3 text-caption font-semibold text-ink-3">A child's class is their level, or a programme of its own like the Learning Center. Open a class to set its programmes' drop-off and pickup times. Choose who looks after each class in Coordinators.</p>
             </>
           )}
       </section>
 
       {dir && adding === 'child' && <AddChildSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(id, name) => void reload().then(() => { setAdding(null); toast(`${name} added.`); navigate(`/admin/child/${id}`) })} />}
+      {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} onImported={() => void reload().then(() => setTab('children'))} />}
+      {inviting && <InviteSheet person={inviting} onClose={() => setInviting(null)} onDone={() => void reload()} />}
+      {adding === 'class' && <AddClassSheet onClose={() => setAdding(null)} onAdded={(id) => void reload().then(() => { setAdding(null); setOpenClass(id); toast('Class added. Now add its programmes.') })} />}
+      {dir && openClass && dir.classes.some((c) => c.id === openClass) && (
+        <ClassSheet cls={dir.classes.find((c) => c.id === openClass)!} dir={dir} onClose={() => setOpenClass(null)} onChanged={reload} />
+      )}
       {dir && adding === 'staff' && <StaffSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(m) => void reload().then(() => { setAdding(null); setTab('staff'); toast(m) })} />}
       <Sheet open={!!confirm} onClose={() => setConfirm(null)}
         title={confirm ? (confirm.what === 'staff' ? `Turn off ${confirm.person.full_name.split(' ')[0]}'s access?` : `Turn off app access for ${confirm.person.full_name.split(' ')[0]}?`) : ''}

@@ -143,10 +143,10 @@ async function signIn(p, chip, area) {
   await p.waitForTimeout(900)
   ok('settings: running-late alert saved', /Saved/.test(await toast()) && (await p.getByRole('radiogroup', { name: 'Running-late alert' }).getByRole('radio', { name: '15 min' }).getAttribute('aria-checked')) === 'true')
   await p.getByLabel('Call the school number').fill('12345')
-  await p.getByRole('button', { name: 'Save' }).click()
+  await p.getByRole('button', { name: 'Save the school number' }).click()
   ok('settings: a wrong number is explained', await p.getByText('Enter a 10-digit Indian number', { exact: false }).isVisible())
   await p.getByLabel('Call the school number').fill('020 2545 1234')
-  await p.getByRole('button', { name: 'Save' }).click()
+  await p.getByRole('button', { name: 'Save the school number' }).click()
   await p.waitForTimeout(900)
   ok('settings: landline saved', /Saved/.test(await toast()))
 

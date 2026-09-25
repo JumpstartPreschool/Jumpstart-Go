@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Welcome to Jumpstart</title>
+<style>
+  @media (max-width: 520px) {
+    .outer { padding: 0 !important; }
+    .card { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+    .pad { padding-left: 24px !important; padding-right: 24px !important; }
+    .code { font-size: 34px !important; letter-spacing: 8px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#fdfbf8;-webkit-text-size-adjust:100%;">
+  <!-- Inbox preview: the code, so a phone can offer it without opening the email. -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Welcome to Jumpstart. {{ .Token }} is your code to finish signing in.&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fdfbf8;">
+    <tr>
+      <td class="outer" align="center" style="padding:32px 12px;">
+        <table role="presentation" class="card" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #ece8f1;border-radius:24px;overflow:hidden;">
+          <!-- The logo's colours, as a thin strip (table cells, so Outlook shows it too). -->
+          <tr>
+            <td style="padding:0;font-size:0;line-height:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td height="6" style="background:#ef3b3f;height:6px;"></td>
+                <td height="6" style="background:#f7852a;height:6px;"></td>
+                <td height="6" style="background:#ffc21a;height:6px;"></td>
+                <td height="6" style="background:#3cb44b;height:6px;"></td>
+                <td height="6" style="background:#14afa5;height:6px;"></td>
+                <td height="6" style="background:#1f8be6;height:6px;"></td>
+              </tr></table>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" align="center" style="padding:36px 40px 8px;">
+              <img src="https://pwmsjcpdihwtgjreizup.supabase.co/storage/v1/object/public/brand/jumpstart-email-logo.png" width="200" height="65" alt="Jumpstart Preschool" style="display:block;width:200px;height:auto;border:0;outline:none;text-decoration:none;">
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" align="center" style="padding:20px 40px 0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:800;color:#16193a;">Welcome to Jumpstart</h1>
+              <p style="margin:10px 0 0;font-size:16px;line-height:24px;color:#4b5070;">The school has added you to Jumpstart, where you see your child's day, drop-offs and pickups. Enter this code in the app to finish signing in.</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" align="center" style="padding:28px 40px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f2f7;border-radius:16px;">
+                <tr>
+                  <td align="center" style="padding:24px 16px;">
+                    <div class="code" style="font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:40px;line-height:48px;font-weight:800;letter-spacing:12px;color:#16193a;font-variant-numeric:tabular-nums;">{{ .Token }}</div>
+                    <div style="margin-top:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;font-weight:600;color:#6a6f8c;">Works once, for 5 minutes</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" style="padding:24px 40px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;color:#4b5070;">
+              Signing in as <b style="color:#16193a;">{{ .Email }}</b>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" style="padding:16px 40px 36px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-left:3px solid #1560d4;background:#eaf2ff;border-radius:0 12px 12px 0;">
+                <tr>
+                  <td style="padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:21px;color:#0f4aae;">
+                    <b>Keep this code to yourself.</b> Jumpstart will never ask for it by phone or message. If you didn't try to sign in, ignore this email; no one can sign in without the code.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" align="center" style="padding:20px 40px 28px;border-top:1px solid #ece8f1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#6a6f8c;">
+              <b style="color:#4b5070;">Jumpstart Preschool &amp; Learning Center</b><br>
+              11/7 Matoshri, Kishor B Tapadia Path, Karve Road, Erandwane, Pune 411004<br>
+              You're getting this because the school added this email to Jumpstart.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
