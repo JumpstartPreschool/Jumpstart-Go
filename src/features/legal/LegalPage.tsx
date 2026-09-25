@@ -95,7 +95,7 @@ export function PrivacyPage() {
       <Section title="Services we use">
         <p>The app runs on these providers, each only for its job:</p>
         <ul>
-          <li><b>Supabase</b> (database, sign-in and storage), hosted in Mumbai, India.</li>
+          <li><b>Supabase</b> (database, sign-in and storage), hosted in Singapore.</li>
           <li><b>Cloudflare</b> serves the app's pages.</li>
           <li><b>Brevo</b> sends sign-in codes and invitations by email.</li>
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>

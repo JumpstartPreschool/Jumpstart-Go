@@ -3,7 +3,7 @@
 | | Development / pilot |
 |---|---|
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
-| Region | AWS Mumbai (ap-south-1) |
+| Region | AWS Singapore (ap-southeast-1); database pooler aws-0-ap-southeast-1.pooler.supabase.com |
 | Postgres | 17.6 |
 | Migrations applied | `0001`–`0006` live. `0007`–`0018` approved by the owner on 2026-09-25 and waiting to be pushed (the push command needs the owner's terminal) |
 | App hosting | Cloudflare Workers static assets, `jumpstart-preschool` (production) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
@@ -54,4 +54,4 @@ Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):
 - **Sign-in code:** Authentication → Sign In / Providers → Email: Email OTP Length 6 (the app has exactly six boxes) and Email OTP Expiration 300 seconds (the app and the emails say 5 minutes).
 - **Email sender:** custom SMTP (Brevo). The built-in sender is only for testing and delivers only to the project team.
 - **Invitations (0020, D36):** set the app's https address in Admin → Settings. Create a Brevo API key (SMTP & API → API keys) and deploy the function: `npx supabase secrets set BREVO_API_KEY=…` then `npx supabase functions deploy invite-send`. The sender (`INVITE_FROM`, default ai@jumpstartpreschool.in) must be a verified Brevo sender. Once the app has its address, set `APP_ORIGIN` (for example `https://app.jumpstartpreschool.in`) so only the app can call `invite-send` and `route`. Without the key the Invite sheet says email isn't set up and SMS and WhatsApp still work.
-- **Sign-in emails:** `supabase/templates/magic_link.html` (subject "Your Jumpstart sign-in code") and `confirmation.html` (subject "Welcome to Jumpstart: your sign-in code", a parent's first sign-in), pasted into Authentication → Emails → Templates. They show the 6-digit `{{ .Token }}` and no link: the app signs in with the code only. Editing templates needs custom SMTP on. The logo is `jumpstart-email-logo.png` in a public Storage bucket named `brand`. In Brevo, turn off "block unknown IP addresses": Supabase sends from changing IPs.
+- **Sign-in emails:** `supabase/templates/magic_link.html` (subject "Your Jumpstart sign-in code") and `confirmation.html` (subject "Welcome to Jumpstart: your sign-in code", anyone's first sign-in; Supabase sends it as "Confirm signup"), pasted into Authentication → Emails → Templates. They show the 6-digit `{{ .Token }}` and no link: the app signs in with the code only. Editing templates needs custom SMTP on. The logo is `jumpstart-email-logo.png` in a public Storage bucket named `brand`. In Brevo, turn off "block unknown IP addresses": Supabase sends from changing IPs.

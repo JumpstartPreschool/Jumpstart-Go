@@ -15,6 +15,9 @@
     <meta name="theme-color" content="#fdfbf8" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- The first screen always shows the wordmark and the star: fetch them with the scripts, not after. -->
+    <link rel="preload" href="/brand/logo.webp" as="image" fetchpriority="high" />
+    <link rel="preload" href="/brand/star.webp" as="image" />
     <meta name="description" content="Pickups, drop-offs and attendance for Jumpstart Preschool, Karve Road." />
     <title>Jumpstart</title>
   </head>
