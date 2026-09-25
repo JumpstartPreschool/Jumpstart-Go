@@ -8,6 +8,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
 import { areasFor, useSession, type Area } from './session'
 import { PARENT_PAGES, ParentTabBar } from '../family/ParentNav'
+import { PushSwitch } from '../notifications/PushSwitch'
 
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', pro: 'Front desk', coordinator: 'Coordinator', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
@@ -85,6 +86,7 @@ export function AccountButton({ area }: { area: Area }) {
             </div>
           </>
         )}
+        {area !== 'parent' && <div className="mt-4 rounded-lg bg-sunken px-3.5"><PushSwitch /></div>}
         <Button variant="danger" className="mt-6 w-full" icon={<LogOut />} onClick={() => void signOut()}>
           Sign out
         </Button>

@@ -15,6 +15,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,webp}', '**/*latin*.woff2'],
         navigateFallback: 'index.html',
+        // Push notifications (public/push-sw.js): shown even when the app is closed or the iPad is locked.
+        importScripts: ['push-sw.js'],
         cleanupOutdatedCaches: true,
         // The natural voice (coordinator iPads only) is left out of the precache so parents' phones never download it,
         // and kept once an iPad has used it so announcements still work offline. The model itself is cached by

@@ -18,6 +18,7 @@ import { todayInIndia, useTodayTrips, type Trip } from '../trips/api'
 import { clockTime } from '../trips/rules'
 import { markAnnouncementRead, myFamily, removeSavedPerson, reportAbsence, savePerson, setMyNotifications, useLive, type Announcement, type FamilyMember, type SavedPerson } from '../school/api'
 import { Thread } from '../school/Messages'
+import { PushSwitch } from '../notifications/PushSwitch'
 import { useMyAnnouncements, useMyClasses, useMyId } from './parentData'
 
 interface Kid { id: string; full_name: string; preferred_name: string | null }
@@ -318,6 +319,7 @@ export function ParentAccount() {
         <section aria-labelledby="notify-h">
           <h2 id="notify-h" className="kicker mb-2">Notifications</h2>
           <div className="card divide-y divide-line rounded-2xl px-5">
+            <PushSwitch label="Notifications on this phone" />
             {row('morning', undefined, 'Morning reminder, 8:00 AM', "Today's drop-off and pickup times", <Switch on={!!mine?.notify_morning} busy={!mine} label="Morning reminder" onChange={(v) => void toggle('notify_morning', v)} />)}
             {row('family', undefined, 'When the other parent changes something', 'Time changes, absences, someone else collecting', <Switch on={!!mine?.notify_family} busy={!mine} label="When the other parent changes something" onChange={(v) => void toggle('notify_family', v)} />)}
           </div>

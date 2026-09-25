@@ -4,4 +4,5 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string
   /** "true" only for the design-review deployment. */
   readonly VITE_DESIGN_PREVIEW?: string
+  readonly VITE_VAPID_PUBLIC_KEY?: string
 }

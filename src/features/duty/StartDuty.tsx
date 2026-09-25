@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { AudioLines, CircleCheck, MapPin, Play, Power, RotateCcw, TriangleAlert, Volume2, Wifi } from 'lucide-react'
 import { useVoiceName, VoicePicker } from './VoicePicker'
+import { PushSwitch } from '../notifications/PushSwitch'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
@@ -142,6 +143,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
                 Open Jumpstart in Safari on the iPad.
               </CheckRow>
             )}
+            <li className="rounded-lg bg-sunken px-3.5"><PushSwitch label="Alerts when the iPad is locked" /></li>
             {online ? (
               <CheckRow tone="ok" icon={<Wifi />} title="Connected">
                 New requests arrive the moment a parent makes them.

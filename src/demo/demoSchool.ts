@@ -187,6 +187,9 @@ export function schoolRpc(db: SchoolDb, fn: string, a: Row, me: Row | undefined,
       db.calls.push({ id, child_id: a.p_child, guardian_id: a.p_guardian, what: a.p_what, summary, logged_by: me!.id, created_at: iso() })
       return h.json(id)
     }
+    case 'save_push_subscription':
+      // The demo keeps the device; nothing is sent (there is no push service behind sample data).
+      return me ? h.json(null) : h.fail('Sign in first.', '42501')
     case 'gate_walk_in': {
       if (!has(db, me, 'admin', 'coordinator')) return h.fail('Only coordinators can do this at the gate.', '42501')
       const c = db.children.find((x) => x.id === a.p_child && x.active)
