@@ -81,3 +81,17 @@ exception when raise_exception then
 end $$;
 reset role;
 delete from public.push_subscriptions;
+
+-- Rate limits (0018): the call over the limit is refused, with the reason.
+do $$ begin
+  perform app.throttle('test:burst', 2, interval '1 minute');
+  perform app.throttle('test:burst', 2, interval '1 minute');
+  begin
+    perform app.throttle('test:burst', 2, interval '1 minute');
+    raise exception 'FAIL: third call allowed';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if;
+    assert sqlerrm like 'rate_limited%', sqlerrm;
+  end;
+  assert (select count(*) from app.throttle_log where key = 'test:burst') = 2, 'the refused call is not counted';
+end $$;

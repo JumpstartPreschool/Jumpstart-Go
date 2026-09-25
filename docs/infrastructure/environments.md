@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Mumbai (ap-south-1) |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0006` live. `0007`–`0017` approved by the owner on 2026-09-25 and waiting to be pushed (the push command needs the owner's terminal) |
+| Migrations applied | `0001`–`0006` live. `0007`–`0018` approved by the owner on 2026-09-25 and waiting to be pushed (the push command needs the owner's terminal) |
 | App hosting | Cloudflare Workers static assets, `jumpstart-preschool` (production) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
