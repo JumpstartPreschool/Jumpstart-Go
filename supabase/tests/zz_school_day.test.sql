@@ -270,3 +270,40 @@ do $$ begin
 exception when insufficient_privilege then null;
 end $$;
 reset role;
+
+-- 11. (0015) Walk-ins at the gate: check in, and hand over only to registered family.
+set app.now = '2026-09-30 09:00:00+05:30';
+set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000d1"}';
+set role authenticated;
+do $$
+declare t public.trips;
+begin
+  t := public.gate_walk_in('00000000-0000-0000-0000-0000000c0002', 'dropoff');
+  assert t.status = 'checked_in' and t.traveller_name = 'At the gate', 'walk-in check-in';
+  assert (select checked_in_at is not null from public.attendance where child_id = '00000000-0000-0000-0000-0000000c0002' and day = '2026-09-30'), 'attendance';
+  begin
+    perform public.gate_walk_in('00000000-0000-0000-0000-0000000c0002', 'pickup', '00000000-0000-0000-0000-0000000000e1');
+    raise exception 'FAIL: handed to someone not on the record';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if;
+    assert sqlerrm like 'guardian_required%', sqlerrm;
+  end;
+  t := public.gate_walk_in('00000000-0000-0000-0000-0000000c0002', 'pickup', '00000000-0000-0000-0000-0000000000e2');
+  assert t.status = 'handed_over' and t.handed_to = '00000000-0000-0000-0000-0000000000e2' and t.traveller_relation = 'Father', 'handed to the father';
+  begin
+    perform public.gate_walk_in('00000000-0000-0000-0000-0000000c0002', 'pickup', '00000000-0000-0000-0000-0000000000e2');
+    raise exception 'FAIL: collected twice';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if;
+    assert sqlerrm like 'already_done%', sqlerrm;
+  end;
+end $$;
+reset role;
+set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
+set role authenticated;
+do $$ begin
+  perform public.gate_walk_in('00000000-0000-0000-0000-0000000c0002', 'dropoff');
+  raise exception 'FAIL: a parent used the gate';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
