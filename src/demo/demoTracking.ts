@@ -24,7 +24,7 @@ function linkFor(db: TrackingDb, token: unknown) {
   const trip = link && db.trips.find((t) => t.id === link.trip_id)
   if (!link || !trip) return null
   const today = indiaClock(new Date(demoNow())).date
-  const alive = trip.day === today && (trip.status === 'en_route'
+  const alive = Number(link.confirm_attempts ?? 0) < 3 && trip.day === today && (trip.status === 'en_route'
     || (trip.status === 'handed_over' && !trip.home_at && Date.parse(String(trip.closed_at)) > demoNow() - 60 * 60_000))
   return alive ? { link, trip } : null
 }
@@ -104,7 +104,7 @@ export function trackingRpc(db: TrackingDb, fn: string, args: Row, me: Row | und
       Object.assign(t, { traveller_kind: 'third_person', traveller_name: name, traveller_relation: rel, traveller_phone: phone, sharing: false })
       const token = `demo_${crypto.randomUUID().replace(/-/g, '')}`
       const code = String(crypto.getRandomValues(new Uint16Array(1))[0]! % 10000).padStart(4, '0')
-      db.trip_links = [...db.trip_links.filter((l) => l.trip_id !== t.id), { trip_id: t.id, token, code, device: null, attempts: 0, locked: false }]
+      db.trip_links = [...db.trip_links.filter((l) => l.trip_id !== t.id), { trip_id: t.id, token, code, device: null, attempts: 0, locked: false, confirm_attempts: 0 }]
       return h.json({ trip_id: t.id, token, code })
     }
     case 'collector_code': {
@@ -114,14 +114,21 @@ export function trackingRpc(db: TrackingDb, fn: string, args: Row, me: Row | und
     }
     case 'link_open': {
       const l = linkFor(db, args.p_token)
-      return l ? h.json(summary(db, l.trip, l.link, false)) : expired()
+      if (!l) return expired()
+      return h.json(l.link.device ? { confirmed: true } : { ...summary(db, l.trip, l.link, false), confirm_tries_left: 3 - Number(l.link.confirm_attempts ?? 0) })
     }
     case 'link_confirm': {
       if (typeof args.p_device !== 'string' || args.p_device.length < 32) return h.fail('bad_device: Open the link again on this phone.')
       const l = linkFor(db, args.p_token)
       if (!l) return expired()
-      if (!l.link.device) l.link.device = args.p_device
-      else if (l.link.device !== args.p_device) return h.fail('in_use: This link is already open on another phone. Only that phone can use it.')
+      if (l.link.device && l.link.device !== args.p_device) return h.fail('in_use: This link is already open on another phone. Only that phone can use it.')
+      if (!l.link.device) {
+        if (typeof args.p_last4 !== 'string' || !/^[0-9]{4}$/.test(args.p_last4) || !String(l.trip.traveller_phone).endsWith(args.p_last4)) {
+          l.link.confirm_attempts = Number(l.link.confirm_attempts ?? 0) + 1
+          return h.json({ ok: false, tries_left: 3 - Number(l.link.confirm_attempts) })
+        }
+        l.link.device = args.p_device
+      }
       return h.json(summary(db, l.trip, l.link, true))
     }
     case 'link_status': {

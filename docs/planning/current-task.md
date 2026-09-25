@@ -39,14 +39,15 @@
 - **The school's day** (`0013`, `0014`): core team Today board (attendance, today's time with busy slots), Schedules (hours set the windows; regular times), Messages, Announce; front desk; parent Updates, Messages, Account (saved people, notifications, absences), Change time.
 - **Gate** (`0015`, D30): Coming up, Not in today, whole-school view, walk-in check-in and handover, Log a call.
 - **Web push** (`0016`, D33, [notification-architecture.md](../architecture/notification-architecture.md)): outbox and triggers, `push-send`, service worker handler (tested by delivering a push to the built app), switches for parents and staff.
-- **Checks:** `LC_ALL=C TMPDIR=/tmp npm run test:db` (every role, 0007–0016), `npm test` (93), and the browser suites in `scripts/qa/` against `npm run dev` on port 5178: `flows.cjs` (44), `office.cjs` (16), `parent.cjs` (14), `collector.cjs` (17), `trip.cjs` (11), and `qa.cjs <dir> light` (every page and sheet at 23 sizes; 0 issues).
+- **Checks:** `LC_ALL=C TMPDIR=/tmp npm run test:db` (every role, 0007–0017), `npm test` (75), and the browser suites in `scripts/qa/` against `npm run dev` on port 5178: `flows.cjs` (44), `office.cjs` (16), `parent.cjs` (14), `collector.cjs` (18), `trip.cjs` (11), and `qa.cjs <dir> light` (every page and sheet at 23 sizes; 0 issues).
 
 ## Remaining work (in order)
-1. **Push 0007–0016 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
+1. **Push 0007–0017 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
 2. **Aditya Tapadia's email** (D27): invite him as the second admin in the database (the app refuses Admin by design).
 3. **Push notifications on:** follow "Turning on push notifications" in [environments.md](../infrastructure/environments.md) (VAPID keys, secrets, deploy `push-send`, `app.push_config`, pg_net and pg_cron). `push-send` hasn't been type-checked with Deno here (not installed); the CLI checks it on deploy.
 4. **Real email codes, a real iPad test (including the natural voice's download and memory, Home Screen notifications), and publishing** (below).
-5. One cross-model review of the branch, then push and merge.
+5. **Security review done (2026-09-25):** no critical or high findings; the medium and low ones are fixed in `0017` (a collector confirms with the last 4 digits of their mobile; one phone per link even under a race; staff location cut-off by the server clock; admin lock on updates; push devices and hosts; past absences). Still open from it: per-user rate limits on time changes and on the anonymous link calls (load and push spam, not data exposure). Codex isn't available on this account, so there was no cross-model review.
+6. Push the branch and merge to `main`.
 
 ## Next
 1. **Owner reviews the design preview and the demo**, and sends changes.

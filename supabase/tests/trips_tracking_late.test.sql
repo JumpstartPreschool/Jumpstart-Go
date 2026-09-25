@@ -18,7 +18,7 @@ set role anon;
 do $$
 declare s jsonb;
 begin
-  perform public.link_confirm(current_setting('test.ltoken'), repeat('c', 40));
+  perform public.link_confirm(current_setting('test.ltoken'), repeat('c', 40), '4567');
   s := public.link_late(current_setting('test.ltoken'), repeat('c', 40), 30);
   assert (s ->> 'arrive_at')::timestamptz = '2026-09-25 17:50:00+05:30', format('20 + 30 minutes: %s', s ->> 'arrive_at');
   assert public.link_share(current_setting('test.ltoken'), repeat('c', 40), jsonb_build_array(

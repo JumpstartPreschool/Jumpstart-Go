@@ -153,6 +153,8 @@ export default function CollectorLink() {
   const [error, setError] = useState<string | null>(null)
   const [late, setLate] = useState(false)
   const [simulate, setSimulate] = useState(false)
+  const [last4, setLast4] = useState('')
+  const [triesLeft, setTriesLeft] = useState<number | null>(null)
   const toast = useToast()
 
   const setLocal = (patch: Partial<Local>) => setLocalState((l) => {
@@ -222,11 +224,28 @@ export default function CollectorLink() {
           <Bullet icon={<KeyRound />}>You'll get a 4-digit code to show at the gate.</Bullet>
           <Bullet icon={<ShieldCheck />}>This link works only on your phone, and only for this pickup.</Bullet>
         </ul>
-        {error && <Notice tone="danger">{error}</Notice>}
-        <Button size="xl" className="w-full" icon={<Check />} loading={busy}
-          onClick={() => void run(async () => { setState({ kind: 'open', link: await linkConfirm(token), mine: true }) })}>
-          Yes, that's me
-        </Button>
+        <form className="grid gap-3" onSubmit={(e) => {
+          e.preventDefault()
+          void run(async () => {
+            const r = await linkConfirm(token, last4)
+            if ('tries_left' in r) {
+              setTriesLeft(r.tries_left)
+              setLast4('')
+              if (r.tries_left <= 0) await reload()
+              return
+            }
+            setState({ kind: 'open', link: r, mine: true })
+          })
+        }}>
+          <label htmlFor="last4" className="px-0.5 text-small font-bold text-ink-2">To check it's you: the last 4 digits of your mobile</label>
+          <div className="input"><input id="last4" inputMode="numeric" autoComplete="off" pattern="[0-9]*" maxLength={4} value={last4}
+            onChange={(e) => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" aria-describedby="last4-msg" className="tracking-[0.3em] tabular-nums" /></div>
+          <p id="last4-msg" className={`px-0.5 text-caption font-semibold ${triesLeft !== null ? 'text-danger' : 'text-ink-2'}`} role={triesLeft !== null ? 'alert' : undefined}>
+            {triesLeft !== null ? `That doesn't match the number ${l.child}'s parent gave. ${triesLeft} ${triesLeft === 1 ? 'try' : 'tries'} left.` : 'The number the parent gave the school for you.'}
+          </p>
+          {error && <Notice tone="danger">{error}</Notice>}
+          <Button type="submit" size="xl" className="w-full" icon={<Check />} loading={busy} disabled={last4.length !== 4}>Yes, that's me</Button>
+        </form>
         <p className="-mt-2 text-center text-caption font-semibold text-ink-3">Confirming locks this link to this phone.</p>
       </Page>
     )

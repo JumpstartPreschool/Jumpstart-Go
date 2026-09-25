@@ -2,8 +2,8 @@
 -- c0002 (Learning Center) with Parent B e2. Thursday 1 Oct 2026. Devices are registered for e2 and d1 only.
 set app.now = '2026-10-01 10:00:00+05:30';
 insert into public.push_subscriptions (profile_id, endpoint, p256dh, auth) values
-  ('00000000-0000-0000-0000-0000000000e2', 'https://push.example.test/e2', repeat('p', 60), repeat('a', 20)),
-  ('00000000-0000-0000-0000-0000000000d1', 'https://push.example.test/d1', repeat('p', 60), repeat('a', 20));
+  ('00000000-0000-0000-0000-0000000000e2', 'https://fcm.googleapis.com/fcm/send/test-e2', repeat('p', 60), repeat('a', 20)),
+  ('00000000-0000-0000-0000-0000000000d1', 'https://fcm.googleapis.com/fcm/send/test-d1', repeat('p', 60), repeat('a', 20));
 -- Meera's class is covered by the coordinator, so the alert goes to the class's iPads.
 insert into public.coordinator_classes values ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-00000000c002') on conflict do nothing;
 delete from app.push_outbox;
@@ -56,8 +56,8 @@ begin
   assert n >= 1 and exists (select 1 from app.push_outbox where title = 'Today for Meera' and body like 'Drop-off %, pickup %. Tap to change.'), 'morning reminder';
   assert (select count(*) from public.push_claim(100)) >= 3, 'claimed with the device';
   assert not exists (select 1 from app.push_outbox where sent_at is null), 'all taken';
-  perform public.push_result((select min(id) from app.push_outbox), 'gone', (select id from public.push_subscriptions where endpoint = 'https://push.example.test/d1'));
-  assert not exists (select 1 from public.push_subscriptions where endpoint = 'https://push.example.test/d1'), 'a dead device is forgotten';
+  perform public.push_result((select min(id) from app.push_outbox), 'gone', (select id from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/test-d1'));
+  assert not exists (select 1 from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/test-d1'), 'a dead device is forgotten';
 end $$;
 delete from app.push_outbox;
 delete from public.push_subscriptions;

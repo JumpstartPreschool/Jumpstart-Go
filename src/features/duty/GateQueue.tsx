@@ -328,7 +328,7 @@ function TripDetail({ trip, child, busy, pos, locked, onStep }: { trip: Trip; ch
         </div>
       )}
       {third && !done && (
-        <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone.</Notice>
+        <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} ({trip.traveller_relation?.toLowerCase() ?? 'not family'}) isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone, and check their ID if you don't know them.</Notice>
       )}
       {trip.off_schedule && trip.reason && <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>Outside the usual time: {trip.reason}</Notice>}
       {done ? (

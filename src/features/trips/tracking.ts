@@ -57,6 +57,8 @@ export interface LinkSummary {
   locked: boolean
   school_phone: string | null
   code: string | null
+  /** Before confirming: how many tries are left for the last 4 digits of the mobile (0017). */
+  confirm_tries_left?: number
 }
 
 const DEVICE_KEY = 'jumpstart-link-device'
@@ -80,7 +82,8 @@ async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   return data as T
 }
 export const linkOpen = (token: string) => call<LinkSummary>('link_open', { p_token: token })
-export const linkConfirm = (token: string) => call<LinkSummary>('link_confirm', { p_token: token, p_device: deviceKey() })
+/** Confirms on this phone with the last 4 digits of the mobile the parent gave: the link and its code, or tries left. */
+export const linkConfirm = (token: string, last4: string) => call<LinkSummary | { ok: false; tries_left: number }>('link_confirm', { p_token: token, p_device: deviceKey(), p_last4: last4 })
 export const linkStatus = (token: string) => call<LinkSummary>('link_status', { p_token: token, p_device: deviceKey() })
 export const linkShare = (token: string, points: Point[]) => call<number>('link_share', { p_token: token, p_device: deviceKey(), p_points: points })
 export const linkHome = (token: string) => call<null>('link_home', { p_token: token, p_device: deviceKey() })

@@ -59,8 +59,13 @@ declare s jsonb;
 begin
   s := public.link_open(current_setting('test.token'));
   assert s ->> 'child' = 'Aarav' and s ->> 'collector' = 'Ramesh Pawar' and s ->> 'code' is null and not (s ->> 'confirmed')::boolean, 'opening only reads';
-  s := public.link_confirm(current_setting('test.token'), repeat('a', 40));
+  -- 0017: the link alone isn't enough; the last 4 digits of the mobile the parent entered are.
+  s := public.link_confirm(current_setting('test.token'), repeat('a', 40), '0000');
+  assert not (s ->> 'ok')::boolean and (s ->> 'tries_left')::int = 2 and s ->> 'code' is null, 'wrong digits: no code, a try used';
+  s := public.link_confirm(current_setting('test.token'), repeat('a', 40), '5678');
   assert s ->> 'code' = current_setting('test.code'), 'confirmed phone gets the code';
+  s := public.link_open(current_setting('test.token'));
+  assert s = '{"confirmed": true}'::jsonb, 'once confirmed, opening shows only that it is taken';
 end $$;
 do $$ begin
   perform public.link_open('not-a-real-token');
@@ -70,7 +75,7 @@ exception when raise_exception then
   assert sqlerrm like 'link_expired%', sqlerrm;
 end $$;
 do $$ begin
-  perform public.link_confirm(current_setting('test.token'), repeat('b', 40));
+  perform public.link_confirm(current_setting('test.token'), repeat('b', 40), '5678');
   raise exception 'FAIL: a second phone confirmed';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
