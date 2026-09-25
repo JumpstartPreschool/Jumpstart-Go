@@ -39,7 +39,7 @@ export function AddClassSheet({ onClose, onAdded }: { onClose: () => void; onAdd
   }
 
   return (
-    <Sheet open onClose={onClose} title="Add a class" description="A level, like Playgroup, or a programme of its own, like the Learning Center. Its programmes and timings come next.">
+    <Sheet open onClose={onClose} title="Add a class" description="Like Playgroup. Add its timings next.">
       <form onSubmit={(e) => void submit(e)}>
         <TextField label="Class name" value={name} maxLength={60} autoFocus required onChange={(e) => setName(e.target.value)} placeholder="Toddlers" error={invalid ?? error} />
         <SheetFooter>
@@ -64,7 +64,7 @@ export function ClassSheet({ cls, dir, onClose, onChanged }: { cls: ClassRow; di
   return (
     <>
       <Sheet open onClose={onClose} wide title={cls.name}
-        description={`${children} ${children === 1 ? 'child' : 'children'}. Parents, the gate and the programme picker use these times.`}>
+        description={`${children} ${children === 1 ? 'child' : 'children'}`}>
         {list.length === 0 ? (
           <EmptyState title="No programmes yet" action={<Button icon={<Plus />} onClick={() => setEditing({ programme: null })}>Add a programme</Button>}>
             Add one with its days and times, so children can join {cls.name}.
@@ -95,7 +95,7 @@ export function ClassSheet({ cls, dir, onClose, onChanged }: { cls: ClassRow; di
         )}
         {list.length > 0 && (
           <>
-            <Notice className="mt-4">A child's regular times must sit inside their programme's drop-off and pickup. Parents can still ask for another time on a given day.</Notice>
+            <Notice className="mt-4">Children's regular times must sit inside these windows.</Notice>
             <SheetFooter>
               <Button size="xl" variant="secondary" className="w-full" icon={<Plus />} onClick={() => setEditing({ programme: null })}>Add a programme to {cls.name}</Button>
             </SheetFooter>

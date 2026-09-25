@@ -25,50 +25,43 @@ function explain(message: string | undefined, status: number | undefined): strin
 }
 
 const PROMISES = [
-  { icon: <UserCheck />, title: 'Only people the school adds', text: 'Parents, family and staff are invited by the school. Nobody can sign up on their own.' },
-  { icon: <KeyRound />, title: 'A code, never a password', text: 'Each sign-in uses a 6-digit code sent to your email. It works once, for 5 minutes.' },
-  { icon: <MapPin />, title: 'Location stays with you', text: "Only someone you send with a one-time link can share where they are, and only you see it. The school never does." },
+  { icon: <UserCheck />, title: 'Invite only', text: 'The school adds every account.' },
+  { icon: <KeyRound />, title: 'No passwords', text: 'A 6-digit code by email.' },
+  { icon: <MapPin />, title: 'Private location', text: "Only you see who's collecting." },
 ]
 
 /**
- * The sign-in page frame. Phones: the logo, then the card. Tablets and computers: a welcome panel (who it's for and how
- * it keeps families safe) beside the card, so the screen is filled with something worth reading.
+ * The sign-in page frame. Phones and upright tablets: one centred column (the logo, the card, three short promises).
+ * Wide screens: a calm welcome panel beside the card. Words kept to the minimum: a title and one line each.
  */
 export function SignInFrame({ children }: { children: ReactNode }) {
   return (
-    <main className="gutter mx-auto grid min-h-dvh w-full max-w-[calc(1120px+2*var(--gutter))] items-center gap-10 pt-[max(32px,calc(env(safe-area-inset-top)+20px))] pb-[max(28px,env(safe-area-inset-bottom))] md:grid-cols-[1fr_minmax(0,440px)] md:gap-14 lg:gap-20">
-      <section className="hidden md:block" aria-label="About Jumpstart">
-        <Logo className="h-14 lg:h-16" />
-        <p className="mt-2 text-small font-bold text-ink-2">Preschool &amp; Learning Center, Karve Road</p>
-        <div className="mt-10 flex items-end gap-4">
-          <Mascot size={96} />
-          <p className="text-display text-balance" role="heading" aria-level={2}>Safe drop-offs and pickups</p>
-        </div>
-        <p className="mt-4 max-w-[44ch] text-lead text-ink-2">Tell the school you're on the way, send someone else with a one-time link, and hear from the school, all in one place.</p>
-        <ul className="mt-9 grid max-w-[52ch] gap-5">
+    <main className="gutter mx-auto grid min-h-dvh w-full max-w-[calc(1080px+2*var(--gutter))] content-center items-center gap-10 pt-[max(32px,calc(env(safe-area-inset-top)+20px))] pb-[max(28px,env(safe-area-inset-bottom))] lg:grid-cols-[1fr_minmax(0,420px)] lg:gap-20">
+      <section className="hidden lg:block" aria-label="About Jumpstart">
+        <Logo className="h-16" />
+        <Mascot size={72} className="mt-12" />
+        <p className="mt-4 max-w-[12ch] text-display" role="heading" aria-level={2}>Safe drop-offs and pickups</p>
+        <p className="mt-4 text-lead text-ink-2">For Jumpstart families and staff, Karve Road.</p>
+        <ul className="mt-10 grid gap-4">
           {PROMISES.map((p) => (
-            <li key={p.title} className="flex gap-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
-              <span className="grid gap-0.5">
-                <span className="text-h4">{p.title}</span>
-                <span className="text-body text-ink-2">{p.text}</span>
-              </span>
+            <li key={p.title} className="flex items-center gap-3.5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-md bg-surface shadow-[var(--shadow-card)] [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
+              <span className="text-body text-ink-2"><b className="text-ink">{p.title}.</b> {p.text}</span>
             </li>
           ))}
         </ul>
       </section>
-      <div className="mx-auto w-full max-w-[440px]">
-        <div className="flex flex-col items-center text-center md:hidden">
-          <Logo className="h-14" />
-          <p className="mt-2 text-small font-bold text-ink-2">Preschool &amp; Learning Center, Karve Road</p>
+      <div className="mx-auto w-full max-w-[420px]">
+        <div className="flex flex-col items-center lg:hidden">
+          <Logo className="h-14 sm:h-16" />
         </div>
         {children}
-        <ul className="mt-6 grid gap-2 md:hidden">
+        <ul className="mt-6 flex flex-wrap justify-center gap-2 lg:hidden">
           {PROMISES.map((p) => (
-            <li key={p.title} className="flex items-center gap-2.5 text-small font-semibold text-ink-2 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-accent">{p.icon}{p.title}</li>
+            <li key={p.title} className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-caption font-bold text-ink-2 shadow-[var(--shadow-card)] [&_svg]:size-4 [&_svg]:shrink-0">{p.icon}{p.title}</li>
           ))}
         </ul>
-        <nav aria-label="Policies" className="mt-6 flex justify-center gap-x-5 text-caption font-bold">
+        <nav aria-label="Policies" className="mt-5 flex justify-center gap-x-5 text-caption font-bold">
           <Link to="/privacy" className="linkbtn">Privacy Policy</Link>
           <Link to="/terms" className="linkbtn">Terms of Use</Link>
         </nav>
@@ -173,12 +166,12 @@ export function LoginScreen() {
 
   return (
     <SignInFrame>
-      <div className="card mt-8 rounded-2xl p-6 sm:p-7 md:mt-0">
+      <div className="card mt-8 rounded-2xl p-6 sm:p-8 lg:mt-0">
         {step === 'email' ? (
           <form key="email" onSubmit={onEmail} noValidate className="page-in grid gap-4">
             <div className="text-center">
               <h1 className="text-h2">Sign in</h1>
-              <p className="mt-1.5 text-body text-ink-2">Use the email the school has for you. We'll send a <span className="whitespace-nowrap">6-digit</span> code.</p>
+              <p className="mt-1.5 text-body text-ink-2">Use the email the school has for you.</p>
             </div>
             <TextField
               label="Email"
@@ -198,7 +191,6 @@ export function LoginScreen() {
             <Button type="submit" className="w-full" icon={<Mail />} loading={busy}>
               Send me a code
             </Button>
-            <p className="text-center text-caption font-semibold text-ink-2">Invite only. The school adds you first; nobody can sign up.</p>
           </form>
         ) : (
           <form key="code" onSubmit={onCode} noValidate className="page-in grid gap-4">

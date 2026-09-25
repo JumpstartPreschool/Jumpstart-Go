@@ -100,7 +100,7 @@ npm run dev
 To try every screen without a backend, run the design preview:
 
 ```bash
-VITE_DESIGN_PREVIEW=true npm run dev
+npm run dev:demo
 ```
 
 The sign-in screen lists a demo account for each role, and the code `246810` is filled in for you. No email is sent.
@@ -125,7 +125,8 @@ npx supabase db push
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Starts the dev server |
+| `npm run dev` | Starts the dev server, against the Supabase project in `.env.local` |
+| `npm run dev:demo` | Starts it with sample data and a demo account per role (port 5178) |
 | `npm run build` | Typechecks and builds for production |
 | `npm test` | Runs the unit tests (Vitest) |
 | `npm run test:db` | Runs the SQL tests against a throwaway local Postgres |

@@ -1,6 +1,6 @@
 // Bulk upload of children (D37): the admin uploads an Excel file, checks the preview, imports the good rows and downloads
 // the rest to fix; the core team uploads the CSV template; a child already registered is refused. Demo mode only.
-// Usage: node scripts/qa/bulk.cjs   (npm run dev on 5178 first)
+// Usage: node scripts/qa/bulk.cjs   (npm run dev:demo first: sample data on port 5178)
 const path = require('node:path')
 const fs = require('node:fs')
 const os = require('node:os')
@@ -17,7 +17,7 @@ async function signIn(p, chip) {
   await p.waitForTimeout(300)
   await p.getByRole('button', { name: 'Sign in' }).click()
   await p.waitForTimeout(1500)
-  if (await p.getByText('Where would you like to start?').count()) { await p.getByRole('button', { name: new RegExp('^' + chip) }).first().click(); await p.waitForTimeout(900) }
+  if (await p.getByRole('heading', { name: /^Welcome, / }).count()) { await p.getByRole('button', { name: new RegExp('^' + chip) }).first().click(); await p.waitForTimeout(900) }
 }
 
 ;(async () => {

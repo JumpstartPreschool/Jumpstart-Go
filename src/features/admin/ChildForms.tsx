@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
-import { Avatar, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
@@ -41,7 +41,7 @@ export function RelationPicker({ open, onClose, childName, initial, onUse }: { o
 
   return (
     <Sheet open={open} onClose={onClose} title={`How is this person related to ${childName || 'the child'}?`} wide
-      description="Parents and family collect from the gate without a link, and can have the app. Anyone else gets a one-trip link from a parent.">
+      description="Parents and family can collect and use the app.">
       <div className="grid gap-5">
         {RELATION_GROUPS.map((g) => (
           <fieldset key={g.title}>
@@ -100,7 +100,7 @@ function PersonCard({ p, i, errors, onChange, onRemove, onRelation }: {
   return (
     <div className="grid gap-4 rounded-xl border border-line bg-canvas p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Avatar name={who} kind={adultKind(p.relation)} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+        <Avatar name={who} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
         <span className="min-w-0 flex-1 basis-[120px]">
           <span className="block truncate text-h4">{who}</span>
           {p.linkedNote && <span className="block text-caption font-semibold text-ink-2">{p.linkedNote}. Linked, not added twice.</span>}

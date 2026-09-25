@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, TriangleAlert, Users } from '../../ui/icons'
-import { Avatar, childKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { EmptyState, ErrorState } from '../../ui/States'
@@ -171,7 +171,7 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   return (
     <li className="card rounded-2xl p-5 sm:p-6">
       <div className="flex items-center gap-4">
-        <Avatar name={first} color={childColor(child.id)} kind={childKind(child.gender)} size="lg" />
+        <Avatar name={first} color={childColor(child.id)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-h2">{first}</h2>
           <p className="truncate text-small font-semibold text-ink-2">{row?.name ?? 'No programme yet'}</p>

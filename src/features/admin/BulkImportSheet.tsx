@@ -84,7 +84,7 @@ export function BulkImportSheet({ programmes, onClose, onImported }: { programme
   const busy = step.name === 'importing'
   return (
     <Sheet open onClose={() => { if (busy) stop.current = true; onClose() }} wide title="Bulk upload children"
-      description="Add many children with their families from a CSV or Excel sheet. Nothing is added until you've checked the list.">
+      description="From a CSV or Excel sheet. You check the list first.">
       {step.name === 'choose' && (
         <div className="grid gap-5">
           <label
@@ -115,7 +115,7 @@ export function BulkImportSheet({ programmes, onClose, onImported }: { programme
               <ul className="mt-2 grid gap-1 sm:grid-cols-2">{active.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
               <p className="mt-2">Capitals, spaces and the "·" don't matter: "nursery 360" works.</p>
             </details>
-            <p className="text-small font-semibold text-ink-2">Dates as DD/MM/YYYY. Parents with an email get app access; send their invitations from People when you're ready. Someone already on the school's records (same email or mobile) is linked, not added twice.</p>
+            <p className="text-small font-semibold text-ink-2">Dates as DD/MM/YYYY. People already on record are linked, not added twice.</p>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 // Invitations (D36): blocked until the app's web address is set, then emailed (always), with WhatsApp and text links
 // when there's a mobile number; recorded next to the person and in the audit log. Demo mode (sample data only).
-// Usage: node scripts/qa/invite.cjs [shotsDir]   (npm run dev on 5178 first)
+// Usage: node scripts/qa/invite.cjs [shotsDir]   (npm run dev:demo first: sample data on port 5178)
 const { chromium } = require('/Users/ankitsingh/.local/lib/node_modules/@playwright/cli/node_modules/playwright-core')
 const BASE = 'http://localhost:5178'
 const [,, shots = ''] = process.argv
@@ -14,7 +14,7 @@ async function signIn(p, chip) {
   await p.waitForTimeout(300)
   await p.getByRole('button', { name: 'Sign in' }).click()
   await p.waitForTimeout(1500)
-  if (await p.getByText('Where would you like to start?').count()) { await p.getByRole('button', { name: new RegExp('^' + chip) }).first().click(); await p.waitForTimeout(900) }
+  if (await p.getByRole('heading', { name: /^Welcome, / }).count()) { await p.getByRole('button', { name: new RegExp('^' + chip) }).first().click(); await p.waitForTimeout(900) }
   const agree = p.getByRole('button', { name: 'I agree, continue' })
   if (await agree.count()) { await agree.click(); await p.waitForTimeout(900) }
 }

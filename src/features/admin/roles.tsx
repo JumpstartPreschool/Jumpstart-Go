@@ -7,5 +7,5 @@ export const ROLE: Record<StaffRole, { name: string; icon: ReactNode; does: stri
   admin: { name: 'Admin', icon: <ShieldCheck />, does: 'Everything: people, roles, settings and the audit log' },
   core: { name: 'Core team', icon: <CalendarClock />, does: "Timings, children's times, attendance and coordinators" },
   pro: { name: 'Front desk', icon: <Headset />, does: 'Calls and visitors, messages and announcements' },
-  coordinator: { name: 'Coordinator', icon: <BellRing />, does: 'The gate on an iPad: announcements and handovers' },
+  coordinator: { name: 'Coordinator', icon: <BellRing />, does: 'The gate on a tablet: announcements and handovers' },
 }

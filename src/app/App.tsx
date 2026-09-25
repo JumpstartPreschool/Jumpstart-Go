@@ -29,7 +29,7 @@ const CollectorLink = lazy(() => import('../features/link/CollectorLink'))
 
 // Design preview with sample data: development builds and the separate design-review deployment only,
 // never the production app (NFR-7).
-const Preview = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true' ? lazy(() => import('../preview/PreviewRoutes')) : null
+const Preview = import.meta.env.VITE_DESIGN_PREVIEW === 'true' ? lazy(() => import('../preview/PreviewRoutes')) : null
 
 /** The pages inside the admin, core and front desk areas (the tabs in AreaShell). */
 function AreaPages({ area, index }: { area: 'admin' | 'core' | 'pro'; index: ReactNode }) {

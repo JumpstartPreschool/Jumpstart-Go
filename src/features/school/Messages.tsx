@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, MessageSquare, Send } from '../../ui/icons'
-import { Avatar, childKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
@@ -102,7 +102,7 @@ export function OfficeMessages({ area }: { area: Area }) {
       <AreaShell area={area} title="Messages">
         <div className="mt-4 grid max-w-[760px] gap-4">
           <Button size="md" variant="quiet" icon={<ChevronLeft />} className="justify-self-start" onClick={() => setOpen(null)}>All conversations</Button>
-          <div className="flex items-center gap-3"><Avatar name={first} color={childColor(kid.id)} kind={childKind(kid.gender)} /><h2 className="text-h2">{first} and the school</h2></div>
+          <div className="flex items-center gap-3"><Avatar name={first} color={childColor(kid.id)} /><h2 className="text-h2">{first} and the school</h2></div>
           <Thread childId={kid.id} mine={(m) => m.sender === myId || m.sender_role === 'core' || m.sender_role === 'pro' || m.sender_role === 'admin'}
             footnote="Chat is for everyday things. Time changes go through Today, so the gate always knows." />
         </div>
@@ -118,7 +118,7 @@ export function OfficeMessages({ area }: { area: Area }) {
   }).sort((a, b) => (b.last?.created_at ?? '').localeCompare(a.last?.created_at ?? '')) : null
 
   return (
-    <AreaShell area={area} title="Messages" subtitle="One conversation per child, with every parent and family member who has the app.">
+    <AreaShell area={area} title="Messages" subtitle="One conversation per child.">
       <section className="mt-6" aria-busy={!list}>
         {messages.error ? <ErrorState title="Couldn't load the messages" onRetry={() => void messages.reload()}>Check your connection and try again.</ErrorState>
           : !list ? <SkeletonList count={5} className="grid gap-2.5" />
@@ -128,7 +128,7 @@ export function OfficeMessages({ area }: { area: Area }) {
               {list.map(({ k, last, waiting }) => (
                 <li key={k.id}>
                   <button type="button" onClick={() => setOpen(k.id)} className="card flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                    <Avatar name={k.preferred_name ?? k.full_name} color={childColor(k.id)} kind={childKind(k.gender)} />
+                    <Avatar name={k.preferred_name ?? k.full_name} color={childColor(k.id)} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-h4">{k.full_name}</span>
                       <span className={`block truncate text-small ${waiting ? 'font-bold text-ink' : 'font-semibold text-ink-2'}`}>

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { CalendarX, Check, Clock, House, MessageSquare, Navigation, Phone, School, Sunrise } from '../../ui/icons'
-import { Avatar, childKind, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
@@ -136,7 +136,7 @@ function InfoSheet({ c, onClose, onLogCall, onMessages }: { c: SchoolChild; onCl
       <ul className="mt-2 divide-y divide-line">
         {c.guardians.map((g) => (
           <li key={g.id} className="flex flex-wrap items-center gap-3 py-2.5">
-            <Avatar name={g.full_name} kind={adultKind(g.relation)} color={g.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+            <Avatar name={g.full_name} color={g.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
             <div className="min-w-0 flex-1 basis-[160px]">
               <p className="truncate text-h4">{g.full_name}</p>
               <p className="truncate text-small font-semibold text-ink-2">{g.relation}{g.abroad ? ', lives outside India' : ''}{g.phone ? `, ${formatMobile(g.phone)}` : ', no phone'}{g.app_access ? ', has the app' : ''}</p>
@@ -179,7 +179,7 @@ export function Board({ children, editable, nowMs, onChanged, onLogCall, onMessa
           {list.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setPicked(c.id)} className="card flex w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 pr-4 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                <Avatar name={c.first} color={childColor(c.id)} kind={childKind(c.gender)} />
+                <Avatar name={c.first} color={childColor(c.id)} />
                 <span className="min-w-0 flex-1 basis-[150px]">
                   <span className="block truncate text-h4">{c.fullName}</span>
                   <span className="block truncate text-small font-semibold text-ink-2">{c.programmeRow?.name ?? 'No programme'}</span>

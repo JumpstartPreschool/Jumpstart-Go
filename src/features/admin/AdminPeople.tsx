@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
-import { Avatar, childKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
@@ -114,7 +114,7 @@ export function AdminPeople() {
   ]
 
   return (
-    <AreaShell area="admin" title="People" subtitle="Children, their parents and family, and the staff at Karve Road. Only the admin adds or removes them."
+    <AreaShell area="admin" title="People" subtitle="Children, families and staff."
       actions={tab === 'staff' ? <Button icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</Button>
         : tab === 'classes' ? <Button icon={<Plus />} onClick={() => setAdding('class')}>Add class</Button>
         : <div className="flex flex-wrap gap-2.5"><Button variant="secondary" icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</Button><Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button></div>}>
@@ -136,7 +136,7 @@ export function AdminPeople() {
                   return (
                     <li key={c.id}>
                       <button type="button" onClick={() => navigate(`/admin/child/${c.id}`)} className="card flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                        <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} kind={childKind(c.gender)} />
+                        <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-h3">{c.full_name}</span>
                           <span className="block truncate text-small font-semibold text-ink-2">{programme?.name ?? 'No programme'}</span>
@@ -225,7 +225,7 @@ export function AdminPeople() {
                   )
                 })}
               </ul>
-              <p className="mt-3 text-caption font-semibold text-ink-3">A child's class is their level, or a programme of its own like the Learning Center. Open a class to set its programmes' drop-off and pickup times. Choose who looks after each class in Coordinators.</p>
+              <p className="mt-3 text-caption font-semibold text-ink-3">Open a class to set its drop-off and pickup times.</p>
             </>
           )}
       </section>

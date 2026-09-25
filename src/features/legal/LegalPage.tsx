@@ -101,7 +101,7 @@ export function PrivacyPage() {
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>
           <li><b>OpenFreeMap</b> provides map images; <b>OpenRouteService</b> may be used for routes and arrival times.</li>
           <li>Apple, Google and Mozilla deliver notifications to devices that turn them on.</li>
-          <li>The spoken announcements on the gate iPad are made on the iPad itself; names are not sent anywhere.</li>
+          <li>The spoken announcements at the gate are made on the gate's own device; names are not sent anywhere.</li>
         </ul>
       </Section>
       <Section title="How long we keep it">

@@ -196,8 +196,8 @@ export default function CollectorLink() {
   }
   if (state.kind === 'ended') {
     return state.reason === 'in_use'
-      ? <Ended title="This link is open on another phone">For safety a pickup link works on one phone only. If that was you on a different phone, use that phone, or ask the parent to send a new link.</Ended>
-      : <Ended title="This link has ended">It was cancelled, replaced by a newer link, or the trip is over. If you still need to collect the child, ask the parent to send a new link.</Ended>
+      ? <Ended title="This link is open on another phone">A pickup link works on one phone only. Use that phone, or ask the parent for a new link.</Ended>
+      : <Ended title="This link has ended">It was cancelled, replaced or the trip is over. Ask the parent for a new link.</Ended>
   }
 
   const l = state.link
@@ -320,7 +320,7 @@ export default function CollectorLink() {
       <Page pill={<Pill tone="accent" icon={<Hand />}>At the gate</Pill>}>
         <h1 className="text-h1">Show this code at the gate</h1>
         <div className="card rounded-2xl px-4 py-8"><CodeTiles code={code} size="xl" /></div>
-        <p className="text-body text-ink-2">The coordinator types it on the iPad, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
+        <p className="text-body text-ink-2">The coordinator types it into the gate tablet, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
         {l.locked ? <Notice tone="danger" icon={<Lock />}>The handover is locked after three wrong codes. Please ask the coordinator to call the parent.</Notice>
           : <Pill tone="accent" className="justify-self-start"><span className="size-2 animate-pulse rounded-full bg-current" aria-hidden />Waiting for the coordinator</Pill>}
         <Button variant="quiet" onClick={() => setLocal({ atGate: false })}>Back</Button>

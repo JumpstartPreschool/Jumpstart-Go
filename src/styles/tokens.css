@@ -38,12 +38,13 @@
   --line-2: #ddd8e6; /* input edges, button lips on light surfaces */
   --line-hover: #cfc9dc;
 
-  /* Primary: Jumpstart blue, the one next action on a screen (white text 5.7:1) */
-  --accent: #1560d4;
-  --accent-hover: #0f4fb8;
-  --accent-lip: #0c3e8f;
-  --accent-soft: #eaf2ff;
-  --accent-ink: #0f4aae; /* accent text on light surfaces, 7.3:1 */
+  /* Primary: midnight violet, the one next action on a screen. A deep blue-purple that lets every colour of the logo
+     shine beside it, with light lavender for tints (white text 12:1). */
+  --accent: #2f2a7c;
+  --accent-hover: #3b3596;
+  --accent-lip: #1b1850;
+  --accent-soft: #f1edff;
+  --accent-ink: #4b3fb8; /* accent text and links on light surfaces, 7.8:1 */
 
   /* Secondary: ink, for area chips and solid labels */
   --secondary: #16193a;
@@ -68,15 +69,15 @@
   --danger-hover: #fff0ef;
   --danger-line: #f0c6c4;
   --danger-strong: #b91c1c; /* filled alerts with white text */
-  --info: #0f4aae;
-  --info-soft: #eaf2ff;
+  --info: #4b3fb8;
+  --info-soft: #f1edff;
   --recent: #8f5a00;
   --recent-soft: #fff0cc;
   --stale: #5b6478;
   --stale-soft: #e9ecf3;
 
-  --focus: rgb(21 96 212 / 0.55);
-  --focus-ring: 0 0 0 4px rgb(21 96 212 / 0.16);
+  --focus: rgb(91 76 214 / 0.55);
+  --focus-ring: 0 0 0 4px rgb(91 76 214 / 0.18);
 
   /* Whisper of the logo's colours behind every page */
   --whisper-a: rgb(239 59 63 / 0.07);
@@ -139,11 +140,11 @@
   --line-2: #343960;
   --line-hover: #444a74;
 
-  --accent: #2f6fe4; /* white text 4.7:1 */
-  --accent-hover: #3d7cf0;
-  --accent-lip: #1c47a3;
-  --accent-soft: rgb(74 140 255 / 0.16);
-  --accent-ink: #9cc3ff;
+  --accent: #5446c9; /* white text 6.8:1 */
+  --accent-hover: #6254d6;
+  --accent-lip: #342a8f;
+  --accent-soft: rgb(140 124 255 / 0.18);
+  --accent-ink: #c4bbff;
 
   --secondary: #f3f4ff;
   --secondary-lip: #9da2c8;
@@ -162,15 +163,15 @@
   --danger-hover: rgb(255 128 128 / 0.2);
   --danger-line: rgb(255 128 128 / 0.35);
   --danger-strong: #c42b2b;
-  --info: #9cc3ff;
-  --info-soft: rgb(74 140 255 / 0.16);
+  --info: #c4bbff;
+  --info-soft: rgb(140 124 255 / 0.18);
   --recent: #ffc857;
   --recent-soft: rgb(255 200 87 / 0.14);
   --stale: #a1a8c3;
   --stale-soft: rgb(161 168 195 / 0.14);
 
-  --focus: rgb(140 188 255 / 0.75);
-  --focus-ring: 0 0 0 4px rgb(140 188 255 / 0.2);
+  --focus: rgb(168 160 255 / 0.75);
+  --focus-ring: 0 0 0 4px rgb(168 160 255 / 0.2);
 
   --whisper-a: rgb(255 90 94 / 0.08);
   --whisper-b: rgb(74 166 255 / 0.12);

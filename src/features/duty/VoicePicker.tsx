@@ -70,7 +70,7 @@ function NaturalVoices({ chosen, playing, onPlay, onUse }: { chosen: string | nu
   return (
     <section className="grid gap-2.5" aria-labelledby="natural-voices">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="natural-voices" className="kicker">Natural voices · made on this iPad</h3>
+        <h3 id="natural-voices" className="kicker">Natural voices · made on this device</h3>
         {status.state === 'loading' && <Pill tone="accent">{status.total ? `Downloading ${Math.floor((status.loaded / status.total) * 100)}%` : 'Getting ready'}</Pill>}
         {ready && <Pill tone="live">Ready, works offline</Pill>}
       </div>
@@ -148,7 +148,7 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   return (
-    <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear each voice read a pickup, then choose one. Remembered on this iPad.">
+    <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear one, then choose.">
       {!hasIndian && voices.length > 0 && (
         <Notice tone="warning" className="mb-5" icon={<Sparkles aria-hidden />}>
           For children's names said the Indian way, add an Indian English voice for free: {mobileApple

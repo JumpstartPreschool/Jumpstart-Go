@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
-import { Avatar, childKind, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
@@ -105,7 +105,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
 
   const row = ({ g, p }: (typeof people)[number]) => (
     <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
-      <Avatar name={p.full_name} kind={adultKind(g.relation)} color={g.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+      <Avatar name={p.full_name} color={g.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
       <div className="min-w-0 flex-1 basis-[160px]">
         <p className="truncate text-h4">{p.full_name}</p>
         <p className="truncate text-small font-semibold text-ink-2">
@@ -124,7 +124,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
     <div className="page-in mt-4 grid gap-5">
       <Button size="md" variant="quiet" icon={<ChevronLeft />} className="justify-self-start" onClick={onBack}>Children</Button>
       <div className="flex flex-wrap items-center gap-4">
-        <Avatar name={first} color={childColor(child.id)} kind={childKind(child.gender)} size="lg" />
+        <Avatar name={first} color={childColor(child.id)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-h1 text-balance">{child.full_name}</h2>
           <p className="text-body text-ink-2">Called {first}, born {new Date(`${child.date_of_birth}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}, {formatAge(child.date_of_birth)}</p>
@@ -173,7 +173,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
           <p className="mt-2 flex items-center gap-1.5 text-small font-bold text-ink-2 [&_svg]:size-4"><Heart aria-hidden />Family who can collect</p>
           {family.length ? <ul className="divide-y divide-line">{family.map(row)}</ul> : <p className="text-small font-semibold text-ink-2">Nobody yet. If the parents live abroad, add the family {first} lives with.</p>}
           {parents.some((x) => x.p.abroad) && <Pill icon={<Globe />} className="mt-1">A parent lives outside India: they get every update, and the family here collects</Pill>}
-          <p className="mt-2 text-caption font-semibold text-ink-2">Parents and family collect from the gate without a link. Switching access off signs that person out everywhere at once. The last person can't be removed.</p>
+          <p className="mt-2 text-caption font-semibold text-ink-2">Turning access off signs that person out everywhere.</p>
         </section>
       </div>
 

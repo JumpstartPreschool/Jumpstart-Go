@@ -14,7 +14,8 @@ import { trackingRpc, type TrackingDb } from './demoTracking'
 import { schoolRpc, visibleRows, type SchoolDb } from './demoSchool'
 import { adminRpc, auditChanges, checkWrite, kindOfRelation, LEVELS, levelId, levelOfProgramme, type AdminDb } from './demoAdmin'
 
-export const DEMO_AVAILABLE = import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW === 'true'
+// Only when asked for (npm run dev:demo, or a design build): a normal dev server and every production build have no demo.
+export const DEMO_AVAILABLE = import.meta.env.VITE_DESIGN_PREVIEW === 'true'
 export const DEMO_EMAIL = 'ai@jumpstartpreschool.in'
 /** The dummy one-time code, filled in for you on the demo sign-in. Any other code is refused, so the error can be tried too. */
 export const DEMO_CODE = '246810'
@@ -23,7 +24,7 @@ export const DEMO_CODE = '246810'
 export const DEMO_ACCOUNTS: Array<{ area: Area; email: string; label?: string; hint: string; tone: string }> = [
   { area: 'parent', email: 'neha@example.com', hint: 'Today and trips', tone: 'var(--rb-blue)' },
   { area: 'parent', email: 'lata@example.com', label: 'Family', hint: 'A grandparent', tone: 'var(--rb-red)' },
-  { area: 'coordinator', email: 'sunita@example.com', hint: 'The gate iPad', tone: 'var(--rb-orange)' },
+  { area: 'coordinator', email: 'sunita@example.com', hint: 'The gate tablet', tone: 'var(--rb-orange)' },
   { area: 'core', email: 'meera@example.com', hint: "Today's board", tone: 'var(--rb-teal)' },
   { area: 'pro', email: 'frontdesk@example.com', hint: 'Phone calls', tone: 'var(--rb-violet)' },
   { area: 'admin', email: DEMO_EMAIL, hint: 'Full access', tone: 'var(--rb-green)' },

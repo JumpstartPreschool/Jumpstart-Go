@@ -105,8 +105,8 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           </p>
           {struggling && (
             <ul className="mt-6 grid list-disc gap-1.5 rounded-lg bg-warning-soft p-5 pl-9 text-left text-body text-ink marker:text-warning">
-              <li>Turn the volume up with the buttons on the side of the iPad.</li>
-              <li>Open Control Center and turn off Silent Mode.</li>
+              <li>Turn the volume up with the device's volume buttons.</li>
+              <li>Turn off silent or Do Not Disturb mode.</li>
               <li>If a Bluetooth speaker is connected, check that it's switched on.</li>
             </ul>
           )}
@@ -153,7 +153,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           <p className="mx-auto mt-3 max-w-[44ch] text-lead text-ink-2 shorter:mt-2 shorter:text-body landscape:lg:mx-0">
             {since
               ? `You've been on duty since ${since}. Tap Resume to turn announcements back on.`
-              : 'This iPad will announce every pickup and drop-off, and keep its screen on until you finish.'}
+              : 'This device will announce every pickup and drop-off, and keep its screen on until you finish.'}
           </p>
         </section>
 
@@ -163,17 +163,17 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           <ul className="grid gap-4 short:gap-3 sm:grid-cols-2">
             {installed ? (
               <Tile tone="ok" icon={<CircleCheck />} title="On the Home Screen" extra={<div className="rounded-lg bg-sunken px-3.5"><PushSwitch label="Alerts when locked" /></div>}>
-                Opened from the Home Screen, so alerts can reach this iPad when it's locked.
+                Opened from the Home Screen, so alerts can reach this device when it's locked.
               </Tile>
             ) : (
               <Tile tone="warn" icon={<TriangleAlert />} title="Add to the Home Screen">
-                In Safari, tap Share, then Add to Home Screen, and open Jumpstart from there. The screen stays on reliably and alerts reach a locked iPad.
+                From the browser's menu, choose Add to Home Screen (on an iPad: Share, then Add to Home Screen) and open Jumpstart from there. The screen stays on reliably and alerts reach a locked device.
               </Tile>
             )}
             {duty.wakeSupported ? (
-              <Tile tone="ok" icon={<CircleCheck />} title="Screen stays on">While you're on duty, this iPad won't go to sleep.</Tile>
+              <Tile tone="ok" icon={<CircleCheck />} title="Screen stays on">While you're on duty, this screen won't go to sleep.</Tile>
             ) : (
-              <Tile tone="warn" icon={<TriangleAlert />} title="Keep the screen on">Settings → Display &amp; Brightness → Auto-Lock → Never.</Tile>
+              <Tile tone="warn" icon={<TriangleAlert />} title="Keep the screen on">In the device's settings, set the screen to never turn off (on an iPad: Display &amp; Brightness → Auto-Lock → Never).</Tile>
             )}
             {duty.soundSupported ? (
               <Tile tone="info" icon={<Volume2 />} title="Sound check"
@@ -184,7 +184,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
                 A short test plays when you start. Turn the volume up.
               </Tile>
             ) : (
-              <Tile tone="error" icon={<TriangleAlert />} title="Can't play sound here">Open Jumpstart in Safari on the iPad.</Tile>
+              <Tile tone="error" icon={<TriangleAlert />} title="Can't play sound here">Open Jumpstart in Chrome or Safari on the gate tablet.</Tile>
             )}
             {online ? (
               <Tile tone="ok" icon={<Wifi />} title="Connected">New requests arrive the moment a parent makes them.</Tile>

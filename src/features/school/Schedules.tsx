@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Baby, Check, Clock, FileSpreadsheet, GraduationCap, Lock, TriangleAlert } from '../../ui/icons'
-import { Avatar, childKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
@@ -51,7 +51,7 @@ function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: Progra
   }
 
   return (
-    <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${p.name} runs, inside its windows. Each morning's expected arrivals come from these.`}>
+    <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${p.name} runs.`}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label={`Drop-off, ${formatRange(windowFor(programme, 'dropoff'))}`} value={drop} onChange={(e) => setDrop(Number(e.target.value))}>
           {withCurrent(opts('dropoff'), drop).map((t) => <option key={t} value={t}>{formatTime(t)}{opts('dropoff').includes(t) ? '' : ' (outside the window)'}</option>)}
@@ -91,7 +91,7 @@ export function Schedules() {
       <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-5" aria-hidden><Clock /></span>
       <div>
         <p className="text-h4">Each programme has its own drop-off and pickup times.</p>
-        <p className="text-small font-semibold text-ink-2">New timings start from the school's rule: drop-off in the 15 minutes before a class, pickup in the 15 minutes after. Change them to suit the class.</p>
+        <p className="text-small font-semibold text-ink-2">Timings start at 15 minutes either side of class. Change them as needed.</p>
       </div>
     </div>
   )
@@ -146,7 +146,7 @@ export function Schedules() {
                   const out = !!(s && prog && (m(s.dropoff) < windowFor(prog, 'dropoff').from || m(s.dropoff) > windowFor(prog, 'dropoff').to || m(s.pickup) < windowFor(prog, 'pickup').from || m(s.pickup) > windowFor(prog, 'pickup').to))
                   return (
                     <li key={c.id} className="card flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl p-3.5">
-                      <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} kind={childKind(c.gender)} />
+                      <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />
                       <span className="min-w-0 flex-1 basis-[150px]">
                         <span className="block truncate text-h4">{c.full_name}</span>
                         <span className="block truncate text-small font-semibold text-ink-2">{p?.name}</span>

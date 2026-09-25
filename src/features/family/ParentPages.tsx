@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { CalendarX, Check, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from '../../ui/icons'
-import { Avatar, childKind, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField, TextField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
@@ -121,7 +121,7 @@ export function ParentMessages() {
       <AreaShell area="parent" title="Messages">
         <div className="mt-4 grid max-w-[760px] gap-4">
           <Button size="md" variant="quiet" icon={<ChevronLeft />} className="justify-self-start" onClick={() => navigate('/parent/messages')}>Messages</Button>
-          <div className="flex items-center gap-3"><Avatar name={first(kid)} color={childColor(kid.id)} kind={childKind(kid.gender)} /><div><h2 className="text-h2">{first(kid)} and the school</h2><p className="text-small font-semibold text-ink-2">The core team and the front desk</p></div></div>
+          <div className="flex items-center gap-3"><Avatar name={first(kid)} color={childColor(kid.id)} /><div><h2 className="text-h2">{first(kid)} and the school</h2><p className="text-small font-semibold text-ink-2">The core team and the front desk</p></div></div>
           <Thread childId={kid.id} mine={(m) => m.sender === me} footnote="Messages are for everyday things. To change a pickup, use Change time on Today." />
         </div>
       </AreaShell>
@@ -140,7 +140,7 @@ export function ParentMessages() {
                 return (
                   <li key={k.id}>
                     <button type="button" onClick={() => navigate(`/parent/messages/${k.id}`)} className="card flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                      <Avatar name={first(k)} color={childColor(k.id)} kind={childKind(k.gender)} />
+                      <Avatar name={first(k)} color={childColor(k.id)} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-h4">{first(k)} and the school</span>
                         <span className="block truncate text-small font-semibold text-ink-2">{last ? `${last.sender === me ? 'You' : last.sender_name.split(' ')[0]}: ${last.body}` : 'No messages yet.'}</span>
@@ -187,7 +187,7 @@ function PersonSheet({ me, onClose, onSaved }: { me: string; onClose: () => void
     }
   }
   return (
-    <Sheet open onClose={onClose} title="Add a person" description="Someone outside the family who sometimes collects, like a driver. Family is added by the school.">
+    <Sheet open onClose={onClose} title="Add a person" description="Someone outside the family, like a driver.">
       <div className="grid gap-4">
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -235,7 +235,7 @@ export function AbsenceSheet({ kids, initialChild, onClose, onSaved }: { kids: K
     </fieldset>
   )
   return (
-    <Sheet open onClose={onClose} title="Report an absence" description="The school sees it straight away, and that day's drop-off and pickup are cancelled.">
+    <Sheet open onClose={onClose} title="Report an absence" description="The school is told at once; that day's trips are cancelled.">
       <div className="grid gap-5">
         {kids.length > 1 && chips('Child', kids.map((x) => [x.id, first(x)]), child, setChild)}
         {chips('When', [[today, 'Today'], [tomorrow, `Tomorrow, ${tomorrowLabel}`]], day, setDay)}
@@ -301,7 +301,7 @@ export function ParentAccount() {
           <h2 id="fam-h" className="kicker mb-2">Parents and family the school has added</h2>
           <div className="card divide-y divide-line rounded-2xl px-5">
             {family === null ? <div className="my-4 h-12 animate-pulse rounded-lg bg-sunken" /> : family.length === 0 ? <p className="py-4 text-small font-semibold text-ink-2">Nobody else yet.</p>
-              : family.map((f) => row(`${f.child_id}-${f.full_name}`, <Avatar name={f.full_name} kind={adultKind(f.relation)} color={f.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />, f.full_name,
+              : family.map((f) => row(`${f.child_id}-${f.full_name}`, <Avatar name={f.full_name} color={f.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />, f.full_name,
                 `${f.relation} of ${kidName(f.child_id)}${f.abroad ? ', lives outside India' : ''}${f.has_app ? ', has the app' : ''}`, f.abroad ? <Globe className="size-5 text-ink-3" aria-hidden /> : undefined))}
           </div>
           <p className="mt-2 text-caption font-semibold text-ink-2">They collect from the gate like you do. Only the school can add family: call the school to change this list.</p>
@@ -311,7 +311,7 @@ export function ParentAccount() {
           <div className="mb-2 flex items-center justify-between gap-2"><h2 id="saved-h" className="kicker">Saved people, not family</h2><Button size="md" variant="secondary" icon={<Plus />} onClick={() => setSheet('person')}>Add a person</Button></div>
           <div className="card divide-y divide-line rounded-2xl px-5">
             {!people.rows ? <div className="my-4 h-12 animate-pulse rounded-lg bg-sunken" /> : people.rows.length === 0 ? <p className="py-4 text-small font-semibold text-ink-2">Nobody saved yet. A regular driver saved here is one tap away in Someone else is collecting.</p>
-              : people.rows.map((p) => row(p.id, <Avatar name={p.full_name} kind={adultKind(p.relation)} color="var(--ink-3)" size="sm" />, p.full_name, `${p.relation}, ${formatMobile(p.phone)}`,
+              : people.rows.map((p) => row(p.id, <Avatar name={p.full_name} color="var(--ink-3)" size="sm" />, p.full_name, `${p.relation}, ${formatMobile(p.phone)}`,
                 <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => void removeSavedPerson(p.id).then(() => { void people.reload(); toast(`${p.full_name.split(' ')[0]} removed from saved people.`) }, (e) => toast(explainDbError(e)))} />))}
           </div>
         </section>

@@ -13,7 +13,7 @@ async function signIn(p, chip, area) {
   await p.getByRole('button', { name: 'Sign in' }).click()
   await p.waitForTimeout(1500)
   const pick = p.getByRole('button', { name: new RegExp('^' + (area || chip)) })
-  if (await p.getByText('Where would you like to start?').count()) { await pick.first().click(); await p.waitForTimeout(900) }
+  if (await p.getByRole('heading', { name: /^Welcome, / }).count()) { await pick.first().click(); await p.waitForTimeout(900) }
   const agree = p.getByRole('button', { name: 'I agree, continue' })
   if (await agree.count()) { await agree.click(); await p.waitForTimeout(900) }
 }
@@ -43,7 +43,7 @@ async function signIn(p, chip, area) {
   await p.getByRole('button', { name: 'Use the demo code' }).click()
   await p.getByRole('button', { name: 'Sign in' }).click()
   await p.waitForTimeout(1500)
-  ok('login: asks where to start, with access for each area', await p.getByText('Where would you like to start?', { exact: false }).isVisible() && await p.getByText('Everything, including people and roles').isVisible())
+  ok('login: asks who to sign in as, with access for each area', await p.getByText('Sign in as:', { exact: true }).isVisible() && await p.getByText('Everything, including people and roles').isVisible())
   await p.getByRole('button', { name: /^Admin/ }).click()
   await p.waitForTimeout(900)
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from '../../ui/icons'
-import { Avatar, childKind, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
@@ -160,7 +160,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   }
 
   if (trips.error || gate.error) {
-    return <ErrorState title="Couldn't load the queue" onRetry={() => { void trips.reload(); void gate.reload() }}>Check the iPad's connection. Announcements pause until it's back.</ErrorState>
+    return <ErrorState title="Couldn't load the queue" onRetry={() => { void trips.reload(); void gate.reload() }}>Check this device's connection. Announcements pause until it's back.</ErrorState>
   }
   if (!trips.trips || !gate.data) return <SkeletonList count={3} className="grid gap-3" />
 
@@ -176,7 +176,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       <li>
         <div className={`card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 pr-3.5 transition-shadow duration-200 ${selected?.id === t.id ? 'shadow-[0_0_0_2px_var(--accent),var(--shadow-card)]' : ''} ${done ? 'opacity-70' : ''}`}>
           <button type="button" className="flex min-w-0 flex-1 basis-[200px] items-center gap-3 text-left" onClick={() => setPicked(t.id)} aria-label={`${c?.fullName ?? 'Child'}: details`}>
-            <Avatar name={c?.name ?? '?'} color={childColor(t.child_id)} kind={childKind(c?.gender)} />
+            <Avatar name={c?.name ?? '?'} color={childColor(t.child_id)} />
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
                 <span className="truncate text-h3">{c?.fullName ?? 'Child'}</span>
@@ -240,7 +240,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       </aside>
 
       <Sheet open={!!handover} onClose={() => setHandover(null)} title={handover ? `Hand over ${children.get(handover.child_id)?.name ?? ''}` : 'Hand over'}
-        description="Who is collecting? Only the parents and family the school has added are listed. Anyone else needs a link and a code from a parent.">
+        description="Only family the school has added. Anyone else needs a parent's link.">
         {handover && (
           <div className="grid gap-2.5">
             {(['parent', 'family'] as const).map((kind) => {
@@ -250,7 +250,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                   <p className="kicker mt-1">{kind === 'parent' ? 'Parents' : 'Family'}</p>
                   {list.map((g) => (
                     <button key={g.id} type="button" className="choice flex items-center gap-3 p-3 text-left" disabled={busy === handover.id} onClick={() => void act(handover, 'close', g.id)}>
-                      <Avatar name={g.name} kind={adultKind(g.relation)} color={kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
+                      <Avatar name={g.name} color={kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-h4">{g.name}</span>
                         <span className="block text-small font-semibold text-ink-2">{g.relation}{g.abroad ? ', lives outside India' : ''}{g.id === handover.created_by ? ", said they're on the way" : ''}</span>
@@ -300,7 +300,7 @@ function TripDetail({ trip, child, busy, locked, onStep }: { trip: Trip; child: 
   return (
     <div className="grid gap-4">
       <div className="flex items-center gap-3.5">
-        <Avatar name={child.name} color={childColor(child.id)} kind={childKind(child.gender)} size="lg" />
+        <Avatar name={child.name} color={childColor(child.id)} size="lg" />
         <div className="min-w-0">
           <p className="kicker">{pickup ? 'Pickup' : 'Drop-off'} · {clockTime(trip.arrive_at)}</p>
           <h3 className="truncate text-h2">{child.fullName}</h3>

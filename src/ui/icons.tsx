@@ -22,9 +22,9 @@ function icon3d(file: string, name: string) {
   return Icon
 }
 
-export { LoaderCircle } from 'lucide-react'
+// Arrows and chevrons are direction, not pictures: thin line glyphs read cleaner than 3D ones at any size.
+export { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
 
-export const ArrowLeft = icon3d('left-arrow', 'ArrowLeft')
 export const AudioLines = icon3d('studio-microphone', 'AudioLines')
 export const Baby = icon3d('baby', 'Baby')
 export const Backpack = icon3d('backpack', 'Backpack')
@@ -37,11 +37,8 @@ export const CalendarDays = icon3d('calendar', 'CalendarDays')
 export const CalendarHeart = icon3d('calendar', 'CalendarHeart')
 export const CalendarX = icon3d('spiral-calendar', 'CalendarX')
 export const Check = icon3d('check-mark', 'Check')
-export const ChevronDown = icon3d('down-arrow', 'ChevronDown')
-export const ChevronLeft = icon3d('left-arrow', 'ChevronLeft')
-export const ChevronRight = icon3d('right-arrow', 'ChevronRight')
 export const CircleAlert = icon3d('red-exclamation-mark', 'CircleAlert')
-export const CircleCheck = icon3d('check-mark-button', 'CircleCheck')
+export const CircleCheck = icon3d('check-mark', 'CircleCheck')
 export const CircleSlash = icon3d('prohibited', 'CircleSlash')
 export const Clock = icon3d('mantelpiece-clock', 'Clock')
 export const Clock3 = icon3d('mantelpiece-clock', 'Clock3')
@@ -111,7 +108,7 @@ export const Trash2 = icon3d('wastebasket', 'Trash2')
 export const TriangleAlert = icon3d('warning', 'TriangleAlert')
 export const Upload = icon3d('outbox-tray', 'Upload')
 export const User = icon3d('person', 'User')
-export const UserCheck = icon3d('check-mark-button', 'UserCheck')
+export const UserCheck = icon3d('shield', 'UserCheck')
 export const UserMinus = icon3d('no-entry', 'UserMinus')
 export const UserPen = icon3d('writing-hand', 'UserPen')
 export const UserPlus = icon3d('person', 'UserPlus')

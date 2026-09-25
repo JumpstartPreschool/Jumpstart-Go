@@ -80,7 +80,7 @@ async function signIn(p, chip, area) {
   await p.getByRole('button', { name: 'Sign in' }).click()
   await p.waitForTimeout(1500)
   const pick = p.getByRole('button', { name: new RegExp('^' + (area || chip)) })
-  if (await p.getByText('Where would you like to start?').count()) { await pick.first().click(); await p.waitForTimeout(900) }
+  if (await p.getByRole('heading', { name: /^Welcome, / }).count()) { await pick.first().click(); await p.waitForTimeout(900) }
   const agree = p.getByRole('button', { name: 'I agree, continue' })
   if (await agree.count()) { await agree.click(); await p.waitForTimeout(900) }
 }
@@ -123,7 +123,7 @@ async function signIn(p, chip, area) {
   await session(null, [
     ['email', async () => {}],
     ['code', async (p) => { await p.getByRole('button', { name: 'Admin', exact: true }).click(); await p.getByRole('button', { name: 'Send me a code' }).click(); await p.getByRole('button', { name: 'Sign in' }).waitFor() }],
-    ['areas', async (p) => { await p.getByRole('button', { name: 'Sign in' }).click(); await p.getByText('Where would you like to start?', { exact: false }).waitFor() }],
+    ['areas', async (p) => { await p.getByRole('button', { name: 'Sign in' }).click(); await p.getByText('Sign in as:', { exact: true }).waitFor() }],
   ])
   const dlg = (p) => p.locator('dialog[open]').last()
   await session('Admin', [

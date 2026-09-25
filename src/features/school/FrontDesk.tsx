@@ -29,7 +29,7 @@ export function FrontDesk() {
   useEffect(() => { void supabase.from('profiles').select('id, full_name').then(({ data }) => setPeople(new Map((data ?? []).map((p) => [p.id as string, p.full_name as string])))) }, [])
 
   return (
-    <AreaShell area="pro" title="Front desk" subtitle="For parents who phone or walk in. Anything you log reaches the gate's iPads at once."
+    <AreaShell area="pro" title="Front desk" subtitle="Calls and walk-ins, sent to the gate at once."
       actions={<Button icon={<Phone />} disabled={!children} onClick={() => setCalling(true)}>Log a call</Button>}>
       <div className="mt-6 grid gap-6">
         {error ? <ErrorState title="Couldn't load today" onRetry={reload}>Check your connection and try again.</ErrorState> : !children ? <SkeletonList count={6} /> : (
@@ -52,7 +52,7 @@ export function FrontDesk() {
                       )
                     })}
                   </ul>
-                ) : <p className="rounded-lg bg-sunken px-4 py-3 text-small font-semibold text-ink-2">No calls logged yet today. When a parent phones, tap Log a call: on-the-way calls, new times and absences go straight to the gate.</p>}
+                ) : <p className="rounded-lg bg-sunken px-4 py-3 text-small font-semibold text-ink-2">No calls yet today. Tap Log a call when a parent phones.</p>}
                 <h2 className="kicker mt-3">Children today</h2>
               </section>
             } />

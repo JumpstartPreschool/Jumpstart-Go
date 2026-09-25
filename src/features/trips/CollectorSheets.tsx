@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Copy, Link2, MessageCircle, MessageSquareText, Send, UserPlus } from '../../ui/icons'
-import { Avatar, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { CodeTiles } from '../../ui/CodeTiles'
 import { SelectField, TextField } from '../../ui/Field'
@@ -43,7 +43,7 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
         <CodeTiles code={invite.code} size="xl" />
         <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatMobile(sendTo)}</p>
       </div>
-      <Notice tone="info" className="mt-4">Send it now: for safety the link is shown only once. Resend link makes a new link and code, and the old ones stop working.</Notice>
+      <Notice tone="info" className="mt-4">Send it now: the link is shown only once.</Notice>
       <SheetFooter>
         <p className="kicker mb-2.5">Send it to {first}</p>
         <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
@@ -137,14 +137,14 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
   const win = formatRange(windowFor(programme, 'pickup'))
   return (
     <Sheet open={open} onClose={onClose} title={`Someone else is collecting ${first}`}
-      description="For someone the school hasn't added as family. They get a link with a 4-digit code for the gate. No app, no sign-in.">
+      description="A one-time link with a 4-digit gate code. No app needed.">
       {!!saved.rows?.length && (
         <fieldset className="mb-5">
           <legend className="kicker mb-2.5">Who</legend>
           <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Who">
             {saved.rows.map((p) => (
               <button key={p.id} type="button" role="radio" aria-checked={who === p.id} onClick={() => pickSaved(p.id)} className="choice flex items-center gap-3 p-3 text-left">
-                <Avatar name={p.full_name} kind={adultKind(p.relation)} color="var(--ink-3)" size="sm" />
+                <Avatar name={p.full_name} color="var(--ink-3)" size="sm" />
                 <span className="min-w-0"><span className="block truncate text-h4">{p.full_name}</span><span className="block truncate text-caption font-semibold text-ink-2">{p.relation}, {formatMobile(p.phone)}</span></span>
               </button>
             ))}

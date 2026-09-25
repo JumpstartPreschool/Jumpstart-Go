@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Lock, MapPinOff, Phone } from '../../ui/icons'
-import { Avatar, adultKind } from '../../ui/Avatar'
+import { Avatar } from '../../ui/Avatar'
 import { FreshnessBadge } from '../../ui/FreshnessBadge'
 import { formatAge } from '../../domain/freshness'
 import { formatMobile } from '../../domain/contact'
@@ -35,7 +35,7 @@ export function CollectorTracker({ trip, child, afterHandover = false }: { trip:
   return (
     <section aria-label={`Where ${first} is`} className="mt-4 overflow-hidden rounded-xl border border-line bg-surface">
       <header className="flex items-center gap-3 px-4 py-3.5">
-        <Avatar name={name} kind={adultKind(trip.traveller_relation)} color="var(--rb-violet)" size="sm" />
+        <Avatar name={name} color="var(--rb-violet)" size="sm" />
         <div className="min-w-0 flex-1">
           <p className="text-h4 [overflow-wrap:anywhere]">{name}</p>
           <p className="text-small font-semibold text-ink-2">{trip.traveller_relation ?? 'Collecting'} · {afterHandover ? `taking ${child} home` : `collecting ${child}`}</p>

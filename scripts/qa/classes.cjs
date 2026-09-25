@@ -1,6 +1,6 @@
 // The admin adds a class and a programme with drop-off and pickup set by hand, edits the timings, and the core team
 // sees them in Schedules; a child can then join the new programme. Demo mode (sample data only, never the live database).
-// Usage: node scripts/qa/classes.cjs [shotsDir]   (npm run dev on 5178 first)
+// Usage: node scripts/qa/classes.cjs [shotsDir]   (npm run dev:demo first: sample data on port 5178)
 const { chromium } = require('/Users/ankitsingh/.local/lib/node_modules/@playwright/cli/node_modules/playwright-core')
 const BASE = 'http://localhost:5178'
 const [,, shots = ''] = process.argv
@@ -15,7 +15,7 @@ async function signIn(p, chip, area) {
   await p.getByRole('button', { name: 'Sign in' }).click()
   await p.waitForTimeout(1500)
   const pick = p.getByRole('button', { name: new RegExp('^' + (area || chip)) })
-  if (await p.getByText('Where would you like to start?').count()) { await pick.first().click(); await p.waitForTimeout(900) }
+  if (await p.getByRole('heading', { name: /^Welcome, / }).count()) { await pick.first().click(); await p.waitForTimeout(900) }
   const agree = p.getByRole('button', { name: 'I agree, continue' })
   if (await agree.count()) { await agree.click(); await p.waitForTimeout(900) }
 }

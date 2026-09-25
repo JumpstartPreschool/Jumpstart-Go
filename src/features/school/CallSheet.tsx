@@ -80,7 +80,7 @@ export function CallSheet({ open, onClose, children, initialChild, nowMs, onLogg
   const disabled = !c || !guardian || (what === 'time' && at === null) || (needsReason && !reason.trim()) || (what === 'absent' && absent === 'Something else' && !other.trim()) || (what === 'note' && !note.trim())
 
   return (
-    <Sheet open={open} onClose={onClose} title="Log a call" description="A parent phoned or came to the desk. What you log reaches the gate's iPads at once.">
+    <Sheet open={open} onClose={onClose} title="Log a call" description="Sent to the gate at once.">
       {present.length === 0 ? <Notice>Every child has gone home or is away today.</Notice> : (
         <div className="grid gap-5">
           <fieldset><legend className="kicker mb-2">Child</legend>

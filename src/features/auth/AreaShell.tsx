@@ -18,7 +18,7 @@ export const AREA_DOES: Record<Area, string> = {
   admin: 'Everything, including people and roles',
   core: 'Timings, attendance and coordinators',
   pro: 'Calls, messages and announcements',
-  coordinator: 'The gate, on the iPad',
+  coordinator: 'The gate, on a tablet',
   parent: 'Your own children',
 }
 
