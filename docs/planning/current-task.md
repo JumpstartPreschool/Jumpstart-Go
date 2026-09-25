@@ -1,6 +1,6 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-24
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-25
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
@@ -31,20 +31,22 @@
 - **Trips end to end (on 0006, already live):** parent Today with "I'm on my way", window check and reason, Running late, Change time, Cancel, and live steps (`family/ParentToday.tsx`, `trips/TripSheets.tsx`); coordinator live gate queue with announcements, Acknowledge, Ready, Hand over to a registered guardian, Check in (`duty/GateQueue.tsx`). The demo backend (`demo/demo.ts`) follows the same rules, so it all works on localhost.
 - **Migration 0007** (the owner's 15-minute rule, D24: new windows for all 17 programmes, gate day 08:45–19:15) and **0008** (location points, one-trip links for someone else with a device-bound token and a 4-digit code, handover by code with 3 tries, staff see location only until handover, 30-day purge). Both pass `LC_ALL=C TMPDIR=/tmp npm run test:db` (the long session temp path breaks the Postgres socket otherwise). **Neither is applied to the live database yet.**
 
+## Done on 2026-09-25, later (same branch, commits after `c13aa5b`)
+- **Someone else collects, end to end:** parent's sheet (saved people, WhatsApp, copy, resend), the collector's link page `/t/:token` (confirm on one phone, location, code, running late, at the gate, reached home), the gate's code keypad (3 tries, then locked), live position with LIVE/RECENT/STALE/UNAVAILABLE and distance for parents and the gate (`0009`: `link_late`, `latest_points`).
+- **Natural announcement voice** (D32): Kokoro on the iPad in a worker, WebGPU when present; device voice as fallback; Mute stops at once and replays after.
+- **Owner decisions in the data** (`0010`, `0011`): classes are the levels; PRO/front desk role; family and parents abroad; Admin locked to the two owners; Log a call.
+- **Admin rebuilt child-first** (`0012`, D29): child page, add a child with family in one step, relation pop-up, app access switch, staff with the admin lock, Settings, audit log in sentences.
+- **The school's day** (`0013`, `0014`): core team Today board (attendance, today's time with busy slots), Schedules (hours set the windows; regular times), Messages, Announce; front desk; parent Updates, Messages, Account (saved people, notifications, absences), Change time.
+- **Gate** (`0015`, D30): Coming up, Not in today, whole-school view, walk-in check-in and handover, Log a call.
+- **Web push** (`0016`, D33, [notification-architecture.md](../architecture/notification-architecture.md)): outbox and triggers, `push-send`, service worker handler (tested by delivering a push to the built app), switches for parents and staff.
+- **Checks:** `LC_ALL=C TMPDIR=/tmp npm run test:db` (every role, 0007–0016), `npm test` (93), and the browser suites in `scripts/qa/` against `npm run dev` on port 5178: `flows.cjs` (44), `office.cjs` (16), `parent.cjs` (14), `collector.cjs` (17), `trip.cjs` (11), and `qa.cjs <dir> light` (every page and sheet at 23 sizes; 0 issues).
+
 ## Remaining work (in order)
-1. **Apply 0007 and 0008 to the live Supabase project** (owner's go-ahead first), then check a real sign-in still works.
-2. **Location front end on 0008.** `src/features/trips/tracking.ts` already has the calls (`shareLocation`, `inviteCollector`, `collectorCode`, `handoverWithCode`), `useSendLocation` (watchPosition, batching, wake lock, offline queue), `useTripPosition` (latest point, LIVE/RECENT/STALE/UNAVAILABLE, distance) and permission help. Still to build:
-   - Parent trip card: "Share my location" switch with a short explainer before the browser asks, and help when denied (`locationPermission`, `locationHelp`).
-   - "Someone else is collecting" sheet on the child card (name, mobile with country code, relation, minutes) → `inviteCollector` → show the code, Send on WhatsApp (`wa.me` with `whatsappText`), Copy link, Resend; the trip card shows the collector's freshness and distance.
-   - Public link page `/t/:token` (no sign-in): `link_open` → Confirm (device key in localStorage) → code tiles → Start trip with location → poll `link_status` every 10 s → "I'm home" after handover (`link_home`).
-   - Gate: third-person pickups show "Code needed" and a 4-digit keypad (`handoverWithCode`, tries left, locked message); show freshness and distance on rows.
-   - Demo backend: add `trip_points` and the 0008 RPCs (`share_location`, `stop_sharing`, `invite_collector`, `collector_code`, `link_*`, `gate_handover_code`), allowing the link calls without sign-in; a clearly labelled SIMULATED traveller button for testing on a laptop.
-   - Optional map: lazy-load `ui/TripMap.tsx` (MapLibre is heavy) for the parent's view of a collector; make it follow the light theme.
-3. **Remaining owner decisions in the data:** no class groups (D18, D28: drop the picker's third step and the Classes tab; coordinators follow levels), PRO team role and front desk area (D25), family who can collect with the relation pop-up and parents abroad (D26), Admin only Ankit Singh and Aditya Tapadia (D27; Aditya's email needed).
-4. **Rest of the Screen Book:** core team Today board and Schedules (edit programme hours, children's regular times, change today's time), messages and announcements, absence, admin child page, settings and audit log.
-5. **Notifications:** web push for locked iPads and parents (needs a VAPID key pair and a send function; free).
-6. **Real email codes, real iPad test, publishing** (below).
-7. Re-run the QA scripts after each step, with `npm run dev` on port 5178: `node scripts/qa/qa.cjs <shotsDir> light` (every page and sheet at 23 sizes), `node scripts/qa/flows.cjs` (36 admin/coordinator/parent checks) and `node scripts/qa/trip.cjs` (parent to gate). They load playwright-core from the local Playwright CLI install; change the require path if needed.
+1. **Push 0007–0016 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
+2. **Aditya Tapadia's email** (D27): invite him as the second admin in the database (the app refuses Admin by design).
+3. **Push notifications on:** follow "Turning on push notifications" in [environments.md](../infrastructure/environments.md) (VAPID keys, secrets, deploy `push-send`, `app.push_config`, pg_net and pg_cron). `push-send` hasn't been type-checked with Deno here (not installed); the CLI checks it on deploy.
+4. **Real email codes, a real iPad test (including the natural voice's download and memory, Home Screen notifications), and publishing** (below).
+5. One cross-model review of the branch, then push and merge.
 
 ## Next
 1. **Owner reviews the design preview and the demo**, and sends changes.

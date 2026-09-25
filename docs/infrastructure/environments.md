@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Mumbai (ap-south-1) |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0005` (2026-09-24, via `supabase db push`) |
+| Migrations applied | `0001`–`0006` live. `0007`–`0016` approved by the owner on 2026-09-25 and waiting to be pushed (the push command needs the owner's terminal) |
 | App hosting | Cloudflare Workers static assets, `jumpstart-preschool` (production) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
@@ -30,13 +30,22 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 | Function | What it does | Secrets |
 |---|---|---|
 | `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
+| `push-send` | Delivers queued push notifications (0016) and forgets dead devices; called by the database | `PUSH_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
 
 Deploying needs a Supabase login on this machine (`npx supabase login`, once):
 ```
 npx supabase secrets set --project-ref <project-ref> ORS_API_KEY=<key>
 npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
 ```
-`--no-verify-jwt` because the function checks the user's session itself. `npm run check:routing` tests the key and the ETA maths from this machine.
+`--no-verify-jwt` because the function checks the user's session itself (and `push-send` checks its secret).
+
+### Turning on push notifications
+1. `node scripts/vapid-keys.mjs` once. Put `VITE_VAPID_PUBLIC_KEY` in `.env.local` (and the publishing build); keep `VAPID_PRIVATE_KEY` only as a function secret.
+2. `npx supabase secrets set --project-ref <ref> PUSH_SECRET=<long random> VAPID_PUBLIC_KEY=<public> VAPID_PRIVATE_KEY=<private> VAPID_SUBJECT=mailto:ai@jumpstartpreschool.in`
+3. `npx supabase functions deploy push-send --project-ref <ref> --no-verify-jwt`
+4. In the SQL editor: enable the `pg_net` and `pg_cron` extensions, then
+   `insert into app.push_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/push-send', '<the same PUSH_SECRET>');`
+   and re-run the `cron.schedule` blocks from `0013`/`0016` (they only schedule when `pg_cron` exists at migration time). `npm run check:routing` tests the key and the ETA maths from this machine.
 
 ## Auth settings (Supabase dashboard)
 Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):

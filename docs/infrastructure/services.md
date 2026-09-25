@@ -10,8 +10,8 @@ Free-first. Every external provider sits behind an interface so it can be replac
 | Login and trip-link email | **Brevo** SMTP (or Resend) | Free | Brevo: 300 emails a day; Resend: 100 a day / 3,000 a month | Low at 50 children | Amazon SES (cheap, paid) |
 | Map tiles | **OpenFreeMap** vector tiles with MapLibre GL | Free | No key; attribution required | Low–medium (community service) | Protomaps file on R2; MapTiler free plan |
 | Routing and ETA | **OpenRouteService** (key set up 2026-09-24; server side only) | Free | About 2,000 directions a day on the free plan; responses also carry a per-window rate limit (200 when checked) | Low at a few hundred a day | OSRM self-hosted |
-| Web push | Browsers' push services, VAPID keys | Free | — | Low | — |
-| Spoken announcements | Browser speech synthesis and Web Audio on the iPad | Free | Only while the app is on screen (PRD risks) | Known | Native iPad app ($99/year, approval) |
-| Fonts | **Figtree** (open-source, bundled with the app) | Free | — | None | — |
+| Web push | Browsers' own push services (Apple, Google, Mozilla), signed with the school's VAPID key; sent by the `push-send` Edge Function | Free | iPhone and iPad only from the Home Screen app (iOS 16.4+) | Low | Email for the same events |
+| Spoken announcements | **Kokoro** natural voice (open weights, Apache-2.0) made on the iPad; model from Hugging Face's CDN, runtime from jsDelivr, both cached after the first download; the device's own voice as the fallback | Free | About 330 MB once with WebGPU (iPadOS 26), 90 MB without; only while the app is on screen | Medium until tested on a real iPad (memory) | Device voice (already the fallback); a paid cloud voice (Deepgram Aura-2 on Cloudflare, needs approval) |
+| Fonts | **Plus Jakarta Sans** (open-source, bundled with the app) | Free | — | None | — |
 | SMS login codes | *Not used in release 1* | Paid per SMS, plus DLT registration | — | — | MSG91 when approved |
 | School-sent WhatsApp | *Not used in release 1* (parent sends from their own WhatsApp) | Paid per message | — | — | Meta WhatsApp Business Platform when approved |
