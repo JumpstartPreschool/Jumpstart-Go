@@ -5,7 +5,7 @@ import { Button } from '../../ui/Button'
 import { FreshnessBadge } from '../../ui/FreshnessBadge'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
-import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
+import { ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
 import { useNow } from '../../ui/hooks'
@@ -19,6 +19,10 @@ import { formatMobile } from '../../domain/contact'
 import { useLatestPoints } from '../trips/tracking'
 import { formatAge } from '../../domain/freshness'
 import { CodeSheet } from './CodeSheet'
+import { ExpectedLists } from './GateExtras'
+import { Tabs } from '../../ui/Tabs'
+import { CallSheet } from '../school/CallSheet'
+import { useSchoolDay } from '../school/useSchoolDay'
 import { PRIORITY, type Announcer } from './announcer'
 import { cancelledText, shouldAnnounce, spokenText, type GateChild } from './gate'
 
@@ -85,18 +89,26 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const [codeFor, setCodeFor] = useState<Trip | null>(null)
   const [locked, setLocked] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const school = useSchoolDay()
+  const [scope, setScope] = useState<'mine' | 'all'>('mine')
+  const [calling, setCalling] = useState(false)
   const cancelHeard = useRef(new Set<string>())
   const announced = useRef(new Map<string, string>())
 
+  // Your classes (and any class nobody covers), or the whole school. Announcements follow their own rule (shouldAnnounce).
+  const inScope = (childId: string) => {
+    const c = gate.data?.children.get(childId)
+    return scope === 'all' || !c || gate.data!.myClasses.has(c.classId) || !gate.data!.covered.has(c.classId)
+  }
   const sections = useMemo(() => {
-    const all = trips.trips ?? []
+    const all = (trips.trips ?? []).filter((t) => inScope(t.child_id))
     const open = all.filter((t) => t.status === 'en_route')
     return {
       attention: open.filter((t) => t.off_schedule && !t.acknowledged_at),
       coming: open.filter((t) => !(t.off_schedule && !t.acknowledged_at)),
       done: all.filter((t) => t.status !== 'en_route').sort((a, b) => Date.parse(b.closed_at ?? b.updated_at) - Date.parse(a.closed_at ?? a.updated_at)),
     }
-  }, [trips.trips])
+  }, [trips.trips, scope, gate.data])
 
   // Where people on the way are (only while the trip is open; staff never see points after the handover).
   const points = useLatestPoints((trips.trips ?? []).filter((t) => t.status === 'en_route').map((t) => t.id))
@@ -190,7 +202,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {pos && pos.state !== 'unavailable' && <FreshnessBadge state={pos.state} age={pos.ageMs !== null ? formatAge(pos.ageMs) : undefined} />}
                 {pos && pos.state !== 'unavailable' && <Pill icon={<MapPin />}>{awayText(pos)}</Pill>}
                 {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
-                {!done && !mine && <Pill icon={<BellRing />}>Other class</Pill>}
+                {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>No coordinator</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
               </span>
             </span>
           </button>
@@ -213,11 +225,16 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="grid gap-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <Tabs id="scope" label="Whose children" value={scope} onChange={setScope}
+            items={[{ key: 'mine', label: gate.data.myClasses.size ? 'Your classes' : 'Uncovered classes', icon: <BellRing /> }, { key: 'all', label: 'Whole school', icon: <School /> }]} />
+          <Button size="md" variant="secondary" icon={<Phone />} className="ml-auto" disabled={!school.children} onClick={() => setCalling(true)}>Log a call</Button>
+        </div>
         {error && <Notice tone="danger">{error}</Notice>}
         {sections.attention.length > 0 && <Section title="Needs attention" icon={<TriangleAlert />} list={sections.attention} />}
         <Section title="Coming" icon={<Navigation />} list={sections.coming} empty="Nobody is on the way right now. New drop-offs and pickups appear here and are announced." />
+        {school.children && <ExpectedLists children={school.children.filter((c) => inScope(c.id))} onDone={() => { school.reload(); void trips.reload() }} />}
         {sections.done.length > 0 && <Section title="Done today" icon={<CircleCheck />} list={sections.done} />}
-        {trips.trips.length === 0 && <EmptyState title="A quiet gate">No drop-offs or pickups yet today. When a parent says they're on the way, it appears here and the iPad says it aloud.</EmptyState>}
       </div>
 
       {/* The chosen trip, side by side on iPad landscape and desktop. */}
@@ -264,6 +281,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
           {selected && detailChild && <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} pos={posOf(selected)} locked={locked.has(selected.id)} onStep={(s) => { if (s === 'handover') { setPicked(null); openHandover(selected) } else void act(selected, s) }} />}
         </Sheet>
       </div>
+      {calling && school.children && <CallSheet open onClose={() => setCalling(false)} children={school.children} nowMs={nowMs} onLogged={() => { school.reload(); void trips.reload() }} />}
       {codeFor && (
         <CodeSheet open onClose={() => setCodeFor(null)} trip={codeFor} childName={children.get(codeFor.child_id)?.name ?? 'the child'}
           onDone={(isLocked) => {

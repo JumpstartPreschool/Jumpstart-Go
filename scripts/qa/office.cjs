@@ -110,6 +110,17 @@ async function signIn(p, chip, area) {
   await gate.getByRole('button', { name: 'Yes, I heard it' }).click()
   await gate.waitForTimeout(1500)
   ok('gate: phoned-in pickup in the queue', await gate.locator('li', { hasText: 'Anaya Singh' }).first().getByText('Phoned in').isVisible())
+  // Someone arrives without the app: Kabir's mother at the gate for drop-off, Riya is off today
+  await gate.getByRole('tab', { name: 'Whole school' }).click()
+  await gate.waitForTimeout(600)
+  ok('gate: coming up and not in today', await gate.getByText(/Coming up/).isVisible() && await gate.getByText('Not in today', { exact: false }).isVisible())
+  await gate.locator('li', { hasText: 'Kabir Shah' }).getByRole('button', { name: 'Check in' }).click()
+  await gate.locator('dialog[open]').getByRole('button', { name: 'Check in Kabir' }).click()
+  await gate.waitForTimeout(1200)
+  ok('gate: walk-in check-in', /Kabir checked in/.test((await gate.locator('.toast').allTextContents()).join(' ')) && await gate.locator('li', { hasText: 'Kabir Shah' }).getByText('Checked in').first().isVisible())
+  await gate.getByRole('button', { name: 'Log a call' }).click()
+  ok('gate: coordinators can log a call', await gate.locator('dialog[open]').getByText('Who called').isVisible())
+  await gate.keyboard.press('Escape')
 
   console.log(results.join('\n'))
   console.log('errors', JSON.stringify(errors))

@@ -187,6 +187,32 @@ export function schoolRpc(db: SchoolDb, fn: string, a: Row, me: Row | undefined,
       db.calls.push({ id, child_id: a.p_child, guardian_id: a.p_guardian, what: a.p_what, summary, logged_by: me!.id, created_at: iso() })
       return h.json(id)
     }
+    case 'gate_walk_in': {
+      if (!has(db, me, 'admin', 'coordinator')) return h.fail('Only coordinators can do this at the gate.', '42501')
+      const c = db.children.find((x) => x.id === a.p_child && x.active)
+      if (!c) return h.fail('This child is not registered with the school.')
+      const d = today()
+      if (db.attendance.some((x) => x.child_id === c.id && x.day === d && x.status !== 'present')) return h.fail('not_coming: This child is marked as not coming today. Check with the core team first.')
+      if (db.trips.some((x) => x.child_id === c.id && x.day === d && x.direction === a.p_direction && (x.status === 'handed_over' || x.status === 'checked_in'))) return h.fail(`already_done: ${a.p_direction === 'pickup' ? 'This child has already been collected today.' : 'This child is already checked in.'}`)
+      if (db.trips.some((x) => x.child_id === c.id && x.day === d && x.direction === a.p_direction && x.status === 'en_route')) return h.fail("on_the_way: Someone already said they're on the way. Use that request in the queue.")
+      let name = 'At the gate', relation: unknown = null
+      if (a.p_direction === 'pickup') {
+        const g = db.guardianships.find((x) => x.child_id === c.id && x.guardian_id === a.p_handed_to)
+        const p = db.profiles.find((x) => x.id === a.p_handed_to && x.active)
+        if (!g || !p) return h.fail("guardian_required: Choose one of the child's registered parents or family. Anyone else needs a link and a code from a parent.")
+        name = String(p.full_name); relation = g.relation
+      }
+      const at = iso()
+      const trip = { id: crypto.randomUUID(), child_id: c.id, direction: a.p_direction, day: d, status: a.p_direction === 'pickup' ? 'handed_over' : 'checked_in', arrive_at: at, off_schedule: false, reason: null,
+        created_by: a.p_handed_to ?? me!.id, traveller_name: name, traveller_relation: relation, created_at: at, updated_at: at, acknowledged_by: me!.id, acknowledged_at: at, ready_by: null, ready_at: null,
+        closed_by: me!.id, closed_at: at, handed_to: a.p_handed_to ?? null, traveller_kind: 'guardian' }
+      db.trips.push(trip)
+      const row = db.attendance.find((x) => x.child_id === c.id && x.day === d)
+      const patch = a.p_direction === 'dropoff' ? { checked_in_at: row?.checked_in_at ?? at } : { checked_out_at: at }
+      if (row) Object.assign(row, { status: 'present', ...patch })
+      else db.attendance.push({ child_id: c.id, day: d, status: 'present', checked_in_at: null, checked_out_at: null, ...patch })
+      return h.json(trip)
+    }
     case 'gate_load': {
       // Counts only, like the database: expected time per child today, never who.
       const d = today(), wd = indiaClock(new Date(demoNow())).weekday, counts = new Map<string, number>()

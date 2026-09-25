@@ -31,6 +31,7 @@ export const sendAnnouncement = (title: string, body: string, classId: string | 
 export const markAnnouncementRead = (id: string) => call<null>('mark_announcement_read', { p_announcement: id })
 export const announcementStats = () => call<Array<{ announcement_id: string; recipients: number; reads: number }>>('announcement_stats', {})
 export const recipientCount = (classId: string | null) => call<number>('recipient_count', { p_class: classId })
+export const gateWalkIn = (child: string, direction: Direction, handedTo: string | null) => call<unknown>('gate_walk_in', { p_child: child, p_direction: direction, p_handed_to: handedTo })
 export const gateLoad = (direction: Direction) => call<Array<{ at: string; children: number }>>('gate_load', { p_direction: direction })
 export interface FamilyMember { child_id: string; full_name: string; relation: string; kind: 'parent' | 'family'; abroad: boolean; has_app: boolean }
 export const myFamily = () => call<FamilyMember[]>('my_family', {})
