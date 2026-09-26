@@ -101,7 +101,7 @@ export function PrivacyPage() {
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>
           <li><b>OpenFreeMap</b> provides map images; <b>OpenRouteService</b> may be used for routes and arrival times.</li>
           <li>Apple, Google and Mozilla deliver notifications to devices that turn them on.</li>
-          <li><b>ElevenLabs</b> makes the spoken announcements at the gate. It receives only the words of each announcement, which include the child's first and last name and the first name and relation of the person arriving. The school keeps each recording so the same announcement is never made twice. If it can't be reached, the gate's own device speaks instead, and nothing is sent.</li>
+          <li><b>Microsoft Azure</b> (its Indian English voices) or <b>ElevenLabs</b>, whichever the school has chosen, makes the spoken announcements at the gate. It receives only the words of each announcement, which include the child's first and last name and the first name and relation of the person arriving. The school keeps each recording so the same announcement is never made twice. If it can't be reached, the gate's own device speaks instead, and nothing is sent.</li>
         </ul>
       </Section>
       <Section title="How long we keep it">

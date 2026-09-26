@@ -19,9 +19,9 @@ import { ExpectedLists } from './GateExtras'
 import { Tabs } from '../../ui/Tabs'
 import { CallSheet } from '../school/CallSheet'
 import { useSchoolDay } from '../school/useSchoolDay'
-import { NEW_LEAD, PRIORITY, type Announcer } from './announcer'
+import { NEW_LEAD, PRIORITY, URGENT_LEAD, type Announcer } from './announcer'
 import { deviceOutput } from './sound'
-import { cancelledText, shouldAnnounce, spokenText, type GateChild } from './gate'
+import { cancelledText, isUrgent, shouldAnnounce, spokenText, type GateChild } from './gate'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
 interface GateData { children: Map<string, GateChild & { guardians: Guardian[] }>; myClasses: Set<string>; covered: Set<string> }
@@ -120,7 +120,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     for (const t of upcoming) {
       const child = gate.data.children.get(t.child_id)
       if (!child) continue
-      deviceOutput.prepare?.(NEW_LEAD + spokenText(t, child))
+      deviceOutput.prepare?.((isUrgent(t, nowMs) ? URGENT_LEAD : NEW_LEAD) + spokenText(t, child, nowMs))
       if (++prepared === 3) break
     }
   }, [trips.trips, gate.data])
@@ -136,7 +136,8 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
         // Once per version of the trip; the announcer itself repeats it every 2 minutes until someone acknowledges.
         if (announced.current.get(t.id) !== t.updated_at) {
           announced.current.set(t.id, t.updated_at)
-          announcer.announce({ id, text: spokenText(t, child), chime: t.off_schedule ? 'flagged' : 'normal', priority: t.off_schedule ? PRIORITY.flagged : PRIORITY.newRequest })
+          const urgent = isUrgent(t, nowMs)
+          announcer.announce({ id, text: spokenText(t, child, nowMs), urgent, chime: urgent ? 'flagged' : 'normal', priority: t.off_schedule ? PRIORITY.flagged : urgent ? PRIORITY.runningLate : PRIORITY.newRequest })
         }
       } else if (announced.current.has(t.id)) {
         announced.current.delete(t.id)

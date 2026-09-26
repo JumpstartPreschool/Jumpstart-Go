@@ -21,3 +21,7 @@ Free-first. Every external provider sits behind an interface so it can be replac
 ## Mobile sign-in codes (not set up)
 
 No provider sends SMS codes in India for free, and TRAI's DLT rules require the school to register as a sender first. Decided 2026-09-26: keep email codes for now. When mobile sign-in is wanted, the plan is MSG91 through a Supabase "Send SMS" hook (about ₹0.15–0.25 per code, after DLT registration). Firebase phone sign-in was ruled out: it needs a Google billing account, costs about ₹6 per code in India and would add a second sign-in system.
+
+## Gate voice: Microsoft Azure (Indian English)
+
+Azure AI Speech, free F0 tier: 500,000 characters a month, permanent, no charge beyond it. Voice en-IN-NeerjaNeural by default (AZURE_VOICE to change, e.g. en-IN-PrabhatNeural). Announcements are short repeating sentences made once and kept, so expected use is about 175,000 characters in the first month and about 20,000 after. Secrets: AZURE_SPEECH_KEY, AZURE_SPEECH_REGION. Preferred over ElevenLabs when both are set. Alternatives: Google Cloud TTS (1M free, needs billing on), Sarvam AI Bulbul (Indian, about ₹30 per 10,000 characters).

@@ -26,3 +26,14 @@ export async function cacheKey(voiceId: string, text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+/**
+ * Microsoft Azure's Indian English voices (free up to 500,000 characters a month): the announcement as SSML, a little
+ * slower than normal for a noisy gate. Names are read the Indian way because the voice itself is Indian English.
+ */
+export const AZURE_DEFAULT_VOICE = 'en-IN-NeerjaNeural'
+export const AZURE_FORMAT = 'audio-24khz-48kbitrate-mono-mp3'
+const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+export function azureSsml(voice: string, text: string): string {
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-IN"><voice name="${xml(voice)}"><prosody rate="-6%">${xml(text)}</prosody></voice></speak>`
+}

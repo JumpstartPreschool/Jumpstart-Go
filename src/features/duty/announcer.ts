@@ -1,7 +1,7 @@
 /**
  * The coordinator's announcement queue (ANN-1, ANN-2): one announcement at a time, most urgent first,
  * a chime then speech, repeated every 2 minutes until acknowledged. Muting holds the queue; nothing is dropped.
- * The first time something is said it starts "New announcement."; each repeat starts "Reminder." (owner, 2026-09-25),
+ * The first time something is said it starts "New announcement." ("Urgent." when it needs acting on now); each repeat starts "Reminder.",
  * so the gate can tell a new request from one it has already heard.
  * Output is injected so the queue can be tested without a speaker.
  */
@@ -24,6 +24,8 @@ export interface Announcement {
   text: string
   chime: ChimeKind
   priority: number
+  /** Said with "Urgent." first and shown in red: outside the usual time, or someone arriving within minutes. */
+  urgent?: boolean
 }
 
 export interface AnnouncerOutput {
@@ -51,9 +53,10 @@ interface Item extends Announcement {
 }
 
 export const NEW_LEAD = 'New announcement. '
+export const URGENT_LEAD = 'Urgent. '
 export const REPEAT_LEAD = 'Reminder. '
-/** The words actually spoken for an item. */
-const spokenFor = (item: Pick<Item, 'text' | 'heard'>) => (item.heard ? REPEAT_LEAD : NEW_LEAD) + item.text
+/** The words actually spoken for an item: urgent ones say so first, so the gate knows to act now. */
+const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'urgent'>) => (item.heard ? REPEAT_LEAD : item.urgent ? URGENT_LEAD : NEW_LEAD) + item.text
 
 export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
   const items = new Map<string, Item>()

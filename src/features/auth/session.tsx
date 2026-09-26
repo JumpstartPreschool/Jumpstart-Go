@@ -24,8 +24,9 @@ export const chooseArea = {
 }
 
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
-// Raised when what parents agree to changes, so everyone is asked again (2026-09-26: names go to ElevenLabs for gate announcements, D43).
-export const CONSENT_VERSION = '2026-09-26'
+// Raised when what parents agree to changes, so everyone is asked again: names go to the gate's voice service, which
+// may be Microsoft Azure or ElevenLabs (D43, D47).
+export const CONSENT_VERSION = '2026-09-27'
 
 /** The areas a person may open, most senior first (their home is the first one). */
 export function areasFor(me: Me): Area[] {

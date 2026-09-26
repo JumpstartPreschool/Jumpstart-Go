@@ -73,14 +73,14 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
         )}
 
         {/* Now playing: what the iPad is saying, so a coordinator who missed it can read it. */}
-        <div className="glass relative mt-3 flex min-h-[72px] items-center gap-4 overflow-hidden rounded-xl px-4 py-3 sm:px-5" aria-live="polite">
+        <div className={`relative mt-3 flex min-h-[72px] items-center gap-4 overflow-hidden rounded-xl px-4 py-3 sm:px-5 ${speaking?.urgent ? 'bg-danger-strong text-white shadow-float' : 'glass'}`} aria-live="polite">
           {speaking ? (
             <>
-              <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent text-on-accent shadow-[0_3px_0_var(--accent-lip)]">
-                <AudioLines className="size-6 animate-pulse" aria-hidden />
+              <span className={`grid size-11 shrink-0 place-items-center rounded-sm ${speaking.urgent ? 'bg-white text-danger' : 'bg-accent text-on-accent shadow-[0_3px_0_var(--accent-lip)]'}`}>
+                {speaking.urgent ? <TriangleAlert className="size-6" aria-hidden /> : <AudioLines className="size-6 animate-pulse" aria-hidden />}
               </span>
               <div className="min-w-0">
-                <p className="kicker text-accent-ink!">Now announcing</p>
+                <p className={`kicker ${speaking.urgent ? 'text-white!' : 'text-accent-ink!'}`}>{speaking.urgent ? 'Urgent · now announcing' : 'Now announcing'}</p>
                 <p className="truncate text-h4">{speaking.text}</p>
               </div>
               {waiting > 0 && <Pill className="ml-auto">{waiting} waiting</Pill>}
