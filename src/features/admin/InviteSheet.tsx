@@ -85,7 +85,15 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
             </div>
             {sent
               ? <Notice tone="success" icon={<CircleCheck aria-hidden />}>{`Emailed to ${sent}. It can take a minute to arrive; ask ${first} to check their spam folder if it doesn't.`}</Notice>
-              : <Button size="xl" className="w-full" icon={<Mail />} loading={sending} onClick={() => void email()}>Email the invitation to {d.email}</Button>}
+              : (
+                <div className="grid gap-2.5">
+                  <p className="flex min-w-0 items-center gap-2 px-0.5 text-small font-semibold text-ink-2">
+                    <span className="shrink-0">Sends to</span>
+                    <b className="min-w-0 truncate text-ink" title={d.email ?? undefined}>{d.email}</b>
+                  </p>
+                  <Button size="xl" className="w-full" icon={<Mail />} loading={sending} onClick={() => void email()}>Email the invitation</Button>
+                </div>
+              )}
             {error && <Notice tone="danger">{error}</Notice>}
             {d.phone ? (
               <div className="grid gap-2.5">

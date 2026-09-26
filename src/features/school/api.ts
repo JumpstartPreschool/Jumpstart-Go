@@ -21,6 +21,8 @@ export interface SavedPerson { id: string; full_name: string; phone: string; rel
 
 export const setAttendance = (child: string, day: string, status: AttendanceStatus, note: string | null) => call<null>('set_attendance', { p_child: child, p_day: day, p_status: status, p_note: note })
 export const reportAbsence = (child: string, day: string, reason: string) => call<null>('report_absence', { p_child: child, p_day: day, p_reason: reason })
+/** Every school day from one date to another (0028); returns how many days were marked. */
+export const reportAbsenceRange = (child: string, from: string, to: string, reason: string) => call<number>('report_absence_range', { p_child: child, p_from: from, p_to: to, p_reason: reason })
 export const undoAbsence = (child: string, day: string) => call<null>('undo_absence', { p_child: child, p_day: day })
 export const changeDayTime = (child: string, direction: Direction, at: string, reason: string | null) => call<DayTime>('change_day_time', { p_child: child, p_direction: direction, p_at: at, p_reason: reason })
 /** A programme's timings (0019). `about` is the admin's part: the class and name for a new one, or a new name and days. */
@@ -42,8 +44,11 @@ export const announcementStats = () => call<Array<{ announcement_id: string; rec
 export const recipientCount = (classId: string | null) => call<number>('recipient_count', { p_class: classId })
 export const gateWalkIn = (child: string, direction: Direction, handedTo: string | null) => call<unknown>('gate_walk_in', { p_child: child, p_direction: direction, p_handed_to: handedTo })
 export const gateLoad = (direction: Direction) => call<Array<{ at: string; children: number }>>('gate_load', { p_direction: direction })
-export interface FamilyMember { child_id: string; full_name: string; relation: string; kind: 'parent' | 'family'; abroad: boolean; has_app: boolean }
+export interface FamilyMember { child_id: string; guardian_id: string; full_name: string; relation: string; kind: 'parent' | 'family'; abroad: boolean; has_app: boolean }
 export const myFamily = () => call<FamilyMember[]>('my_family', {})
+/** A parent adds a relative to their child's record (0028). The school sees them straight away. */
+export const addRelative = (child: string, p: { full_name: string; relation: string; phone: string; email: string | null }) => call<string>('parent_add_relative', { p_child: child, p_person: p })
+export const removeRelative = (child: string, person: string) => call<null>('parent_remove_relative', { p_child: child, p_person: person })
 export const setMyNotifications = (morning: boolean, family: boolean) => call<null>('set_my_notifications', { p_morning: morning, p_family: family })
 
 export type CallWhat =

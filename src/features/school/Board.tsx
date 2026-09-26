@@ -154,7 +154,7 @@ function InfoSheet({ c, onClose, onLogCall, onMessages }: { c: SchoolChild; onCl
 }
 
 /**
- * Today's children (Screen Book: the core team's Today, the front desk's list): counts that filter, then each child with
+ * Today's children (Screen Book: the head office's Today, the front desk's list): counts that filter, then each child with
  * where they are and the time that matters next. The core team edits; the front desk reads and logs calls.
  */
 export function Board({ children, editable, nowMs, onChanged, onLogCall, onMessages, title }: {
@@ -175,7 +175,7 @@ export function Board({ children, editable, nowMs, onChanged, onLogCall, onMessa
         </p>
       )}
       {list.length === 0 ? <EmptyState title="Nobody here">No children match this.</EmptyState> : (
-        <ul className="grid gap-2.5 lg:grid-cols-2">
+        <ul className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {list.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setPicked(c.id)} className="card flex w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 pr-4 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">

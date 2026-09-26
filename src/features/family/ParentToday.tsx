@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
+import { CalendarX, Check, ChevronRight, CircleCheck, Clock, House, KeyRound, Megaphone, MessageSquare, Navigation, Phone, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -21,7 +21,10 @@ import { collectorCode } from '../trips/tracking'
 import { gateLoad, undoAbsence, useToday, type Attendance, type DayTime } from '../school/api'
 import { AWAY_LABEL } from '../school/dayModel'
 import { TimeSheet } from '../school/TimeSheet'
+import { Link } from 'react-router'
+import { formatMobile } from '../../domain/contact'
 import { AbsenceSheet } from './ParentPages'
+import { useMyAnnouncements } from './parentData'
 import { useToast } from '../../ui/Toast'
 import { explainDbError } from '../admin/api'
 
@@ -245,6 +248,56 @@ function ParentTimeSheet({ childId, first, direction, programme, nowMs, current,
   return <TimeSheet open onClose={onClose} childId={childId} first={first} direction={direction} programme={programme} current={current} usual={usual} nowMs={nowMs} busy={(at) => Math.max(0, busy(at))} onSaved={onSaved} />
 }
 
+/**
+ * Beside the children on wide screens: the school's latest news and the things a parent does often, so a family with one
+ * child doesn't look at an empty half page. On phones it comes after the cards.
+ */
+function TodaySide({ kids }: { kids: Array<{ id: string; full_name: string; preferred_name: string | null }> }) {
+  const ann = useMyAnnouncements()
+  const [phone, setPhone] = useState<string | null>(null)
+  const [absence, setAbsence] = useState(false)
+  useEffect(() => { void supabase.from('settings').select('school_phone').single().then(({ data }) => setPhone((data as { school_phone: string | null } | null)?.school_phone ?? null)) }, [])
+  const latest = ann.list?.slice(0, 3) ?? []
+  const action = (icon: ReactNode, title: string, sub: string) => (
+    <>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-sunken [&_svg]:size-5" aria-hidden>{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-h4">{title}</span><span className="block truncate text-small font-semibold text-ink-2">{sub}</span></span>
+      <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
+    </>
+  )
+  const rowCls = 'flex w-full items-center gap-3 py-3 text-left'
+  return (
+    <aside className="grid content-start gap-5 lg:sticky lg:top-28" aria-label="From the school">
+      <section className="card rounded-2xl p-5">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="kicker flex items-center gap-2 [&_svg]:size-4"><Megaphone aria-hidden />From the school</h2>
+          {ann.unread > 0 && <Pill tone="accent">{ann.unread} new</Pill>}
+        </div>
+        {!ann.list ? <div className="mt-3 h-20 animate-pulse rounded-lg bg-sunken" />
+          : latest.length === 0 ? <p className="mt-3 text-small font-semibold text-ink-2">No announcements yet. School news will appear here.</p>
+          : (
+            <ul className="mt-2 divide-y divide-line">
+              {latest.map((a) => (
+                <li key={a.id} className="py-3">
+                  <p className="flex items-center gap-2 text-h4">{!ann.read.has(a.id) && <span className="size-2 shrink-0 rounded-full bg-accent" aria-label="New" />}{a.title}</p>
+                  <p className="line-clamp-2 text-small font-semibold text-ink-2">{a.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        <Link to="/parent/updates" className="linkbtn -ml-2 mt-1 inline-flex items-center gap-1">All updates<ChevronRight className="size-4" aria-hidden /></Link>
+      </section>
+
+      <section className="card divide-y divide-line rounded-2xl px-5" aria-label="Quick actions">
+        <button type="button" className={rowCls} disabled={!kids.length} onClick={() => setAbsence(true)}>{action(<CalendarX />, 'Report an absence', 'One day or several')}</button>
+        <Link to="/parent/messages" className={rowCls}>{action(<MessageSquare />, 'Message the school', 'Everyday questions and notes')}</Link>
+        {phone && <a href={`tel:${phone}`} className={rowCls}>{action(<Phone />, 'Call the school', formatMobile(phone))}</a>}
+      </section>
+      {absence && <AbsenceSheet kids={kids} onClose={() => setAbsence(false)} onSaved={() => setAbsence(false)} />}
+    </aside>
+  )
+}
+
 const greeting = (minutes: number) => (minutes < 12 * 60 ? 'Good morning' : minutes < 17 * 60 ? 'Good afternoon' : 'Good evening')
 
 /** The parent's Today (J1–J3): each child's drop-off and pickup, "I'm on my way", and the trip's progress live. */
@@ -261,21 +314,24 @@ export function ParentToday() {
 
   return (
     <AreaShell area="parent" title={`${greeting(clock.minutes)}, ${me?.full_name.split(' ')[0] ?? ''}`} subtitle={date}>
-      <section className="mt-6" aria-busy={!children.rows}>
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:gap-8">
+      <section aria-busy={!children.rows}>
         {loadError ? (
           <ErrorState title="Couldn't load today" onRetry={() => { children.reload(); void trips.reload() }}>Check your connection and try again.</ErrorState>
         ) : !children.rows || !trips.trips ? (
-          <ul className="grid gap-4 md:grid-cols-2" aria-label="Loading">{[0, 1].map((i) => <li key={i} className="card h-[300px] animate-pulse rounded-2xl" />)}</ul>
+          <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2" aria-label="Loading">{[0, 1].map((i) => <li key={i} className="card h-[300px] animate-pulse rounded-2xl" />)}</ul>
         ) : children.rows.length === 0 ? (
           <EmptyState title="No children yet">No children are linked to your account yet. Please contact the school.</EmptyState>
         ) : (
-          <ul className="grid gap-4 md:grid-cols-2">
+          <ul className={`grid gap-4 ${children.rows.length > 1 ? 'md:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2' : ''}`}>
             {children.rows.map((c) => <ChildCard key={c.id} child={c} trips={trips.trips!} nowMs={nowMs} meId={me?.profile_id ?? null}
               attendance={attendance.rows?.find((a) => a.child_id === c.id) ?? null} times={times.rows?.filter((t) => t.child_id === c.id) ?? []}
               onChanged={() => { void trips.reload(); void attendance.reload(); void times.reload() }} />)}
           </ul>
         )}
       </section>
+      {children.rows && children.rows.length > 0 && <TodaySide kids={children.rows} />}
+      </div>
     </AreaShell>
   )
 }

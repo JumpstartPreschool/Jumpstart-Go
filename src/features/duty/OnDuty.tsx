@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AudioLines, Bell, BellOff, LogOut, Sun, TriangleAlert, Volume2, WifiOff } from '../../ui/icons'
+import { AudioLines, Bell, BellOff, PowerLine, Sun, TriangleAlert, Volume2, WifiOff } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
@@ -11,6 +11,7 @@ import { VoicePicker } from './VoicePicker'
 import { GateQueue } from './GateQueue'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
+const hours = (ms: number) => { const m = Math.max(1, Math.round(ms / 60_000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min` }
 
 export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const now = useNow(1000)
@@ -47,9 +48,10 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
                 Mute 5 min
               </Button>
             )}
-            <Button size="md" variant="quiet" icon={<LogOut />} onClick={() => setEnding(true)}>
+            <button type="button" className="endduty" onClick={() => setEnding(true)}>
+              <span aria-hidden><PowerLine /></span>
               End duty
-            </Button>
+            </button>
           </div>
         </div>
 
@@ -116,12 +118,19 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
       </main>
 
       <VoicePicker open={voicesOpen} onClose={() => setVoicesOpen(false)} />
-      <Sheet open={ending} onClose={() => setEnding(false)} title="End your duty?" description="Announcements stop on this device only.">
+      <Sheet open={ending} onClose={() => setEnding(false)} title="End your duty?" description="Announcements stop on this tablet. Other tablets on duty keep going.">
+        <div className="mb-5 flex items-center gap-3.5 rounded-xl bg-sunken p-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-live-soft text-live [&_svg]:size-5" aria-hidden><Sun /></span>
+          <div>
+            <p className="text-h4">On duty since {duty.since ? clock(duty.since) : 'now'}</p>
+            <p className="text-small font-semibold text-ink-2">{duty.since ? hours(now - duty.since) : 'Just started'}{waiting > 0 ? ` · ${waiting} announcement${waiting === 1 ? '' : 's'} still waiting` : ''}</p>
+          </div>
+        </div>
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Button variant="secondary" autoFocus onClick={() => setEnding(false)}>
             Stay on duty
           </Button>
-          <Button variant="danger" icon={<LogOut />} onClick={() => { setEnding(false); duty.end() }}>
+          <Button variant="danger" icon={<PowerLine />} onClick={() => { setEnding(false); duty.end() }}>
             End duty
           </Button>
         </div>

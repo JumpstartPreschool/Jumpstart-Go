@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { AudioLines, CircleCheck, Clock, MapPin, Play, Power, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
+import { ArrowRight, AudioLines, CircleCheck, Clock, MapPin, PlayLine, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
 import { useVoiceName, VoicePicker } from './VoicePicker'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { Button } from '../../ui/Button'
@@ -76,7 +76,8 @@ function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }
         <Pill icon={<MapPin />}>Karve Road</Pill>
       </header>
       <div className="flex flex-1 flex-col justify-center py-8 sm:py-12 short:py-5 shorter:py-3">{children}</div>
-      {footer}
+      {/* The main action stays in reach at the bottom of the screen, over a soft fade, however far the checks scroll. */}
+      {footer && <div className="duty-dock landscape:lg:hidden sticky bottom-0 z-20 -mx-[var(--gutter)] -mb-[max(24px,env(safe-area-inset-bottom))] px-[var(--gutter)] pt-8 pb-[max(16px,env(safe-area-inset-bottom))]">{footer}</div>}
     </main>
   )
 }
@@ -133,15 +134,19 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })
   const start = (
     <div className="mx-auto w-full max-w-[760px] landscape:lg:max-w-none">
-      <Button size="xl" className="w-full" icon={duty.resumable ? <Play /> : <Power />} disabled={!duty.soundSupported} onClick={duty.start}>
-        {duty.resumable ? 'Resume duty' : 'Start duty'}
-      </Button>
-      <p className="mt-3 text-center text-small font-semibold text-ink-2 shorter:hidden">Announcements stay on until you tap End duty.</p>
+      <button type="button" className="dutybtn" disabled={!duty.soundSupported} onClick={duty.start}>
+        <span className="dutybtn-icon" aria-hidden>{duty.resumable ? <PlayLine /> : <PowerLine />}</span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block text-[19px] font-extrabold leading-tight tracking-[-0.01em]">{duty.resumable ? 'Resume duty' : 'Start duty'}</span>
+          <span className="block truncate text-small font-semibold opacity-85">Announcements stay on until you tap End duty</span>
+        </span>
+        <ArrowRight className="dutybtn-arrow" aria-hidden />
+      </button>
     </div>
   )
 
   return (
-    <Shell footer={<div className="landscape:lg:hidden">{start}</div>}>
+    <Shell footer={start}>
       {picker}
       {/* Portrait: welcome, today, checks. Landscape: welcome and today on the left, checks and Start on the right. */}
       <div className="page-in mx-auto grid w-full max-w-[760px] gap-10 short:gap-6 landscape:lg:max-w-none landscape:lg:grid-cols-[0.85fr_1.15fr] landscape:lg:grid-rows-[auto_auto] landscape:lg:content-center landscape:lg:gap-x-14">

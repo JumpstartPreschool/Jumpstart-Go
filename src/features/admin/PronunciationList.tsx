@@ -72,7 +72,7 @@ export function PronunciationList() {
   }
 
   return (
-    <section className="card mt-6 rounded-2xl p-5 sm:p-6" aria-labelledby="pronunciation-title">
+    <section className="card rounded-2xl p-5 sm:p-6" aria-labelledby="pronunciation-title">
       <h2 id="pronunciation-title" className="text-h3">Name pronunciation</h2>
       <p className="mt-1 text-small font-semibold text-ink-2">If the gate voice says a name wrongly, write how it should sound. Names on screen don't change.</p>
 
@@ -89,7 +89,7 @@ export function PronunciationList() {
               ))}
             </ul>
           )}
-          <form noValidate onSubmit={(e) => void save(e)} className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-center">
+          <form noValidate onSubmit={(e) => void save(e)} className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-center xl:grid-cols-2">
             <label className="input"><AudioLines aria-hidden /><input aria-label="Name as written" placeholder="Shreyas" value={written} autoCapitalize="words" spellCheck={false}
               onChange={(e) => { setWritten(e.target.value); setFormError(null) }} /></label>
             <label className="input"><input aria-label="Say it as" placeholder="Shrey-us" value={spoken} spellCheck={false}

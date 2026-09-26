@@ -1,7 +1,7 @@
 import type { ProgrammeRow } from '../admin/api'
 import { formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
 
-/** Midnight: a trip is for today (0026 lifted the 8:45 AM to 7:15 PM limit). */
+/** Midnight: a trip is always for today. */
 const LAST_MINUTE: Minutes = 24 * 60
 import { windowFor, type Direction, type Programme, type TimeWindow } from '../../domain/programme'
 

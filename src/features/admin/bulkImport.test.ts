@@ -66,13 +66,24 @@ describe('bulk upload: understanding rows', () => {
     ])
     expect(dup.line).toBe(3)
     expect(dup.problems).toContain('The same child is on row 2.')
-    expect(dup.problems.some((p) => p.includes('"12345" isn\'t a mobile number'))).toBe(true)
-    expect(bad.problems).toEqual(expect.arrayContaining(['The date of birth is in the future.', '"Sr KG" isn\'t one of the school\'s programmes.', '"maybe" should be Boy or Girl (or leave it empty).']))
+    expect(dup.warnings.some((p) => p.includes('"12345" isn\'t a mobile number'))).toBe(true)
+    // Only the programme stops this row; the impossible date and the unclear gender are left empty with a warning.
+    expect(bad.problems).toEqual(['"Sr KG" isn\'t one of the school\'s programmes.'])
+    expect(bad.warnings).toEqual(expect.arrayContaining(['01/01/2030 can\'t be right for a preschool child, so the date of birth is left empty.', '"maybe" isn\'t Boy or Girl, so it\'s left empty.']))
     expect(bad.people[0]!.phone).toBe('+919876500000') // the child's contact number stands in for Parent 1's mobile
   })
 
   it('names the columns a sheet is missing', () => {
-    expect(checkRows([['Name', 'Class']], PROGRAMMES, TODAY).missing).toEqual(['Date of birth', 'Parent 1 name'])
+    expect(checkRows([['Name', 'Class']], PROGRAMMES, TODAY).missing).toEqual(['Parent 1 name'])
+  })
+
+  it('imports a row with only the name, programme and a parent', () => {
+    const [row, noContact] = checkRows([['Child full name', 'Programme', 'Parent 1 name', 'Parent 1 mobile'], ['Ira Joshi', 'nursery 360', 'Neha Joshi', '98765 11111'], ['Kabir Rao', 'nursery 360', 'Anil Rao', '']], PROGRAMMES, TODAY).rows
+    expect(row!.problems).toEqual([])
+    expect(row!.child).toMatchObject({ full_name: 'Ira Joshi', date_of_birth: null, programme_id: 'n360' })
+    expect(row!.warnings).toEqual(["No date of birth. Add it later on the child's page."])
+    // Nobody the school can reach: that row waits.
+    expect(noContact!.problems).toEqual(['A parent with a mobile or email is needed, so the school can reach the family.'])
   })
 
   it('offers a template that reads back cleanly', () => {

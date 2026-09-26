@@ -20,7 +20,7 @@ function CheckLine({ arrival, state, first, direction, programme }: { arrival: M
   if (state === 'closed') return <Notice tone="danger">{formatTime(arrival)} is outside school hours. Please call the school.</Notice>
   return (
     <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>
-      {formatTime(arrival)} is {state === 'early' ? 'before' : 'after'} {first}'s {WORD[direction]} window ({win}). Tell the school why, and a coordinator will acknowledge it.
+      {formatTime(arrival)} is {state === 'early' ? 'before' : 'after'} {first}'s {WORD[direction]} window ({win}). Tell the school why, and a center leader will acknowledge it.
     </Notice>
   )
 }
@@ -106,7 +106,7 @@ export function OnMyWaySheet({ open, onClose, childId, first, direction, program
         <Button size="xl" className="w-full" icon={<Bell />} loading={busy} disabled={!canSend} onClick={() => void send()}>
           {trip ? 'Update the school' : 'Tell the school'}
         </Button>
-        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">The coordinators hear it straight away. You can change or cancel it.</p>
+        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">The center leaders hear it straight away. You can change or cancel it.</p>
       </SheetFooter>
     </Sheet>
   )
@@ -151,7 +151,7 @@ export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { op
       <div className="mt-4 grid gap-4">
         {state === 'inside' ? <Notice tone="success">{formatTime(arrival)} is still inside {first}'s window.</Notice>
           : state === 'closed' ? <Notice tone="danger">That is outside school hours. Please call the school.</Notice>
-          : <Notice tone="warning">{formatTime(arrival)} is past the window, so it's flagged and a coordinator acknowledges it.</Notice>}
+          : <Notice tone="warning">{formatTime(arrival)} is past the window, so it's flagged and a center leader acknowledges it.</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
       <SheetFooter>
@@ -183,7 +183,7 @@ export function CancelSheet({ open, onClose, trip, first }: { open: boolean; onC
   }
   return (
     <Sheet open={open} onClose={onClose} title={`Cancel ${first}'s ${WORD[trip.direction]}?`}
-      description={trip.direction === 'pickup' ? `The coordinators hear that it's cancelled. ${first} stays at school until the usual time.` : "The coordinators hear that it's cancelled."}>
+      description={trip.direction === 'pickup' ? `The center leaders hear that it's cancelled. ${first} stays at school until the usual time.` : "The center leaders hear that it's cancelled."}>
       {error && <Notice tone="danger" className="mb-4">{error}</Notice>}
       <div className="grid gap-2.5 sm:grid-cols-2">
         <Button variant="secondary" icon={<CircleCheck />} onClick={onClose}>Keep it</Button>

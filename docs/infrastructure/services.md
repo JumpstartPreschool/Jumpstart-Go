@@ -17,3 +17,7 @@ Free-first. Every external provider sits behind an interface so it can be replac
 | Fonts | **Plus Jakarta Sans** (open-source, bundled with the app) | Free | — | None | — |
 | SMS login codes | *Not used in release 1* | Paid per SMS, plus DLT registration | — | — | MSG91 when approved |
 | School-sent WhatsApp | *Not used in release 1* (parent sends from their own WhatsApp) | Paid per message | — | — | Meta WhatsApp Business Platform when approved |
+
+## Mobile sign-in codes (not set up)
+
+No provider sends SMS codes in India for free, and TRAI's DLT rules require the school to register as a sender first. Decided 2026-09-26: keep email codes for now. When mobile sign-in is wanted, the plan is MSG91 through a Supabase "Send SMS" hook (about ₹0.15–0.25 per code, after DLT registration). Firebase phone sign-in was ruled out: it needs a Google billing account, costs about ₹6 per code in India and would add a second sign-in system.

@@ -121,7 +121,7 @@ type Field = 'child' | 'called' | 'dob' | 'gender' | 'programme' | 'childPhone'
 export const COLUMNS: Array<{ field: Field; header: string; aliases?: string[]; required?: boolean }> = [
   { field: 'child', header: 'Child full name', aliases: ['childname', 'child', 'name', 'fullname', 'studentname'], required: true },
   { field: 'called', header: 'Called', aliases: ['preferredname', 'nickname', 'calledas'] },
-  { field: 'dob', header: 'Date of birth', aliases: ['dob', 'birthdate', 'childdateofbirth', 'dateofbirthddmmyyyy'], required: true },
+  { field: 'dob', header: 'Date of birth', aliases: ['dob', 'birthdate', 'childdateofbirth', 'dateofbirthddmmyyyy'] },
   { field: 'gender', header: 'Boy or girl', aliases: ['gender', 'sex', 'boygirl'] },
   { field: 'programme', header: 'Programme', aliases: ['program', 'classandprogramme', 'classprogramme', 'class', 'plan'], required: true },
   { field: 'childPhone', header: 'Child contact number', aliases: ['contactnumber', 'childmobile', 'childphone'] },
@@ -186,13 +186,20 @@ export interface ImportRow {
   line: number
   cells: string[]
   childName: string
-  child: { full_name: string; preferred_name: string | null; date_of_birth: string; programme_id: string; gender: 'boy' | 'girl' | null } | null
+  child: { full_name: string; preferred_name: string | null; date_of_birth: string | null; programme_id: string; gender: 'boy' | 'girl' | null } | null
   programmeName: string | null
   people: Person[]
+  /** Stop the row: it can't be imported until they're fixed. */
   problems: string[]
+  /** Details missing or unreadable: the row is imported without them, and the school fills them in later. */
+  warnings: string[]
 }
 
-/** Every data row, checked. A row with problems isn't imported; each problem is a sentence the school can act on. */
+/**
+ * Every data row, checked. Only the child's name, the programme and a parent's name are needed: a row missing those isn't
+ * imported. Anything else missing or unreadable is a warning, and the row goes in without it. Each is a sentence the
+ * school can act on.
+ */
 export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = new Date()): { rows: ImportRow[]; missing: string[] } {
   const [header = [], ...data] = rows
   const { map, missing } = mapHeader(header)
@@ -205,24 +212,25 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
     if (r.every((c) => !c.trim())) return
     const line = i + 2
     const problems: string[] = []
+    const warnings: string[] = []
     const name = get(r, 'child').replace(/\s+/g, ' ')
     if (name.length < 2) problems.push("The child's full name is missing.")
     const dobText = get(r, 'dob')
     const dob = parseDate(dobText)
-    if (!dobText) problems.push('The date of birth is missing.')
-    else if (!dob) problems.push(`"${dobText}" isn't a date. Use DD/MM/YYYY, like 04/03/2022.`)
-    else if (dob > todayIso) problems.push('The date of birth is in the future.')
-    else if (dob < '2010-01-02') problems.push('The date of birth is before 2010.')
+    const dobOk = !!dob && dob <= todayIso && dob >= '2010-01-02'
+    if (!dobText) warnings.push('No date of birth. Add it later on the child\'s page.')
+    else if (!dob) warnings.push(`"${dobText}" isn't a date, so the date of birth is left empty.`)
+    else if (!dobOk) warnings.push(`${dobText} can't be right for a preschool child, so the date of birth is left empty.`)
     // Boy or girl, optional: picks the child's picture (D39).
     const genderText = get(r, 'gender').toLowerCase()
     const gender = /^(boy|b|m|male|son)$/.test(genderText) ? 'boy' as const : /^(girl|g|f|female|daughter)$/.test(genderText) ? 'girl' as const : null
-    if (genderText && !gender) problems.push(`"${get(r, 'gender')}" should be Boy or Girl (or leave it empty).`)
+    if (genderText && !gender) warnings.push(`"${get(r, 'gender')}" isn't Boy or Girl, so it's left empty.`)
     const progText = get(r, 'programme')
     const programme = matchProgramme(progText, programmes)
     if (!progText) problems.push('The programme is missing.')
     else if (!programme) problems.push(`"${progText}" isn't one of the school's programmes.`)
-    if (name && dob) {
-      const k = `${name.toLowerCase()}|${dob}`
+    if (name) {
+      const k = `${name.toLowerCase()}|${dobOk ? dob : ''}`
       if (seen.has(k)) problems.push(`The same child is on row ${seen.get(k)}.`)
       else seen.set(k, line)
     }
@@ -230,27 +238,27 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
     const people: Person[] = []
     const person = (label: string, n: string, rel: string, mobile: string, email: string, kind: 'parent' | 'family', fallbackRel: string) => {
       if (!n && !mobile && !email) return
-      if (n.replace(/\s+/g, ' ').length < 2) { problems.push(`${label}'s name is missing.`); return }
+      if (n.replace(/\s+/g, ' ').length < 2) { warnings.push(`${label} has contact details but no name, so they're left out.`); return }
       const phone = mobile ? normalizeMobile(mobile) : null
-      if (mobile && !phone) problems.push(`${label}'s mobile "${mobile}" isn't a mobile number. Add +country code for numbers outside India.`)
+      if (mobile && !phone) warnings.push(`${label}'s mobile "${mobile}" isn't a mobile number, so it's left out.`)
       const mail = email ? normalizeEmail(email) : null
-      if (email && !mail) problems.push(`${label}'s email "${email}" isn't an email address.`)
-      if (!mobile && !email) problems.push(`${label} needs a mobile number or an email.`)
+      if (email && !mail) warnings.push(`${label}'s email "${email}" isn't an email address, so it's left out.`)
+      if (!phone && !mail) { warnings.push(`${label} has no mobile or email, so they're left out. Add them on the child's page.`); return }
       people.push({ full_name: n.replace(/\s+/g, ' '), relation: rel || fallbackRel, kind, email: mail, phone, app_access: !!mail })
     }
     // "Child contact number" (the family's number) stands in for Parent 1's mobile when that's empty.
     person('Parent 1', get(r, 'p1Name'), get(r, 'p1Relation'), get(r, 'p1Mobile') || get(r, 'childPhone'), get(r, 'p1Email'), 'parent', 'Parent')
     person('Parent 2', get(r, 'p2Name'), get(r, 'p2Relation'), get(r, 'p2Mobile'), get(r, 'p2Email'), 'parent', 'Parent')
     person('The family member', get(r, 'fName'), get(r, 'fRelation'), get(r, 'fMobile'), '', 'family', 'Family')
-    if (!people.some((p) => p.kind === 'parent') && !problems.some((p) => p.startsWith('Parent 1'))) problems.push("Parent 1's name is missing.")
+    if (!people.length) problems.push('A parent with a mobile or email is needed, so the school can reach the family.')
     const emails = people.map((p) => p.email).filter(Boolean)
     if (new Set(emails).size < emails.length) problems.push('Two people on this row have the same email.')
     const phones = people.map((p) => p.phone).filter(Boolean)
     if (new Set(phones).size < phones.length) problems.push('Two people on this row have the same mobile.')
 
     out.push({
-      line, cells: r, childName: name, programmeName: programme?.name ?? null, people, problems,
-      child: name.length >= 2 && dob && programme ? { full_name: name, preferred_name: get(r, 'called') || null, date_of_birth: dob, programme_id: programme.id, gender } : null,
+      line, cells: r, childName: name, programmeName: programme?.name ?? null, people, problems, warnings,
+      child: name.length >= 2 && programme ? { full_name: name, preferred_name: get(r, 'called') || null, date_of_birth: dobOk ? dob : null, programme_id: programme.id, gender } : null,
     })
   })
   return { rows: out, missing: [] }

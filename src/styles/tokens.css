@@ -187,3 +187,4 @@
 :root { --gutter: 16px; --content: 1180px; }
 @media (min-width: 640px) { :root { --gutter: 24px; } }
 @media (min-width: 1024px) { :root { --gutter: 32px; } }
+@media (min-width: 1440px) { :root { --content: 1320px; } }

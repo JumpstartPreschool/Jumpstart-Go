@@ -1,16 +1,16 @@
 import { useRef, useState, type DragEvent } from 'react'
-import { CircleAlert, CircleCheck, Download, FileSpreadsheet, RotateCcw, Upload } from '../../ui/icons'
+import { CircleAlert, CircleCheck, Download, FileSpreadsheet, Info, RotateCcw, TriangleAlert, Upload } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
-import { explainDbError, importChild, type ProgrammeRow } from './api'
+import type { ProgrammeRow } from './api'
 import { checkRows, readSheet, templateCsv, toCsv, COLUMNS, type ImportRow } from './bulkImport'
+import { clearImport, startImport, useImportJob } from './importJob'
+import { Progress } from './ImportBanner'
 
 type Step =
   | { name: 'choose'; error: string | null }
   | { name: 'preview'; file: string; header: string[]; rows: ImportRow[] }
-  | { name: 'importing'; file: string; header: string[]; rows: ImportRow[]; done: number; failed: Map<number, string> }
-  | { name: 'finished'; header: string[]; rows: ImportRow[]; added: number; failed: Map<number, string> }
 
 /** Saves a text file on this device (the template, or the rows that still need fixing). */
 function download(name: string, text: string) {
@@ -24,16 +24,22 @@ function download(name: string, text: string) {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
+/** The rows to look at again, with a column saying what to fix, ready to correct and upload again. */
+export function fixList(header: string[], rows: ImportRow[], failed: Map<number, string>) {
+  const out = rows.filter((r) => r.problems.length || r.warnings.length || failed.has(r.line))
+  return toCsv([[...header, 'What to fix'], ...out.map((r) => [...header.map((_, i) => r.cells[i] ?? ''), [...r.problems, failed.get(r.line), ...r.warnings].filter(Boolean).join(' ')])])
+}
+
 /**
- * Bulk upload (D37): the admin or the core team uploads a CSV or Excel sheet of children and their families. Every row
- * is checked and shown first; the good ones are imported one by one (a bad row never stops the rest), and anything that
- * couldn't be added can be downloaded, fixed and uploaded again.
+ * Bulk upload (D37): the admin or the head office uploads a CSV or Excel sheet of children and their families. Every row
+ * is checked and shown first. Rows with only the essentials go in, with what's missing listed to add later; the import
+ * keeps going if the sheet is closed, and a banner shows its progress and result (ImportBanner).
  */
-export function BulkImportSheet({ programmes, onClose, onImported }: { programmes: ProgrammeRow[]; onClose: () => void; onImported: (added: number) => void }) {
+export function BulkImportSheet({ programmes, onClose }: { programmes: ProgrammeRow[]; onClose: () => void }) {
+  const job = useImportJob()
   const [step, setStep] = useState<Step>({ name: 'choose', error: null })
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  const stop = useRef(false)
   const active = programmes.filter((p) => p.name)
 
   async function choose(file: File | undefined) {
@@ -45,6 +51,7 @@ export function BulkImportSheet({ programmes, onClose, onImported }: { programme
       if (missing.length) return setStep({ name: 'choose', error: `The sheet needs these columns: ${missing.join(', ')}. Download the template to see them all.` })
       if (!rows.length) return setStep({ name: 'choose', error: 'The sheet has no children in it, only the header row.' })
       if (rows.length > 500) return setStep({ name: 'choose', error: `The sheet has ${rows.length} rows. Upload up to 500 at a time.` })
+      clearImport()
       setStep({ name: 'preview', file: file.name, header: sheet[0] ?? [], rows })
     } catch (e) {
       const why = (e as Error).message
@@ -52,40 +59,11 @@ export function BulkImportSheet({ programmes, onClose, onImported }: { programme
     }
   }
 
-  async function run(from: Extract<Step, { name: 'preview' }>) {
-    stop.current = false
-    const ready = from.rows.filter((r) => !r.problems.length && r.child)
-    const failed = new Map<number, string>()
-    let added = 0
-    setStep({ ...from, name: 'importing', done: 0, failed })
-    for (const [i, r] of ready.entries()) {
-      if (stop.current) break
-      try {
-        await importChild(r.child!, r.people)
-        added++
-      } catch (e) {
-        const err = e as { code?: string; message?: string }
-        failed.set(r.line, err.code === '23505'
-          ? "An email or mobile on this row belongs to someone whose access is turned off. Turn them back on in People, or use another number."
-          : explainDbError(err))
-      }
-      setStep({ ...from, name: 'importing', done: i + 1, failed: new Map(failed) })
-    }
-    setStep({ name: 'finished', header: from.header, rows: from.rows, added, failed })
-    if (added) onImported(added)
-  }
-
-  /** The rows still to do, with a Problem column, ready to fix and upload again. */
-  function fixList(header: string[], rows: ImportRow[], failed: Map<number, string>) {
-    const out = rows.filter((r) => r.problems.length || failed.has(r.line))
-    return toCsv([[...header, 'Problem'], ...out.map((r) => [...header.map((_, i) => r.cells[i] ?? ''), [...r.problems, failed.get(r.line)].filter(Boolean).join(' ')])])
-  }
-
-  const busy = step.name === 'importing'
+  const showJob = job && step.name !== 'preview'
   return (
-    <Sheet open onClose={() => { if (busy) stop.current = true; onClose() }} wide title="Bulk upload children"
-      description="From a CSV or Excel sheet. You check the list first.">
-      {step.name === 'choose' && (
+    <Sheet open onClose={onClose} wide title="Bulk upload children"
+      description={showJob ? job.file : 'From a CSV or Excel sheet. You check the list first.'}>
+      {!showJob && step.name === 'choose' && (
         <div className="grid gap-5">
           <label
             onDragOver={(e: DragEvent) => { e.preventDefault(); setDragging(true) }}
@@ -122,81 +100,97 @@ export function BulkImportSheet({ programmes, onClose, onImported }: { programme
       )}
 
       {step.name === 'preview' && (() => {
-        const ready = step.rows.filter((r) => !r.problems.length)
+        const clean = step.rows.filter((r) => !r.problems.length && !r.warnings.length)
+        const gaps = step.rows.filter((r) => !r.problems.length && r.warnings.length)
         const bad = step.rows.filter((r) => r.problems.length)
+        const going = clean.length + gaps.length
+        const tone = (r: ImportRow) => r.problems.length ? 'bg-danger-soft' : r.warnings.length ? 'bg-warning-soft' : 'bg-sunken'
         return (
           <>
             <div className="grid gap-4">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <p className="text-h4">{step.file}</p>
-                <span className="text-small font-bold text-live">{plural(ready.length, 'child', 'children')} ready</span>
-                {bad.length > 0 && <span className="text-small font-bold text-warning">{plural(bad.length, 'row')} to fix</span>}
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <Count n={clean.length} label="Ready" tone="text-live" />
+                <Count n={gaps.length} label="Details to add later" tone="text-warning" />
+                <Count n={bad.length} label="Can't add yet" tone="text-danger" />
               </div>
-              <ul className="grid max-h-[46dvh] gap-2 overflow-y-auto pr-1">
+              <ul className="grid max-h-[42dvh] gap-2 overflow-y-auto pr-1">
                 {step.rows.map((r) => (
-                  <li key={r.line} className={`flex gap-3 rounded-lg p-3 ${r.problems.length ? 'bg-warning-soft' : 'bg-sunken'}`}>
-                    {r.problems.length ? <CircleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden /> : <CircleCheck className="mt-0.5 size-5 shrink-0 text-live" aria-hidden />}
+                  <li key={r.line} className={`flex gap-3 rounded-lg p-3 ${tone(r)}`}>
+                    {r.problems.length ? <CircleAlert className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden />
+                      : r.warnings.length ? <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+                      : <CircleCheck className="mt-0.5 size-5 shrink-0 text-live" aria-hidden />}
                     <div className="min-w-0">
-                      <p className="text-h4"><span className="sr-only">{r.problems.length ? 'To fix: ' : 'Ready: '}</span>{r.childName || 'No name'} <span className="text-small font-semibold text-ink-2">· row {r.line}</span></p>
-                      {r.problems.length
-                        ? <ul className="mt-0.5 text-small font-semibold text-ink">{r.problems.map((p) => <li key={p}>{p}</li>)}</ul>
-                        : <p className="text-small font-semibold text-ink-2">{r.programmeName} · {r.people.map((p) => `${p.full_name} (${p.relation})`).join(', ')}</p>}
+                      <p className="text-h4"><span className="sr-only">{r.problems.length ? "Can't add: " : r.warnings.length ? 'Added with gaps: ' : 'Ready: '}</span>{r.childName || 'No name'} <span className="text-small font-semibold text-ink-2">· row {r.line}</span></p>
+                      {r.problems.length > 0 && <ul className="mt-0.5 text-small font-semibold text-ink">{r.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
+                      {!r.problems.length && <p className="text-small font-semibold text-ink-2">{r.programmeName} · {r.people.map((p) => `${p.full_name} (${p.relation})`).join(', ')}</p>}
+                      {!r.problems.length && r.warnings.length > 0 && <ul className="mt-0.5 text-small font-semibold text-ink">{r.warnings.map((p) => <li key={p}>{p}</li>)}</ul>}
                     </div>
                   </li>
                 ))}
               </ul>
-              {bad.length > 0 && <Notice tone="warning">Rows to fix are left out. Import the rest now, then download them, fix and upload again.</Notice>}
+              {(gaps.length > 0 || bad.length > 0) && (
+                <Notice tone="info" icon={<Info aria-hidden />}>
+                  {gaps.length > 0 && `${plural(gaps.length, 'child', 'children')} go in now; add the missing details later on each child's page. `}
+                  {bad.length > 0 && `${plural(bad.length, 'row')} need a name, programme or parent first: download them after the import, fix and upload again.`}
+                </Notice>
+              )}
             </div>
             <SheetFooter>
               <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-44">
                 <Button variant="secondary" icon={<RotateCcw />} onClick={() => setStep({ name: 'choose', error: null })}>Choose another file</Button>
-                <Button icon={<Upload />} disabled={!ready.length} onClick={() => void run(step)}>Import {plural(ready.length, 'child', 'children')}</Button>
+                <Button icon={<Upload />} disabled={!going} onClick={() => { void startImport(step.file, step.header, step.rows); setStep({ name: 'choose', error: null }) }}>Add {plural(going, 'child', 'children')}</Button>
               </div>
             </SheetFooter>
           </>
         )
       })()}
 
-      {step.name === 'importing' && (() => {
-        const total = step.rows.filter((r) => !r.problems.length).length
-        return (
-          <div className="grid gap-4 py-6" aria-live="polite">
-            <p className="text-h3">Importing {step.done} of {total}…</p>
-            <div className="h-2.5 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={step.done} aria-label="Import progress">
-              <div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${total ? (step.done / total) * 100 : 0}%` }} />
-            </div>
-            <p className="text-small font-semibold text-ink-2">Keep this open until it finishes. Closing stops after the child being saved.</p>
-          </div>
-        )
-      })()}
+      {showJob && !job.finished && (
+        <div className="grid gap-4 py-4" aria-live="polite">
+          <p className="text-h3">Adding {job.done} of {plural(job.total, 'child', 'children')}…</p>
+          <Progress done={job.done} total={job.total} />
+          <p className="text-small font-semibold text-ink-2">You can close this and keep working. A banner at the bottom shows how it's going.</p>
+          <SheetFooter><Button variant="secondary" className="w-full" onClick={onClose}>Keep working</Button></SheetFooter>
+        </div>
+      )}
 
-      {step.name === 'finished' && (() => {
-        const toFix = step.rows.filter((r) => r.problems.length || step.failed.has(r.line))
+      {showJob && job.finished && (() => {
+        const addedRows = job.rows.filter((r) => !r.problems.length && !job.failed.has(r.line))
+        const gaps = addedRows.filter((r) => r.warnings.length)
+        const notAdded = job.rows.filter((r) => r.problems.length || job.failed.has(r.line))
         return (
           <>
             <div className="grid gap-4">
-              <Notice tone={step.added ? 'success' : 'warning'} icon={step.added ? <CircleCheck aria-hidden /> : <CircleAlert aria-hidden />}>
-                {step.added ? `${plural(step.added, 'child', 'children')} added with their families.` : 'No children were added.'}
-                {toFix.length ? ` ${plural(toFix.length, 'row')} still to fix.` : ''}
-              </Notice>
-              {step.failed.size > 0 && (
-                <ul className="grid gap-2">
-                  {[...step.failed].map(([line, why]) => {
-                    const r = step.rows.find((x) => x.line === line)!
-                    return <li key={line} className="rounded-lg bg-warning-soft p-3 text-small font-semibold"><b className="text-ink">{r.childName}</b> (row {line}): {why}</li>
-                  })}
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <Count n={job.added} label="Added" tone="text-live" />
+                <Count n={gaps.length} label="Details to add" tone="text-warning" />
+                <Count n={notAdded.length} label="Not added" tone="text-danger" />
+              </div>
+              {notAdded.length > 0 && (
+                <ul className="grid max-h-[32dvh] gap-2 overflow-y-auto">
+                  {notAdded.map((r) => <li key={r.line} className="rounded-lg bg-danger-soft p-3 text-small font-semibold"><b className="text-ink">{r.childName || 'No name'}</b> (row {r.line}): {job.failed.get(r.line) ?? r.problems.join(' ')}</li>)}
                 </ul>
               )}
+              {gaps.length > 0 && <Notice tone="warning">{plural(gaps.length, 'child', 'children')} still need details, like a date of birth or a mobile. Add them on each child's page, or download the list.</Notice>}
             </div>
             <SheetFooter>
               <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-44">
-                {toFix.length > 0 && <Button variant="secondary" icon={<Download />} onClick={() => download('children-to-fix.csv', fixList(step.header, step.rows, step.failed))}>Download rows to fix</Button>}
-                <Button onClick={onClose}>Done</Button>
+                {(notAdded.length > 0 || gaps.length > 0) && <Button variant="secondary" icon={<Download />} onClick={() => download('children-to-check.csv', fixList(job.header, job.rows, job.failed))}>Download what to fix</Button>}
+                <Button onClick={() => { clearImport(); onClose() }}>Done</Button>
               </div>
             </SheetFooter>
           </>
         )
       })()}
     </Sheet>
+  )
+}
+
+function Count({ n, label, tone }: { n: number; label: string; tone: string }) {
+  return (
+    <div className="rounded-xl bg-sunken px-2 py-3">
+      <p className={`text-h2 tabular-nums ${n ? tone : 'text-ink-3'}`}>{n}</p>
+      <p className="text-caption font-bold text-ink-2">{label}</p>
+    </div>
   )
 }

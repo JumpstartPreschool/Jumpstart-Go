@@ -66,7 +66,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
   const [inviting, setInviting] = useState<Profile | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [edit, setEdit] = useState({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth, gender: child.gender ?? null })
+  const [edit, setEdit] = useState({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth ?? '', gender: child.gender ?? null })
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
   /** Runs a change, refreshes the page and says so; true when it worked (the error shows in the open sheet otherwise). */
@@ -127,7 +127,9 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         <Avatar name={first} color={childColor(child.id)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-h1 text-balance">{child.full_name}</h2>
-          <p className="text-body text-ink-2">Called {first}, born {new Date(`${child.date_of_birth}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}, {formatAge(child.date_of_birth)}</p>
+          <p className="text-body text-ink-2">Called {first}, {child.date_of_birth
+            ? `born ${new Date(`${child.date_of_birth}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}, ${formatAge(child.date_of_birth)}`
+            : <span className="font-bold text-warning">date of birth not added yet</span>}</p>
         </div>
       </div>
 
@@ -158,7 +160,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
             </div>
           )}
           <div>
-            <p className="kicker">Coordinators for {klass?.name ?? 'this class'}</p>
+            <p className="kicker">Center leaders for {klass?.name ?? 'this class'}</p>
             <p className={`mt-1 text-small font-bold ${coordinators.length ? '' : 'text-warning'}`}>{coordinators.length ? coordinators.map((c) => c.full_name).join(', ') : 'Nobody yet, so it is announced to everyone'}</p>
           </div>
         </section>
@@ -178,12 +180,12 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       </div>
 
       <div className="flex flex-wrap gap-2.5">
-        <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth, gender: child.gender ?? null }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
+        <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth ?? '', gender: child.gender ?? null }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
         <Button size="md" variant="danger" icon={<LogOut />} className="ml-auto" onClick={() => { setError(null); setPending({ kind: 'left' }) }}>{first} has left the school</Button>
       </div>
 
       {sheet === 'programme' && (
-        <ProgrammePicker open onClose={() => setSheet(null)} programmes={dir.programmes} childName={first} dateOfBirth={child.date_of_birth} initial={child.programme_id}
+        <ProgrammePicker open onClose={() => setSheet(null)} programmes={dir.programmes} childName={first} dateOfBirth={child.date_of_birth ?? ''} initial={child.programme_id}
           onPick={(id) => void run(() => updateChild(child.id, { programme_id: id }), `${first} is now in ${dir.programmes.find((p) => p.id === id)?.name}.`)
             .then((ok) => ok || toast("Couldn't change the programme. Check the connection and try again."))} />
       )}

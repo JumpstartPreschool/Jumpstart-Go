@@ -4,6 +4,7 @@ import { ChevronDown, Clock, Eye, Lock, MapPin, ShieldCheck, Users } from '../..
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Notice } from '../../ui/States'
+import { SignOutButton } from '../../ui/SignOutButton'
 import { supabase } from '../../lib/supabase'
 import { CONSENT_VERSION, useSession } from './session'
 
@@ -73,9 +74,7 @@ export function ConsentScreen() {
         <Button size="xl" className="mt-6 w-full" icon={<ShieldCheck />} loading={busy} onClick={() => void accept()}>
           I agree, continue
         </Button>
-        <Button size="md" variant="quiet" className="mt-2 w-full" onClick={() => void signOut()}>
-          Sign out
-        </Button>
+        <SignOutButton className="mt-2.5" onClick={() => void signOut()} />
       </div>
     </main>
   )

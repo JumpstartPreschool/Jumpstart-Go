@@ -9,6 +9,24 @@ export const PARENT_PAGES = [
   { to: '/parent/account', label: 'Account', icon: <UserRound /> },
 ]
 
+const isActive = (pathname: string, to: string) => pathname === to || (to !== '/parent' && pathname.startsWith(to))
+
+/** The parent's pages in the top bar on computers and large tablets, with the unread count on Updates. */
+export function ParentTopNav() {
+  const { pathname } = useLocation()
+  const { unread } = useMyAnnouncements()
+  return (
+    <nav aria-label="Parent pages" className="topnav max-lg:hidden">
+      {PARENT_PAGES.map((p) => (
+        <Link key={p.to} to={p.to} aria-current={isActive(pathname, p.to) ? 'page' : undefined}>
+          {p.icon}{p.label}
+          {p.label === 'Updates' && unread > 0 && <span className="topnav-badge" aria-label={`${unread} new`}>{unread}</span>}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
 /**
  * The parent's tab bar on phones (Screen Book v3): glass, at the thumb, above the home indicator. On iPad and desktop
  * the same pages are the tabs under the top bar.
@@ -19,7 +37,7 @@ export function ParentTabBar() {
   return (
     <nav aria-label="Parent pages" className="glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-40 mx-auto grid max-w-[480px] grid-cols-4 rounded-[26px] p-1.5 md:hidden">
       {PARENT_PAGES.map((p) => {
-        const active = pathname === p.to || (p.to !== '/parent' && pathname.startsWith(p.to))
+        const active = isActive(pathname, p.to)
         return (
           <Link key={p.to} to={p.to} aria-current={active ? 'page' : undefined}
             className={`relative grid h-14 place-items-center content-center gap-0.5 rounded-[20px] text-caption font-bold transition-colors duration-150 [&_svg]:size-[22px] ${active ? 'bg-surface text-accent-ink shadow-[0_2px_0_var(--line-2)]' : 'text-ink-2'}`}>

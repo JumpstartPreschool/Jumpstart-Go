@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router'
-import { ChevronRight, LogOut, RotateCcw, UserX } from '../../ui/icons'
+import { ChevronRight, RotateCcw, UserX } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
+import { SignOutButton } from '../../ui/SignOutButton'
 import { ConsentScreen } from './ConsentScreen'
 import { LoginScreen, SignInFrame } from './LoginScreen'
 import { AREA_DOES, AREA_ICON, AREA_LABEL } from './AreaShell'
@@ -28,7 +29,7 @@ function Problem({ title, children, retry }: { title: string; children: ReactNod
         <p className="mt-2 text-body text-ink-2">{children}</p>
         <div className="mt-6 grid gap-2.5">
           {retry && <Button icon={<RotateCcw />} onClick={retry}>Try again</Button>}
-          <Button variant="secondary" icon={<LogOut />} onClick={() => void signOut()}>Sign out</Button>
+          <SignOutButton onClick={() => void signOut()} />
         </div>
       </div>
     </main>

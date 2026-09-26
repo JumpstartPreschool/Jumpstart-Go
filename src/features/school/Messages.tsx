@@ -12,7 +12,7 @@ import { explainDbError } from '../admin/api'
 import { clockTime } from '../trips/rules'
 import { markRead, sendMessage, useLive, type Message } from './api'
 
-const ROLE_LABEL: Record<Message['sender_role'], string> = { parent: 'parent', family: 'family', admin: 'admin', core: 'core team', pro: 'front desk' }
+const ROLE_LABEL: Record<Message['sender_role'], string> = { parent: 'parent', family: 'family', admin: 'admin', core: 'head office', pro: 'front desk' }
 const dayLabel = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })
 
 /** One child's conversation: bubbles by day, the reader's own on the right, and a box to write (Screen Book). */
@@ -96,55 +96,68 @@ export function OfficeMessages({ area }: { area: Area }) {
   useEffect(() => { void supabase.from('children').select('id, full_name, preferred_name, gender').eq('active', true).order('full_name').then(({ data }) => setKids((data ?? []) as Kid[])) }, [])
 
   const kid = kids?.find((k) => k.id === open)
-  if (kid) {
-    const first = kid.preferred_name ?? kid.full_name.split(' ')[0]!
-    return (
-      <AreaShell area={area} title="Messages">
-        <div className="mt-4 grid max-w-[760px] gap-4">
-          <Button size="md" variant="quiet" icon={<ChevronLeft />} className="justify-self-start" onClick={() => setOpen(null)}>All conversations</Button>
-          <div className="flex items-center gap-3"><Avatar name={first} color={childColor(kid.id)} /><h2 className="text-h2">{first} and the school</h2></div>
-          <Thread childId={kid.id} mine={(m) => m.sender === myId || m.sender_role === 'core' || m.sender_role === 'pro' || m.sender_role === 'admin'}
-            footnote="Chat is for everyday things. Time changes go through Today, so the gate always knows." />
-        </div>
-      </AreaShell>
-    )
-  }
-
   const list = kids && messages.rows ? kids.map((k) => {
     const mine = messages.rows!.filter((m) => m.child_id === k.id)
     const last = mine.at(-1)
     const read = reads.rows?.find((r) => r.child_id === k.id)?.read_at
     return { k, last, waiting: !!last && (last.sender_role === 'parent' || last.sender_role === 'family') && (!read || read < last.created_at) }
   }).sort((a, b) => (b.last?.created_at ?? '').localeCompare(a.last?.created_at ?? '')) : null
+  const waitingCount = list?.filter((x) => x.waiting).length ?? 0
 
+  // Phones: the list, or one conversation. Wide screens: both side by side.
   return (
-    <AreaShell area={area} title="Messages" subtitle="One conversation per child.">
-      <section className="mt-6" aria-busy={!list}>
-        {messages.error ? <ErrorState title="Couldn't load the messages" onRetry={() => void messages.reload()}>Check your connection and try again.</ErrorState>
-          : !list ? <SkeletonList count={5} className="grid gap-2.5" />
-          : list.length === 0 ? <EmptyState title="No children yet">Conversations appear here once children are added.</EmptyState>
-          : (
-            <ul className="grid gap-2.5 lg:grid-cols-2">
-              {list.map(({ k, last, waiting }) => (
-                <li key={k.id}>
-                  <button type="button" onClick={() => setOpen(k.id)} className="card flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                    <Avatar name={k.preferred_name ?? k.full_name} color={childColor(k.id)} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-h4">{k.full_name}</span>
-                      <span className={`block truncate text-small ${waiting ? 'font-bold text-ink' : 'font-semibold text-ink-2'}`}>
-                        {last ? `${last.sender_role === 'parent' || last.sender_role === 'family' ? last.sender_name.split(' ')[0] : 'School'}: ${last.body}` : 'No messages yet'}
+    <AreaShell area={area} title="Messages" subtitle={waitingCount ? `${waitingCount} ${waitingCount === 1 ? 'family is' : 'families are'} waiting for a reply.` : 'One conversation per child.'}>
+      <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(300px,400px)_minmax(0,1fr)]">
+        <section className={`lg:sticky lg:top-24 ${kid ? 'max-lg:hidden' : ''}`} aria-busy={!list} aria-label="Conversations">
+          {messages.error ? <ErrorState title="Couldn't load the messages" onRetry={() => void messages.reload()}>Check your connection and try again.</ErrorState>
+            : !list ? <SkeletonList count={5} className="grid gap-2.5" />
+            : list.length === 0 ? <EmptyState title="No children yet">Conversations appear here once children are added.</EmptyState>
+            : (
+              <ul className="grid gap-2 lg:max-h-[calc(100dvh-220px)] lg:overflow-y-auto lg:pr-1">
+                {list.map(({ k, last, waiting }) => (
+                  <li key={k.id}>
+                    <button type="button" onClick={() => setOpen(k.id)} aria-current={k.id === open || undefined}
+                      className="card flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)] aria-[current]:shadow-[inset_0_0_0_2px_var(--accent)]">
+                      <Avatar name={k.preferred_name ?? k.full_name} color={childColor(k.id)} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-h4">{k.full_name}</span>
+                        <span className={`block truncate text-small ${waiting ? 'font-bold text-ink' : 'font-semibold text-ink-2'}`}>
+                          {last ? `${last.sender_role === 'parent' || last.sender_role === 'family' ? last.sender_name.split(' ')[0] : 'School'}: ${last.body}` : 'No messages yet'}
+                        </span>
                       </span>
-                    </span>
-                    {last && <span className="text-caption font-bold text-ink-2 tabular-nums">{clockTime(last.created_at)}</span>}
-                    {waiting && <span className="size-2.5 shrink-0 rounded-full bg-accent" aria-label="Waiting for a reply" />}
-                    {!last && <MessageSquare className="size-5 shrink-0 text-ink-3" aria-hidden />}
-                  </button>
-                </li>
-              ))}
-            </ul>
+                      {last && <span className="text-caption font-bold text-ink-2 tabular-nums">{clockTime(last.created_at)}</span>}
+                      {waiting && <span className="size-2.5 shrink-0 rounded-full bg-accent" aria-label="Waiting for a reply" />}
+                      {!last && <MessageSquare className="size-5 shrink-0 text-ink-3" aria-hidden />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          {list && <Notice className="mt-4">Center leaders don't read messages; they hear the gate.</Notice>}
+        </section>
+
+        <section className={kid ? '' : 'max-lg:hidden'} aria-label="Conversation">
+          {kid ? (
+            <div className="card grid gap-4 rounded-2xl p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <Button size="md" variant="quiet" icon={<ChevronLeft />} className="lg:hidden" aria-label="All conversations" onClick={() => setOpen(null)} />
+                <Avatar name={kid.preferred_name ?? kid.full_name.split(' ')[0]!} color={childColor(kid.id)} />
+                <h2 className="text-h2">{kid.preferred_name ?? kid.full_name.split(' ')[0]} and the school</h2>
+              </div>
+              <Thread childId={kid.id} mine={(m) => m.sender === myId || m.sender_role === 'core' || m.sender_role === 'pro' || m.sender_role === 'admin'}
+                footnote="Chat is for everyday things. Time changes go through Today, so the gate always knows." />
+            </div>
+          ) : (
+            <div className="grid min-h-[360px] place-items-center rounded-2xl border-2 border-dashed border-line p-8 text-center">
+              <div className="grid justify-items-center gap-2">
+                <MessageSquare className="size-10 text-ink-3" aria-hidden />
+                <p className="text-h4">Choose a conversation</p>
+                <p className="max-w-[36ch] text-small font-semibold text-ink-2">Families waiting for a reply have a red dot and are at the top.</p>
+              </div>
+            </div>
           )}
-        {list && <Notice className="mt-4">Parents see a conversation for each of their children. Coordinators don't read messages; they hear the gate.</Notice>}
-      </section>
+        </section>
+      </div>
     </AreaShell>
   )
 }

@@ -52,7 +52,7 @@ export function AuditLog() {
           : !entries ? <SkeletonList count={6} className="grid gap-3" height="h-[64px]" />
           : entries.length === 0 ? <EmptyState title="Nothing recorded yet">Changes to people, children, timings, roles and pickups appear here as they happen.</EmptyState>
           : (
-            <div className="grid gap-6">
+            <div className="grid items-start gap-6 xl:grid-cols-2">
               {days.map((day) => (
                 <div key={day}>
                   <h2 className="kicker mb-2.5 flex items-center gap-2 [&_svg]:size-4"><ScrollText aria-hidden />{day}</h2>
@@ -69,7 +69,7 @@ export function AuditLog() {
                   </ol>
                 </div>
               ))}
-              {entries.length >= LIMIT - 20 && <p className="text-caption font-semibold text-ink-3">Showing the most recent changes.</p>}
+              {entries.length >= LIMIT - 20 && <p className="text-caption xl:col-span-2 font-semibold text-ink-3">Showing the most recent changes.</p>}
             </div>
           )}
       </section>

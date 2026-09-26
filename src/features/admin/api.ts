@@ -4,7 +4,7 @@ import type { StaffRole } from '../auth/session'
 
 /** A person on the school's records. `active`: on the record; `app_access`: can sign in (0012). */
 export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'email' | 'sms' | 'whatsapp' | null }
-export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string; class_id: string; programme_id: string; active: boolean; gender?: 'boy' | 'girl' | null }
+export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string | null; class_id: string; programme_id: string; active: boolean; gender?: 'boy' | 'girl' | null }
 export type GuardianKind = 'parent' | 'family'
 export interface Guardianship { child_id: string; guardian_id: string; relation: string; kind: GuardianKind }
 /** The classes are the levels (D18), fixed and in the school's order. */
@@ -148,7 +148,7 @@ export async function markInvited(profile: string, via: 'sms' | 'whatsapp'): Pro
 }
 
 /** Bulk upload (0022): one child and their family; people already on record are matched by email or mobile. */
-export async function importChild(child: { full_name: string; preferred_name: string | null; date_of_birth: string; programme_id: string; gender: 'boy' | 'girl' | null }, people: unknown[]): Promise<string> {
+export async function importChild(child: { full_name: string; preferred_name: string | null; date_of_birth: string | null; programme_id: string; gender: 'boy' | 'girl' | null }, people: unknown[]): Promise<string> {
   const { data, error } = await supabase.rpc('import_child', { p_child: child, p_people: people })
   if (error) throw error
   return data as string

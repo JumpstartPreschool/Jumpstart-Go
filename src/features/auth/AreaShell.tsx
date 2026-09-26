@@ -1,22 +1,23 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
+import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
-import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
+import { SignOutButton } from '../../ui/SignOutButton'
 import { areasFor, useSession, type Area } from './session'
-import { PARENT_PAGES, ParentTabBar } from '../family/ParentNav'
+import { PARENT_PAGES, ParentTabBar, ParentTopNav } from '../family/ParentNav'
 import { PushSwitch } from '../notifications/PushSwitch'
+import { ImportBanner } from '../admin/ImportBanner'
 
-export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', pro: 'Front desk', coordinator: 'Coordinator', parent: 'Parent' }
+export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Head office', pro: 'Front desk', coordinator: 'Center leader', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
 export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, pro: <Headset />, coordinator: <BellRing />, parent: <UserRound /> }
 /** What each area gives access to, shown when choosing where to start. */
 export const AREA_DOES: Record<Area, string> = {
   admin: 'Everything, including people and roles',
-  core: 'Timings, attendance and coordinators',
+  core: 'Timings, attendance and center leaders',
   pro: 'Calls, messages and announcements',
   coordinator: 'The gate, on a tablet',
   parent: 'Your own children',
@@ -26,14 +27,15 @@ export const AREA_DOES: Record<Area, string> = {
 const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode }>>> = {
   admin: [
     { to: '/admin', label: 'People', icon: <UsersRound /> },
-    { to: '/admin/coordinators', label: 'Coordinators', icon: <BellRing /> },
+    { to: '/admin/coordinators', label: 'Center leaders', icon: <BellRing /> },
+    { to: '/admin/announce', label: 'Announce', icon: <Megaphone /> },
     { to: '/admin/settings', label: 'Settings', icon: <Settings /> },
     { to: '/admin/audit', label: 'Audit log', icon: <ScrollText /> },
   ],
   core: [
     { to: '/core', label: 'Today', icon: <CalendarClock /> },
     { to: '/core/schedules', label: 'Schedules', icon: <Clock /> },
-    { to: '/core/coordinators', label: 'Coordinators', icon: <BellRing /> },
+    { to: '/core/coordinators', label: 'Center leaders', icon: <BellRing /> },
     { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
     { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
   ],
@@ -87,9 +89,7 @@ export function AccountButton({ area }: { area: Area }) {
           </>
         )}
         {area !== 'parent' && <div className="mt-4 rounded-lg bg-sunken px-3.5"><PushSwitch /></div>}
-        <Button variant="danger" className="mt-6 w-full" icon={<LogOut />} onClick={() => void signOut()}>
-          Sign out
-        </Button>
+        <SignOutButton className="mt-6" onClick={() => void signOut()} />
       </Sheet>
     </>
   )
@@ -114,6 +114,8 @@ export function OfflineNotice() {
 export function AreaShell({ area, title, subtitle, actions, children }: { area: Area; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   const pages = AREA_PAGES[area]
   const { pathname } = useLocation()
+  // An area's first page stays selected on the pages it opens (a child's page under People, a parent's conversation).
+  const isActive = (to: string) => pathname === to || (to === `/${area}` ? pathname.startsWith(`/${area}/child/`) : pathname.startsWith(`${to}/`))
   return (
     <div className="min-h-dvh">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-[max(12px,env(safe-area-inset-top))] focus:z-50 focus:rounded-sm focus:bg-surface focus:px-4 focus:py-3 focus:font-bold focus:shadow-float">
@@ -124,19 +126,22 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           <Logo className="h-7 sm:h-8" />
           <span className="h-6 w-px bg-line-2 max-[359px]:hidden" aria-hidden />
           <AreaChip area={area} />
-          <span className="flex-1" />
+          <div className="flex min-w-0 flex-1 justify-center">
+            {area === 'parent' ? <ParentTopNav /> : pages && (
+              <nav aria-label={`${AREA_LABEL[area]} pages`} className={`topnav ${pages.length > 3 ? 'max-xl:hidden' : 'max-lg:hidden'}`}>
+                {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
+              </nav>
+            )}
+          </div>
           <AccountButton area={area} />
         </div>
         <OfflineNotice />
       </header>
       <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${area === 'parent' ? 'max-md:pb-[calc(96px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden' : ''}`}>
-            {pages.map((page) => {
-              // An area's first page stays selected on the pages it opens (a child's page under People).
-              const active = pathname === page.to || (page.to === `/${area}` && pathname.startsWith(`/${area}/child/`))
-              return <Link key={page.to} to={page.to} aria-current={active ? 'page' : undefined}>{page.icon}{page.label}</Link>
-            })}
+          // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'xl:hidden' : 'lg:hidden'}`}>
+            {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
           </nav>
         )}
         <div className="page-in">
@@ -150,7 +155,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           {children}
         </div>
       </main>
-      {area === 'parent' && <ParentTabBar />}
+      {area === 'parent' ? <ParentTabBar /> : <ImportBanner />}
     </div>
   )
 }
