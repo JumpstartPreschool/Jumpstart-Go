@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, MouseEvent, ReactNode, Ref } from 'react'
-import { LoaderCircle } from 'lucide-react'
+import { LoaderCircle } from './icons'
 
 type Variant = 'primary' | 'secondary' | 'sunshine' | 'success' | 'quiet' | 'danger'
 type Size = 'md' | 'lg' | 'xl'
@@ -14,7 +14,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /**
  * Solid button with a darker lip (styles: `.btn` in app.css). Heights keep every target at 44 pt or more (NFR-3);
- * xl (64) is the main action of an iPad screen. While loading it keeps its colour, shows a spinner and ignores
+ * xl (56) is the main action of a tablet screen. While loading it keeps its colour, shows a spinner and ignores
  * presses, so a double tap can't send twice.
  */
 export function Button({ variant = 'primary', size = 'lg', icon, loading = false, children, className = '', onClick, ...rest }: ButtonProps) {

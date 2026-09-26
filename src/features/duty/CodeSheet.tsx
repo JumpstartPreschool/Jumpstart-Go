@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Delete, Lock, Phone, X } from 'lucide-react'
+import { Delete, Lock, Phone, X } from '../../ui/icons'
 import { Sheet } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { explainTripError, type Trip } from '../trips/api'

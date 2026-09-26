@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { AudioLines, CircleCheck, MapPin, Play, Power, RotateCcw, TriangleAlert, Volume2, Wifi } from 'lucide-react'
+import { AudioLines, CircleCheck, Clock, MapPin, Play, Power, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
 import { useVoiceName, VoicePicker } from './VoicePicker'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { Button } from '../../ui/Button'
@@ -8,6 +8,8 @@ import { Pill } from '../../ui/Pill'
 import { isInstalled } from '../../ui/hooks'
 import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
+import { useTodayTrips } from '../trips/api'
+import { now } from '../../lib/clock'
 
 type Tone = 'ok' | 'warn' | 'error' | 'info'
 
@@ -18,24 +20,63 @@ const toneStyle: Record<Tone, string> = {
   info: 'bg-accent-soft text-accent',
 }
 
-function CheckRow({ tone, icon, title, children }: { tone: Tone; icon: ReactNode; title: string; children: ReactNode }) {
+/** One thing to check before duty, as a tile: its state, what it means, and anything to do about it. */
+function Tile({ tone, icon, title, children, extra }: { tone: Tone; icon: ReactNode; title: string; children: ReactNode; extra?: ReactNode }) {
   return (
-    <li className="flex gap-4 py-4 first:pt-0 last:pb-0">
-      <span className={`grid size-12 shrink-0 place-items-center rounded-md [&_svg]:size-6 ${toneStyle[tone]}`} aria-hidden>
-        {icon}
-      </span>
-      <div className="min-w-0 pt-0.5">
+    <li className="card flex flex-col gap-3 rounded-xl p-5 short:gap-2 short:p-4">
+      <div className="flex items-center gap-3">
+        <span className={`grid size-11 shrink-0 place-items-center rounded-md [&_svg]:size-[22px] ${toneStyle[tone]}`} aria-hidden>{icon}</span>
         <p className="text-h4">{title}</p>
-        <p className="mt-0.5 text-body text-ink-2">{children}</p>
       </div>
+      <p className="text-body text-ink-2 short:text-small">{children}</p>
+      {extra && <div className="mt-auto">{extra}</div>}
     </li>
   )
 }
 
-function Shell({ children }: { children: ReactNode }) {
+/** Today at the gate, from the same live trips as the queue: who's on the way now, the day's totals and the next arrival. */
+function TodayStrip() {
+  const { trips, error } = useTodayTrips()
+  const live = (trips ?? []).filter((t) => t.status !== 'cancelled')
+  const coming = live.filter((t) => t.status === 'en_route')
+  const next = coming.find((t) => Date.parse(t.arrive_at) >= now() - 5 * 60_000)
+  const stat = (label: string, value: number) => (
+    <div className="grid gap-0.5 px-4 py-3 text-center short:py-2">
+      <span className="text-h2 tabular-nums">{trips ? value : '–'}</span>
+      <span className="text-caption font-bold text-ink-2">{label}</span>
+    </div>
+  )
   return (
-    <main className="gutter mx-auto grid min-h-dvh w-full max-w-[calc(1120px+2*var(--gutter))] items-center pt-[max(80px,calc(env(safe-area-inset-top)+72px))] pb-[max(28px,env(safe-area-inset-bottom))] lg:pt-[max(32px,calc(env(safe-area-inset-top)+20px))]">
-      {children}
+    <section aria-label="Today at the gate" className="card overflow-hidden rounded-xl">
+      <div className="grid grid-cols-3 divide-x divide-line">
+        {stat('On the way now', coming.length)}
+        {stat('Drop-offs today', live.filter((t) => t.direction === 'dropoff').length)}
+        {stat('Pickups today', live.filter((t) => t.direction === 'pickup').length)}
+      </div>
+      <p className="flex items-center justify-center gap-2 border-t border-line bg-sunken px-4 py-2.5 text-small font-semibold text-ink-2 [&_svg]:size-4 [&_svg]:shrink-0" aria-live="polite">
+        <Clock aria-hidden />
+        {error ? "Couldn't load today's trips. They'll appear when the connection is back."
+          : !trips ? 'Loading today…'
+          : next ? <span>Next: <b className="text-ink">{next.traveller_name.split(' ')[0]}</b> about <b className="tabular-nums text-ink">{formatTime(indiaClock(new Date(next.arrive_at)).minutes)}</b></span>
+          : 'Nobody is on the way yet.'}
+      </p>
+    </section>
+  )
+}
+
+/**
+ * The duty screens fill the iPad: the logo at the top (the account button floats top right), the content in the middle,
+ * and the main action at the bottom within thumb reach. Portrait is one column; landscape puts the welcome beside it.
+ */
+function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  return (
+    <main className="gutter screen-h mx-auto flex w-full max-w-[calc(1120px+2*var(--gutter))] flex-col pt-[max(16px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))]">
+      <header className="flex h-12 items-center gap-3 pr-36">
+        <Logo className="h-9 sm:h-10" />
+        <Pill icon={<MapPin />}>Karve Road</Pill>
+      </header>
+      <div className="flex flex-1 flex-col justify-center py-8 sm:py-12 short:py-5 shorter:py-3">{children}</div>
+      {footer}
     </main>
   )
 }
@@ -64,8 +105,8 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           </p>
           {struggling && (
             <ul className="mt-6 grid list-disc gap-1.5 rounded-lg bg-warning-soft p-5 pl-9 text-left text-body text-ink marker:text-warning">
-              <li>Turn the volume up with the buttons on the side of the iPad.</li>
-              <li>Open Control Center and turn off Silent Mode.</li>
+              <li>Turn the volume up with the device's volume buttons.</li>
+              <li>Turn off silent or Do Not Disturb mode.</li>
               <li>If a Bluetooth speaker is connected, check that it's switched on.</li>
             </ul>
           )}
@@ -89,74 +130,69 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   }
 
   const since = duty.resumable && duty.since ? formatTime(indiaClock(new Date(duty.since)).minutes) : null
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })
+  const start = (
+    <div className="mx-auto w-full max-w-[760px] landscape:lg:max-w-none">
+      <Button size="xl" className="w-full" icon={duty.resumable ? <Play /> : <Power />} disabled={!duty.soundSupported} onClick={duty.start}>
+        {duty.resumable ? 'Resume duty' : 'Start duty'}
+      </Button>
+      <p className="mt-3 text-center text-small font-semibold text-ink-2 shorter:hidden">Announcements stay on until you tap End duty.</p>
+    </div>
+  )
 
   return (
-    <Shell>
+    <Shell footer={<div className="landscape:lg:hidden">{start}</div>}>
       {picker}
-      <div className="page-in grid items-center gap-8 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
-        <section className="text-center lg:text-left">
-          <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-            <Logo className="h-12 sm:h-14" />
-            <Pill icon={<MapPin />}>Karve Road</Pill>
-          </div>
-          <Mascot size={128} className="mx-auto mt-6 lg:mx-0 lg:mt-10" />
-          <h1 className="mt-4 text-display">
-            {duty.resumable ? 'Welcome back!' : 'Ready for the gate?'}
-          </h1>
-          <p className="mx-auto mt-3 max-w-[46ch] text-lead text-ink-2 lg:mx-0">
+      {/* Portrait: welcome, today, checks. Landscape: welcome and today on the left, checks and Start on the right. */}
+      <div className="page-in mx-auto grid w-full max-w-[760px] gap-10 short:gap-6 landscape:lg:max-w-none landscape:lg:grid-cols-[0.85fr_1.15fr] landscape:lg:grid-rows-[auto_auto] landscape:lg:content-center landscape:lg:gap-x-14">
+        <section className="text-center landscape:lg:self-end landscape:lg:text-left">
+          <Mascot size={144} className="mx-auto short:hidden landscape:lg:mx-0" />
+          <Mascot size={84} className="mx-auto hidden short:block landscape:lg:mx-0" />
+          <p className="mt-6 short:mt-3 text-small font-bold uppercase tracking-[0.08em] text-ink-3">{today}</p>
+          <h1 className="mt-2 text-display">{duty.resumable ? 'Welcome back!' : 'Ready for the gate?'}</h1>
+          <p className="mx-auto mt-3 max-w-[44ch] text-lead text-ink-2 shorter:mt-2 shorter:text-body landscape:lg:mx-0">
             {since
-              ? `You've been on duty since ${since}. Tap below to turn announcements back on.`
-              : 'Start your duty and this iPad will announce every pickup and drop-off, and keep its screen on until you finish.'}
+              ? `You've been on duty since ${since}. Tap Resume to turn announcements back on.`
+              : 'This device will announce every pickup and drop-off, and keep its screen on until you finish.'}
           </p>
         </section>
 
-        <section>
-          <ul className="card divide-y divide-line rounded-2xl p-6 sm:p-7">
+        <div className="landscape:lg:col-start-1 landscape:lg:row-start-2 landscape:lg:self-start"><TodayStrip /></div>
+        <section aria-labelledby="checks-title" className="landscape:lg:col-start-2 landscape:lg:row-span-2 landscape:lg:row-start-1 landscape:lg:self-center">
+          <h2 id="checks-title" className="kicker mb-3">Before you start</h2>
+          <ul className="grid gap-4 short:gap-3 sm:grid-cols-2">
             {installed ? (
-              <CheckRow tone="ok" icon={<CircleCheck />} title="Opened from the Home Screen">
-                Alerts can reach this iPad even when it's locked.
-              </CheckRow>
+              <Tile tone="ok" icon={<CircleCheck />} title="On the Home Screen" extra={<div className="rounded-lg bg-sunken px-3.5"><PushSwitch label="Alerts when locked" /></div>}>
+                Opened from the Home Screen, so alerts can reach this device when it's locked.
+              </Tile>
             ) : (
-              <CheckRow tone="warn" icon={<TriangleAlert />} title="Add Jumpstart to the Home Screen">
-                In Safari, tap Share, then Add to Home Screen, and open Jumpstart from there. It keeps the screen on reliably and lets alerts reach a locked iPad.
-              </CheckRow>
+              <Tile tone="warn" icon={<TriangleAlert />} title="Add to the Home Screen">
+                Choose Add to Home Screen in the browser's menu (on an iPad: Share), then open Jumpstart from there.
+              </Tile>
             )}
             {duty.wakeSupported ? (
-              <CheckRow tone="ok" icon={<CircleCheck />} title="The screen stays on">
-                While you're on duty, this iPad won't go to sleep.
-              </CheckRow>
+              <Tile tone="ok" icon={<CircleCheck />} title="Screen stays on">While you're on duty, this screen won't go to sleep.</Tile>
             ) : (
-              <CheckRow tone="warn" icon={<TriangleAlert />} title="Set the screen to stay on">
-                This iPad can't keep the screen on by itself. Go to Settings → Display &amp; Brightness → Auto-Lock → Never.
-              </CheckRow>
+              <Tile tone="warn" icon={<TriangleAlert />} title="Keep the screen on">In the device's settings, set the screen to never turn off (on an iPad: Display &amp; Brightness → Auto-Lock → Never).</Tile>
             )}
             {duty.soundSupported ? (
-              <CheckRow tone="info" icon={<Volume2 />} title="Sound check">
+              <Tile tone="info" icon={<Volume2 />} title="Sound check"
+                extra={<div className="flex items-center justify-between gap-3 rounded-lg bg-sunken py-1.5 pl-3.5 pr-1.5">
+                  <span className="min-w-0 truncate text-small font-semibold text-ink-2">Voice: <b className="text-ink">{voiceName ?? 'the device voice'}</b></span>
+                  <Button size="md" variant="quiet" icon={<AudioLines />} aria-label="Change voice" onClick={() => setVoicesOpen(true)}>Change</Button>
+                </div>}>
                 A short test plays when you start. Turn the volume up.
-                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-small font-semibold">
-                  Voice: <span className="font-bold text-ink">{voiceName ?? 'the device voice'}</span>
-                  <button type="button" className="linkbtn -my-2" onClick={() => setVoicesOpen(true)}>Change voice</button>
-                </span>
-              </CheckRow>
+              </Tile>
             ) : (
-              <CheckRow tone="error" icon={<TriangleAlert />} title="This browser can't play announcements">
-                Open Jumpstart in Safari on the iPad.
-              </CheckRow>
+              <Tile tone="error" icon={<TriangleAlert />} title="Can't play sound here">Open Jumpstart in Chrome or Safari on the gate tablet.</Tile>
             )}
-            <li className="rounded-lg bg-sunken px-3.5"><PushSwitch label="Alerts when the iPad is locked" /></li>
             {online ? (
-              <CheckRow tone="ok" icon={<Wifi />} title="Connected">
-                New requests arrive the moment a parent makes them.
-              </CheckRow>
+              <Tile tone="ok" icon={<Wifi />} title="Connected">New requests arrive the moment a parent makes them.</Tile>
             ) : (
-              <CheckRow tone="error" icon={<TriangleAlert />} title="No internet connection">
-                Announcements need Wi-Fi or mobile data. Check the connection.
-              </CheckRow>
+              <Tile tone="error" icon={<TriangleAlert />} title="No internet">Announcements need Wi-Fi or mobile data. Check the connection.</Tile>
             )}
           </ul>
-          <Button size="xl" className="mt-6 w-full" icon={duty.resumable ? <Play /> : <Power />} disabled={!duty.soundSupported} onClick={duty.start}>
-            {duty.resumable ? 'Resume duty' : 'Start duty'}
-          </Button>
+          <div className="mt-8 hidden short:mt-5 landscape:lg:block">{start}</div>
         </section>
       </div>
     </Shell>

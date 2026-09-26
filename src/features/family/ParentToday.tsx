@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, TriangleAlert, Users } from 'lucide-react'
+import { CalendarX, Check, CircleCheck, Clock, House, KeyRound, Navigation, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -7,7 +7,7 @@ import { EmptyState, ErrorState } from '../../ui/States'
 import { childColor } from '../../ui/childColor'
 import { useNow } from '../../ui/hooks'
 import { formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
-import { runsOn, windowFor, type Direction, type Programme } from '../../domain/programme'
+import { windowFor, type Direction, type Programme } from '../../domain/programme'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { useSession } from '../auth/session'
@@ -16,7 +16,7 @@ import { useTodayTrips, type Trip } from '../trips/api'
 import { clockTime, formatRange, programmeOf } from '../trips/rules'
 import { CancelSheet, LateSheet, OnMyWaySheet } from '../trips/TripSheets'
 import { ResendSheet, SomeoneElseSheet } from '../trips/CollectorSheets'
-import { ShareMyLocation, TravellerPosition } from '../trips/TripLocation'
+import { CollectorTracker } from '../trips/TripLocation'
 import { collectorCode } from '../trips/tracking'
 import { gateLoad, undoAbsence, useToday, type Attendance, type DayTime } from '../school/api'
 import { AWAY_LABEL } from '../school/dayModel'
@@ -29,12 +29,13 @@ interface ChildRow {
   id: string
   full_name: string
   preferred_name: string | null
+  gender?: string | null
   programmes: ProgrammeRow | null
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>
 }
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
-const FIELDS = 'id, full_name, preferred_name, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
+const FIELDS = 'id, full_name, preferred_name, gender, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
 
 /** The signed-in parent's own children (row-level security allows no more; a staff member who is also a parent sees only theirs). */
 function useMyChildren(guardianId: string | null) {
@@ -98,7 +99,6 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
   const steps = pickup
     ? [{ label: third ? `Link sent to ${who}` : 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: `${first} is ready at the gate`, at: trip.ready_at }, { label: third ? `Collected by ${who}` : 'Collected', at: trip.closed_at }]
     : [{ label: 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: `${first} checked in`, at: trip.closed_at }]
-  const sub = trip.ready_at ? `${first} is ready at the gate.` : trip.acknowledged_at ? 'The school has seen it and is getting ready.' : mine ? "The school knows you're coming." : `The school knows ${who} is coming.`
   return (
     <div className="mt-4 rounded-xl border border-line bg-canvas p-4" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
@@ -106,21 +106,25 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
         <span className="kicker">{pickup ? 'Pickup' : 'Drop-off'}</span>
       </div>
       <p className="mt-3 text-h2 tabular-nums">{mine ? 'Arriving' : `${who} arrives`} about {clockTime(trip.arrive_at)}</p>
-      <p className="mt-1 text-body text-ink-2">{sub}</p>
-      {trip.off_schedule && trip.reason && <Pill tone="warning" icon={<TriangleAlert />} className="mt-3">Outside the usual time: {trip.reason}</Pill>}
-      {third && (
-        <p className="mt-3 flex items-center gap-2 text-small font-semibold text-ink-2">
-          <KeyRound className="size-4 shrink-0" aria-hidden />
-          {code ? <span>{who} shows code <b className="text-ink tracking-[0.12em] tabular-nums">{code}</b> at the gate.</span> : <span>{who} shows their 4-digit code at the gate.</span>}
-        </p>
-      )}
-      {mine ? <ShareMyLocation trip={trip} /> : <TravellerPosition trip={trip} who={third ? who : trip.traveller_relation ? `${who} (${trip.traveller_relation.toLowerCase()})` : who} />}
+      {(trip.off_schedule && trip.reason) || third ? (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {trip.off_schedule && trip.reason && (
+            <Pill tone="warning" icon={<Timer />}><span className="sr-only">Outside the usual time: </span>{trip.reason}</Pill>
+          )}
+          {third && (
+            <Pill icon={<KeyRound />}>{code ? <>Gate code <b className="ml-1 tracking-[0.12em] tabular-nums text-ink">{code}</b></> : 'Gate code sent'}</Pill>
+          )}
+        </div>
+      ) : null}
+      {/* Location only for someone collecting with a link, and only for the parent who sent it (D38). */}
+      {third && trip.created_by === meId && <CollectorTracker trip={trip} child={first} />}
+      {third && trip.created_by !== meId && <p className="mt-3 text-small font-semibold text-ink-2">Only the parent who sent {who} the link can see where they are.</p>}
       <Steps items={steps} />
-      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+      <div className="mt-4 flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
         <Button size="md" variant="sunshine" icon={<Timer />} onClick={onLate}>Running late</Button>
         {third ? <Button size="md" variant="secondary" icon={<Send />} onClick={onResend}>Resend link</Button>
           : <Button size="md" variant="secondary" icon={<Clock />} onClick={onChange}>Change time</Button>}
-        <Button size="md" variant="quiet" className="col-span-2 sm:col-span-1" onClick={onCancel}>Cancel {WORD[trip.direction]}</Button>
+        <Button size="md" variant="quiet" onClick={onCancel}>Cancel {WORD[trip.direction]}</Button>
       </div>
     </div>
   )
@@ -140,7 +144,8 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   const dropDone = mine.find((t) => t.direction === 'dropoff' && t.status === 'checked_in') ?? null
   const pickDone = mine.find((t) => t.direction === 'pickup' && t.status === 'handed_over') ?? null
   const regular = child.child_schedules.find((s) => s.weekday === today.weekday)
-  const school = programme ? runsOn(programme, today.date, new Set()) : false
+  // 0026: trips work any day, so the buttons show every day (the regular times still follow the programme's days).
+  const school = !!programme
 
   const changedTime = (d: Direction) => times.find((t) => t.direction === d) ?? null
   const usual = (d: Direction) => {
@@ -184,8 +189,8 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
       </div>
 
       {/* The way home with the person who collected (TRK-7): until they say they're home, at most an hour. */}
-      {pickDone?.traveller_kind === 'third_person' && !pickDone.home_at && nowMs - Date.parse(pickDone.closed_at!) < 60 * 60_000 && (
-        <TravellerPosition trip={pickDone} who={pickDone.traveller_name.split(' ')[0]!} />
+      {pickDone?.traveller_kind === 'third_person' && pickDone.created_by === meId && !pickDone.home_at && nowMs - Date.parse(pickDone.closed_at!) < 60 * 60_000 && (
+        <CollectorTracker trip={pickDone} child={first} afterHandover />
       )}
       {open && programme ? (
         <TripBlock trip={open} first={first} meId={meId}

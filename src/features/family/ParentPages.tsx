@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { CalendarX, Check, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from 'lucide-react'
+import { CalendarX, Check, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField, TextField } from '../../ui/Field'
@@ -21,14 +21,14 @@ import { Thread } from '../school/Messages'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { useMyAnnouncements, useMyClasses, useMyId } from './parentData'
 
-interface Kid { id: string; full_name: string; preferred_name: string | null }
+interface Kid { id: string; full_name: string; preferred_name: string | null; gender?: string | null }
 const first = (k: Kid) => k.preferred_name ?? k.full_name.split(' ')[0]!
 
 /** This parent's own children (a staff member may be a parent too). */
 function useMyKids() {
   const me = useMyId()
   return useLive<Kid>(['children', 'guardianships'], () =>
-    supabase.from('children').select('id, full_name, preferred_name, guardianships!inner(guardian_id)').eq('active', true).eq('guardianships.guardian_id', me ?? '').order('full_name'), [me])
+    supabase.from('children').select('id, full_name, preferred_name, gender, guardianships!inner(guardian_id)').eq('active', true).eq('guardianships.guardian_id', me ?? '').order('full_name'), [me])
 }
 
 // ---- Updates ------------------------------------------------------------------------------------------------------------
@@ -187,7 +187,7 @@ function PersonSheet({ me, onClose, onSaved }: { me: string; onClose: () => void
     }
   }
   return (
-    <Sheet open onClose={onClose} title="Add a person" description="Someone outside the family who sometimes collects, like a driver. Family is added by the school.">
+    <Sheet open onClose={onClose} title="Add a person" description="Someone outside the family, like a driver.">
       <div className="grid gap-4">
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -235,7 +235,7 @@ export function AbsenceSheet({ kids, initialChild, onClose, onSaved }: { kids: K
     </fieldset>
   )
   return (
-    <Sheet open onClose={onClose} title="Report an absence" description="The school sees it straight away, and that day's drop-off and pickup are cancelled.">
+    <Sheet open onClose={onClose} title="Report an absence" description="The school is told at once; that day's trips are cancelled.">
       <div className="grid gap-5">
         {kids.length > 1 && chips('Child', kids.map((x) => [x.id, first(x)]), child, setChild)}
         {chips('When', [[today, 'Today'], [tomorrow, `Tomorrow, ${tomorrowLabel}`]], day, setDay)}
@@ -304,7 +304,7 @@ export function ParentAccount() {
               : family.map((f) => row(`${f.child_id}-${f.full_name}`, <Avatar name={f.full_name} color={f.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />, f.full_name,
                 `${f.relation} of ${kidName(f.child_id)}${f.abroad ? ', lives outside India' : ''}${f.has_app ? ', has the app' : ''}`, f.abroad ? <Globe className="size-5 text-ink-3" aria-hidden /> : undefined))}
           </div>
-          <p className="mt-2 text-caption font-semibold text-ink-3">They collect from the gate like you do. Only the school can add family: call the school to change this list.</p>
+          <p className="mt-2 text-caption font-semibold text-ink-2">They collect from the gate like you do. Only the school can add family: call the school to change this list.</p>
         </section>
 
         <section aria-labelledby="saved-h">

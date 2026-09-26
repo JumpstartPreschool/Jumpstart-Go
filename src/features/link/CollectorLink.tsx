@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react'
-import { useParams } from 'react-router'
-import { Check, CircleCheck, Clock, FlaskConical, Hand, House, KeyRound, Link2, Lock, MapPin, MonitorSmartphone, Navigation, Phone, RotateCcw, ShieldCheck, Timer } from 'lucide-react'
+import { useParams, Link } from 'react-router'
+import { Check, CircleCheck, Clock, Hand, House, KeyRound, Link2, Lock, MapPin, MonitorSmartphone, Navigation, Phone, RotateCcw, ShieldCheck, Timer } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { CodeTiles } from '../../ui/CodeTiles'
 import { Logo, Mascot } from '../../ui/Logo'
@@ -9,11 +9,10 @@ import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { formatTime, indiaClock } from '../../domain/time'
-import { DEMO_AVAILABLE, enterDemo, isDemo } from '../../demo/demo'
 import { explainTripError } from '../trips/api'
 import { clockTime } from '../trips/rules'
 import { distanceM, formatDistance, SCHOOL, type Point } from '../trips/geo'
-import { linkConfirm, linkHome, linkLate, linkOpen, linkShare, linkStatus, locationHelp, useSendLocation, useSimulatedTrip, type LinkSummary } from '../trips/tracking'
+import { linkConfirm, linkHome, linkLate, linkOpen, linkShare, linkStatus, locationHelp, useSendLocation, type LinkSummary } from '../trips/tracking'
 
 const TripMap = lazy(() => import('../../ui/TripMap'))
 
@@ -73,7 +72,6 @@ function Page({ pill, children }: { pill?: ReactNode; children: ReactNode }) {
           {pill}
         </header>
         <div className="page-in mt-4 grid flex-1 content-start gap-5 md:content-center">{children}</div>
-        {isDemo() && <p className="mt-6 flex items-center justify-center gap-1.5 text-caption font-bold text-ink-3"><FlaskConical className="size-4" aria-hidden />Demo · sample data</p>}
       </div>
     </main>
   )
@@ -145,14 +143,11 @@ function LateSheet({ open, onClose, token, link, onDone }: { open: boolean; onCl
  */
 export default function CollectorLink() {
   const { token = '' } = useParams()
-  // Demo links work on localhost without the real database (development and design builds only).
-  if (DEMO_AVAILABLE && token.startsWith('demo_') && !isDemo()) enterDemo()
   const { state, setState, reload } = useLink(token)
   const [local, setLocalState] = useState<Local>(() => readLocal(token))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [late, setLate] = useState(false)
-  const [simulate, setSimulate] = useState(false)
   const [last4, setLast4] = useState('')
   const [triesLeft, setTriesLeft] = useState<number | null>(null)
   const toast = useToast()
@@ -167,8 +162,7 @@ export default function CollectorLink() {
   const travelling = !!link && state.kind === 'open' && state.mine && local.started && local.loc === true
     && (link.status === 'en_route' || (link.status === 'handed_over' && !link.home_at))
   const send = (points: Point[]) => linkShare(token, points)
-  const gps = useSendLocation(travelling && !simulate, send)
-  useSimulatedTrip(travelling && simulate, send)
+  const gps = useSendLocation(travelling, send)
 
   async function run(fn: () => Promise<void>) {
     setBusy(true)
@@ -196,8 +190,8 @@ export default function CollectorLink() {
   }
   if (state.kind === 'ended') {
     return state.reason === 'in_use'
-      ? <Ended title="This link is open on another phone">For safety a pickup link works on one phone only. If that was you on a different phone, use that phone, or ask the parent to send a new link.</Ended>
-      : <Ended title="This link has ended">It was cancelled, replaced by a newer link, or the trip is over. If you still need to collect the child, ask the parent to send a new link.</Ended>
+      ? <Ended title="This link is open on another phone">A pickup link works on one phone only. Use that phone, or ask the parent for a new link.</Ended>
+      : <Ended title="This link has ended">It was cancelled, replaced or the trip is over. Ask the parent for a new link.</Ended>
   }
 
   const l = state.link
@@ -246,7 +240,7 @@ export default function CollectorLink() {
           {error && <Notice tone="danger">{error}</Notice>}
           <Button type="submit" size="xl" className="w-full" icon={<Check />} loading={busy} disabled={last4.length !== 4}>Yes, that's me</Button>
         </form>
-        <p className="-mt-2 text-center text-caption font-semibold text-ink-3">Confirming locks this link to this phone.</p>
+        <p className="-mt-2 text-center text-caption font-semibold text-ink-2">Confirming locks this link to this phone. <Link to="/privacy" className="underline underline-offset-2">Privacy</Link></p>
       </Page>
     )
   }
@@ -266,7 +260,7 @@ export default function CollectorLink() {
           onClick={() => void run(async () => { await linkHome(token); setLocal({ closed: true }); toast('The family has been told you are home.') })}>
           Reached home
         </Button>
-        <p className="-mt-2 text-center text-caption font-semibold text-ink-3">This stops location sharing and closes the link.</p>
+        <p className="-mt-2 text-center text-caption font-semibold text-ink-2">This stops location sharing and closes the link.</p>
       </Page>
     )
   }
@@ -282,9 +276,9 @@ export default function CollectorLink() {
           <h1 className="text-h1 text-balance">Share your location on the way?</h1>
         </div>
         <ul className="card grid gap-3 rounded-2xl p-5">
-          <Bullet icon={<Check />}>{l.child}'s family and the gate see when you're close, so {l.child} is ready.</Bullet>
-          <Bullet icon={<Check />}>The school sees it only until {l.child} is handed over.</Bullet>
-          <Bullet icon={<Check />}>It stops when you tap Reached home, or an hour after the handover.</Bullet>
+          <Bullet icon={<Check />}>Only the parent who sent you this link sees where you are. The school doesn't.</Bullet>
+          <Bullet icon={<Check />}>It's only for this trip, and stops when you tap Reached home or an hour after the handover.</Bullet>
+          <Bullet icon={<Check />}>You can say no: you'll still collect {l.child} with the code at the gate.</Bullet>
         </ul>
         <div className="grid gap-2.5">
           <Button size="xl" icon={<MapPin />} onClick={() => setLocal({ loc: true })}>Allow location</Button>
@@ -320,7 +314,7 @@ export default function CollectorLink() {
       <Page pill={<Pill tone="accent" icon={<Hand />}>At the gate</Pill>}>
         <h1 className="text-h1">Show this code at the gate</h1>
         <div className="card rounded-2xl px-4 py-8"><CodeTiles code={code} size="xl" /></div>
-        <p className="text-body text-ink-2">The coordinator types it on the iPad, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
+        <p className="text-body text-ink-2">The coordinator types it into the gate tablet, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
         {l.locked ? <Notice tone="danger" icon={<Lock />}>The handover is locked after three wrong codes. Please ask the coordinator to call the parent.</Notice>
           : <Pill tone="accent" className="justify-self-start"><span className="size-2 animate-pulse rounded-full bg-current" aria-hidden />Waiting for the coordinator</Pill>}
         <Button variant="quiet" onClick={() => setLocal({ atGate: false })}>Back</Button>
@@ -333,9 +327,9 @@ export default function CollectorLink() {
   const fix = gps.lastFix
   const away = fix && fix.accuracy <= 100 ? distanceM(fix, SCHOOL) : null
   return (
-    <Page pill={travelling ? <Pill tone="live" icon={<span className="size-2 animate-pulse rounded-full bg-current" />}>{simulate ? 'Simulated' : 'Sharing'}</Pill> : <Pill>Location off</Pill>}>
+    <Page pill={travelling ? <Pill tone="live" icon={<span className="size-2 animate-pulse rounded-full bg-current" />}>Sharing</Pill> : <Pill>Location off</Pill>}>
       <h1 className="text-h1">On the way to Jumpstart</h1>
-      {travelling && fix && !simulate ? (
+      {travelling && fix ? (
         <div className="relative h-[34dvh] min-h-[220px] overflow-hidden rounded-2xl ring-1 ring-line">
           <Suspense fallback={<div className="absolute inset-0 animate-pulse bg-sunken" />}>
             <TripMap className="absolute inset-0" route={[]} progressIndex={0} position={[fix.lng, fix.lat]} freshness="live"
@@ -346,9 +340,10 @@ export default function CollectorLink() {
       {travelling ? (
         gps.error === 'denied' ? <Notice tone="warning">Location is blocked for this site. {locationHelp()} The gate still knows you're coming.</Notice>
           : gps.error === 'unavailable' ? <Notice tone="info">Your phone can't find its location right now. It keeps trying.</Notice>
+          : gps.error === 'ended' ? <Notice tone="info">This trip is finished, so sharing has stopped. You can close this page.</Notice>
           : <p className="flex items-center gap-3 rounded-xl bg-recent-soft px-4 py-3 text-small font-bold text-recent"><MonitorSmartphone className="size-5 shrink-0" aria-hidden />
-              {simulate ? 'Simulated drive for the demo.' : away !== null ? `${formatDistance(away)} from the gate. ` : 'Finding your location. '}Keep this page open so the family sees you coming.</p>
-      ) : <Notice tone="info">Location is off. The gate still knows you're coming at about {clockTime(l.arrive_at)}.</Notice>}
+              {away !== null ? `${formatDistance(away)} from the gate. ` : 'Finding your location. '}Keep this page open so the parent sees you coming.</p>
+      ) : <Notice tone="info">Location is off. The school still expects you at about {clockTime(l.arrive_at)}.</Notice>}
       <div className="card flex items-center justify-between gap-4 rounded-2xl p-5">
         <div><p className="kicker flex items-center gap-1.5"><Clock className="size-4" aria-hidden />Arriving</p><p className="mt-1 text-h2 tabular-nums">About {clockTime(l.arrive_at)}</p></div>
         <div className="text-right"><p className="kicker">Your code</p><p className="mt-1 text-h2 tracking-[0.14em] tabular-nums">{code}</p></div>
@@ -357,10 +352,9 @@ export default function CollectorLink() {
       <Button size="xl" className="w-full" icon={<Hand />} onClick={() => setLocal({ atGate: true })}>I'm at the gate</Button>
       <div className="grid grid-cols-2 gap-2.5">
         <Button variant="sunshine" icon={<Timer />} onClick={() => setLate(true)}>Running late</Button>
-        {local.loc ? <Button variant="secondary" onClick={() => { setSimulate(false); setLocal({ loc: false }) }}>Stop sharing</Button>
+        {local.loc ? <Button variant="secondary" onClick={() => setLocal({ loc: false })}>Stop sharing</Button>
           : <Button variant="secondary" icon={<MapPin />} onClick={() => setLocal({ loc: true })}>Share location</Button>}
       </div>
-      {isDemo() && local.loc && !simulate && <Button variant="quiet" icon={<FlaskConical />} onClick={() => setSimulate(true)}>Demo: simulate the drive</Button>}
       {callSchool}
       {late && <LateSheet open onClose={() => setLate(false)} token={token} link={l} onDone={(next) => { setState({ kind: 'open', link: next, mine: true }); setLate(false) }} />}
     </Page>

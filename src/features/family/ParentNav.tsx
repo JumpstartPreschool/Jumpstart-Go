@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { Bell, CalendarDays, MessageSquare, UserRound } from 'lucide-react'
+import { Bell, CalendarDays, MessageSquare, UserRound } from '../../ui/icons'
 import { useMyAnnouncements } from './parentData'
 
 export const PARENT_PAGES = [

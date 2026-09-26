@@ -15,9 +15,15 @@ group('the audit log in words', () => {
   it('says who changed access, and skips the first sign-in link', () => {
     expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', app_access: true }, { full_name: 'Neha Shah', app_access: false }), names)).toEqual({ what: 'Turned off app access for Neha Shah', detail: 'Signed out everywhere' })
     expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', user_id: null }, { full_name: 'Neha Shah', user_id: 'u' }), names)).toBeNull()
+    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'whatsapp' }), names)?.what).toBe('Invited Neha Shah by WhatsApp')
   })
   it('names roles and classes the school way', () => {
     expect(describe(row('staff_roles', 'insert', null, { profile_id: 'p1', role: 'pro' }), names)?.what).toBe('Sunita Pawar is now Front desk')
     expect(describe(row('coordinator_classes', 'delete', { profile_id: 'p1', class_id: 'c' }, null), names)?.what).toBe('Sunita Pawar no longer covers Nursery')
+  })
+  it('tells a new class and programme from changed timings', () => {
+    expect(describe(row('classes', 'insert', null, { name: 'Toddlers' }), names)?.what).toBe('Added the class Toddlers')
+    expect(describe(row('programmes', 'insert', null, { name: 'Toddlers · Mornings' }), names)?.what).toBe('Added the programme Toddlers · Mornings')
+    expect(describe(row('programmes', 'update', { name: 'Toddlers · Mornings' }, { name: 'Toddlers · Mornings' }), names)?.what).toBe('Changed the timings of Toddlers · Mornings')
   })
 })

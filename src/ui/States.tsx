@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CircleAlert, CircleCheck, Info, RotateCcw, TriangleAlert, WifiOff } from 'lucide-react'
+import { CircleAlert, CircleCheck, Info, RotateCcw, TriangleAlert, WifiOff } from './icons'
 import { Button } from './Button'
 import { Mascot } from './Logo'
 

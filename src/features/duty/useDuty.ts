@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
+import { listPronunciations } from '../admin/api'
+import { setPronunciations } from './pronunciation'
 import { chime, deviceOutput, soundSupported, speak, stopSound, unlockSound } from './sound'
 import { createWakeLock } from './wakeLock'
 import { now } from '../../lib/clock'
@@ -60,6 +62,8 @@ export function useDuty() {
   /** Must be called directly from the Start duty tap: iPadOS only unlocks sound inside a user gesture. */
   const start = useCallback(() => {
     unlockSound()
+    // The school's pronunciation list (D43); without it names are simply said as written.
+    void listPronunciations().then(setPronunciations, () => {})
     void wake.start()
     setTestsPlayed(0)
     setPhase('check')

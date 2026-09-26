@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from 'lucide-react'
+import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
-import { FreshnessBadge } from '../../ui/FreshnessBadge'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { ErrorState, Notice, SkeletonList } from '../../ui/States'
@@ -14,16 +13,14 @@ import { onTableChange } from '../../lib/live'
 import { useSession } from '../auth/session'
 import { explainTripError, gateStep, useTodayTrips, type GateStep, type Trip } from '../trips/api'
 import { clockTime } from '../trips/rules'
-import { formatDistance, positionOf, type Position } from '../trips/geo'
 import { formatMobile } from '../../domain/contact'
-import { useLatestPoints } from '../trips/tracking'
-import { formatAge } from '../../domain/freshness'
 import { CodeSheet } from './CodeSheet'
 import { ExpectedLists } from './GateExtras'
 import { Tabs } from '../../ui/Tabs'
 import { CallSheet } from '../school/CallSheet'
 import { useSchoolDay } from '../school/useSchoolDay'
-import { PRIORITY, type Announcer } from './announcer'
+import { NEW_LEAD, PRIORITY, type Announcer } from './announcer'
+import { deviceOutput } from './sound'
 import { cancelledText, shouldAnnounce, spokenText, type GateChild } from './gate'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
@@ -37,16 +34,16 @@ function useGateData() {
   const [error, setError] = useState(false)
   const load = useCallback(async () => {
     const [kids, people, assigned] = await Promise.all([
-      supabase.from('children').select('id, full_name, preferred_name, class_id, classes(name), programmes(name), guardianships(guardian_id, relation, kind)').eq('active', true),
+      supabase.from('children').select('id, full_name, preferred_name, gender, class_id, classes(name), programmes(name), guardianships(guardian_id, relation, kind)').eq('active', true),
       supabase.from('profiles').select('id, full_name, active, abroad'),
       supabase.from('coordinator_classes').select('profile_id, class_id'),
     ])
     if (kids.error || people.error || assigned.error) return setError(true)
     setError(false)
     const names = new Map((people.data ?? []).map((p) => [p.id as string, p as { id: string; full_name: string; active: boolean; abroad: boolean }]))
-    type Kid = { id: string; full_name: string; preferred_name: string | null; class_id: string; classes: { name: string } | null; programmes: { name: string } | null; guardianships: Array<{ guardian_id: string; relation: string; kind: 'parent' | 'family' }> }
+    type Kid = { id: string; full_name: string; preferred_name: string | null; gender: string | null; class_id: string; classes: { name: string } | null; programmes: { name: string } | null; guardianships: Array<{ guardian_id: string; relation: string; kind: 'parent' | 'family' }> }
     const children = new Map(((kids.data ?? []) as unknown as Kid[]).map((c) => [c.id, {
-      id: c.id, name: c.preferred_name ?? c.full_name.split(' ')[0]!, fullName: c.full_name, classId: c.class_id,
+      id: c.id, name: c.preferred_name ?? c.full_name.split(' ')[0]!, gender: c.gender, fullName: c.full_name, classId: c.class_id,
       className: c.classes?.name ?? '', programmeName: c.programmes?.name ?? '',
       guardians: c.guardianships.map((g) => ({ id: g.guardian_id, name: names.get(g.guardian_id)?.full_name ?? 'Guardian', relation: g.relation, active: names.get(g.guardian_id)?.active ?? false, kind: g.kind ?? 'parent', abroad: names.get(g.guardian_id)?.abroad ?? false })),
     }]))
@@ -72,7 +69,6 @@ function nextStep(t: Trip): { step: GateStep | 'handover'; label: string; icon: 
 const relationName = (t: Trip) => [t.traveller_relation, t.traveller_name.split(' ')[0]].filter(Boolean).join(', ')
 
 /** "1.2 km away" or "At the gate": straight-line, never a time (no route or traffic). */
-const awayText = (p: Position) => (p.away === null ? 'Approximate' : p.away < 150 ? 'At the school' : `${formatDistance(p.away)} away`)
 
 /**
  * The live gate queue on the coordinator's iPad (J4, J5, ANN-1): today's drop-offs and pickups as they come in,
@@ -110,9 +106,24 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     }
   }, [trips.trips, scope, gate.data])
 
-  // Where people on the way are (only while the trip is open; staff never see points after the handover).
-  const points = useLatestPoints((trips.trips ?? []).filter((t) => t.status === 'en_route').map((t) => t.id))
-  const posOf = (t: Trip) => positionOf(points.get(t.id), nowMs)
+  // The gate never sees anyone's location (D38): only the expected time, and the steps at the gate.
+
+  // Trips this tablet may still have to announce (another class's, said here if nobody answers in 2 minutes) get their
+  // audio ready now, so the studio voice starts without a pause. Its own classes are announced at once, and the
+  // announcer readies queued ones itself. Three at a time, soonest first, so few credits go on words never said.
+  useEffect(() => {
+    if (!trips.trips || !gate.data) return
+    const upcoming = trips.trips
+      .filter((t) => t.status === 'en_route' && !t.acknowledged_at && !announced.current.has(t.id))
+      .sort((a, b) => Date.parse(a.arrive_at) - Date.parse(b.arrive_at))
+    let prepared = 0
+    for (const t of upcoming) {
+      const child = gate.data.children.get(t.child_id)
+      if (!child) continue
+      deviceOutput.prepare?.(NEW_LEAD + spokenText(t, child))
+      if (++prepared === 3) break
+    }
+  }, [trips.trips, gate.data])
 
   // Announcements follow the trips: new or changed ones play (the class's own coordinators first); seen ones stop repeating.
   useEffect(() => {
@@ -167,7 +178,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   }
 
   if (trips.error || gate.error) {
-    return <ErrorState title="Couldn't load the queue" onRetry={() => { void trips.reload(); void gate.reload() }}>Check the iPad's connection. Announcements pause until it's back.</ErrorState>
+    return <ErrorState title="Couldn't load the queue" onRetry={() => { void trips.reload(); void gate.reload() }}>Check this device's connection. Announcements pause until it's back.</ErrorState>
   }
   if (!trips.trips || !gate.data) return <SkeletonList count={3} className="grid gap-3" />
 
@@ -179,7 +190,6 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     const done = t.status !== 'en_route'
     const n = done ? null : nextStep(t)
     const mine = c ? gate.data!.myClasses.has(c.classId) : false
-    const pos = done ? null : posOf(t)
     return (
       <li>
         <div className={`card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 pr-3.5 transition-shadow duration-200 ${selected?.id === t.id ? 'shadow-[0_0_0_2px_var(--accent),var(--shadow-card)]' : ''} ${done ? 'opacity-70' : ''}`}>
@@ -199,8 +209,6 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {!done && t.ready_at && <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>}
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
                 {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
-                {pos && pos.state !== 'unavailable' && <FreshnessBadge state={pos.state} age={pos.ageMs !== null ? formatAge(pos.ageMs) : undefined} />}
-                {pos && pos.state !== 'unavailable' && <Pill icon={<MapPin />}>{awayText(pos)}</Pill>}
                 {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
                 {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>No coordinator</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
               </span>
@@ -240,7 +248,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       {/* The chosen trip, side by side on iPad landscape and desktop. */}
       <aside className="card sticky top-[calc(env(safe-area-inset-top)+180px)] hidden rounded-2xl p-6 lg:block" aria-label="Details">
         {selected && detailChild ? (
-          <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} pos={posOf(selected)} locked={locked.has(selected.id)} onStep={(s) => (s === 'handover' ? openHandover(selected) : void act(selected, s))} />
+          <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} locked={locked.has(selected.id)} onStep={(s) => (s === 'handover' ? openHandover(selected) : void act(selected, s))} />
         ) : (
           <div className="grid justify-items-center gap-2 py-8 text-center text-body text-ink-2">
             <School className="size-10 text-ink-3" aria-hidden />
@@ -250,7 +258,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       </aside>
 
       <Sheet open={!!handover} onClose={() => setHandover(null)} title={handover ? `Hand over ${children.get(handover.child_id)?.name ?? ''}` : 'Hand over'}
-        description="Who is collecting? Only the parents and family the school has added are listed. Anyone else needs a link and a code from a parent.">
+        description="Only family the school has added. Anyone else needs a parent's link.">
         {handover && (
           <div className="grid gap-2.5">
             {(['parent', 'family'] as const).map((kind) => {
@@ -278,7 +286,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       </Sheet>
       <div className="lg:hidden">
         <Sheet open={!!picked && !!selected && !!detailChild} onClose={() => setPicked(null)} title={detailChild?.fullName ?? 'Details'}>
-          {selected && detailChild && <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} pos={posOf(selected)} locked={locked.has(selected.id)} onStep={(s) => { if (s === 'handover') { setPicked(null); openHandover(selected) } else void act(selected, s) }} />}
+          {selected && detailChild && <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} locked={locked.has(selected.id)} onStep={(s) => { if (s === 'handover') { setPicked(null); openHandover(selected) } else void act(selected, s) }} />}
         </Sheet>
       </div>
       {calling && school.children && <CallSheet open onClose={() => setCalling(false)} children={school.children} nowMs={nowMs} onLogged={() => { school.reload(); void trips.reload() }} />}
@@ -296,7 +304,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   )
 }
 
-function TripDetail({ trip, child, busy, pos, locked, onStep }: { trip: Trip; child: GateChild & { guardians: Guardian[] }; busy: boolean; pos: Position; locked: boolean; onStep: (s: GateStep | 'handover') => void }) {
+function TripDetail({ trip, child, busy, locked, onStep }: { trip: Trip; child: GateChild & { guardians: Guardian[] }; busy: boolean; locked: boolean; onStep: (s: GateStep | 'handover') => void }) {
   const third = trip.traveller_kind === 'third_person'
   const who = trip.traveller_name.split(' ')[0]!
   const done = trip.status !== 'en_route'
@@ -321,12 +329,6 @@ function TripDetail({ trip, child, busy, pos, locked, onStep }: { trip: Trip; ch
         {fact('Arrives', `about ${clockTime(trip.arrive_at)}`)}
         {fact('Coming', relationName(trip) || trip.traveller_name)}
       </div>
-      {!done && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-sunken px-3.5 py-2.5">
-          <FreshnessBadge state={pos.state} age={pos.ageMs !== null && pos.state !== 'unavailable' ? formatAge(pos.ageMs) : undefined} />
-          <span className="text-small font-semibold text-ink-2">{pos.state === 'unavailable' ? 'Not sharing location' : awayText(pos)}</span>
-        </div>
-      )}
       {third && !done && (
         <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} ({trip.traveller_relation?.toLowerCase() ?? 'not family'}) isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone, and check their ID if you don't know them.</Notice>
       )}

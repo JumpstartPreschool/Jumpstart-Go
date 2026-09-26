@@ -15,6 +15,7 @@ export interface SchoolChild {
   id: string
   fullName: string
   first: string
+  gender?: string | null
   classId: string
   className: string
   programmeRow: ProgrammeRow | null
@@ -26,10 +27,10 @@ export interface SchoolChild {
 }
 
 type Row = {
-  id: string; full_name: string; preferred_name: string | null; class_id: string; classes: { name: string } | null; programmes: ProgrammeRow | null
+  id: string; full_name: string; preferred_name: string | null; gender: string | null; class_id: string; classes: { name: string } | null; programmes: ProgrammeRow | null
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>; guardianships: Array<{ guardian_id: string; relation: string; kind: 'parent' | 'family' }>
 }
-const FIELDS = 'id, full_name, preferred_name, class_id, classes(name), programmes(id, name, class_id, flexible, extended, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships(guardian_id, relation, kind)'
+const FIELDS = 'id, full_name, preferred_name, gender, class_id, classes(name), programmes(id, name, class_id, flexible, extended, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships(guardian_id, relation, kind)'
 
 /**
  * Every child's day for the office (the board, the front desk): children with their programme, regular times and
@@ -64,7 +65,7 @@ export function useSchoolDay() {
     const regular = c.child_schedules.find((s) => s.weekday === weekday) ?? null
     const mine = trips.trips!.filter((t) => t.child_id === c.id)
     return {
-      id: c.id, fullName: c.full_name, first: c.preferred_name ?? c.full_name.split(' ')[0]!, classId: c.class_id, className: c.classes?.name ?? '',
+      id: c.id, fullName: c.full_name, first: c.preferred_name ?? c.full_name.split(' ')[0]!, gender: c.gender, classId: c.class_id, className: c.classes?.name ?? '',
       programmeRow: c.programmes, programme, regular, trips: mine,
       guardians: c.guardianships.map((g) => ({ ...(people!.get(g.guardian_id) ?? { id: g.guardian_id, full_name: 'Someone no longer listed', phone: null, email: null, abroad: false, app_access: false }), relation: g.relation, kind: g.kind ?? 'parent' })),
       day: childDay({ programme, regular, trips: mine, attendance: attendance.rows!.find((a) => a.child_id === c.id) ?? null, times: times.rows!.filter((t) => t.child_id === c.id) }),

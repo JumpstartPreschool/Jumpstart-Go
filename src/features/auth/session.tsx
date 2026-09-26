@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
-import { leaveDemo } from '../../demo/demo'
 
 export type Area = 'admin' | 'core' | 'pro' | 'coordinator' | 'parent'
 export type StaffRole = 'admin' | 'core' | 'coordinator' | 'pro'
@@ -25,7 +24,8 @@ export const chooseArea = {
 }
 
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
-export const CONSENT_VERSION = '2026-09-24'
+// Raised when what parents agree to changes, so everyone is asked again (2026-09-26: names go to ElevenLabs for gate announcements, D43).
+export const CONSENT_VERSION = '2026-09-26'
 
 /** The areas a person may open, most senior first (their home is the first one). */
 export function areasFor(me: Me): Area[] {
@@ -76,7 +76,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
-    leaveDemo()
     setState({ status: 'signed-out' })
   }, [])
 

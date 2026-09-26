@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Megaphone, Send, Users } from 'lucide-react'
+import { Megaphone, Send, Users } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
@@ -53,7 +53,7 @@ export function Announce({ area }: { area: Area }) {
 
   const className = (id: string | null) => (id ? classes.find((c) => c.id === id)?.name ?? 'a class' : 'All')
   return (
-    <AreaShell area={area} title="Announcements" subtitle="Parents get it on their phones straight away. There is no approval step.">
+    <AreaShell area={area} title="Announcements" subtitle="Parents get it on their phones at once.">
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <form className="card grid gap-4 rounded-2xl p-5 sm:p-6" onSubmit={(e) => { e.preventDefault(); void send() }} noValidate>
           <fieldset>

@@ -32,3 +32,6 @@ export function formatMobile(e164: string): string {
 
 /** Opens WhatsApp (app or web) with the message ready to send to that number. */
 export const whatsappUrl = (e164: string, text: string) => `https://wa.me/${e164.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
+
+/** Opens the phone's Messages app with the text ready to send. `?&body=` works on both iPhone and Android. */
+export const smsUrl = (e164: string, text: string) => `sms:${e164}?&body=${encodeURIComponent(text)}`

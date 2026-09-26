@@ -5,7 +5,9 @@
  */
 import type { ProgrammeRow } from './api'
 
-export type LevelKey = 'Playgroup' | 'Nursery' | 'Jr KG' | 'Sr KG' | 'Learning Center' | 'After School Program' | 'Preschool Readiness Program'
+export type KnownLevel = 'Playgroup' | 'Nursery' | 'Jr KG' | 'Sr KG' | 'Learning Center' | 'After School Program' | 'Preschool Readiness Program'
+/** A class name: one of the school's own, or one the admin added (D35). */
+export type LevelKey = KnownLevel | (string & {})
 
 export interface Level {
   key: LevelKey
@@ -18,7 +20,7 @@ export interface Level {
   standalone: boolean
 }
 
-export const LEVELS: Level[] = [
+export const LEVELS: Array<Level & { key: KnownLevel }> = [
   { key: 'Playgroup', label: 'Playgroup', ages: '2–3 years', months: [24, 36], blurb: 'Independent learners, social skills and motor skills.', standalone: false },
   { key: 'Nursery', label: 'Nursery', ages: '3–4 years', months: [36, 48], blurb: 'Learning through exploration and early academic readiness.', standalone: false },
   { key: 'Jr KG', label: 'Jr KG', ages: '4–5 years', months: [48, 60], blurb: 'Logic, reasoning and more focus on academic readiness.', standalone: false },
@@ -50,7 +52,15 @@ export function planRank(plan: string | null): number {
 
 export function levelOf(programme: ProgrammeRow): { level: LevelKey; plan: string | null } {
   const [level, plan] = programme.name.split(' · ') as [string, string | undefined]
-  return { level: level as LevelKey, plan: plan ?? null }
+  return { level, plan: plan ?? null }
+}
+
+/** A class's description: the school's own, or a plain one for a class the admin added (no ages to suggest from). */
+export function levelInfo(key: LevelKey, programmes: ProgrammeRow[]): Level {
+  return LEVELS.find((l) => l.key === key) ?? {
+    key, label: key, ages: '', months: [0, 0], blurb: '',
+    standalone: programmes.filter((p) => levelOf(p).level === key).length === 1 && !programmes.some((p) => p.name.startsWith(`${key} · `)),
+  }
 }
 
 /** Age in whole months on a date (for the level suggestion). */

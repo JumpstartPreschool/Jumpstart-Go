@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createAnnouncer, PRIORITY, type Announcement } from './announcer'
+import { createAnnouncer, NEW_LEAD, PRIORITY, REPEAT_LEAD, type Announcement } from './announcer'
 
 function fakeOutput() {
   const played: string[] = []
@@ -26,7 +26,7 @@ describe('announcer', () => {
     ann.announce(a('new-2', PRIORITY.newRequest))
     await vi.advanceTimersByTimeAsync(20_000)
     // The first one had already started when the others arrived; after that, priority decides.
-    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['arriving', 'flag', 'new-1', 'new-2'])
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['arriving', 'flag', 'new-1', 'new-2'].map((t) => NEW_LEAD + t))
     expect(out.played).toContain('chime:flagged')
   })
 
@@ -63,7 +63,7 @@ describe('announcer', () => {
     ann.announce(a('one', PRIORITY.newRequest))
     ann.announce(a('two', PRIORITY.newRequest))
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(out.speak).toHaveBeenCalledWith('two')
+    expect(out.speak).toHaveBeenCalledWith(NEW_LEAD + 'two')
   })
 
   it('reports what is speaking and how many are waiting', async () => {
@@ -111,7 +111,22 @@ describe('acknowledging what is being said', () => {
     ann.subscribe((st) => { muted = st.mutedUntil })
     expect(muted).not.toBeNull()
     await vi.advanceTimersByTimeAsync(300_000)
-    expect(said).toEqual(['new-1'])
+    // Cut off by Mute, so it wasn't heard: it's still new when it replays.
+    expect(said).toEqual([NEW_LEAD + 'new-1'])
+    vi.useRealTimers()
+  })
+
+  it('says "New announcement" the first time, "Reminder" on repeats, and new again when the request changes', async () => {
+    vi.useFakeTimers()
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.announce(a('trip-1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(3_000)
+    await vi.advanceTimersByTimeAsync(121_000)
+    ann.announce({ ...a('trip-1', PRIORITY.runningLate), text: 'running late' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual([NEW_LEAD + 'trip-1', REPEAT_LEAD + 'trip-1', NEW_LEAD + 'running late'])
+
     vi.useRealTimers()
   })
 })

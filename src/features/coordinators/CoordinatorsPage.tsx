@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BellRing, Check, Plus, School, TriangleAlert, UserMinus, UsersRound } from 'lucide-react'
+import { BellRing, Check, Plus, School, TriangleAlert, UserMinus, UsersRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
@@ -69,7 +69,7 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
 
   return (
     <AreaShell area={area} title="Coordinators"
-      subtitle="Choose who works the gate and which classes they look after. A pickup or drop-off is announced on the iPads of that class's coordinators. If none of them is on duty, it goes to every coordinator on duty."
+      subtitle="Who works the gate, and which classes they hear."
       actions={data && <Button icon={<Plus />} onClick={() => setAdding(true)}>Add coordinator</Button>}>
       {loadError ? (
         <div className="mt-6"><ErrorState title="Couldn't load coordinators" onRetry={() => void reload()}>{loadError}</ErrorState></div>

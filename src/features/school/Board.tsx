@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CalendarX, Check, Clock, House, MessageSquare, Navigation, Phone, School, Sunrise } from 'lucide-react'
+import { CalendarX, Check, Clock, House, MessageSquare, Navigation, Phone, School, Sunrise } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'

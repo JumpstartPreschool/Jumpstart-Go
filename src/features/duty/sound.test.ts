@@ -23,6 +23,10 @@ describe('announcement voice', () => {
       .sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name
     expect(best).toBe('Google UK English Female')
   })
+  it("an Indian English woman's voice outranks a more polished American one, so names sound right", () => {
+    const best = [v('Ava (Premium)', 'en-US'), v('Tara', 'en-IN'), v('Aman', 'en-IN'), v('Samantha', 'en-US')].sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name
+    expect(best).toBe('Tara')
+  })
   it('tells women and men apart by name', () => {
     expect(voiceGender('Isha (Enhanced)')).toBe('female')
     expect(voiceGender('Microsoft Neerja Online (Natural) - English (India)')).toBe('female')

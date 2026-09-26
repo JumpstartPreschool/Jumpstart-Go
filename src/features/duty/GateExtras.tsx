@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, CalendarX, DoorOpen, UserCheck } from 'lucide-react'
+import { CalendarClock, CalendarX, DoorOpen, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -40,7 +40,7 @@ function WalkInSheet({ c, direction, onClose, onDone }: { c: SchoolChild; direct
   }
   if (direction === 'dropoff') {
     return (
-      <Sheet open onClose={onClose} title={`Check in ${c.first}?`} description={`${c.fullName} is at the gate for drop-off. Their parents see it straight away.`}>
+      <Sheet open onClose={onClose} title={`Check in ${c.first}?`} description={`${c.fullName} is at the gate. Parents are told at once.`}>
         {error && <Notice tone="danger" className="mb-4">{error}</Notice>}
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Button variant="secondary" onClick={onClose}>Not yet</Button>
@@ -50,7 +50,7 @@ function WalkInSheet({ c, direction, onClose, onDone }: { c: SchoolChild; direct
     )
   }
   return (
-    <Sheet open onClose={onClose} title={`Hand over ${c.first}`} description="Who is collecting? Only the parents and family the school has added are listed. Anyone else needs a link and a code from a parent.">
+    <Sheet open onClose={onClose} title={`Hand over ${c.first}`} description="Only family the school has added. Anyone else needs a parent's link.">
       <div className="grid gap-2.5">
         {(['parent', 'family'] as const).map((kind) => {
           const list = c.guardians.filter((g) => g.kind === kind)

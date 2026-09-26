@@ -1,6 +1,6 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-25
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-25 (evening)
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
@@ -10,7 +10,6 @@
 - Database migration `0001_foundation.sql`: people, roles, programmes, classes, children, guardians, coordinator classes, regular schedules (checked against programme windows), holidays, attendance, settings, audit log; row-level security on every table. SQL tests for every role (`npm run test:db`).
 - Coordinator duty on iPad: Start duty checklist, sound unlock and sound check, screen kept awake (requested again every time the app returns to the foreground), announcement queue (priority, repeat every 2 min until acknowledged, mute 5 min), offline and screen-may-turn-off banners, end-duty confirmation.
 
-- Design preview for owner review (`/preview`, development builds only, labelled sample data): parent Today with change time, running late and who's picking up; live trip map with the LIVE / RECENT / STALE / UNAVAILABLE states; coordinator gate queue for iPad landscape and portrait with code entry; the third person's link page, step by step.
 
 ## Done in M1
 - Invite-only login enforced by the database (`0002`): profiles exist before sign-in; the first email code links the account; anyone else is refused, verified against the live Supabase project. Deactivation ends access and saved sessions.
@@ -21,12 +20,11 @@
 - Routing and ETA server function with the OpenRouteService key (`supabase/functions/route`, not yet deployed).
 - ~~Rainbow-glass design system~~ replaced (2026-09-24) by the Screen Book v3 design system across the whole app ([design-system.md](../design/design-system.md)): semantic light and dark tokens, Plus Jakarta Sans type scale, solid buttons with a lip, icons for roles and levels, shared components (tabs, fields, choices, pills, sheets with a pinned action, toasts, empty, loading and error states), an offline notice, a skip link, and safe app updates that wait for the person to tap Update. Each staff area now loads on first use. Checked on every page and sheet at 23 screen sizes in light and dark, plus the main admin, coordinator, duty and parent flows in demo mode.
 - Owner-facing explainer: https://claude.ai/artifact/AmiKrGQCV21UHzgL8jGcbu
-- Demo mode (development and design builds only, left out of production): "Try the demo" on the login screen opens Admin, Core team, Coordinator or Parent with a dummy code (246810) that fills itself in, backed by sample data in the browser tab. It never calls the real database, and a "Demo · sample data" pill stays on screen until Exit demo.
 - The owner's account (ai@jumpstartpreschool.in) is invited in the live database with Admin, Core team and Coordinator. The Parent area appears once a real child is linked.
 
 ## Done on 2026-09-25 (branch `claude/jumpstart-app-html-updates-64d27a`, not yet pushed after `cfd1569`)
 - **App is light only for now** (owner). The dark palette waits in `src/styles/tokens.css` under `:root[data-theme='dark']`.
-- **Sign-in like the Screen Book:** demo account chips (Parent, Coordinator, Core team, Admin) in dev/design builds; the demo code fills itself in and the person taps Sign in; "Where would you like to start?" lists each area with what it gives access to (`AreaRoute.tsx`, `session.tsx` `chooseArea`). Real codes are never shown; phones fill them from the email.
+- **Sign-in:** invite only, a 6-digit email code, the email filled in from an invitation link, and every account confirms which area it signs in as.
 - **Announcement voice:** woman's voice by default, human-sounding voices ranked first, robotic ones hidden, a voice picker with samples in Start duty, the check screen and On duty (`sound.ts`, `VoicePicker.tsx`). Sound goes to whatever the iPad is connected to (its speaker or a Bluetooth speaker); web apps can't choose the output.
 - **Trips end to end (on 0006, already live):** parent Today with "I'm on my way", window check and reason, Running late, Change time, Cancel, and live steps (`family/ParentToday.tsx`, `trips/TripSheets.tsx`); coordinator live gate queue with announcements, Acknowledge, Ready, Hand over to a registered guardian, Check in (`duty/GateQueue.tsx`). The demo backend (`demo/demo.ts`) follows the same rules, so it all works on localhost.
 - **Migration 0007** (the owner's 15-minute rule, D24: new windows for all 17 programmes, gate day 08:45–19:15) and **0008** (location points, one-trip links for someone else with a device-bound token and a 4-digit code, handover by code with 3 tries, staff see location only until handover, 30-day purge). Both pass `LC_ALL=C TMPDIR=/tmp npm run test:db` (the long session temp path breaks the Postgres socket otherwise). **Neither is applied to the live database yet.**
@@ -41,7 +39,24 @@
 - **Web push** (`0016`, D33, [notification-architecture.md](../architecture/notification-architecture.md)): outbox and triggers, `push-send`, service worker handler (tested by delivering a push to the built app), switches for parents and staff.
 - **Checks:** `LC_ALL=C TMPDIR=/tmp npm run test:db` (every role, 0007–0018), `npm test` (75), and the browser suites in `scripts/qa/` against `npm run dev` on port 5178: `flows.cjs` (44), `office.cjs` (16), `parent.cjs` (14), `collector.cjs` (18), `trip.cjs` (11), and `qa.cjs <dir> light` (every page and sheet at 23 sizes; 0 issues).
 
+## Done on 2026-09-25, evening (branch `claude/server-data-extraction-review-dd5a64`)
+- **Classes and timings for the admin** (`0019`, D35): Admin → People → Classes adds a class, opens it to list its programmes, adds programmes (name, days, hours) and edits each one's drop-off and pickup by hand. The shared timing editor (`school/ProgrammeSheet.tsx`) starts from the 15-minute rule and offers it back; the core team uses it in Schedules for timings only. Classes the admin adds appear in the programme picker with a plain icon.
+- **Layout fixes found by the sweep:** tab counts spilling out of their tab on phones, button icons pushed out of narrow buttons (parent trip card at every iPad size, pickup-link sheet, programme picker), side-by-side fields sliding out of line next to a hint or error, and time pickers cut off on the smallest phones. `scripts/qa/qa.cjs` now checks for all four: spill, off-centre icons, misaligned fields and cut-off dropdowns.
+- **Checks:** `npm test` (79), `npm run test:db` (with `zz_timings.test.sql`), `scripts/qa/classes.cjs` (18), the other browser suites (103) and `qa.cjs` (0 issues at 23 sizes).
+
+- **Invitations** (`0020`, D36): Invite on every person who hasn't signed in (People and the child page). The email always goes (`invite-send` through Brevo); WhatsApp and SMS from the admin's phone when there's a number. The app's web address is a setting. Pickup links now go by WhatsApp or SMS too. Found and fixed on the way: Settings could lose what the admin was typing when a late load arrived, and a web address without https was blocked by the browser without a message. `scripts/qa/invite.cjs` (10), `supabase/tests/zz_zz_invites.test.sql`.
+- **Sign-in and invitation emails** in the Jumpstart design with the logo: `supabase/templates/` (see environments.md).
+
+- **Production audit** (four parallel reviews: security, location, invitations, UI): `0021` removes the core team's direct writes to programmes, attendance, regular times and holidays (they skipped the function checks), makes the collector-link rate limit actually fire, limits sign-in codes to 5 an hour per email, and adds the daily clean-up promised in the consent notice (trips 30 days, attendance this and last academic year, audit log 1 year). The map shows a clear message when it can't load; sharing stops and says so when a trip ends; a crash shows a Reload screen; faint instructional text is darker; the app is kept out of search (`robots.txt`, `X-Robots-Tag`) except the new Privacy Policy and Terms (`/privacy`, `/terms`); the security policy now lets the natural voice download (it was blocked in production); `invite-send` no longer logs Brevo's error text.
+- **Coordinator start screen** redesigned to fill iPads in both orientations, with today's numbers at the gate. **Announcements** start "New announcement." and repeats "Reminder."; an Indian English woman's voice on the iPad is preferred (names said properly), with how to download Isha when there isn't one.
+- **Bulk upload** (`0022`, D37): Admin → People and Core team → Schedules; CSV or Excel (.xlsx read without a library); `scripts/qa/bulk.cjs` (12).
+
+- **Location only for a one-off collector** (`0024`, D38): parents and family no longer share location; the gate shows none; only the parent who sent the link sees the collector, on a new tracker (live map, distance, freshness, Call). Consent notice version raised, so parents agree again. Sign-in: a quick second request goes straight to the code (Supabase allows one a minute), codes 10 an hour per email (`0023`); the sign-in page has a welcome panel on tablets; privacy and terms updated.
+
+- **Icons and people** (D39, `0025`): `src/ui/icons.tsx` (76 Fluent Color SVG files in `public/iconsc`), `Avatar` with initials on each person's colour, Boy or girl on children (forms, bulk upload).
+
 ## Remaining work (in order)
+0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
 2. **Aditya Tapadia's email** (D27): invite him as the second admin in the database (the app refuses Admin by design).
 3. **Push notifications on:** follow "Turning on push notifications" in [environments.md](../infrastructure/environments.md) (VAPID keys, secrets, deploy `push-send`, `app.push_config`, pg_net and pg_cron). `push-send` hasn't been type-checked with Deno here (not installed); the CLI checks it on deploy.
@@ -50,7 +65,7 @@
 6. Push the branch and merge to `main`.
 
 ## Next
-1. **Owner reviews the design preview and the demo**, and sends changes.
+1. **Owner reviews the live app** and sends changes.
 2. **Real email codes:** in Supabase, add `{{ .Token }}` to the Magic Link email, turn off public sign-ups, and connect a free SMTP sender (Brevo). The built-in sender only mails the Supabase team.
 3. **Test on a real iPad:** Home Screen install, Start duty, the screen staying on for a full shift, and the sound check with Silent Mode on and off.
 4. **Publishing:** give the Cloudflare token Workers Scripts: Edit, then `npm run deploy:design`.

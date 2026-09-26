@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, Trash2, UserPlus, UserRound } from 'lucide-react'
+import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -13,15 +13,25 @@ import { formatMobile } from '../../domain/contact'
 import { formatTime, toMinutes } from '../../domain/time'
 import { childLeft, explainDbError, removeGuardian, setAppAccess, updateChild, type Child, type Directory, type Profile } from './api'
 import { AddGuardianSheet } from './ChildForms'
+import { GenderChoice } from '../../ui/GenderChoice'
+import { InviteSheet, invitedLine } from './InviteSheet'
 import { formatAge, levelOf } from './programmeCatalogue'
-import { LEVEL_ICON, ProgrammePicker } from './ProgrammePicker'
+import { levelIcon, ProgrammePicker } from './ProgrammePicker'
 
 const hm = (t?: string | null) => (t ? formatTime(toMinutes(t.slice(0, 5))) : '')
 
 /** Signed in, invited (not yet signed in), or no app access: said in words and colour. */
-export function AccessState({ person }: { person: Profile }) {
-  const [label, cls] = !person.app_access ? ['No app access', 'text-ink-3'] : person.user_id ? ['Signed in', 'text-live'] : ['Invited', 'text-warning']
-  return <span className={`inline-flex items-center gap-1.5 text-caption font-bold ${cls}`}><span className="size-2 rounded-full bg-current" aria-hidden />{label}</span>
+/** Where someone's app access stands (D36), with Invite for someone who hasn't signed in yet. */
+export function AccessState({ person, onInvite }: { person: Profile; onInvite?: (p: Profile) => void }) {
+  const invited = invitedLine(person)
+  const [label, cls] = !person.app_access ? ['No app access', 'text-ink-3'] : person.user_id ? ['Signed in', 'text-live'] : invited ? [invited, 'text-info'] : ['Not invited yet', 'text-warning']
+  const canInvite = !!onInvite && person.active && person.app_access && !person.user_id
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <span className={`inline-flex items-center gap-1.5 text-caption font-bold ${cls}`}><span className="size-2 rounded-full bg-current" aria-hidden />{label}</span>
+      {canInvite && <Button size="md" variant="secondary" icon={<Send />} aria-label={`${invited ? 'Invite again' : 'Invite'} ${person.full_name}`} onClick={() => onInvite(person)}>{invited ? 'Invite again' : 'Invite'}</Button>}
+    </span>
+  )
 }
 
 /** The confirmation before anything that signs someone out or takes a child off the lists. */
@@ -53,9 +63,10 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
   const people = dir.guardianships.filter((g) => g.child_id === child.id).map((g) => ({ g, p: dir.profiles.find((x) => x.id === g.guardian_id) })).filter((x): x is { g: typeof x.g; p: Profile } => !!x.p)
   const [sheet, setSheet] = useState<null | 'programme' | 'add' | 'edit'>(null)
   const [pending, setPending] = useState<Pending>(null)
+  const [inviting, setInviting] = useState<Profile | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [edit, setEdit] = useState({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth })
+  const [edit, setEdit] = useState({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth, gender: child.gender ?? null })
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
   /** Runs a change, refreshes the page and says so; true when it worked (the error shows in the open sheet otherwise). */
@@ -89,7 +100,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
     if (!edit.dob || edit.dob > new Date().toISOString().slice(0, 10)) e.dob = 'Check the date of birth.'
     setEditErrors(e)
     if (Object.keys(e).length) return
-    void run(() => updateChild(child.id, { full_name: edit.name.trim().replace(/\s+/g, ' '), preferred_name: edit.called.trim() || null, date_of_birth: edit.dob }), 'Saved.')
+    void run(() => updateChild(child.id, { full_name: edit.name.trim().replace(/\s+/g, ' '), preferred_name: edit.called.trim() || null, date_of_birth: edit.dob, gender: edit.gender }), 'Saved.')
   }
 
   const row = ({ g, p }: (typeof people)[number]) => (
@@ -101,7 +112,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
           {g.relation}{p.abroad ? ', lives outside India' : ''}{p.email || p.phone ? `, ${[p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(', ')}` : ''}
         </p>
       </div>
-      <AccessState person={p} />
+      <AccessState person={p} onInvite={setInviting} />
       <Switch on={p.app_access} label={`App access for ${p.full_name}`} busy={busy} onChange={() => toggleAccess(p)} />
       <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => { setError(null); setPending({ kind: 'remove', person: p }) }} />
     </li>
@@ -124,7 +135,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         <section className="card grid gap-4 rounded-2xl p-5" aria-labelledby="class-h">
           <h3 id="class-h" className="kicker">Class and programme</h3>
           <div className="flex items-center gap-3.5">
-            <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{programme ? LEVEL_ICON[levelOf(programme).level] : null}</span>
+            <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{programme ? levelIcon(levelOf(programme).level) : null}</span>
             <div className="min-w-0 flex-1">
               <p className="text-h3">{programme?.name ?? 'Programme not found'}</p>
               <p className="text-small font-semibold text-ink-2">{programme ? `${hm(programme.starts)} to ${hm(programme.ends)}` : ''}{klass ? `, class ${klass.name}` : ''}</p>
@@ -160,14 +171,14 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
           <p className="mt-2 flex items-center gap-1.5 text-small font-bold text-ink-2 [&_svg]:size-4"><UserRound aria-hidden />Parents</p>
           {parents.length ? <ul className="divide-y divide-line">{parents.map(row)}</ul> : <p className="text-small font-semibold text-ink-3">No parent added.</p>}
           <p className="mt-2 flex items-center gap-1.5 text-small font-bold text-ink-2 [&_svg]:size-4"><Heart aria-hidden />Family who can collect</p>
-          {family.length ? <ul className="divide-y divide-line">{family.map(row)}</ul> : <p className="text-small font-semibold text-ink-3">Nobody yet. If the parents live abroad, add the family {first} lives with.</p>}
+          {family.length ? <ul className="divide-y divide-line">{family.map(row)}</ul> : <p className="text-small font-semibold text-ink-2">Nobody yet. If the parents live abroad, add the family {first} lives with.</p>}
           {parents.some((x) => x.p.abroad) && <Pill icon={<Globe />} className="mt-1">A parent lives outside India: they get every update, and the family here collects</Pill>}
-          <p className="mt-2 text-caption font-semibold text-ink-3">Parents and family collect from the gate without a link. Switching access off signs that person out everywhere at once. The last person can't be removed.</p>
+          <p className="mt-2 text-caption font-semibold text-ink-2">Turning access off signs that person out everywhere.</p>
         </section>
       </div>
 
       <div className="flex flex-wrap gap-2.5">
-        <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
+        <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth, gender: child.gender ?? null }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
         <Button size="md" variant="danger" icon={<LogOut />} className="ml-auto" onClick={() => { setError(null); setPending({ kind: 'left' }) }}>{first} has left the school</Button>
       </div>
 
@@ -185,6 +196,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
           </div>
           <TextField label="Date of birth" type="date" value={edit.dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setEdit({ ...edit, dob: e.target.value })} error={editErrors.dob}
             hint={edit.dob ? formatAge(edit.dob) : undefined} />
+          <div className="mt-4"><GenderChoice value={edit.gender} onChange={(g) => setEdit({ ...edit, gender: g })} /></div>
           {error && <Notice tone="danger">{error}</Notice>}
         </div>
         <SheetFooter><Button size="xl" className="w-full" loading={busy} onClick={saveEdit}>Save</Button></SheetFooter>
@@ -202,6 +214,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         title={`${first} has left the school?`}
         body={`${first} leaves every list today. Attendance is kept for the school's records. Parents with no other child here lose app access.`}
         action={`Yes, ${first} has left`} onYes={() => void run(() => childLeft(child.id), `${first} has been removed from today's lists.`).then((ok) => ok && onBack())} />
+      {inviting && <InviteSheet person={inviting} onClose={() => setInviting(null)} onDone={() => void onChanged()} />}
     </div>
   )
 }

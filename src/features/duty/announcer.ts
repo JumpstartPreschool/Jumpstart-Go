@@ -1,6 +1,8 @@
 /**
  * The coordinator's announcement queue (ANN-1, ANN-2): one announcement at a time, most urgent first,
  * a chime then speech, repeated every 2 minutes until acknowledged. Muting holds the queue; nothing is dropped.
+ * The first time something is said it starts "New announcement."; each repeat starts "Reminder." (owner, 2026-09-25),
+ * so the gate can tell a new request from one it has already heard.
  * Output is injected so the queue can be tested without a speaker.
  */
 
@@ -44,7 +46,14 @@ export const REPEAT_MS = 120_000
 interface Item extends Announcement {
   seq: number
   dueAt: number
+  /** Said in full at least once (a sentence cut off by Mute doesn't count). */
+  heard: boolean
 }
+
+export const NEW_LEAD = 'New announcement. '
+export const REPEAT_LEAD = 'Reminder. '
+/** The words actually spoken for an item. */
+const spokenFor = (item: Pick<Item, 'text' | 'heard'>) => (item.heard ? REPEAT_LEAD : NEW_LEAD) + item.text
 
 export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
   const items = new Map<string, Item>()
@@ -90,7 +99,14 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     try {
       await output.chime(next.chime)
       // Muted during the chime: say nothing now; it plays when the mute ends.
-      if (items.get(next.id) === next && Date.now() >= mutedUntil) await output.speak(next.text)
+      if (items.get(next.id) === next && Date.now() >= mutedUntil) {
+        await output.speak(spokenFor(next))
+        // Heard unless Mute or an acknowledgement cut it short.
+        if (items.get(next.id) === next && Date.now() >= mutedUntil) {
+          next.heard = true
+          output.prepare?.(spokenFor(next))
+        }
+      }
     } catch {
       // A failed chime or voice must never stall the gate; the item repeats as usual.
     } finally {
@@ -104,8 +120,10 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
   return {
     announce(a: Announcement) {
       const existing = items.get(a.id)
-      items.set(a.id, { ...a, seq: existing?.seq ?? seq++, dueAt: Date.now() })
-      output.prepare?.(a.text)
+      // Announcing again (the trip changed) makes it new again: it's news the gate hasn't heard.
+      const item = { ...a, seq: existing?.seq ?? seq++, dueAt: Date.now(), heard: false }
+      items.set(a.id, item)
+      output.prepare?.(spokenFor(item))
       void pump()
     },
     /** Someone acknowledged it (on any iPad): stop repeating. */

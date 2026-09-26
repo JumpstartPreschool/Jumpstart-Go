@@ -79,11 +79,11 @@ describe('checkTime', () => {
     expect(checkTime(learningCenter, 'pickup', t('17:40'), null)).toEqual({ ok: true, offSchedule: false, shortNotice: false })
     expect(checkTime(learningCenter, 'dropoff', t('10:30'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
   })
-  it('refuses times outside the gate day (8:45 AM–7:15 PM) and in the past', () => {
+  it('allows any hour (0026), flags times outside the window, and refuses the past', () => {
     expect(checkTime(learningCenter, 'pickup', t('19:15'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
-    expect(checkTime(learningCenter, 'pickup', t('19:20'), null)).toEqual({ ok: false, reason: 'outside_school_hours' })
+    expect(checkTime(learningCenter, 'pickup', t('19:20'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
     expect(checkTime(learningCenter, 'dropoff', t('08:45'), null)).toEqual({ ok: true, offSchedule: false, shortNotice: false })
-    expect(checkTime(learningCenter, 'dropoff', t('08:40'), null)).toEqual({ ok: false, reason: 'outside_school_hours' })
+    expect(checkTime(learningCenter, 'dropoff', t('08:40'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
     expect(checkTime(jrKgHalfDay, 'pickup', t('12:30'), t('12:40'))).toEqual({ ok: false, reason: 'in_the_past' })
   })
 })

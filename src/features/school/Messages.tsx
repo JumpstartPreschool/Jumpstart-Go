@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, MessageSquare, Send } from 'lucide-react'
+import { ChevronLeft, MessageSquare, Send } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
@@ -80,7 +80,7 @@ export function Thread({ childId, mine, footnote }: { childId: string; mine: (m:
   )
 }
 
-interface Kid { id: string; full_name: string; preferred_name: string | null }
+interface Kid { id: string; full_name: string; preferred_name: string | null; gender?: string | null }
 
 /**
  * The office's Messages (Screen Book v3: core team, front desk, admin): one conversation per child with the family, the
@@ -93,7 +93,7 @@ export function OfficeMessages({ area }: { area: Area }) {
   const [open, setOpen] = useState<string | null>(() => new URLSearchParams(window.location.search).get('child'))
   const messages = useLive<Message>('messages', () => supabase.from('messages').select('*').order('created_at'), [])
   const reads = useLive<{ child_id: string; read_at: string }>('message_reads', () => supabase.from('message_reads').select('child_id, read_at'), [open])
-  useEffect(() => { void supabase.from('children').select('id, full_name, preferred_name').eq('active', true).order('full_name').then(({ data }) => setKids((data ?? []) as Kid[])) }, [])
+  useEffect(() => { void supabase.from('children').select('id, full_name, preferred_name, gender').eq('active', true).order('full_name').then(({ data }) => setKids((data ?? []) as Kid[])) }, [])
 
   const kid = kids?.find((k) => k.id === open)
   if (kid) {
@@ -118,7 +118,7 @@ export function OfficeMessages({ area }: { area: Area }) {
   }).sort((a, b) => (b.last?.created_at ?? '').localeCompare(a.last?.created_at ?? '')) : null
 
   return (
-    <AreaShell area={area} title="Messages" subtitle="One conversation per child, with every parent and family member who has the app.">
+    <AreaShell area={area} title="Messages" subtitle="One conversation per child.">
       <section className="mt-6" aria-busy={!list}>
         {messages.error ? <ErrorState title="Couldn't load the messages" onRetry={() => void messages.reload()}>Check your connection and try again.</ErrorState>
           : !list ? <SkeletonList count={5} className="grid gap-2.5" />

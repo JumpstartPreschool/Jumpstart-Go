@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { AudioLines, Download, Play, Sparkles } from 'lucide-react'
+import { AudioLines, Download, Play, Sparkles } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { EmptyState, Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { audioContext, chooseVoice, currentVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, voiceGender, voiceQuality, type VoiceQuality } from './sound'
-import { NATURAL_VOICES, onNaturalStatus, prepareNaturalVoice, type NaturalStatus, type NaturalVoiceId } from './naturalVoice'
+import { audioContext, chooseVoice, currentVoice, indianVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, STUDIO, studioChosen, voiceGender, voiceQuality, type VoiceQuality } from './sound'
+import { NATURAL_VOICES, onNaturalStatus, playBuffer, prepareNaturalVoice, type NaturalStatus, type NaturalVoiceId } from './naturalVoice'
+import { currentPronunciations, speechText } from './pronunciation'
+import { onStudioAvailable, studioAudio, studioAvailable, studioKnown } from './studioVoice'
 
-const SAMPLE = 'Please get Aarav ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
+const SAMPLE = 'New announcement. Please get Aarav Kulkarni ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
 const ACCENT: Record<string, string> = {
   'en-in': 'Indian English', 'en-gb': 'British English', 'en-us': 'American English', 'en-au': 'Australian English',
   'en-ie': 'Irish English', 'en-za': 'South African English', 'en-nz': 'New Zealand English', 'en-ca': 'Canadian English',
@@ -42,6 +44,17 @@ export function useVoices() {
   return voices
 }
 
+/** Whether the school's studio voice is set up: null while checking, then true or false. */
+export function useStudioAvailable(): boolean | null {
+  const [ok, setOk] = useState<boolean | null>(studioKnown)
+  useEffect(() => {
+    const off = onStudioAvailable(setOk)
+    void studioAvailable().then(setOk)
+    return off
+  }, [])
+  return ok
+}
+
 export function useNaturalStatus(): NaturalStatus {
   const [s, setS] = useState<NaturalStatus>({ state: 'idle' })
   useEffect(() => onNaturalStatus(setS), [])
@@ -52,6 +65,8 @@ export function useNaturalStatus(): NaturalStatus {
 export function useVoiceName(): string | null {
   const voices = useVoices()
   const status = useNaturalStatus()
+  const studio = useStudioAvailable()
+  if (studio && studioChosen()) return 'Studio voice'
   const natural = naturalChoice()
   if (natural) {
     const name = NATURAL_VOICES.find((v) => v.id === natural)!.name
@@ -70,7 +85,7 @@ function NaturalVoices({ chosen, playing, onPlay, onUse }: { chosen: string | nu
   return (
     <section className="grid gap-2.5" aria-labelledby="natural-voices">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="natural-voices" className="kicker">Natural voices · made on this iPad</h3>
+        <h3 id="natural-voices" className="kicker">Natural voices · made on this device</h3>
         {status.state === 'loading' && <Pill tone="accent">{status.total ? `Downloading ${Math.floor((status.loaded / status.total) * 100)}%` : 'Getting ready'}</Pill>}
         {ready && <Pill tone="live">Ready, works offline</Pill>}
       </div>
@@ -119,7 +134,8 @@ function NaturalVoices({ chosen, playing, onPlay, onUse }: { chosen: string | nu
 export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast()
   const voices = useVoices()
-  const chosenNow = () => naturalChoice() ?? currentVoice()?.name ?? null
+  const studio = useStudioAvailable()
+  const chosenNow = () => (studioChosen() ? STUDIO : naturalChoice() ?? currentVoice()?.name ?? null)
   const [chosen, setChosen] = useState<string | null>(chosenNow)
   const [playing, setPlaying] = useState<string | null>(null)
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
@@ -127,29 +143,68 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
   const mobileApple = /iPad|iPhone/.test(ua) || (/Macintosh/.test(ua) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1)
   const mac = /Macintosh/.test(ua) && !mobileApple
   const hasNatural = voices.some((v) => ['natural', 'premium', 'enhanced'].includes(voiceQuality(v.name)))
+  const hasIndian = voices.length > 0 && !!indianVoice()
 
   useEffect(() => { if (open) { setChosen(chosenNow()); if (naturalChoice()) prepareNaturalVoice() } }, [open, voices])
 
-  async function play(v: SpeechSynthesisVoice | NaturalVoiceId) {
+  async function play(v: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO) {
     const key = typeof v === 'string' ? v : v.name
     stopSound()
-    audioContext() // this tap allows sound
+    const ctx = audioContext() // this tap allows sound
     setPlaying(key)
-    await speak(SAMPLE, v)
+    if (v === STUDIO) {
+      // The sample says plainly if the studio voice can't be reached, instead of quietly using another voice.
+      try {
+        await playBuffer(ctx, await studioAudio(ctx, speechText(SAMPLE, currentPronunciations())))
+      } catch {
+        toast("The studio voice can't be reached right now. Announcements use this device's voice until it's back.", { tone: 'info' })
+      }
+    } else {
+      await speak(SAMPLE, v)
+    }
     setPlaying((p) => (p === key ? null : p))
   }
 
-  function use(v: SpeechSynthesisVoice | NaturalVoiceId) {
+  function use(v: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO) {
     const key = typeof v === 'string' ? v : v.name
     chooseVoice(key)
     setChosen(key)
-    toast(`Announcements will use ${typeof v === 'string' ? NATURAL_VOICES.find((x) => x.id === v)!.name : voiceLabel(v)}.`)
+    toast(`Announcements will use ${v === STUDIO ? 'the studio voice' : typeof v === 'string' ? NATURAL_VOICES.find((x) => x.id === v)!.name : voiceLabel(v)}.`)
   }
 
   return (
-    <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear each voice read a pickup, then choose one. Remembered on this iPad.">
-      <NaturalVoices chosen={chosen} playing={playing} onPlay={(id) => void play(id)} onUse={use} />
-      <h3 className="kicker mt-7 mb-2.5">This device's voices</h3>
+    <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear one, then choose.">
+      {!hasIndian && voices.length > 0 && (
+        <Notice tone="warning" className="mb-5" icon={<Sparkles aria-hidden />}>
+          <details>
+            <summary className="cursor-pointer font-bold">Add a free Indian English voice for names</summary>
+            <span className="mt-1.5 block">{mobileApple
+              ? 'Settings → Accessibility → Spoken Content → Voices → English → English (India)'
+              : 'System Settings → Accessibility → Spoken Content → System voice → Manage Voices → English (India)'}
+              . Download Isha (Enhanced), then reopen this list.</span>
+          </details>
+        </Notice>
+      )}
+      {studio && (
+        <section className="mb-7 grid gap-2.5" aria-labelledby="studio-voice">
+          <h3 id="studio-voice" className="kicker">Studio voice</h3>
+          <div className="flex items-center gap-2">
+            <button type="button" role="radio" aria-checked={chosen === STUDIO} onClick={() => use(STUDIO)} className="choice flex min-w-0 flex-1 items-center gap-3 p-3">
+              <span className={`grid size-10 shrink-0 place-items-center rounded-sm [&_svg]:size-5 ${chosen === STUDIO ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>
+                <AudioLines className={playing === STUDIO ? 'animate-pulse' : ''} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-h4">Studio voice</span>
+                <span className="block truncate text-small font-semibold text-ink-2">Made by ElevenLabs · the school's chosen voice</span>
+              </span>
+              <Pill tone="accent" className="max-[379px]:hidden">Says Indian names clearly</Pill>
+            </button>
+            <Button size="md" variant="secondary" icon={<Play />} aria-label="Play the studio voice" loading={playing === STUDIO} onClick={() => void play(STUDIO)} />
+          </div>
+          <p className="text-caption font-semibold text-ink-2">Each announcement is made once and kept, so repeats play at once. If it can't be reached, this device's voice speaks instead.</p>
+        </section>
+      )}
+      <h3 className="kicker mb-2.5">This device's voices</h3>
       {voices.length === 0 ? (
         <EmptyState title="No English voices yet">This browser hasn't loaded its voices. Try again in a moment, or open Jumpstart in Safari.</EmptyState>
       ) : (
@@ -169,7 +224,9 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
                       {[GENDER[voiceGender(v.name) ?? 'unknown'], ACCENT[v.lang.replace('_', '-').toLowerCase()] ?? 'English'].filter(Boolean).join(' · ')}
                     </span>
                   </span>
-                  <Pill tone={q.tone} className="max-[379px]:hidden">{q.label}</Pill>
+                  {v.lang.replace('_', '-').toLowerCase() === 'en-in'
+                    ? <Pill tone="accent" className="max-[379px]:hidden">Says Indian names clearly</Pill>
+                    : <Pill tone={q.tone} className="max-[379px]:hidden">{q.label}</Pill>}
                 </button>
                 <Button size="md" variant="secondary" icon={<Play />} aria-label={`Play ${voiceLabel(v)}`} loading={playing === v.name} onClick={() => void play(v)} />
               </li>
@@ -177,13 +234,16 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
           })}
         </ul>
       )}
-      {(mobileApple || mac) && (
-        <Notice className="mt-5" icon={<Sparkles aria-hidden />} tone={hasNatural ? 'info' : 'warning'}>
-          {hasNatural ? 'Voices marked Premium or Enhanced sound most like a person.' : 'This device has only its basic voices, which can sound mechanical.'}{' '}
-          For a human-sounding voice, download one for free: {mobileApple
-            ? 'Settings, then Accessibility, then Spoken Content, then Voices, then English'
-            : 'System Settings, then Accessibility, then Spoken Content, then System voice, then Manage Voices'}
-          . Choose a woman's Enhanced or Premium voice, such as Isha (India), then reopen this list and pick it.
+      <div className="mt-7"><NaturalVoices chosen={chosen} playing={playing} onPlay={(id) => void play(id)} onUse={use} /></div>
+      {(mobileApple || mac) && !hasNatural && (
+        <Notice className="mt-5" icon={<Sparkles aria-hidden />} tone="info">
+          <details>
+            <summary className="cursor-pointer font-bold">Get a more human-sounding voice</summary>
+            <span className="mt-1.5 block">{mobileApple
+              ? 'Settings → Accessibility → Spoken Content → Voices → English'
+              : 'System Settings → Accessibility → Spoken Content → System voice → Manage Voices'}
+              . Download a woman's Enhanced or Premium voice, then reopen this list.</span>
+          </details>
         </Notice>
       )}
     </Sheet>

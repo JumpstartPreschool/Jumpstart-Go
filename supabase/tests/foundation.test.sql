@@ -85,9 +85,11 @@ do $$ declare n int; begin
   get diagnostics n = row_count;
   assert n = 0, 'parent cannot edit a child';
 
+end $$;
+do $$ begin
   update public.attendance set status = 'present';
-  get diagnostics n = row_count;
-  assert n = 0, 'parent cannot set attendance directly';
+  raise exception 'FAIL: parent set attendance directly';
+exception when insufficient_privilege then null;
 end $$;
 do $$ begin
   insert into public.children (full_name, date_of_birth, class_id, programme_id)
@@ -116,13 +118,27 @@ exception when insufficient_privilege then null;
 end $$;
 do $$ begin
   update public.programmes set pickup_to = '13:00';
-  if found then raise exception 'FAIL: coordinator changed a programme'; end if;
+  raise exception 'FAIL: coordinator changed a programme';
+exception when insufficient_privilege then null;
 end $$;
 reset role;
 
 -- Core team ----------------------------------------------------------------------
+-- The core team changes timings, regular times and holidays only through functions (0013, 0019, 0021).
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000c1"}';
 set role authenticated;
+do $$ begin
+  insert into public.child_schedules values ('00000000-0000-0000-0000-0000000c0001', 1, '09:15', '12:45');
+  raise exception 'FAIL: core team wrote regular times directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.holidays values ('2026-10-21', 'Test');
+  raise exception 'FAIL: core team wrote a holiday directly';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+-- The tables' own rules, whoever writes (the functions run as the owner).
 insert into public.child_schedules values
   ('00000000-0000-0000-0000-0000000c0001', 1, '09:15', '12:45'),
   ('00000000-0000-0000-0000-0000000c0002', 6, '10:00', '17:30');
@@ -158,6 +174,8 @@ do $$ begin
   assert (select count(*) from public.schedules_outside_windows) = 1, 'schedule outside the new window is listed';
 end $$;
 insert into public.holidays values ('2026-10-20', 'Dussehra');
+set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000c1"}';
+set role authenticated;
 do $$ begin
   insert into public.children (full_name, date_of_birth, class_id, programme_id)
   values ('New Child', '2022-01-01', '00000000-0000-0000-0000-00000000c001', '00000000-0000-0000-0000-00000000b001');

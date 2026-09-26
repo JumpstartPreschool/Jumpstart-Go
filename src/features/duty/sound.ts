@@ -1,5 +1,7 @@
 import type { AnnouncerOutput, ChimeKind } from './announcer'
 import { DEFAULT_NATURAL, NATURAL_VOICES, naturalAudio, naturalStatus, playBuffer, prepareNaturalVoice, stopNatural, type NaturalVoiceId } from './naturalVoice'
+import { currentPronunciations, speechText } from './pronunciation'
+import { studioAudio, studioAvailable, studioKnown } from './studioVoice'
 
 /**
  * Chime (Web Audio) and speech (Web Speech) for announcements on the coordinator's iPad (PRD D7).
@@ -41,15 +43,17 @@ export function voiceScore(v: Pick<SpeechSynthesisVoice, 'name' | 'lang'>): numb
   // Samantha, the warmest of them, leads when nothing better is installed.
   if (score === 0 && SMOOTH.test(v.name)) score += /^samantha\b/i.test(v.name) ? 45 : 40
   // The school wants a warm woman's voice for announcements (owner, 2026-09-25), so any woman's voice comes first.
-  if (voiceGender(v.name) === 'female') score += 60
-  score += lang === 'en-in' ? 30 : lang === 'en-gb' ? 15 : 10
+  if (voiceGender(v.name) === 'female') score += 100
+  // Indian English says the children's names the way families say them (owner, 2026-09-25), so it outranks a more
+  // polished American or British voice.
+  score += lang === 'en-in' ? 70 : lang === 'en-gb' ? 15 : 10
   return score
 }
-const SMOOTH = /^(samantha|daniel|karen|moira|tessa|serena|kate|oliver|arthur|martha|ava|allison|susan|tom|evan|nathan|zoe|nicky|aaron|fiona|isha|veena)\b/i
+const SMOOTH = /^(samantha|daniel|karen|moira|tessa|serena|kate|oliver|arthur|martha|ava|allison|susan|tom|evan|nathan|zoe|nicky|aaron|fiona|isha|veena|tara)\b/i
 
 // Browsers don't say whether a voice is a woman's or a man's, so it's recognised from the well-known voice names.
-const FEMALE = /\b(samantha|karen|moira|tessa|serena|kate|martha|ava|allison|susan|zoe|nicky|fiona|isha|veena|victoria|catherine|neerja|aria|jenny|sonia|libby|natasha|clara|emily|michelle|ana|maisie|hazel|heera|kalpana|zira|female)\b/i
-const MALE = /\b(daniel|rishi|oliver|arthur|tom|evan|nathan|aaron|prabhat|guy|ryan|thomas|alex|gordon|lee|ravi|george|david|mark|william|christopher|eric|brian|male)\b/i
+const FEMALE = /\b(tara|samantha|karen|moira|tessa|serena|kate|martha|ava|allison|susan|zoe|nicky|fiona|isha|veena|victoria|catherine|neerja|aria|jenny|sonia|libby|natasha|clara|emily|michelle|ana|maisie|hazel|heera|kalpana|zira|female)\b/i
+const MALE = /\b(daniel|rishi|aman|oliver|arthur|tom|evan|nathan|aaron|prabhat|guy|ryan|thomas|alex|gordon|lee|ravi|george|david|mark|william|christopher|eric|brian|male)\b/i
 
 export function voiceGender(name: string): 'female' | 'male' | null {
   if (FEMALE.test(name)) return 'female'
@@ -66,15 +70,25 @@ export function rankedVoices(): SpeechSynthesisVoice[] {
 
 const VOICE_KEY = 'jumpstart.voice'
 const NATURAL_PREFIX = 'natural:'
+/** The studio voice (ElevenLabs, D43), made by the school's voice-say function. */
+export const STUDIO = 'studio'
 
 function savedChoice(): string | null {
   try { return localStorage.getItem(VOICE_KEY) } catch { return null }
 }
 
-/** The natural voice this iPad uses (the default), or null when a device voice was chosen instead. */
+/** An Indian English woman's voice on this device (Tara, Isha, Veena…), which says Indian names properly. */
+export function indianVoice(): SpeechSynthesisVoice | null {
+  return rankedVoices().find((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in' && voiceGender(v.name) === 'female') ?? null
+}
+
+/**
+ * The natural voice this iPad uses, or null when a device voice is used instead: the one chosen, else the device's
+ * Indian English woman's voice when it has one (names sound right), else the natural voice.
+ */
 export function naturalChoice(): NaturalVoiceId | null {
   const saved = savedChoice()
-  if (!saved) return DEFAULT_NATURAL
+  if (!saved) return indianVoice() ? null : DEFAULT_NATURAL
   const id = saved.startsWith(NATURAL_PREFIX) ? saved.slice(NATURAL_PREFIX.length) : null
   return NATURAL_VOICES.find((v) => v.id === id)?.id ?? null
 }
@@ -91,7 +105,16 @@ export function currentVoice(): SpeechSynthesisVoice | null {
   return voice
 }
 
-/** Remember a voice for this device: a device voice's name, or a natural voice's id. */
+/**
+ * Whether announcements use the studio voice: when it's chosen, or when nothing is chosen and the school has set it
+ * up (it's the best voice for Indian names, so it's the default once available).
+ */
+export function studioChosen(): boolean {
+  const saved = savedChoice()
+  return saved === STUDIO || (saved === null && studioKnown() === true)
+}
+
+/** Remember a voice for this device: the studio voice, a device voice's name, or a natural voice's id. */
 export function chooseVoice(name: string): void {
   const natural = NATURAL_VOICES.some((v) => v.id === name)
   try { localStorage.setItem(VOICE_KEY, natural ? NATURAL_PREFIX + name : name) } catch { /* not remembered; still used now */ }
@@ -111,6 +134,7 @@ export function unlockSound(): void {
   pickVoice()
   speechSynthesis.onvoiceschanged = pickVoice
   if (naturalChoice()) prepareNaturalVoice()
+  void studioAvailable()
 }
 
 /** Makes sure the chime and the natural voice can play (call from a tap, e.g. a voice sample). */
@@ -150,28 +174,48 @@ export function chime(kind: ChimeKind): Promise<void> {
 let spoken = 0
 
 /**
- * Says `text`: with the natural voice when it's chosen and ready, otherwise with the device voice. A failure of the
- * natural voice falls back to the device voice, so the gate always hears it.
+ * Says `text` (the words shown on screen; they're tidied and the school's pronunciations applied only for the voice).
+ * The studio voice when it's chosen, else the natural voice when chosen and ready, else the device voice. Each one
+ * that fails or is slow falls back to the next, so the gate always hears it.
  */
-export async function speak(text: string, override?: SpeechSynthesisVoice | NaturalVoiceId): Promise<void> {
-  const natural = typeof override === 'string' ? override : override ? null : naturalChoice()
-  if (natural && ctx && naturalStatus().state === 'ready') {
+export async function speak(text: string, override?: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO): Promise<void> {
+  const said = speechText(text, currentPronunciations())
+  if (!said) return
+  if ((override === STUDIO || (override === undefined && studioChosen())) && ctx) {
     const mine = ++spoken
     try {
-      const buf = await naturalAudio(ctx, text, natural)
+      const buf = await studioAudio(ctx, said)
       if (mine === spoken) await playBuffer(ctx, buf)
       return
     } catch {
       if (mine !== spoken) return
     }
   }
-  return speakDevice(text, typeof override === 'object' ? override : undefined)
+  const natural = typeof override === 'string' && override !== STUDIO ? override : override ? null : naturalChoice()
+  if (natural && ctx && naturalStatus().state === 'ready') {
+    const mine = ++spoken
+    try {
+      const buf = await naturalAudio(ctx, said, natural)
+      if (mine === spoken) await playBuffer(ctx, buf)
+      return
+    } catch {
+      if (mine !== spoken) return
+    }
+  }
+  return speakDevice(said, typeof override === 'object' ? override : undefined)
 }
 
-/** Get an announcement ready with the natural voice while earlier ones play. */
+/** Get an announcement ready (studio or natural voice) while earlier ones play, so it starts without a pause. */
 export function prepare(text: string): void {
+  if (!ctx) return
+  const said = speechText(text, currentPronunciations())
+  if (!said) return
+  if (studioChosen()) {
+    void studioAudio(ctx, said).catch(() => {})
+    return
+  }
   const natural = naturalChoice()
-  if (natural && ctx && naturalStatus().state === 'ready') void naturalAudio(ctx, text, natural).catch(() => {})
+  if (natural && naturalStatus().state === 'ready') void naturalAudio(ctx, said, natural).catch(() => {})
 }
 
 function speakDevice(text: string, voiceOverride?: SpeechSynthesisVoice): Promise<void> {

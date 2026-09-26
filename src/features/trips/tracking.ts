@@ -2,19 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { onTableChange } from '../../lib/live'
 import { now } from '../../lib/clock'
-import { distanceM, positionOf, SCHOOL, type LatestPoint, type Point, type Position } from './geo'
+import { distanceM, positionOf, type LatestPoint, type Point, type Position } from './geo'
 
 // ---- Calls ------------------------------------------------------------------------------------------------
-
-export async function shareLocation(tripId: string, points: Point[]): Promise<number> {
-  const { data, error } = await supabase.rpc('share_location', { p_trip: tripId, p_points: points })
-  if (error) throw error
-  return data as number
-}
-export async function stopSharing(tripId: string): Promise<void> {
-  const { error } = await supabase.rpc('stop_sharing', { p_trip: tripId })
-  if (error) throw error
-}
 
 export interface Invite { trip_id: string; token: string; code: string }
 export async function inviteCollector(childId: string, minutes: number, name: string, phone: string, relation: string, reason: string | null): Promise<Invite> {
@@ -148,18 +138,6 @@ export function useTripTrail(tripId: string | null, active: boolean): Array<[num
 
 // ---- Sending this phone's location ---------------------------------------------------------------------
 
-export type LocationPermission = 'granted' | 'prompt' | 'denied' | 'unsupported'
-
-export async function locationPermission(): Promise<LocationPermission> {
-  if (!('geolocation' in navigator)) return 'unsupported'
-  try {
-    const s = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
-    return s.state as LocationPermission
-  } catch {
-    return 'prompt' // Older Safari can't say before asking
-  }
-}
-
 /** How to turn location back on, for the browser in use. */
 export function locationHelp(): string {
   const ua = navigator.userAgent
@@ -176,7 +154,8 @@ export function locationHelp(): string {
  * The screen is kept awake while sharing, because a locked phone stops sending.
  */
 export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<unknown>) {
-  const [error, setError] = useState<'denied' | 'unavailable' | 'unsupported' | null>(null)
+  // 'ended': the server says the trip is over (handed over, closed at the gate, or the link replaced), so sharing stops.
+  const [error, setError] = useState<'denied' | 'unavailable' | 'unsupported' | 'ended' | null>(null)
   const [lastSent, setLastSent] = useState<number | null>(null)
   const [lastFix, setLastFix] = useState<Point | null>(null)
   const queue = useRef<Point[]>([])
@@ -195,17 +174,27 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
     document.addEventListener('visibilitychange', onVisible)
 
     let sending = false
+    let ended = false
     const flush = async () => {
-      if (sending || !queue.current.length || !navigator.onLine) return
+      if (ended || sending || !queue.current.length || !navigator.onLine) return
       sending = true
       const batch = queue.current.slice(0, 50)
       try {
         await sendRef.current(batch)
         queue.current = queue.current.slice(batch.length)
         setLastSent(Date.now())
-      } catch { /* kept for the next try */ } finally { sending = false }
+      } catch (e) {
+        // The trip is over: stop the GPS and say so. Anything else (offline, busy) is kept for the next try.
+        if (/^(trip_closed|link_expired)/.test((e as { message?: string }).message ?? '')) {
+          ended = true
+          queue.current = []
+          stop()
+          setError('ended')
+        }
+      } finally { sending = false }
     }
     const onFix = (pos: GeolocationPosition) => {
+      if (ended) return
       setError(null)
       const p: Point = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.max(1, pos.coords.accuracy), fix_at: new Date(pos.timestamp).toISOString() }
       const prev = last.current
@@ -224,7 +213,7 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
     const heartbeat = setInterval(() => navigator.geolocation.getCurrentPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15_000 }), 10_000)
     const retry = setInterval(() => void flush(), 5000)
     window.addEventListener('online', flush)
-    return () => {
+    function stop() {
       navigator.geolocation.clearWatch(watch)
       clearInterval(heartbeat)
       clearInterval(retry)
@@ -232,30 +221,8 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
       document.removeEventListener('visibilitychange', onVisible)
       void wake?.release().catch(() => {})
     }
+    return stop
   }, [on])
 
   return { error, lastSent, lastFix }
-}
-
-/**
- * DEMO MODE ONLY: a made-up traveller heading to the gate from about 1.6 km away, one point every 5 s at city speed,
- * so the location screens can be tried on a laptop. Every screen that uses it says "Simulated" next to the position.
- */
-export function useSimulatedTrip(on: boolean, send: (points: Point[]) => Promise<unknown>) {
-  const sendRef = useRef(send)
-  sendRef.current = send
-  useEffect(() => {
-    if (!on) return
-    const start = { lat: SCHOOL.lat + 0.0105, lng: SCHOOL.lng - 0.0102 }
-    let step = 0
-    const tick = () => {
-      const f = Math.min(1, step / 48) // about 4 minutes to the gate, then waiting there
-      const wobble = Math.sin(step / 3) * 0.00012
-      void sendRef.current([{ lat: start.lat + (SCHOOL.lat - start.lat) * f + wobble, lng: start.lng + (SCHOOL.lng - start.lng) * f, accuracy: 12, fix_at: new Date(Date.now() - 400).toISOString() }]).catch(() => {})
-      step += 1
-    }
-    tick()
-    const id = setInterval(tick, 5000)
-    return () => clearInterval(id)
-  }, [on])
 }

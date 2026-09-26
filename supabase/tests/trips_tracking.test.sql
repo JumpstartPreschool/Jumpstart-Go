@@ -108,7 +108,7 @@ do $$ begin
   assert (select sharing from public.trips where id = current_setting('test.trip')::uuid), 'trip shows sharing';
 end $$;
 
--- Parent B sees none of it; the coordinator sees it until handover.
+-- Parent B sees none of it, and the school never sees location (0024, D38).
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
 set role authenticated;
 do $$ begin
@@ -122,7 +122,8 @@ declare
   r jsonb;
   wrong text := lpad(((current_setting('test.code')::int + 1) % 10000)::text, 4, '0');
 begin
-  assert (select count(*) from public.trip_points where trip_id = current_setting('test.trip')::uuid) = 3, 'staff see the trip before handover';
+  assert (select count(*) from public.trip_points where trip_id = current_setting('test.trip')::uuid) = 0, 'the school never sees location';
+  assert (select count(*) from public.latest_points(array[current_setting('test.trip')::uuid])) = 0, 'not even the latest point';
   r := public.gate_handover_code(current_setting('test.trip')::uuid, wrong);
   assert not (r ->> 'ok')::boolean and (r ->> 'tries_left')::int = 2, 'wrong code counted';
   r := public.gate_handover_code(current_setting('test.trip')::uuid, current_setting('test.code'));
@@ -131,7 +132,7 @@ begin
 end $$;
 reset role;
 
--- On the way home: the parent still sees new points; staff don't.
+-- On the way home: the parent who sent the link still sees new points; the school still sees none.
 set app.now = '2026-09-25 12:30:00+05:30';
 set request.jwt.claims to '';
 set role anon;
@@ -143,7 +144,7 @@ reset role;
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000d1"}';
 set role authenticated;
 do $$ begin
-  assert (select count(*) from public.trip_points where trip_id = current_setting('test.trip')::uuid) = 3, 'staff stop seeing points at handover';
+  assert (select count(*) from public.trip_points where trip_id = current_setting('test.trip')::uuid) = 0, 'the school sees no location after handover either';
 end $$;
 reset role;
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e1"}';
@@ -222,7 +223,7 @@ exception when raise_exception then
 end $$;
 reset role;
 
--- A guardian shares their own location; nobody else can on their trip.
+-- Parents and family never share their own location (0024, D38): their trips carry a time only.
 set app.now = '2026-09-25 10:00:00+05:30';
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
 set role authenticated;
@@ -236,10 +237,15 @@ reset role;
 update public.trips set created_at = app.clock() - interval '1 minute' where id = current_setting('test.trip3')::uuid;
 set role authenticated;
 do $$ begin
-  assert public.share_location(current_setting('test.trip3')::uuid,
-    jsonb_build_array(jsonb_build_object('lat', 18.5000, 'lng', 73.8200, 'accuracy', 8, 'fix_at', '2026-09-25 09:59:40+05:30'))) = 1, 'guardian point kept';
-  perform public.stop_sharing(current_setting('test.trip3')::uuid);
-  assert not (select sharing from public.trips where id = current_setting('test.trip3')::uuid), 'sharing stopped';
+  perform public.share_location(current_setting('test.trip3')::uuid,
+    jsonb_build_array(jsonb_build_object('lat', 18.5000, 'lng', 73.8200, 'accuracy', 8, 'fix_at', '2026-09-25 09:59:40+05:30')));
+  raise exception 'FAIL: a parent shared their own location';
+exception when raise_exception then
+  if sqlerrm like 'FAIL%' then raise; end if;
+  assert sqlerrm like 'no_location%', sqlerrm;
+end $$;
+do $$ begin
+  assert not exists (select 1 from public.trip_points where trip_id = current_setting('test.trip3')::uuid), 'no point kept';
 end $$;
 reset role;
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e1"}';
@@ -248,6 +254,8 @@ do $$ begin
   perform public.share_location(current_setting('test.trip3')::uuid,
     jsonb_build_array(jsonb_build_object('lat', 18.5, 'lng', 73.82, 'accuracy', 8, 'fix_at', '2026-09-25 09:59:50+05:30')));
   raise exception 'FAIL: someone else shared on the trip';
-exception when insufficient_privilege then null;
+exception when raise_exception then
+  if sqlerrm like 'FAIL%' then raise; end if;
+  assert sqlerrm like 'no_location%', sqlerrm;
 end $$;
 reset role;

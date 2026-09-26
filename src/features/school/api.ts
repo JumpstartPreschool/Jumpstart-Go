@@ -23,7 +23,16 @@ export const setAttendance = (child: string, day: string, status: AttendanceStat
 export const reportAbsence = (child: string, day: string, reason: string) => call<null>('report_absence', { p_child: child, p_day: day, p_reason: reason })
 export const undoAbsence = (child: string, day: string) => call<null>('undo_absence', { p_child: child, p_day: day })
 export const changeDayTime = (child: string, direction: Direction, at: string, reason: string | null) => call<DayTime>('change_day_time', { p_child: child, p_direction: direction, p_at: at, p_reason: reason })
-export const setProgrammeHours = (programme: string, starts: string, ends: string, extended: boolean) => call<unknown>('set_programme_hours', { p_programme: programme, p_starts: starts, p_ends: ends, p_extended: extended })
+/** A programme's timings (0019). `about` is the admin's part: the class and name for a new one, or a new name and days. */
+export interface ProgrammeTimes { starts: string; ends: string; extended: boolean; dropoff: [string, string]; pickup: [string, string] }
+/** Left out means "keep it"; a new programme needs the class and the days. */
+export interface ProgrammeAbout { classId?: string; plan?: string; weekdays?: number[]; saturdayRule?: 'every' | 'except_2nd_and_last' }
+export const saveProgramme = (programme: string | null, t: ProgrammeTimes, about: ProgrammeAbout = {}) => call<unknown>('save_programme', {
+  p_programme: programme, p_class: about.classId ?? null, p_plan: about.plan ?? null, p_weekdays: about.weekdays ?? null, p_saturday_rule: about.saturdayRule ?? null,
+  p_starts: t.starts, p_ends: t.ends, p_extended: t.extended,
+  p_dropoff_from: t.dropoff[0], p_dropoff_to: t.dropoff[1], p_pickup_from: t.pickup[0], p_pickup_to: t.pickup[1],
+})
+export const addClass = (name: string) => call<{ id: string; name: string }>('admin_add_class', { p_name: name })
 export const setRegularTimes = (child: string, dropoff: string | null, pickup: string | null) => call<null>('set_regular_times', { p_child: child, p_dropoff: dropoff, p_pickup: pickup })
 export const sendMessage = (child: string, body: string) => call<Message>('send_message', { p_child: child, p_body: body })
 export const markRead = (child: string) => call<null>('mark_read', { p_child: child })

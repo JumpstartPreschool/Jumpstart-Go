@@ -10,7 +10,7 @@ iPad / phone / laptop (installable web app, Safari or Chrome)
 Cloudflare Pages ── serves the built app (no server code)
   │
   ▼  HTTPS + WebSocket, JWT from Supabase Auth
-Supabase (Mumbai, ap-south-1)
+Supabase (Singapore, ap-southeast-1)
   ├─ Postgres: tables, constraints, row-level security, SQL functions for every state change
   ├─ Auth: invite-only, one-time codes by email
   ├─ Realtime: private channels (trip, gate) authorised by row-level security

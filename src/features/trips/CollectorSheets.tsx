@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, Link2, MessageCircle, Send, UserPlus } from 'lucide-react'
+import { Check, Copy, Link2, MessageCircle, MessageSquareText, Send, UserPlus } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { CodeTiles } from '../../ui/CodeTiles'
@@ -11,7 +11,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import { windowFor, type Programme } from '../../domain/programme'
 import { now } from '../../lib/clock'
 import { explainTripError, type Trip } from './api'
-import { formatMobile, normalizeMobile, whatsappUrl } from '../../domain/contact'
+import { formatMobile, normalizeMobile, smsUrl, whatsappUrl } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { savePerson, useLive, type SavedPerson } from '../school/api'
 import { useMyId } from '../family/parentData'
@@ -33,23 +33,29 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
       setCopied(true)
       toast('Copied. Paste it into any message.')
     } catch {
-      toast("Couldn't copy on this device. Use Send on WhatsApp instead.")
+      toast("Couldn't copy on this device. Send it by WhatsApp or text message instead.")
     }
   }
   return (
     <>
-      <p className="text-body text-ink-2">{first} shows this code at the gate. The link works on one phone and stops after the trip.</p>
+      <p className="text-body text-ink-2">{first} shows this code at the gate.</p>
       <div className="mt-5 rounded-xl bg-sunken px-4 py-6">
         <CodeTiles code={invite.code} size="xl" />
         <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatMobile(sendTo)}</p>
       </div>
-      <Notice tone="info" className="mt-4">Send it now: for safety the link is shown only once. Resend link makes a new link and code, and the old ones stop working.</Notice>
+      <Notice tone="info" className="mt-4">Send it now: the link is shown only once.</Notice>
       <SheetFooter>
-        <a className="btn btn--primary btn--xl w-full" href={whatsappUrl(sendTo, text)} target="_blank" rel="noopener noreferrer">
-          <MessageCircle aria-hidden />Send on WhatsApp
-        </a>
-        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-          <Button variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy message'}</Button>
+        <p className="kicker mb-2.5">Send it to {first}</p>
+        <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
+          <a className="btn btn--primary btn--xl" href={whatsappUrl(sendTo, text)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(sendTo)}`}>
+            <MessageCircle aria-hidden />WhatsApp
+          </a>
+          <a className="btn btn--secondary btn--xl" href={smsUrl(sendTo, text)} aria-label={`Send by text message to ${formatMobile(sendTo)}`}>
+            <MessageSquareText aria-hidden />SMS
+          </a>
+        </div>
+        <div className="mt-2.5 flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-36">
+          <Button variant="secondary" icon={copied ? <Check /> : <Copy />} aria-label={copied ? 'Copied' : 'Copy the message'} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</Button>
           <Button variant="quiet" onClick={onDone}>Done</Button>
         </div>
       </SheetFooter>
@@ -131,7 +137,7 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
   const win = formatRange(windowFor(programme, 'pickup'))
   return (
     <Sheet open={open} onClose={onClose} title={`Someone else is collecting ${first}`}
-      description="For someone the school hasn't added as family. They get a link with a 4-digit code for the gate. No app, no sign-in.">
+      description="A one-time link with a 4-digit gate code. No app needed.">
       {!!saved.rows?.length && (
         <fieldset className="mb-5">
           <legend className="kicker mb-2.5">Who</legend>

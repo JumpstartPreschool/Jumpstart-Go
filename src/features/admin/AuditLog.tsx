@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ScrollText } from 'lucide-react'
+import { ScrollText } from '../../ui/icons'
 import { EmptyState, ErrorState, SkeletonList } from '../../ui/States'
 import { supabase } from '../../lib/supabase'
 import { indiaClock, formatTime } from '../../domain/time'
@@ -46,7 +46,7 @@ export function AuditLog() {
 
   const days = entries ? [...new Set(entries.map((e) => e.day))] : []
   return (
-    <AreaShell area="admin" title="Audit log" subtitle="Every sensitive change, newest first, with who made it. Only the admin can read it.">
+    <AreaShell area="admin" title="Audit log" subtitle="Every sensitive change, newest first.">
       <section className="mt-6" aria-busy={!entries}>
         {error ? <ErrorState title="Couldn't load the audit log" onRetry={load}>{error}</ErrorState>
           : !entries ? <SkeletonList count={6} className="grid gap-3" height="h-[64px]" />

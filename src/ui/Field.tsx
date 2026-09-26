@@ -1,12 +1,13 @@
 import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
-import { ChevronDown, CircleAlert, Search } from 'lucide-react'
+import { ChevronDown, CircleAlert, Search } from './icons'
 
 type Extra = { label: string; hint?: ReactNode; error?: string | null; icon?: ReactNode }
 
 /** Label above, the control, then either the error (announced) or a hint below. */
 function Wrapper({ id, label, hint, error, children }: { id: string; label: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {
   return (
-    <div className="grid gap-1.5">
+    // content-start: beside a taller field (one with a hint or an error), the control stays level instead of sliding down.
+    <div className="grid content-start gap-1.5">
       <label htmlFor={id} className="px-0.5 text-small font-bold text-ink-2">{label}</label>
       {children}
       {error ? (

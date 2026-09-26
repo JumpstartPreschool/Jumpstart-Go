@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Lock, Phone, Save } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router'
+import { ChevronRight, Globe, Lock, Phone, Save } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { ErrorState, Notice } from '../../ui/States'
@@ -8,8 +9,9 @@ import { formatMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { explainDbError } from './api'
+import { PronunciationList } from './PronunciationList'
 
-interface Settings { get_ready_lead_min: number; late_threshold_min: number; school_phone: string | null }
+interface Settings { get_ready_lead_min: number; late_threshold_min: number; school_phone: string | null; app_url: string | null }
 
 function Row({ title, children, control }: { title: string; children: ReactNode; control: ReactNode }) {
   return (
@@ -24,8 +26,8 @@ function Row({ title, children, control }: { title: string; children: ReactNode;
 }
 
 /**
- * Admin → Settings (Screen Book v3, ADM-2): the few things the school tunes. Timing rules that are the school's own
- * (the 15-minute windows, school hours) are shown locked. Every change is written to the audit log by the database.
+ * Admin → Settings (Screen Book v3, ADM-2): the few things the school tunes. School hours are shown locked; each
+ * programme's drop-off and pickup are set in People → Classes (D35). Every change is written to the audit log.
  */
 export function AdminSettings() {
   const toast = useToast()
@@ -33,17 +35,25 @@ export function AdminSettings() {
   const [error, setError] = useState<string | null>(null)
   const [phone, setPhone] = useState('')
   const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [url, setUrl] = useState('')
+  const [urlError, setUrlError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
+  // A load that finishes after a newer one (or after leaving) is dropped, so a late reply never overwrites what the
+  // admin is typing.
+  const current = useRef(0)
   const load = () => {
+    const mine = ++current.current
     setError(null)
-    void supabase.from('settings').select('get_ready_lead_min, late_threshold_min, school_phone').single().then(({ data, error: e }) => {
+    void supabase.from('settings').select('get_ready_lead_min, late_threshold_min, school_phone, app_url').single().then(({ data, error: e }) => {
+      if (mine !== current.current) return
       if (e) return setError(explainDbError(e))
       setS(data as Settings)
       setPhone(data?.school_phone ? formatMobile(data.school_phone) : '')
+      setUrl(data?.app_url ?? '')
     })
   }
-  useEffect(load, [])
+  useEffect(() => { load(); return () => { current.current++ } }, [])
 
   async function save(patch: Partial<Settings>, key: string) {
     setBusy(key)
@@ -68,6 +78,16 @@ export function AdminSettings() {
     void save({ school_phone: v }, 'phone')
   }
 
+  function saveUrl() {
+    // The address in invitations (D36): https only, no trailing slash, like https://app.jumpstartpreschool.in.
+    let v = url.trim().replace(/\/+$/, '')
+    if (v && !/^[a-z]+:\/\//i.test(v)) v = `https://${v}`
+    if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?(\/\S*)?$/.test(v)) return setUrlError('Enter the https address people open the app at, like https://app.jumpstartpreschool.in.')
+    setUrlError(null)
+    setUrl(v)
+    void save({ app_url: v }, 'url')
+  }
+
   const chips = (key: 'get_ready_lead_min' | 'late_threshold_min') => (
     <div className="flex gap-2" role="radiogroup" aria-label={key === 'get_ready_lead_min' ? 'Get ready reminder' : 'Running-late alert'}>
       {[5, 10, 15].map((v) => (
@@ -87,20 +107,26 @@ export function AdminSettings() {
           <div className="card divide-y divide-line rounded-2xl p-5 sm:p-6">
             <Row title={'"Get ready" reminder'} control={chips('get_ready_lead_min')}>Coordinators hear it this long before the time someone arrives.</Row>
             <Row title="Running-late alert" control={chips('late_threshold_min')}>When someone will be at least this late, or the time passes this far with nobody here.</Row>
-            <Row title="Drop-off window" control={locked('School rule')}>Opens 15 minutes before each class starts. Jr KG Half day: 8:45 to 9:00 AM.</Row>
-            <Row title="Pickup window" control={locked('School rule')}>Runs until 15 minutes after each class ends. Jr KG Half day: 1:00 to 1:15 PM.</Row>
-            <Row title="Extended day" control={locked('School rule')}>360°+ and the Learning Center: in school for the core hours, then collected any time until 7:00 PM.</Row>
+            <Row title="Drop-off and pickup times" control={<Link to="/admin" className="btn btn--secondary btn--md">Classes<ChevronRight aria-hidden /></Link>}>Set for each programme in People → Classes. New ones start 15 minutes either side of the class.</Row>
             <Row title="School hours" control={locked('Fixed')}>9:00 AM to 7:00 PM. The gate opens at 8:45 AM and closes at 7:15 PM.</Row>
             <Row title="Call the school number" control={
               <form className="flex w-full items-center gap-2" onSubmit={(e) => { e.preventDefault(); savePhone() }}>
                 <label className="input min-w-0 flex-1 sm:w-[210px] sm:flex-none"><Phone aria-hidden /><input type="tel" inputMode="tel" aria-label="Call the school number" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneError(null) }} placeholder="020 2545 1234" /></label>
-                <Button type="submit" size="md" variant="secondary" icon={<Save />} loading={busy === 'phone'}>Save</Button>
+                <Button type="submit" size="md" variant="secondary" icon={<Save />} loading={busy === 'phone'} aria-label="Save the school number">Save</Button>
               </form>
             }>Shown to parents, and on the page of someone collecting a child.</Row>
             {phoneError && <Notice tone="danger" className="mt-1">{phoneError}</Notice>}
+            <Row title="App web address" control={
+              <form noValidate className="flex w-full items-center gap-2" onSubmit={(e) => { e.preventDefault(); saveUrl() }}>
+                <label className="input min-w-0 flex-1 sm:w-[260px] sm:flex-none"><Globe aria-hidden /><input type="url" inputMode="url" autoCapitalize="none" spellCheck={false} aria-label="App web address" value={url} onChange={(e) => { setUrl(e.target.value); setUrlError(null) }} placeholder="https://app.jumpstartpreschool.in" /></label>
+                <Button type="submit" size="md" variant="secondary" icon={<Save />} loading={busy === 'url'} aria-label="Save the web address">Save</Button>
+              </form>
+            }>The link in invitations. Invites can't be sent until it's set.</Row>
+            {urlError && <Notice tone="danger" className="mt-1">{urlError}</Notice>}
           </div>
         )}
       </section>
+      <PronunciationList />
     </AreaShell>
   )
 }

@@ -1,12 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Baby, Check, Clock, GraduationCap, Lock, TriangleAlert } from 'lucide-react'
+import { Baby, Check, Clock, FileSpreadsheet, GraduationCap, Lock, TriangleAlert } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { ErrorState, Notice, SkeletonList } from '../../ui/States'
-import { Switch } from '../../ui/Switch'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
@@ -15,80 +14,15 @@ import { windowFor } from '../../domain/programme'
 import { AreaShell } from '../auth/AreaShell'
 import { explainDbError, loadDirectory, type Child, type Directory, type ProgrammeRow } from '../admin/api'
 import { levelOf, planInfo } from '../admin/programmeCatalogue'
-import { LEVEL_ICON } from '../admin/ProgrammePicker'
+import { levelIcon } from '../admin/ProgrammePicker'
 import { formatRange, programmeOf } from '../trips/rules'
-import { setProgrammeHours, setRegularTimes } from './api'
-import { DayBar } from './DayBar'
+import { setRegularTimes } from './api'
+import { ProgrammeSheet } from './ProgrammeSheet'
+import { BulkImportSheet } from '../admin/BulkImportSheet'
 
 const m = (t?: string | null) => (t ? toMinutes(t.slice(0, 5)) : 0)
 const hhmm = (x: Minutes) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`
-const quarter = (a: Minutes, b: Minutes) => Array.from({ length: Math.floor((b - a) / 15) + 1 }, (_, i) => a + i * 15)
 const locked = (p: ProgrammeRow) => p.name.startsWith('Learning Center')
-
-/** The windows a programme would have with these hours (the school's rule, D24; the same sums as the database). */
-function windowsFor(starts: Minutes, ends: Minutes, extended: boolean) {
-  return { dropoff: [extended && starts > 540 ? 540 : starts - 15, starts] as [Minutes, Minutes], pickup: [ends, extended ? Math.max(ends, 1140) : Math.min(ends + 15, 1155)] as [Minutes, Minutes] }
-}
-
-function ProgrammeSheet({ p, dir, onClose, onSaved }: { p: ProgrammeRow; dir: Directory; onClose: () => void; onSaved: () => void }) {
-  const toast = useToast()
-  const [starts, setStarts] = useState(m(p.starts))
-  const [ends, setEnds] = useState(m(p.ends))
-  const [extended, setExtended] = useState(!!p.extended)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const w = windowsFor(starts, ends, extended)
-  const short = ends < starts + 30
-  const kids = dir.children.filter((c) => c.active && c.programme_id === p.id)
-  const outside = short ? [] : kids.filter((c) => dir.schedules.some((s) => s.child_id === c.id && (m(s.dropoff) < w.dropoff[0] || m(s.dropoff) > w.dropoff[1] || m(s.pickup) < w.pickup[0] || m(s.pickup) > w.pickup[1])))
-  const same = starts === m(p.starts) && ends === m(p.ends) && extended === !!p.extended
-
-  async function save() {
-    setBusy(true)
-    setError(null)
-    try {
-      await setProgrammeHours(p.id, hhmm(starts), hhmm(ends), extended)
-      toast('Saved. Parents, the gate and the programme picker use the new times now.')
-      onSaved()
-    } catch (e) {
-      setError(explainDbError(e as { code?: string; message?: string }))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Sheet open onClose={onClose} title={p.name} description={extended ? 'Set the hours the child must be in school.' : 'Set the class hours, inside 9:00 AM to 7:00 PM.'}>
-      <div className="grid grid-cols-2 gap-4">
-        <SelectField label={extended ? 'Must be in from' : 'Starts'} value={starts} onChange={(e) => setStarts(Number(e.target.value))}>
-          {quarter(540, 1110).map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
-        </SelectField>
-        <SelectField label={extended ? 'Until' : 'Ends'} value={ends} onChange={(e) => setEnds(Number(e.target.value))} error={short ? 'At least 30 minutes after the start.' : null}>
-          {quarter(570, 1140).map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
-        </SelectField>
-      </div>
-      <div className="mt-4 flex items-center gap-2 rounded-lg bg-sunken py-1 pl-1 pr-3.5">
-        <Switch on={extended} label="Extended day" onChange={setExtended} />
-        <p className="text-small font-semibold text-ink-2"><b className="text-ink">Extended day</b>, picked up any time after these hours, until 7:00 PM</p>
-      </div>
-      <div className="card mt-4 grid gap-3 rounded-xl p-4">
-        <p className="kicker">The day</p>
-        <DayBar hours={[starts, ends]} dropoff={w.dropoff} pickup={w.pickup} extended={extended} />
-        <div className="grid grid-cols-2 gap-2.5">
-          <div><p className="kicker">Drop-off</p><p className="text-h4 tabular-nums">{formatRange({ from: w.dropoff[0], to: w.dropoff[1] })}</p></div>
-          <div><p className="kicker">Pickup</p><p className="text-h4 tabular-nums">{formatRange({ from: w.pickup[0], to: w.pickup[1] })}</p></div>
-        </div>
-      </div>
-      {!short && (outside.length
-        ? <Notice tone="warning" className="mt-4">{outside.map((c) => c.preferred_name ?? c.full_name.split(' ')[0]).join(', ')} {outside.length === 1 ? 'has' : 'have'} regular times outside the new windows. Update them in Children's times after saving.</Notice>
-        : <Notice tone="success" className="mt-4">Every child's regular times still fit.</Notice>)}
-      {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
-      <SheetFooter>
-        <Button size="xl" className="w-full" icon={<Check />} loading={busy} disabled={short || same} onClick={() => void save()}>Save the timings</Button>
-      </SheetFooter>
-    </Sheet>
-  )
-}
 
 function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: ProgrammeRow; current: { dropoff: string; pickup: string } | null; onClose: () => void; onSaved: () => void }) {
   const toast = useToast()
@@ -117,7 +51,7 @@ function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: Progra
   }
 
   return (
-    <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${p.name} runs, inside its windows. Each morning's expected arrivals come from these.`}>
+    <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${p.name} runs.`}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label={`Drop-off, ${formatRange(windowFor(programme, 'dropoff'))}`} value={drop} onChange={(e) => setDrop(Number(e.target.value))}>
           {withCurrent(opts('dropoff'), drop).map((t) => <option key={t} value={t}>{formatTime(t)}{opts('dropoff').includes(t) ? '' : ' (outside the window)'}</option>)}
@@ -138,10 +72,12 @@ function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: Progra
 const days = (p: ProgrammeRow) => ((p.weekdays ?? []).includes(6) ? (p.saturday_rule === 'except_2nd_and_last' ? 'Mon to Sat¹' : 'Mon to Sat') : 'Mon to Fri')
 
 /**
- * The core team's Schedules (Screen Book v3): programme hours, with the windows worked out from them (D24), and each
+ * The core team's Schedules (Screen Book v3): each programme's hours and drop-off and pickup windows (D35), and each
  * child's regular times. Changes reach parents, the gate and the admin's picker at once.
  */
 export function Schedules() {
+  const toast = useToast()
+  const [bulk, setBulk] = useState(false)
   const [dir, setDir] = useState<Directory | null>(null)
   const [error, setError] = useState(false)
   const [tab, setTab] = useState<'programmes' | 'children'>('programmes')
@@ -154,15 +90,16 @@ export function Schedules() {
     <div className="card flex items-start gap-3 rounded-xl p-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-5" aria-hidden><Clock /></span>
       <div>
-        <p className="text-h4">Drop-off opens 15 minutes before a class starts. Pickup runs until 15 minutes after it ends.</p>
-        <p className="text-small font-semibold text-ink-2">360°+ and the Learning Center: the child must be in for the core hours, then can be picked up any time until 7:00 PM.</p>
+        <p className="text-h4">Each programme has its own drop-off and pickup times.</p>
+        <p className="text-small font-semibold text-ink-2">Timings start at 15 minutes either side of class. Change them as needed.</p>
       </div>
     </div>
   )
   const kv = (label: string, v: ReactNode) => <span className="grid"><span className="kicker">{label}</span><span className="text-h4 tabular-nums">{v}</span></span>
 
   return (
-    <AreaShell area="core" title="Schedules" subtitle="Programme hours and each child's regular times.">
+    <AreaShell area="core" title="Schedules" subtitle="Programme hours and each child's regular times."
+      actions={<Button variant="secondary" icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload children</Button>}>
       <div className="mt-6 grid gap-4">
         <Tabs id="sched" label="Schedules" value={tab} onChange={setTab} items={[{ key: 'programmes', label: 'Programmes', icon: <GraduationCap /> }, { key: 'children', label: "Children's times", icon: <Baby /> }]} />
         {rule}
@@ -177,7 +114,7 @@ export function Schedules() {
                   const level = levelOf(list[0]!).level
                   return (
                     <div key={cls.id} className="grid gap-2.5">
-                      <h2 className="kicker flex items-center gap-2 [&_svg]:size-4"><span className="text-accent" aria-hidden>{LEVEL_ICON[level]}</span>{cls.name}</h2>
+                      <h2 className="kicker flex items-center gap-2 [&_svg]:size-4"><span className="text-accent" aria-hidden>{levelIcon(level)}</span>{cls.name}</h2>
                       <ul className="grid gap-2.5">
                         {list.map((p) => {
                           const prog = programmeOf(p)
@@ -224,11 +161,15 @@ export function Schedules() {
             )}
         </section>
       </div>
-      {dir && editing && 'programme' in editing && <ProgrammeSheet p={editing.programme} dir={dir} onClose={() => setEditing(null)} onSaved={saved} />}
+      {dir && editing && 'programme' in editing && (
+        <ProgrammeSheet programme={editing.programme} cls={dir.classes.find((c) => c.id === editing.programme.class_id)!} dir={dir} admin={false}
+          onClose={() => setEditing(null)} onSaved={(msg) => { toast(msg); saved() }} />
+      )}
       {dir && editing && 'child' in editing && (() => {
         const p = dir.programmes.find((x) => x.id === editing.child.programme_id)!
         return <RegularSheet c={editing.child} p={p} current={dir.schedules.find((x) => x.child_id === editing.child.id) ?? null} onClose={() => setEditing(null)} onSaved={saved} />
       })()}
+      {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} onImported={(n) => { load(); setTab('children'); toast(`${n} ${n === 1 ? 'child' : 'children'} added. Set their regular times here.`) }} />}
     </AreaShell>
   )
 }

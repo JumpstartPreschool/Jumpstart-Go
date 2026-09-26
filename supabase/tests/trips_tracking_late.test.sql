@@ -46,19 +46,19 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
--- Past the gate's closing time is refused.
-set app.now = '2026-09-25 18:50:00+05:30';
+-- 0026: past the gate's usual closing time is fine, flagged as late; past midnight is still refused.
+set app.now = '2026-09-25 23:50:00+05:30';
 set role anon;
 do $$ begin
   perform public.link_late(current_setting('test.ltoken'), repeat('c', 40), 30);
-  raise exception 'FAIL: arrival after 7:15 PM accepted';
+  raise exception 'FAIL: arrival after midnight accepted';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
   assert sqlerrm like 'outside_hours%', sqlerrm;
 end $$;
 reset role;
 
--- The newest point: the child's parent and the coordinator see it (outsiders are refused above).
+-- The newest point: the parent who sent the link sees it; the coordinator doesn't (0024, D38).
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
 set role authenticated;
 do $$ begin
@@ -68,7 +68,7 @@ reset role;
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000d1"}';
 set role authenticated;
 do $$ begin
-  assert (select count(*) from public.latest_points(array[current_setting('test.ltrip')::uuid])) = 1, 'coordinator sees it before handover';
+  assert (select count(*) from public.latest_points(array[current_setting('test.ltrip')::uuid])) = 0, 'the school never sees location';
 end $$;
 reset role;
 

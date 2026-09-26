@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -11,7 +11,8 @@ import { normalizeEmail } from '../../domain/contact'
 import { addGuardian, explainDbError, saveChild, type Child, type Directory } from './api'
 import { blankPerson, kindOf, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
 import { formatAge, levelOf, suggestedLevel } from './programmeCatalogue'
-import { LEVEL_ICON, ProgrammePicker } from './ProgrammePicker'
+import { levelIcon, ProgrammePicker } from './ProgrammePicker'
+import { GenderChoice } from '../../ui/GenderChoice'
 
 const RELATION_ICON: Record<string, ReactNode> = {
   Mother: <UserRound />, Father: <UserRound />, 'Legal guardian': <ShieldUser />, Grandmother: <Glasses />, Grandfather: <Glasses />,
@@ -40,7 +41,7 @@ export function RelationPicker({ open, onClose, childName, initial, onUse }: { o
 
   return (
     <Sheet open={open} onClose={onClose} title={`How is this person related to ${childName || 'the child'}?`} wide
-      description="Parents and family collect from the gate without a link, and can have the app. Anyone else gets a one-trip link from a parent.">
+      description="Parents and family can collect and use the app.">
       <div className="grid gap-5">
         {RELATION_GROUPS.map((g) => (
           <fieldset key={g.title}>
@@ -48,9 +49,9 @@ export function RelationPicker({ open, onClose, childName, initial, onUse }: { o
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3" role="radiogroup" aria-label={g.title}>
               {g.relations.map((r) => (
                 <button key={r} type="button" role="radio" aria-checked={rel === r} onClick={() => { setRel(r); if (!SIDED.includes(r)) setSide(''); setError(null) }}
-                  className="choice flex min-h-14 min-w-0 items-center gap-2.5 px-3 py-2.5 text-left">
+                  className="choice flex min-h-14 min-w-0 flex-col items-start gap-1.5 px-3 py-2.5 text-left min-[400px]:flex-row min-[400px]:items-center min-[400px]:gap-2.5">
                   <span className={`grid size-8 shrink-0 place-items-center rounded-sm [&_svg]:size-4 sm:size-9 sm:[&_svg]:size-[18px] ${rel === r ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>{iconFor(r)}</span>
-                  <span className="min-w-0 text-h4 leading-tight [overflow-wrap:anywhere]">{r}</span>
+                  <span className="min-w-0 text-h4 leading-tight [overflow-wrap:break-word]">{r}</span>
                 </button>
               ))}
             </div>
@@ -149,6 +150,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
   const [name, setName] = useState('')
   const [called, setCalled] = useState('')
   const [dob, setDob] = useState('')
+  const [gender, setGender] = useState<'boy' | 'girl' | null>(null)
   const [programmeId, setProgrammeId] = useState<string | null>(null)
   const [people, setPeople] = useState<PersonDraft[]>([blankPerson('Mother')])
   const [picker, setPicker] = useState<null | 'programme' | { relationFor: number | 'new' }>(null)
@@ -188,7 +190,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     setBusy(true)
     setFormError(null)
     try {
-      const id = await saveChild({ full_name: words.join(' '), preferred_name: called.trim(), date_of_birth: dob, programme_id: programmeId! }, people.map(toInput))
+      const id = await saveChild({ full_name: words.join(' '), preferred_name: called.trim(), date_of_birth: dob, programme_id: programmeId!, gender }, people.map(toInput))
       onSaved(id, who)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
@@ -214,10 +216,11 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
         </div>
         <TextField label="Date of birth" type="date" min="2017-01-01" max={today} value={dob} onChange={(e) => setDob(e.target.value)} error={errors.dob}
           hint={dob && dob <= today ? `${formatAge(dob)} today${suggested ? `, ${suggested.replace(' Program', '')} age` : ''}` : undefined} />
+        <GenderChoice value={gender} onChange={setGender} />
 
         <h3 className="kicker mt-2">Class and programme</h3>
         <button type="button" onClick={() => setPicker('programme')} className={`choice flex w-full items-center gap-3.5 p-3.5 text-left ${errors.programme ? '[--edge:var(--danger)]' : ''}`} aria-describedby={errors.programme ? 'programme-msg' : undefined}>
-          <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden>{programme ? LEVEL_ICON[levelOf(programme).level] : <Plus />}</span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden>{programme ? levelIcon(levelOf(programme).level) : <Plus />}</span>
           <span className="min-w-0 flex-1">
             <span className="block text-h4">{programme ? programme.name : 'Choose the class and programme'}</span>
             <span className="block text-small font-semibold text-ink-2">{programme ? 'Change' : suggested ? `${suggested.replace(' Program', '')} is suggested from the date of birth` : 'The class, then the programme'}</span>

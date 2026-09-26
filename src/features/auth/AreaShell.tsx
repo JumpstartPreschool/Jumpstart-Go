@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from 'lucide-react'
+import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
@@ -18,7 +18,7 @@ export const AREA_DOES: Record<Area, string> = {
   admin: 'Everything, including people and roles',
   core: 'Timings, attendance and coordinators',
   pro: 'Calls, messages and announcements',
-  coordinator: 'The gate, on the iPad',
+  coordinator: 'The gate, on a tablet',
   parent: 'Your own children',
 }
 
