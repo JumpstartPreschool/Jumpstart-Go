@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight, Globe, Lock, Phone, Save } from '../../ui/icons'
+import { ChevronRight, CircleCheck, Globe, Lock, Mail, Phone, Save, TriangleAlert } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { ErrorState, Notice } from '../../ui/States'
@@ -8,7 +8,7 @@ import { useToast } from '../../ui/Toast'
 import { formatMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
-import { explainDbError } from './api'
+import { checkEmailSetup, explainDbError, type EmailSetup } from './api'
 import { PronunciationList } from './PronunciationList'
 
 interface Settings { get_ready_lead_min: number; late_threshold_min: number; school_phone: string | null; app_url: string | null }
@@ -38,6 +38,12 @@ export function AdminSettings() {
   const [url, setUrl] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [emailCheck, setEmailCheck] = useState<EmailSetup | null>(null)
+  async function checkEmail() {
+    setBusy('email')
+    setEmailCheck(await checkEmailSetup())
+    setBusy(null)
+  }
 
   // A load that finishes after a newer one (or after leaving) is dropped, so a late reply never overwrites what the
   // admin is typing.
@@ -124,6 +130,13 @@ export function AdminSettings() {
               </form>
             }>The link in invitations. Invites can't be sent until it's set.</Row>
             {urlError && <Notice tone="danger" className="mt-1">{urlError}</Notice>}
+            <Row title="Invitation emails" control={<Button size="md" variant="secondary" icon={<Mail />} loading={busy === 'email'} onClick={() => void checkEmail()}>Check email setup</Button>}>
+              Asks Brevo whether invitations can be sent, without sending one.
+            </Row>
+            {emailCheck && (() => {
+              const ok = emailCheck.key === 'ok' && emailCheck.sender === 'verified'
+              return <Notice tone={ok ? 'success' : 'danger'} icon={ok ? <CircleCheck aria-hidden /> : <TriangleAlert aria-hidden />} className="mt-1">{emailCheck.error ?? emailCheck.message}</Notice>
+            })()}
           </div>
         )}
       </section>
