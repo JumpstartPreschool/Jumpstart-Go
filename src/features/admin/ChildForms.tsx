@@ -40,7 +40,7 @@ export function RelationPicker({ open, onClose, childName, initial, onUse }: { o
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={`How is this person related to ${childName || 'the child'}?`} wide
+    <Sheet open={open} onClose={onClose} title={`Their relation to ${childName || 'the child'}`} wide
       description="Parents and family can collect and use the app.">
       <div className="grid gap-5">
         {RELATION_GROUPS.map((g) => (

@@ -210,7 +210,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
                 {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
                 {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
-                {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>No coordinator</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
+                {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>No center leader</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
               </span>
             </span>
           </button>

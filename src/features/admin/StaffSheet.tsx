@@ -46,7 +46,7 @@ export function StaffSheet({ dir, open, onClose, onSaved }: { dir: Directory; op
         try {
           await setCoordinator(id, classes)
         } catch {
-          return onSaved(`${name.trim().split(' ')[0]} added, but their classes weren't saved. Choose them in Coordinators.`)
+          return onSaved(`${name.trim().split(' ')[0]} added, but their classes weren't saved. Choose them in Center leaders.`)
         }
       }
       onSaved(`${name.trim().split(' ')[0]} added. They sign in with a code sent to ${cleanEmail}.`)
@@ -86,7 +86,7 @@ export function StaffSheet({ dir, open, onClose, onSaved }: { dir: Directory; op
         </fieldset>
         {roles.includes('coordinator') && (
           <fieldset>
-            <legend className="mb-2 px-0.5 text-small font-bold text-ink-2">Coordinator classes</legend>
+            <legend className="mb-2 px-0.5 text-small font-bold text-ink-2">Center leader classes</legend>
             <div className="flex flex-wrap gap-2.5">
               {dir.classes.filter((c) => c.active).map((c) => (
                 <button key={c.id} type="button" role="checkbox" aria-checked={classes.includes(c.id)} onClick={() => setClasses(toggle(classes, c.id))} className="choice h-12 px-4 text-h4">{c.name}</button>

@@ -185,7 +185,7 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
               </button>
             ))}
           </div>
-        ) : <Notice tone="warning" className="mt-3">The gate closes at 7:15 PM, so there are no times left today. Please call the school.</Notice>}
+        ) : <Notice tone="warning" className="mt-3">There are no times left today. Please call the school.</Notice>}
         {errors.at && <p className="mt-2 text-small font-bold text-danger" role="alert">{errors.at}</p>}
       </fieldset>
       {needsReason && (

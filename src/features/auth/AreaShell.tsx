@@ -9,14 +9,15 @@ import { SignOutButton } from '../../ui/SignOutButton'
 import { areasFor, useSession, type Area } from './session'
 import { PARENT_PAGES, ParentTabBar } from '../family/ParentNav'
 import { PushSwitch } from '../notifications/PushSwitch'
+import { ImportBanner } from '../admin/ImportBanner'
 
-export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Core team', pro: 'Front desk', coordinator: 'Coordinator', parent: 'Parent' }
+export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Head office', pro: 'Front desk', coordinator: 'Center leader', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
 export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, pro: <Headset />, coordinator: <BellRing />, parent: <UserRound /> }
 /** What each area gives access to, shown when choosing where to start. */
 export const AREA_DOES: Record<Area, string> = {
   admin: 'Everything, including people and roles',
-  core: 'Timings, attendance and coordinators',
+  core: 'Timings, attendance and center leaders',
   pro: 'Calls, messages and announcements',
   coordinator: 'The gate, on a tablet',
   parent: 'Your own children',
@@ -26,14 +27,15 @@ export const AREA_DOES: Record<Area, string> = {
 const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode }>>> = {
   admin: [
     { to: '/admin', label: 'People', icon: <UsersRound /> },
-    { to: '/admin/coordinators', label: 'Coordinators', icon: <BellRing /> },
+    { to: '/admin/coordinators', label: 'Center leaders', icon: <BellRing /> },
+    { to: '/admin/announce', label: 'Announce', icon: <Megaphone /> },
     { to: '/admin/settings', label: 'Settings', icon: <Settings /> },
     { to: '/admin/audit', label: 'Audit log', icon: <ScrollText /> },
   ],
   core: [
     { to: '/core', label: 'Today', icon: <CalendarClock /> },
     { to: '/core/schedules', label: 'Schedules', icon: <Clock /> },
-    { to: '/core/coordinators', label: 'Coordinators', icon: <BellRing /> },
+    { to: '/core/coordinators', label: 'Center leaders', icon: <BellRing /> },
     { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
     { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
   ],
@@ -148,7 +150,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           {children}
         </div>
       </main>
-      {area === 'parent' && <ParentTabBar />}
+      {area === 'parent' ? <ParentTabBar /> : <ImportBanner />}
     </div>
   )
 }

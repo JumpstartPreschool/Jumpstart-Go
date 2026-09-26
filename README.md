@@ -21,12 +21,12 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 
 | Who | What they get |
 |---|---|
-| **Parents** | Today's drop-off and pickup times, "I'm on my way", changing a time, reporting an absence, and a one-time link for someone else to collect. Messages and announcements from the school. |
+| **Parents** | Today's drop-off and pickup times, "I'm on my way", changing a time, absences for one day or several on a calendar, adding relatives who collect, and a one-time link for someone else to collect. Messages and announcements from the school. |
 | **Someone collecting** (a driver, a friend) | A web page from the link, no app needed. It opens after they confirm the last 4 digits of their mobile, shows their gate code, and can share their location on the way. |
-| **Gate coordinators** | A tablet queue of who is arriving and when, spoken announcements (a studio voice that says Indian names clearly, or the tablet's own), code checks and handovers. |
-| **Core team** | The day's board, attendance, programme timings, each child's regular times, messages and announcements. |
+| **Center leaders** | A tablet queue of who is arriving and when, spoken announcements (a studio voice that says Indian names clearly, or the tablet's own), code checks and handovers. |
+| **Head office** | The day's board, attendance, programme timings, each child's regular times, messages and announcements. |
 | **Front desk** | Calls and walk-ins, sent to the gate at once. |
-| **Admin** | Children, families and staff, classes and timings, bulk upload from Excel, invitations, settings, name pronunciation and the audit log. |
+| **Admin** | Children, families and staff, classes and timings, bulk upload from Excel (rows with missing details still go in), invitations, announcements, settings, name pronunciation and the audit log. |
 
 <table>
   <tr>
@@ -57,7 +57,7 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/core-today.png" alt="The core team's board for the day"></td>
+    <td width="50%"><img src="docs/images/core-today.png" alt="The head office's board for the day"></td>
     <td width="50%"><img src="docs/images/core-schedules.png" alt="Programme hours and regular times"></td>
   </tr>
   <tr>
@@ -138,7 +138,7 @@ cp .env.example .env.local   # the Supabase URL and publishable key
 npm run dev
 ```
 
-Migrations live in `supabase/migrations` (0001 to 0027). Apply them with:
+Migrations live in `supabase/migrations` (0001 to 0028). Apply them with:
 
 ```bash
 npx supabase db push

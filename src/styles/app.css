@@ -401,6 +401,34 @@
   @media (hover: hover) { .signout:hover { background: var(--danger-soft); color: var(--danger); } }
   .signout:active { background: var(--danger-soft); color: var(--danger); transform: scale(0.985); }
 
+  /* End duty on the gate tablet's bar: a calm pill with a red power disc; it only turns red when touched. */
+  .endduty {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px 0 5px;
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line), 0 1px 0 var(--line);
+    color: var(--ink);
+    font-size: var(--text-small);
+    font-weight: 800;
+    transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+  }
+  .endduty > span {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .endduty svg { width: 18px; height: 18px; stroke-width: 2.5; }
+  @media (hover: hover) { .endduty:hover { background: var(--danger-soft); color: var(--danger); } }
+  .endduty:active { background: var(--danger-soft); color: var(--danger); transform: scale(0.97); }
+
   /* A text-only action inside a card ("Change email"). */
   .linkbtn {
     min-height: 44px;

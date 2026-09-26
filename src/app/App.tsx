@@ -35,7 +35,7 @@ function AreaPages({ area, index }: { area: 'admin' | 'core' | 'pro'; index: Rea
       {area === 'admin' && <Route path="audit" element={<AuditLog />} />}
       {area === 'core' && <Route path="schedules" element={<Schedules />} />}
       {area !== 'admin' && <Route path="messages" element={<OfficeMessages area={area} />} />}
-      {area !== 'admin' && <Route path="announce" element={<Announce area={area} />} />}
+      <Route path="announce" element={<Announce area={area} />} />
       {area !== 'pro' && <Route path="coordinators" element={<CoordinatorsPage area={area} />} />}
       <Route path="*" element={<Navigate to={`/${area}`} replace />} />
     </Routes>

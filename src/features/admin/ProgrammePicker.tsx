@@ -82,7 +82,7 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
     setStep(2)
   }
 
-  const titles = { 1: `Which class is ${firstName} joining?`, 2: `Which programme, ${firstName}?` }
+  const titles = { 1: `Choose a class for ${firstName}`, 2: `Choose a programme for ${firstName}` }
 
   return (
     <Sheet open={open} onClose={onClose} title={titles[step]} wide>
