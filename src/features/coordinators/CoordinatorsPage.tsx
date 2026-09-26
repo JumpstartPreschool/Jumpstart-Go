@@ -68,11 +68,11 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
   const done = async (message: string) => { await reload(); setEditing(null); setAdding(false); toast(message) }
 
   return (
-    <AreaShell area={area} title="Coordinators"
+    <AreaShell area={area} title="Center leaders"
       subtitle="Who works the gate, and which classes they hear."
-      actions={data && <Button icon={<Plus />} onClick={() => setAdding(true)}>Add coordinator</Button>}>
+      actions={data && <Button icon={<Plus />} onClick={() => setAdding(true)}>Add center leader</Button>}>
       {loadError ? (
-        <div className="mt-6"><ErrorState title="Couldn't load coordinators" onRetry={() => void reload()}>{loadError}</ErrorState></div>
+        <div className="mt-6"><ErrorState title="Couldn't load center leaders" onRetry={() => void reload()}>{loadError}</ErrorState></div>
       ) : !data ? (
         <div className="mt-6"><SkeletonList /></div>
       ) : (
@@ -93,7 +93,7 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
                         {who.length ? (
                           <p className="truncate text-small font-semibold text-ink-2">{who.map(firstName).join(', ')}</p>
                         ) : (
-                          <p className="flex items-center gap-1.5 text-small font-bold text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />No coordinator: goes to everyone on duty</p>
+                          <p className="flex items-center gap-1.5 text-small font-bold text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />No center leader: goes to everyone on duty</p>
                         )}
                       </div>
                       {who.length > 0 && <Pill icon={<UsersRound />}>{who.length}</Pill>}
@@ -105,15 +105,15 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
           </section>
 
           <section className="mt-10" aria-labelledby="coordinators-title">
-            <h2 id="coordinators-title" className="kicker px-0.5">Coordinators · {coordinators.length}</h2>
+            <h2 id="coordinators-title" className="kicker px-0.5">Center leaders · {coordinators.length}</h2>
             {coordinators.length === 0 ? (
               <div className="mt-3">
-                <EmptyState title="No coordinators yet" action={<Button icon={<Plus />} onClick={() => setAdding(true)}>Add coordinator</Button>}>
+                <EmptyState title="No center leaders yet" action={<Button icon={<Plus />} onClick={() => setAdding(true)}>Add center leader</Button>}>
                   Add the people who work the gate, and choose their classes.
                 </EmptyState>
               </div>
             ) : (
-              <ul className="mt-3 grid gap-3 md:grid-cols-2">
+              <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {coordinators.map((p) => {
                   const classes = classesOf(p.id)
                   return (
@@ -138,7 +138,7 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
           <EditCoordinator key={editing.id} person={editing} classes={data.classes} initial={data.assignments.get(editing.id) ?? []} onDone={done} />
         )}
       </Sheet>
-      <Sheet open={adding} onClose={() => setAdding(false)} title="Add a coordinator">
+      <Sheet open={adding} onClose={() => setAdding(false)} title="Add a center leader">
         {adding && data && <AddCoordinator data={data} area={area} onDone={done} />}
       </Sheet>
     </AreaShell>
@@ -179,11 +179,11 @@ function EditCoordinator({ person, classes, initial, onDone }: { person: Profile
             <p className="text-body font-bold">Remove {firstName(person)} as a coordinator? They stop hearing announcements and can no longer run the gate. Their other roles stay.</p>
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <Button variant="secondary" onClick={() => setConfirmRemove(false)}>Keep</Button>
-              <Button variant="danger" icon={<UserMinus />} loading={save.busy} onClick={() => void save.run(() => removeCoordinator(person.id), () => onDone(`${firstName(person)} is no longer a coordinator.`))}>Remove</Button>
+              <Button variant="danger" icon={<UserMinus />} loading={save.busy} onClick={() => void save.run(() => removeCoordinator(person.id), () => onDone(`${firstName(person)} is no longer a center leader.`))}>Remove</Button>
             </div>
           </>
         ) : (
-          <Button variant="quiet" className="w-full" icon={<UserMinus />} onClick={() => setConfirmRemove(true)}>Remove Coordinator role</Button>
+          <Button variant="quiet" className="w-full" icon={<UserMinus />} onClick={() => setConfirmRemove(true)}>Remove Center leader role</Button>
         )}
       </div>
       <SheetFooter>
@@ -228,8 +228,8 @@ function AddCoordinator({ data, area, onDone }: { data: CoordinatorData; area: '
         <div className="mt-3">{data.classes.length ? <ClassPicker classes={data.classes} value={picked} onChange={setPicked} /> : <Notice>No class groups yet. You can choose classes later.</Notice>}</div>
         {save.error && <Notice tone="danger" className="mt-4">{save.error}</Notice>}
         <SheetFooter>
-          <Button size="xl" className="w-full" icon={<BellRing />} loading={save.busy} onClick={() => void save.run(() => setCoordinator(person.id, picked), () => onDone(`${firstName(person)} is now a coordinator.`))}>
-            Make coordinator
+          <Button size="xl" className="w-full" icon={<BellRing />} loading={save.busy} onClick={() => void save.run(() => setCoordinator(person.id, picked), () => onDone(`${firstName(person)} is now a center leader.`))}>
+            Make center leader
           </Button>
         </SheetFooter>
       </>
@@ -239,11 +239,11 @@ function AddCoordinator({ data, area, onDone }: { data: CoordinatorData; area: '
   return (
     <>
       <p className="text-body text-ink-2">
-        Choose someone the admin has already added. {area === 'core' && 'The core team can give the Coordinator role; only the admin gives Admin or Core team.'}
+        Choose someone the admin has already added. {area === 'core' && 'The head office can give the Center leader role; only the admin gives Admin or Head office.'}
       </p>
       <SearchField label="Search people" className="mt-4" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, email or phone" autoFocus />
       {candidates.length === 0 ? (
-        <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : 'Everyone registered is already a coordinator. The admin adds new staff in People.'}</p>
+        <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : 'Everyone registered is already a center leader. The admin adds new staff in People.'}</p>
       ) : (
         <ul className="mt-4 grid gap-2">
           {candidates.map((p) => (

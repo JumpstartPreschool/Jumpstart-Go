@@ -100,15 +100,16 @@ export function AdminSettings() {
 
   return (
     <AreaShell area="admin" title="Settings" subtitle="Changes apply at once and are written to the audit log.">
-      <section className="mt-6">
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
+      <section>
         {error ? <ErrorState title="Couldn't load the settings" onRetry={load}>{error}</ErrorState> : !s ? (
           <div className="card h-[420px] animate-pulse rounded-2xl" aria-label="Loading" />
         ) : (
           <div className="card divide-y divide-line rounded-2xl p-5 sm:p-6">
-            <Row title={'"Get ready" reminder'} control={chips('get_ready_lead_min')}>Coordinators hear it this long before the time someone arrives.</Row>
+            <Row title={'"Get ready" reminder'} control={chips('get_ready_lead_min')}>Center leaders hear it this long before the time someone arrives.</Row>
             <Row title="Running-late alert" control={chips('late_threshold_min')}>When someone will be at least this late, or the time passes this far with nobody here.</Row>
             <Row title="Drop-off and pickup times" control={<Link to="/admin" className="btn btn--secondary btn--md">Classes<ChevronRight aria-hidden /></Link>}>Set for each programme in People → Classes. New ones start 15 minutes either side of the class.</Row>
-            <Row title="School hours" control={locked('Fixed')}>9:00 AM to 7:00 PM. The gate opens at 8:45 AM and closes at 7:15 PM.</Row>
+            <Row title="School hours" control={locked('Fixed')}>9:00 AM to 7:00 PM. Parents can set a drop-off or pickup for any time.</Row>
             <Row title="Call the school number" control={
               <form className="flex w-full items-center gap-2" onSubmit={(e) => { e.preventDefault(); savePhone() }}>
                 <label className="input min-w-0 flex-1 sm:w-[210px] sm:flex-none"><Phone aria-hidden /><input type="tel" inputMode="tel" aria-label="Call the school number" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneError(null) }} placeholder="020 2545 1234" /></label>
@@ -127,6 +128,7 @@ export function AdminSettings() {
         )}
       </section>
       <PronunciationList />
+      </div>
     </AreaShell>
   )
 }
