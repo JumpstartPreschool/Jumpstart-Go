@@ -181,9 +181,9 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         </section>
       </div>
 
-      <div className="flex flex-wrap gap-2.5">
+      <div className="flex flex-wrap gap-2.5 max-sm:[&>*]:flex-1">
         <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth ?? '', gender: child.gender ?? null }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
-        <Button size="md" variant="danger" icon={<LogOut />} className="ml-auto" onClick={() => { setError(null); setPending({ kind: 'left' }) }}>{first} has left the school</Button>
+        <Button size="md" variant="danger" icon={<LogOut />} className="sm:ml-auto" onClick={() => { setError(null); setPending({ kind: 'left' }) }}>{first} has left the school</Button>
       </div>
 
       {sheet === 'programme' && (

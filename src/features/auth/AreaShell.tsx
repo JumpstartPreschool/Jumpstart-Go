@@ -150,7 +150,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
               <h1 className="text-h1">{title}</h1>
               {subtitle && <p className="mt-2 max-w-[68ch] text-lead text-ink-2">{subtitle}</p>}
             </div>
-            {actions && <div className="flex flex-wrap gap-2.5">{actions}</div>}
+            {actions && <div className="flex flex-wrap gap-2.5 max-sm:w-full max-sm:[&>*]:min-w-[140px] max-sm:[&>*]:flex-1">{actions}</div>}
           </div>
           {children}
         </div>
