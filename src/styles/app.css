@@ -213,17 +213,17 @@
 
   .rainbow-bar { background: var(--rainbow); }
 
-  /* The sign-in page's brand panel: deep royal purple, a light sky-blue glow at the top, soft teal and blue below. */
+  /* The sign-in page's brand panel: deep wine red rising to the logo's red, with warm sunshine and orange glows. */
   .signin-hero {
     background:
-      radial-gradient(34rem 24rem at 105% -5%, rgb(125 190 255 / 0.32), transparent 62%),
-      radial-gradient(30rem 24rem at -15% 105%, rgb(20 175 165 / 0.38), transparent 62%),
-      radial-gradient(26rem 20rem at 95% 100%, rgb(31 139 230 / 0.4), transparent 62%),
-      linear-gradient(155deg, #24175f 0%, #3a2596 58%, #5b3fd6 100%);
+      radial-gradient(34rem 24rem at 105% -5%, rgb(255 194 26 / 0.26), transparent 62%),
+      radial-gradient(30rem 24rem at -15% 105%, rgb(247 133 42 / 0.3), transparent 62%),
+      radial-gradient(26rem 20rem at 95% 100%, rgb(255 120 110 / 0.28), transparent 62%),
+      linear-gradient(155deg, #3d0a13 0%, #7a1420 55%, #b8232a 100%);
   }
 
   /* Behind the sign-in card: a soft lavender light, so the card doesn't float in empty space. */
-  .signin-side { background: radial-gradient(32rem 26rem at 50% 40%, rgb(124 99 255 / 0.1), transparent 70%); }
+  .signin-side { background: radial-gradient(32rem 26rem at 50% 40%, rgb(200 38 44 / 0.07), transparent 70%); }
 
   /* A light travelling around a card's edge (src/ui/BorderBeam.tsx). Only where the browser can move it along the edge,
      and never with reduced motion. */
@@ -306,8 +306,8 @@
   .btn--icon { padding-inline: 0; }
   .btn--primary { --b: var(--accent); --fg: var(--on-accent); --lip: var(--accent-lip); --hover: var(--accent-hover); }
   /* A soft light from above on the deep violet: depth without a shine. */
-  .btn--primary:not(:disabled) { background-image: linear-gradient(180deg, #6a50ea, #5238cf); box-shadow: 0 var(--lipw) 0 var(--lip), 0 10px 22px -10px rgb(91 63 214 / 0.65); }
-  @media (hover: hover) { .btn--primary:hover:not(:disabled) { background-image: linear-gradient(180deg, #6147e2, #4a31c2); } }
+  .btn--primary:not(:disabled) { background-image: linear-gradient(180deg, #d93c41, #bb2228); box-shadow: 0 var(--lipw) 0 var(--lip), 0 10px 22px -10px rgb(200 38 44 / 0.6); }
+  @media (hover: hover) { .btn--primary:hover:not(:disabled) { background-image: linear-gradient(180deg, #c8262c, #a61c22); } }
   .btn--secondary { --b: var(--surface); --fg: var(--ink); --lip: var(--line-2); --edge: var(--line-2); --hover: var(--sunken); }
   .btn--sunshine { --b: var(--sun); --fg: var(--sun-ink); --lip: var(--sun-lip); --hover: var(--sun-hover); }
   .btn--success { --b: var(--success); --fg: #fff; --lip: var(--success-lip); --hover: var(--success-hover); }
@@ -488,7 +488,7 @@
     transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
   }
   @media (hover: hover) { .input:hover { border-color: var(--line-hover); } }
-  .input:focus-within { border-color: var(--accent); box-shadow: var(--focus-ring); }
+  .input:focus-within { border-color: var(--ink-2); box-shadow: var(--focus-ring); }
   .input:has([aria-invalid='true']) { border-color: var(--danger); box-shadow: 0 0 0 4px color-mix(in oklab, var(--danger) 14%, transparent); }
   .input:has(:disabled) { opacity: 0.55; }
   .input > svg { width: 20px; height: 20px; flex: none; color: var(--ink-3); }
@@ -558,7 +558,7 @@
   .trip-person__dot {
     position: absolute; inset: 3px; border-radius: 9999px;
     background: var(--accent);
-    border: 3px solid #fff; box-shadow: 0 3px 10px rgb(91 63 214 / 0.35);
+    border: 3px solid #fff; box-shadow: 0 3px 10px rgb(200 38 44 / 0.35);
     transition: background var(--dur-slow) var(--ease-standard), opacity var(--dur-slow) var(--ease-standard);
   }
   .trip-person__pulse {

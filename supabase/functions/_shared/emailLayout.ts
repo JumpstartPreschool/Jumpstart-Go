@@ -21,11 +21,11 @@ export function escapeHtml(s: string): string {
 }
 
 /**
- * The invitation itself: a navy card with a gold button that opens sign-in with their email filled in. The link fills the gold cell,
+ * The invitation itself: a deep red card with a gold button that opens sign-in with their email filled in. The link fills the gold cell,
  * so the whole button is tappable in every client; Outlook, which ignores gradients, gets the solid colours.
  */
 export function invitationCard(signInHref: string, siteHref: string, host: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#1b1f4b" style="background:#1b1f4b;background-image:linear-gradient(135deg,#252a63 0%,#16193a 100%);border-radius:24px;box-shadow:0 16px 36px rgba(22,25,58,0.28);">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#6b1119" style="background:#6b1119;background-image:linear-gradient(135deg,#8a161b 0%,#4a0c14 100%);border-radius:24px;box-shadow:0 16px 36px rgba(90,15,26,0.3);">
                 <tr>
                   <td align="center" class="hero" style="padding:30px 28px 30px;">
                     <div style="font-family:${SANS};font-size:11px;line-height:16px;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;color:#ffd54a;">&#9733;&nbsp; Your personal invitation &nbsp;&#9733;</div>
@@ -37,7 +37,7 @@ export function invitationCard(signInHref: string, siteHref: string, host: strin
                         </td>
                       </tr>
                     </table>
-                    <div style="margin-top:16px;font-family:${SANS};font-size:13px;line-height:20px;color:#aab0d6;">or visit <a href="${siteHref}" target="_blank" style="color:#ffffff;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.35);">${host}</a></div>
+                    <div style="margin-top:16px;font-family:${SANS};font-size:13px;line-height:20px;color:#f3c9c6;">or visit <a href="${siteHref}" target="_blank" style="color:#ffffff;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.35);">${host}</a></div>
                   </td>
                 </tr>
               </table>`
@@ -45,10 +45,10 @@ export function invitationCard(signInHref: string, siteHref: string, host: strin
 
 /** The 6-digit code on a soft panel, big enough to read at a glance and easy to select and copy. */
 export function codePanel(code: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f7f4ff;border:1px solid #e4dcfb;border-radius:20px;">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fff7f5;border:1px solid #f8d7d3;border-radius:20px;">
                 <tr>
                   <td align="center" style="padding:22px 16px 24px;">
-                    <div style="font-family:${SANS};font-size:11px;line-height:16px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#6d5bd0;">Your code</div>
+                    <div style="font-family:${SANS};font-size:11px;line-height:16px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#b3262b;">Your code</div>
                     <div class="code" style="margin-top:6px;font-family:${DISPLAY};font-size:46px;line-height:56px;font-weight:800;letter-spacing:14px;padding-left:14px;color:${INK};font-variant-numeric:tabular-nums;">${code}</div>
                     <div style="margin-top:6px;font-family:${SANS};font-size:13px;line-height:20px;font-weight:600;color:${INK_3};">Works once &middot; expires in 5 minutes</div>
                   </td>
@@ -60,7 +60,7 @@ export function codePanel(code: string): string {
 export function steps(items: string[]): string {
   const row = (n: number, body: string) => `
                 <tr>
-                  <td width="40" valign="top" style="padding:0 0 16px;"><div style="width:28px;height:28px;border-radius:14px;background:#f1edff;color:#4b3fb8;font-family:${SANS};font-size:14px;line-height:28px;font-weight:800;text-align:center;">${n}</div></td>
+                  <td width="40" valign="top" style="padding:0 0 16px;"><div style="width:28px;height:28px;border-radius:14px;background:#fdeceb;color:#a61c22;font-family:${SANS};font-size:14px;line-height:28px;font-weight:800;text-align:center;">${n}</div></td>
                   <td valign="top" style="padding:4px 0 16px;font-family:${SANS};font-size:15px;line-height:22px;color:${INK_2};">${body}</td>
                 </tr>`
   return `<p style="margin:0 0 16px;font-family:${SANS};font-size:11px;line-height:16px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${INK_3};">How to sign in</p>
@@ -131,7 +131,7 @@ export function emailLayout(o: Layout): string {
           </tr>
           <tr>
             <td class="pad" align="center" style="padding:12px 44px 0;font-family:${DISPLAY};">
-              <span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#f1edff;font-family:${SANS};font-size:12px;line-height:16px;font-weight:800;color:#4b3fb8;">${o.eyebrow}</span>
+              <span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#fdeceb;font-family:${SANS};font-size:12px;line-height:16px;font-weight:800;color:#a61c22;">${o.eyebrow}</span>
               <h1 class="h1" style="margin:14px 0 0;font-size:28px;line-height:36px;font-weight:800;letter-spacing:-0.3px;color:${INK};">${o.heading}</h1>
               <p style="margin:12px 0 0;font-family:${SANS};font-size:16px;line-height:25px;color:${INK_2};">${o.intro}</p>
             </td>
@@ -140,7 +140,7 @@ export function emailLayout(o: Layout): string {
           ${o.after ? `<tr><td class="pad" style="padding:28px 44px 0;">${o.after}</td></tr>` : ''}
           <tr>
             <td class="pad" style="padding:24px 44px 36px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f6f5ff;border-radius:16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fff6f5;border-radius:16px;">
                 <tr>
                   <td width="36" valign="top" style="padding:14px 0 14px 16px;font-size:18px;line-height:22px;">&#128274;</td>
                   <td valign="top" style="padding:14px 18px 14px 4px;font-family:${SANS};font-size:14px;line-height:21px;color:${INK_2};">${o.note}</td>

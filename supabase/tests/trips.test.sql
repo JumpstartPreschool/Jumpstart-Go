@@ -78,29 +78,39 @@ reset role;
 -- The gate day (08:45–19:15, D24) and school days.
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
 set role authenticated;
+-- 0026: the gate hours and school days no longer block a trip; a time outside the window still asks why.
 set app.now = '2026-09-24 18:50:00+05:30';
 do $$ begin
   perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'pickup', 30);
-  raise exception 'FAIL: pickup after 7:15 PM';
+  raise exception 'FAIL: a pickup outside the window went through without a reason';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
-  assert sqlerrm like 'outside_hours%', sqlerrm;
+  assert sqlerrm like 'reason_required%', sqlerrm;
 end $$;
 set app.now = '2026-09-24 08:30:00+05:30';
 do $$ begin
   perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'dropoff', 10);
-  raise exception 'FAIL: drop-off before 8:45 AM';
+  raise exception 'FAIL: a drop-off outside the window went through without a reason';
+exception when raise_exception then
+  if sqlerrm like 'FAIL%' then raise; end if;
+  assert sqlerrm like 'reason_required%', sqlerrm;
+end $$;
+-- A trip still can't roll past midnight into tomorrow.
+set app.now = '2026-09-24 23:50:00+05:30';
+do $$ begin
+  perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'pickup', 30);
+  raise exception 'FAIL: a trip past midnight';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
   assert sqlerrm like 'outside_hours%', sqlerrm;
 end $$;
-set app.now = '2026-09-26 10:00:00+05:30';  -- last Saturday of September
-do $$ begin
-  perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'dropoff', 10);
-  raise exception 'FAIL: trip on the last Saturday';
-exception when raise_exception then
-  if sqlerrm like 'FAIL%' then raise; end if;
-  assert sqlerrm like 'no_school%', sqlerrm;
+-- The last Saturday (no Learning Center that day): a trip works anyway.
+set app.now = '2026-09-26 10:00:00+05:30';
+do $$
+declare t public.trips;
+begin
+  t := public.start_trip('00000000-0000-0000-0000-0000000c0002', 'dropoff', 10);
+  assert t.day = '2026-09-26', 'trip booked on a non-school day';
 end $$;
 set app.now = '2026-09-19 10:00:00+05:30';  -- 3rd Saturday: the Learning Center is open
 do $$ begin

@@ -66,7 +66,7 @@ export function windowFor(p: Programme, direction: Direction): TimeWindow {
 }
 
 export type TimeCheck =
-  | { ok: false; reason: 'outside_school_hours' | 'in_the_past' }
+  | { ok: false; reason: 'in_the_past' }
   | { ok: true; offSchedule: boolean; shortNotice: boolean }
 
 /**
@@ -75,7 +75,6 @@ export type TimeCheck =
  * Off-schedule and short-notice times are allowed but flagged; the server asks for a reason when off-schedule.
  */
 export function checkTime(p: Programme, direction: Direction, requested: Minutes, now: Minutes | null): TimeCheck {
-  if (requested < GATE_OPENS || requested > GATE_CLOSES) return { ok: false, reason: 'outside_school_hours' }
   if (now !== null && requested < now) return { ok: false, reason: 'in_the_past' }
   return {
     ok: true,

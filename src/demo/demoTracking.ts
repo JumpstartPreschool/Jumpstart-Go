@@ -155,7 +155,7 @@ export function trackingRpc(db: TrackingDb, fn: string, args: Row, me: Row | und
       const base = Math.max(Date.parse(String(l.trip.arrive_at)), Math.floor(demoNow() / 60_000) * 60_000)
       const arrive = new Date(base + Number(args.p_extra) * 60_000)
       const local = indiaClock(arrive)
-      if (local.date !== l.trip.day || local.minutes > 19 * 60 + 15) return h.fail('outside_hours: The gate closes at 7:15 PM. Please call the school.')
+      if (local.date !== l.trip.day) return h.fail('outside_hours: That would be after midnight. Please call the school.')
       const c = db.children.find((x) => x.id === l.trip.child_id)!
       const p = db.programmes.find((x) => x.id === c.programme_id)!
       const mins = (v: unknown) => { const [a, b] = String(v).split(':').map(Number); return a! * 60 + b! }

@@ -46,12 +46,12 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
--- Past the gate's closing time is refused.
-set app.now = '2026-09-25 18:50:00+05:30';
+-- 0026: past the gate's usual closing time is fine, flagged as late; past midnight is still refused.
+set app.now = '2026-09-25 23:50:00+05:30';
 set role anon;
 do $$ begin
   perform public.link_late(current_setting('test.ltoken'), repeat('c', 40), 30);
-  raise exception 'FAIL: arrival after 7:15 PM accepted';
+  raise exception 'FAIL: arrival after midnight accepted';
 exception when raise_exception then
   if sqlerrm like 'FAIL%' then raise; end if;
   assert sqlerrm like 'outside_hours%', sqlerrm;

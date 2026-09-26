@@ -1,5 +1,8 @@
 import type { ProgrammeRow } from '../admin/api'
-import { GATE_CLOSES, GATE_OPENS, formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
+import { formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
+
+/** Midnight: a trip is for today (0026 lifted the 8:45 AM to 7:15 PM limit). */
+const LAST_MINUTE: Minutes = 24 * 60
 import { windowFor, type Direction, type Programme, type TimeWindow } from '../../domain/programme'
 
 /** How soon a parent can say they'll arrive (the "I'm on my way" choices, in minutes). */
@@ -24,9 +27,9 @@ export function programmeOf(p: Pick<ProgrammeRow, 'name' | 'flexible' | 'starts'
 
 export type Arrival = 'closed' | 'early' | 'inside' | 'late'
 
-/** Where an arrival time falls: outside the gate day, 8:45 AM to 7:15 PM (not allowed), or early, inside or late for the child's window. */
+/** Where an arrival time falls: past midnight (not allowed: a trip is for today), or early, inside or late for the child's window (0026: any hour). */
 export function checkArrival(p: Programme, direction: Direction, arrival: Minutes): Arrival {
-  if (arrival < GATE_OPENS || arrival > GATE_CLOSES) return 'closed'
+  if (arrival >= LAST_MINUTE) return 'closed'
   const w = windowFor(p, direction)
   return arrival < w.from ? 'early' : arrival > w.to ? 'late' : 'inside'
 }
@@ -42,7 +45,7 @@ export const clockTime = (iso: string) => formatTime(indiaClock(new Date(iso)).m
 /**
  * Times someone can be booked to arrive (the Screen Book's "Arriving about"): the child's window, plus 15 minutes either
  * side of a short one, every 5 minutes (every 15 for a long window), from 10 minutes from now. Once the window has
- * passed, the next times until the gate closes, marked late. Each says where it falls, so early or late can ask why.
+ * passed, the next times until midnight, marked late. Each says where it falls, so early or late can ask why.
  */
 export function arrivalSlots(p: Programme, direction: Direction, nowMin: Minutes, count = 12): Array<{ at: Minutes; state: Arrival }> {
   const w = windowFor(p, direction)
@@ -51,9 +54,9 @@ export function arrivalSlots(p: Programme, direction: Direction, nowMin: Minutes
   const soonest = Math.ceil((nowMin + 10) / step) * step
   const around = (from: Minutes, to: Minutes) => {
     const out: Array<{ at: Minutes; state: Arrival }> = []
-    for (let t = Math.max(GATE_OPENS, soonest, from); t <= Math.min(GATE_CLOSES, to) && out.length < count; t += step) out.push({ at: t, state: checkArrival(p, direction, t) })
+    for (let t = Math.max(0, soonest, from); t <= Math.min(LAST_MINUTE - step, to) && out.length < count; t += step) out.push({ at: t, state: checkArrival(p, direction, t) })
     return out
   }
   const inWindow = around(wide ? w.from : w.from - 15, wide ? w.to : w.to + 15)
-  return inWindow.length ? inWindow : around(soonest, GATE_CLOSES)
+  return inWindow.length ? inWindow : around(soonest, LAST_MINUTE)
 }

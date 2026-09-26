@@ -59,13 +59,13 @@ export function SignInFrame({ children }: { children: ReactNode }) {
           <p className="mt-3 max-w-[14ch] text-[30px] leading-[1.08] font-extrabold tracking-[-0.02em] text-balance sm:text-[36px] lg:mt-5 lg:text-[52px] 2xl:text-[64px]" role="heading" aria-level={2}>
             Safe drop-offs and pickups
           </p>
-          <p className="mt-3 text-body font-semibold text-[#d9d0ff] lg:text-lead">Jumpstart Preschool, Karve Road</p>
+          <p className="mt-3 text-body font-semibold text-[#fde2df] lg:text-lead">Jumpstart Preschool, Karve Road</p>
         </div>
         <ul className="hidden max-w-[520px] gap-3 lg:grid">
           {PROMISES.map((p) => (
             <li key={p.title} className="flex items-center gap-3.5 rounded-2xl bg-white/[0.08] px-4 py-3 ring-1 ring-white/15 backdrop-blur-sm">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
-              <span className="text-body text-[#e6e0ff]"><b className="text-white">{p.title}.</b> {p.text}</span>
+              <span className="text-body text-[#fdecea]"><b className="text-white">{p.title}.</b> {p.text}</span>
             </li>
           ))}
         </ul>
@@ -216,7 +216,7 @@ export function LoginScreen() {
         ) : (
           <form key="code" onSubmit={onCode} noValidate className="page-in grid gap-4">
             <div className="text-center">
-              <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(155deg,#3a2596,#5b3fd6)] text-white shadow-[0_12px_24px_-12px_rgb(91_63_214/0.8)]">
+              <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(155deg,#8a161b,#c8262c)] text-white shadow-[0_12px_24px_-12px_rgb(200_38_44/0.7)]">
                 <MailCheck className="size-8" strokeWidth={1.75} aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check your email</h1>

@@ -19,7 +19,7 @@ const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body)
 /** What the admin can do about a refused email, in words (Brevo's API error codes). */
 function brevoProblem(status: number, code: string): string {
   if (status === 401 || code === 'unauthorized') {
-    return "Brevo didn't accept the email key. In Brevo, open SMTP & API → API keys, create an API key (it starts with xkeysib-, not xsmtpsib-), and set it as BREVO_API_KEY."
+    return "Brevo refused the request. In Brevo, open Security → Authorised IPs and turn off blocking of unknown IP addresses for the API (Supabase sends from changing addresses). If that's already off, create a new API key (it starts with xkeysib-, not xsmtpsib-) and set it as BREVO_API_KEY."
   }
   if (code === 'permission_denied' || status === 403) return "Brevo's account can't send yet: check that it's activated and the key has permission to send emails."
   if (code === 'invalid_parameter' || code === 'missing_parameter' || status === 400) {

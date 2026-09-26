@@ -7,7 +7,7 @@ import { EmptyState, ErrorState } from '../../ui/States'
 import { childColor } from '../../ui/childColor'
 import { useNow } from '../../ui/hooks'
 import { formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
-import { runsOn, windowFor, type Direction, type Programme } from '../../domain/programme'
+import { windowFor, type Direction, type Programme } from '../../domain/programme'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { useSession } from '../auth/session'
@@ -143,7 +143,8 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   const dropDone = mine.find((t) => t.direction === 'dropoff' && t.status === 'checked_in') ?? null
   const pickDone = mine.find((t) => t.direction === 'pickup' && t.status === 'handed_over') ?? null
   const regular = child.child_schedules.find((s) => s.weekday === today.weekday)
-  const school = programme ? runsOn(programme, today.date, new Set()) : false
+  // 0026: trips work any day, so the buttons show every day (the regular times still follow the programme's days).
+  const school = !!programme
 
   const changedTime = (d: Direction) => times.find((t) => t.direction === d) ?? null
   const usual = (d: Direction) => {

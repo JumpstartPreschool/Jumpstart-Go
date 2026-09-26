@@ -259,10 +259,9 @@ function startTrip(db: Db, me: Row | undefined, args: Row): Response {
   const p = db.programmes.find((x) => x.id === child.programme_id)!
   const now = new Date(Math.floor(demoNow() / 60_000) * 60_000)
   const today = indiaClock(now)
-  if (!(p.weekdays as number[]).includes(today.weekday)) return fail('no_school: There is no school for this child today.')
   const arrive = new Date(now.getTime() + minutes * 60_000)
   const local = indiaClock(arrive)
-  if (local.date !== today.date || local.minutes < 8 * 60 + 45 || local.minutes > 19 * 60 + 15) return fail('outside_hours: The gate is open from 8:45 AM to 7:15 PM. Choose a time inside those hours.')
+  if (local.date !== today.date) return fail('outside_hours: That would be after midnight. Choose an earlier time.')
   if (db.attendance.some((a) => a.child_id === child.id && a.day === today.date && a.status !== 'present')) return fail('not_coming: This child is marked as not coming today. Call the school to change that.')
   if (db.trips.some((x) => x.child_id === child.id && x.direction === args.p_direction && x.day === today.date && (x.status === 'handed_over' || x.status === 'checked_in'))) {
     return fail(`already_done: ${args.p_direction === 'pickup' ? 'This child has already been collected today.' : 'This child has already been checked in today.'}`)

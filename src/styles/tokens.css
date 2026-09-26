@@ -38,14 +38,13 @@
   --line-2: #ddd8e6; /* input edges, button lips on light surfaces */
   --line-hover: #cfc9dc;
 
-  /* Primary: royal violet, the one next action on a screen, from the same family as the deep purple of the sign-in
-     panel; light lavender for tints (white text 6.7:1). */
-  --accent: #5b3fd6;
-  --accent-hover: #4f35c9;
-  --accent-lip: #3a2596;
-  --accent-soft: #f0ecff;
-  --accent-ink: #4f35c9; /* accent text and links on light surfaces, 7.8:1 */
-  --brand-deep: #2a1b6e; /* the sign-in panel and other large brand surfaces */
+  /* Primary: Jumpstart red, from the logo's J and star, deepened so white text reads (5.6:1); blush for tints. */
+  --accent: #c8262c;
+  --accent-hover: #b41f25;
+  --accent-lip: #8a161b;
+  --accent-soft: #fdeceb;
+  --accent-ink: #a61c22; /* accent text and links on light surfaces, 7.5:1 */
+  --brand-deep: #5a0f1a; /* the sign-in panel and other large brand surfaces: deep wine */
 
   /* Secondary: ink, for area chips and solid labels */
   --secondary: #16193a;
@@ -70,15 +69,16 @@
   --danger-hover: #fff0ef;
   --danger-line: #f0c6c4;
   --danger-strong: #b91c1c; /* filled alerts with white text */
-  --info: #4f35c9;
-  --info-soft: #f0ecff;
+  --info: #0f766e; /* the logo's teal, so information never reads as an error */
+  --info-soft: #e6f5f3;
   --recent: #8f5a00;
   --recent-soft: #fff0cc;
   --stale: #5b6478;
   --stale-soft: #e9ecf3;
 
-  --focus: rgb(91 76 214 / 0.55);
-  --focus-ring: 0 0 0 4px rgb(91 76 214 / 0.18);
+  /* Focus is ink, not red: on a red-themed app a red outline would read as an error. */
+  --focus: rgb(22 25 58 / 0.5);
+  --focus-ring: 0 0 0 4px rgb(22 25 58 / 0.1);
 
   /* Whisper of the logo's colours behind every page */
   --whisper-a: rgb(239 59 63 / 0.07);
@@ -141,11 +141,11 @@
   --line-2: #343960;
   --line-hover: #444a74;
 
-  --accent: #5446c9; /* white text 6.8:1 */
-  --accent-hover: #6254d6;
-  --accent-lip: #342a8f;
-  --accent-soft: rgb(140 124 255 / 0.18);
-  --accent-ink: #c4bbff;
+  --accent: #d42f35; /* white text 4.9:1 */
+  --accent-hover: #e04449;
+  --accent-lip: #8a161b;
+  --accent-soft: rgb(229 72 77 / 0.18);
+  --accent-ink: #ff8a8e;
 
   --secondary: #f3f4ff;
   --secondary-lip: #9da2c8;
@@ -164,15 +164,15 @@
   --danger-hover: rgb(255 128 128 / 0.2);
   --danger-line: rgb(255 128 128 / 0.35);
   --danger-strong: #c42b2b;
-  --info: #c4bbff;
-  --info-soft: rgb(140 124 255 / 0.18);
+  --info: #5eead4;
+  --info-soft: rgb(45 212 191 / 0.16);
   --recent: #ffc857;
   --recent-soft: rgb(255 200 87 / 0.14);
   --stale: #a1a8c3;
   --stale-soft: rgb(161 168 195 / 0.14);
 
-  --focus: rgb(168 160 255 / 0.75);
-  --focus-ring: 0 0 0 4px rgb(168 160 255 / 0.2);
+  --focus: rgb(255 138 142 / 0.75);
+  --focus-ring: 0 0 0 4px rgb(255 138 142 / 0.2);
 
   --whisper-a: rgb(255 90 94 / 0.08);
   --whisper-b: rgb(74 166 255 / 0.12);

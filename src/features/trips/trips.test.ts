@@ -29,8 +29,9 @@ describe('arrivalSlots', () => {
     const s = arrivalSlots(halfDay, 'pickup', toMinutes('14:00'), 3)
     expect(s).toEqual(['14:10', '14:15', '14:20'].map((t) => ({ at: toMinutes(t), state: 'late' })))
   })
-  it('has nothing after the gate closes', () => {
-    expect(arrivalSlots(plus, 'pickup', toMinutes('19:10'))).toEqual([])
+  it('keeps offering late times after the usual hours (0026), and nothing past midnight', () => {
+    expect(arrivalSlots(plus, 'pickup', toMinutes('19:10'))[0]).toEqual({ at: toMinutes('19:30'), state: 'late' }) // a long window steps by 15 minutes
+    expect(arrivalSlots(plus, 'pickup', toMinutes('23:52'))).toEqual([])
   })
 })
 
