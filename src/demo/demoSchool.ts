@@ -8,7 +8,7 @@ import { demoClockOffset } from './demo'
 type Row = Record<string, unknown>
 export interface SchoolDb {
   profiles: Row[]; staff_roles: Row[]; children: Row[]; guardianships: Row[]; programmes: Row[]; classes: Row[]; trips: Row[]; attendance: Row[]
-  child_schedules: Row[]; day_times: Row[]; messages: Row[]; message_reads: Row[]; announcements: Row[]; announcement_reads: Row[]; calls: Row[]; saved_people: Row[]
+  child_schedules: Row[]; day_times: Row[]; messages: Row[]; message_reads: Row[]; announcements: Row[]; announcement_reads: Row[]; calls: Row[]; saved_people: Row[]; pronunciations: Row[]
 }
 interface Helpers { json: (body: unknown, status?: number) => Response; fail: (message: string, code?: string) => Response; startTrip: (db: never, me: Row | undefined, args: Row) => Response }
 
@@ -93,6 +93,19 @@ export function schoolRpc(db: SchoolDb, fn: string, a: Row, me: Row | undefined,
       if (!(isGuardian(db, me, a.p_child) || planner)) return h.fail("Only this child's parents or the school can do this.", '42501')
       const r = setDayTime(db, a.p_child, a.p_direction, a.p_at, a.p_reason, me!.id, h)
       return r instanceof Response ? r : h.json(r)
+    }
+    // 0027: how the gate says a name (the admin's list); an empty spoken form removes it.
+    case 'admin_set_pronunciation': {
+      if (!has(db, me, 'admin')) return h.fail('Only the admin can change pronunciations.', '42501')
+      const w = String(a.p_written ?? '').trim().toLowerCase()
+      const sp = String(a.p_spoken ?? '').trim()
+      if (!w || /\s/.test(w) || w.length > 60) return h.fail('bad_word: Enter one name, like Shreyas.')
+      db.pronunciations = db.pronunciations.filter((r) => r.written !== w)
+      if (sp) {
+        if (sp.length > 80) return h.fail("bad_spoken: Keep how it's said under 80 letters.")
+        db.pronunciations.push({ written: w, spoken: sp, set_by: me!.id, set_at: new Date().toISOString() })
+      }
+      return h.json(null)
     }
     // 0019: the admin adds classes and programmes; drop-off and pickup are set by hand.
     case 'admin_add_class': {

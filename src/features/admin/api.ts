@@ -153,3 +153,16 @@ export async function importChild(child: { full_name: string; preferred_name: st
   if (error) throw error
   return data as string
 }
+
+/** How the gate says names that come out wrong (0027, D43): one written word → how to say it. Staff read; admin edits. */
+export interface Pronunciation { written: string; spoken: string }
+export async function listPronunciations(): Promise<Pronunciation[]> {
+  const { data, error } = await supabase.from('pronunciations').select('written, spoken').order('written')
+  if (error) throw error
+  return data as Pronunciation[]
+}
+/** An empty spoken form removes the word from the list. */
+export async function setPronunciation(written: string, spoken: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_pronunciation', { p_written: written, p_spoken: spoken })
+  if (error) throw error
+}

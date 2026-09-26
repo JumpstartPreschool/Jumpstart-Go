@@ -8,7 +8,7 @@ import { Logo } from '../../ui/Logo'
  * public/_headers). They describe what the app actually does: keep them in step with the consent notice
  * (src/features/auth/ConsentScreen.tsx), PRD D9 (retention) and docs/infrastructure/services.md.
  */
-const UPDATED = '25 September 2026'
+const UPDATED = '26 September 2026'
 const SCHOOL = 'Jumpstart Preschool & Learning Center'
 const ADDRESS = '11/7 Matoshri, Kishor B Tapadia Path, Karve Road, Erandwane, Pune 411004'
 const EMAIL = 'ai@jumpstartpreschool.in'
@@ -101,7 +101,7 @@ export function PrivacyPage() {
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>
           <li><b>OpenFreeMap</b> provides map images; <b>OpenRouteService</b> may be used for routes and arrival times.</li>
           <li>Apple, Google and Mozilla deliver notifications to devices that turn them on.</li>
-          <li>The spoken announcements at the gate are made on the gate's own device; names are not sent anywhere.</li>
+          <li><b>ElevenLabs</b> makes the spoken announcements at the gate. It receives only the words of each announcement, which include the child's first and last name and the first name and relation of the person arriving. The school keeps each recording so the same announcement is never made twice. If it can't be reached, the gate's own device speaks instead, and nothing is sent.</li>
         </ul>
       </Section>
       <Section title="How long we keep it">

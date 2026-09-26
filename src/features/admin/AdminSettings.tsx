@@ -9,6 +9,7 @@ import { formatMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { explainDbError } from './api'
+import { PronunciationList } from './PronunciationList'
 
 interface Settings { get_ready_lead_min: number; late_threshold_min: number; school_phone: string | null; app_url: string | null }
 
@@ -125,6 +126,7 @@ export function AdminSettings() {
           </div>
         )}
       </section>
+      <PronunciationList />
     </AreaShell>
   )
 }

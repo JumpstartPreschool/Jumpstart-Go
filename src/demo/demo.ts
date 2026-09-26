@@ -83,7 +83,7 @@ export function leaveDemo() {
 // ---- Sample data ------------------------------------------------------------------------------------
 
 type Row = Record<string, unknown>
-type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links' | 'settings' | 'audit_log' | 'day_times' | 'messages' | 'message_reads' | 'announcements' | 'announcement_reads' | 'calls' | 'saved_people', Row[]>
+type Db = Record<'profiles' | 'staff_roles' | 'classes' | 'programmes' | 'children' | 'guardianships' | 'child_schedules' | 'coordinator_classes' | 'trips' | 'attendance' | 'trip_points' | 'trip_links' | 'settings' | 'audit_log' | 'day_times' | 'messages' | 'message_reads' | 'announcements' | 'announcement_reads' | 'calls' | 'saved_people' | 'pronunciations', Row[]>
 
 const programmeId = (name: string) => PROGRAMMES.find((p) => p.name === name)!.id
 const OWNER = 'demo-owner'
@@ -166,6 +166,7 @@ function seed(): Db {
     announcement_reads: [],
     calls: [],
     saved_people: [],
+    pronunciations: [],
   }
 }
 

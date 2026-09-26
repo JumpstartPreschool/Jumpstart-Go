@@ -5,8 +5,10 @@ import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { EmptyState, Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { audioContext, chooseVoice, currentVoice, indianVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, voiceGender, voiceQuality, type VoiceQuality } from './sound'
-import { NATURAL_VOICES, onNaturalStatus, prepareNaturalVoice, type NaturalStatus, type NaturalVoiceId } from './naturalVoice'
+import { audioContext, chooseVoice, currentVoice, indianVoice, naturalChoice, rankedVoices, soundSupported, speak, stopSound, STUDIO, studioChosen, voiceGender, voiceQuality, type VoiceQuality } from './sound'
+import { NATURAL_VOICES, onNaturalStatus, playBuffer, prepareNaturalVoice, type NaturalStatus, type NaturalVoiceId } from './naturalVoice'
+import { currentPronunciations, speechText } from './pronunciation'
+import { onStudioAvailable, studioAudio, studioAvailable, studioKnown } from './studioVoice'
 
 const SAMPLE = 'New announcement. Please get Aarav Kulkarni ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
 const ACCENT: Record<string, string> = {
@@ -42,6 +44,17 @@ export function useVoices() {
   return voices
 }
 
+/** Whether the school's studio voice is set up: null while checking, then true or false. */
+export function useStudioAvailable(): boolean | null {
+  const [ok, setOk] = useState<boolean | null>(studioKnown)
+  useEffect(() => {
+    const off = onStudioAvailable(setOk)
+    void studioAvailable().then(setOk)
+    return off
+  }, [])
+  return ok
+}
+
 export function useNaturalStatus(): NaturalStatus {
   const [s, setS] = useState<NaturalStatus>({ state: 'idle' })
   useEffect(() => onNaturalStatus(setS), [])
@@ -52,6 +65,8 @@ export function useNaturalStatus(): NaturalStatus {
 export function useVoiceName(): string | null {
   const voices = useVoices()
   const status = useNaturalStatus()
+  const studio = useStudioAvailable()
+  if (studio && studioChosen()) return 'Studio voice'
   const natural = naturalChoice()
   if (natural) {
     const name = NATURAL_VOICES.find((v) => v.id === natural)!.name
@@ -119,7 +134,8 @@ function NaturalVoices({ chosen, playing, onPlay, onUse }: { chosen: string | nu
 export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast()
   const voices = useVoices()
-  const chosenNow = () => naturalChoice() ?? currentVoice()?.name ?? null
+  const studio = useStudioAvailable()
+  const chosenNow = () => (studioChosen() ? STUDIO : naturalChoice() ?? currentVoice()?.name ?? null)
   const [chosen, setChosen] = useState<string | null>(chosenNow)
   const [playing, setPlaying] = useState<string | null>(null)
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
@@ -131,20 +147,29 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
 
   useEffect(() => { if (open) { setChosen(chosenNow()); if (naturalChoice()) prepareNaturalVoice() } }, [open, voices])
 
-  async function play(v: SpeechSynthesisVoice | NaturalVoiceId) {
+  async function play(v: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO) {
     const key = typeof v === 'string' ? v : v.name
     stopSound()
-    audioContext() // this tap allows sound
+    const ctx = audioContext() // this tap allows sound
     setPlaying(key)
-    await speak(SAMPLE, v)
+    if (v === STUDIO) {
+      // The sample says plainly if the studio voice can't be reached, instead of quietly using another voice.
+      try {
+        await playBuffer(ctx, await studioAudio(ctx, speechText(SAMPLE, currentPronunciations())))
+      } catch {
+        toast("The studio voice can't be reached right now. Announcements use this device's voice until it's back.", { tone: 'info' })
+      }
+    } else {
+      await speak(SAMPLE, v)
+    }
     setPlaying((p) => (p === key ? null : p))
   }
 
-  function use(v: SpeechSynthesisVoice | NaturalVoiceId) {
+  function use(v: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO) {
     const key = typeof v === 'string' ? v : v.name
     chooseVoice(key)
     setChosen(key)
-    toast(`Announcements will use ${typeof v === 'string' ? NATURAL_VOICES.find((x) => x.id === v)!.name : voiceLabel(v)}.`)
+    toast(`Announcements will use ${v === STUDIO ? 'the studio voice' : typeof v === 'string' ? NATURAL_VOICES.find((x) => x.id === v)!.name : voiceLabel(v)}.`)
   }
 
   return (
@@ -156,6 +181,25 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
             : 'System Settings, then Accessibility, then Spoken Content, then System voice, then Manage Voices, then English (India)'}
           . Download Isha (Enhanced), then reopen this list.
         </Notice>
+      )}
+      {studio && (
+        <section className="mb-7 grid gap-2.5" aria-labelledby="studio-voice">
+          <h3 id="studio-voice" className="kicker">Studio voice</h3>
+          <div className="flex items-center gap-2">
+            <button type="button" role="radio" aria-checked={chosen === STUDIO} onClick={() => use(STUDIO)} className="choice flex min-w-0 flex-1 items-center gap-3 p-3">
+              <span className={`grid size-10 shrink-0 place-items-center rounded-sm [&_svg]:size-5 ${chosen === STUDIO ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>
+                <AudioLines className={playing === STUDIO ? 'animate-pulse' : ''} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-h4">Studio voice</span>
+                <span className="block truncate text-small font-semibold text-ink-2">Made by ElevenLabs · the school's chosen voice</span>
+              </span>
+              <Pill tone="accent" className="max-[379px]:hidden">Says Indian names clearly</Pill>
+            </button>
+            <Button size="md" variant="secondary" icon={<Play />} aria-label="Play the studio voice" loading={playing === STUDIO} onClick={() => void play(STUDIO)} />
+          </div>
+          <p className="text-caption font-semibold text-ink-2">Each announcement is made once and kept, so repeats play at once. If it can't be reached, this device's voice speaks instead.</p>
+        </section>
       )}
       <h3 className="kicker mb-2.5">This device's voices</h3>
       {voices.length === 0 ? (

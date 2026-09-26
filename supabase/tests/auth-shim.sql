@@ -15,3 +15,7 @@ $$;
 
 grant usage on schema auth, public to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
+
+-- Storage's bucket list, so migrations that create a bucket (0027) run here as on Supabase.
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean not null default false);

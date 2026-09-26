@@ -19,7 +19,8 @@ import { ExpectedLists } from './GateExtras'
 import { Tabs } from '../../ui/Tabs'
 import { CallSheet } from '../school/CallSheet'
 import { useSchoolDay } from '../school/useSchoolDay'
-import { PRIORITY, type Announcer } from './announcer'
+import { NEW_LEAD, PRIORITY, type Announcer } from './announcer'
+import { deviceOutput } from './sound'
 import { cancelledText, shouldAnnounce, spokenText, type GateChild } from './gate'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
@@ -106,6 +107,23 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   }, [trips.trips, scope, gate.data])
 
   // The gate never sees anyone's location (D38): only the expected time, and the steps at the gate.
+
+  // Trips this tablet may still have to announce (another class's, said here if nobody answers in 2 minutes) get their
+  // audio ready now, so the studio voice starts without a pause. Its own classes are announced at once, and the
+  // announcer readies queued ones itself. Three at a time, soonest first, so few credits go on words never said.
+  useEffect(() => {
+    if (!trips.trips || !gate.data) return
+    const upcoming = trips.trips
+      .filter((t) => t.status === 'en_route' && !t.acknowledged_at && !announced.current.has(t.id))
+      .sort((a, b) => Date.parse(a.arrive_at) - Date.parse(b.arrive_at))
+    let prepared = 0
+    for (const t of upcoming) {
+      const child = gate.data.children.get(t.child_id)
+      if (!child) continue
+      deviceOutput.prepare?.(NEW_LEAD + spokenText(t, child))
+      if (++prepared === 3) break
+    }
+  }, [trips.trips, gate.data])
 
   // Announcements follow the trips: new or changed ones play (the class's own coordinators first); seen ones stop repeating.
   useEffect(() => {
