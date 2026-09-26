@@ -21,22 +21,31 @@ function who(trip: Trip, child: GateChild): string {
   return trip.traveller_relation ? `${child.name}'s ${trip.traveller_relation.toLowerCase()}, ${first(trip.traveller_name)},` : first(trip.traveller_name)
 }
 
+/** Arriving within this long counts as now: the child should be at the gate already. */
+export const SOON_MS = 5 * 60_000
+
+/** Outside the usual time, or arriving within five minutes: said with "Urgent." first, shown in red, played first. */
+export function isUrgent(trip: Trip, nowMs: number): boolean {
+  return trip.off_schedule || Date.parse(trip.arrive_at) - nowMs <= SOON_MS
+}
+
 /**
- * What the iPad says. It names the arrival time rather than "in 20 minutes", so a repeat two minutes later is still true.
+ * What the iPad says, most important first: pickup or drop-off and the child, who is coming, when, then any reason.
+ * It names the arrival time rather than "in 20 minutes", so a repeat two minutes later is still true.
  * Short sentences on purpose: the studio voice makes each sentence once, and the child's, the person's and the time's
  * sentences repeat day after day, so almost every announcement is already made (see sound.ts).
  */
-export function spokenText(trip: Trip, child: GateChild): string {
-  const at = clockTime(trip.arrive_at)
-  const update = Date.parse(trip.updated_at) - Date.parse(trip.created_at) > 5_000 ? 'New time. ' : ''
-  const flag = trip.off_schedule && trip.reason ? `Outside the usual time: ${trip.reason}. ` : ''
-  return trip.direction === 'pickup'
-    ? `${update}${flag}Please get ${child.fullName} ready for pickup. ${who(trip, child)} is on the way. Arriving about ${at}.`
-    : `${update}${flag}${child.fullName} is coming for drop-off. ${who(trip, child)} is on the way. Arriving about ${at}.`
+export function spokenText(trip: Trip, child: GateChild, nowMs = Date.now()): string {
+  const kind = trip.direction === 'pickup' ? 'Pickup' : 'Drop-off'
+  const changed = Date.parse(trip.updated_at) - Date.parse(trip.created_at) > 5_000 ? 'Time changed. ' : ''
+  const when = Date.parse(trip.arrive_at) - nowMs <= SOON_MS ? 'Arriving now.' : `Arriving about ${clockTime(trip.arrive_at)}.`
+  const reason = trip.off_schedule && trip.reason ? ` Reason: ${trip.reason}.` : ''
+  const ready = trip.direction === 'pickup' ? ` Please get ${child.name} ready.` : ''
+  return `${changed}${kind} for ${child.fullName}, ${child.className}. ${who(trip, child)} is on the way. ${when}${reason}${ready}`
 }
 
 export function cancelledText(trip: Trip, child: GateChild): string {
-  return `${child.fullName}'s ${trip.direction === 'pickup' ? 'pickup' : 'drop-off'} is cancelled.`
+  return `${trip.direction === 'pickup' ? 'Pickup' : 'Drop-off'} for ${child.fullName} is cancelled.`
 }
 
 /**

@@ -60,7 +60,7 @@ export function ConsentScreen() {
             You, your family and the school never share or see your location. If you send someone else to collect with a one-time link, they can choose to share where they are on the way, and only you see it. A child's location is never tracked.
           </Point>
           <Point icon={<Eye />} title="Who can see it" gist="You see your children; staff see what the gate needs.">
-            You see your own children. School staff see what they need to run the gate and keep records, but never anyone's location. Gate announcements are spoken by ElevenLabs, a voice service, which receives the announcement's words, names included.
+            You see your own children. School staff see what they need to run the gate and keep records, but never anyone's location. Gate announcements are spoken by a voice service (Microsoft Azure or ElevenLabs), which receives the announcement's words, names included.
           </Point>
           <Point icon={<Clock />} title="How long we keep it" gist="Trips 30 days, attendance two years.">
             Trip records and routes for 30 days; attendance for this and last academic year; a log of sensitive actions for one year.
