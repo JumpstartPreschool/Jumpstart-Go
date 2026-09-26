@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // 'prompt': a new version waits for the person to tap Update (src/app/UpdatePrompt.tsx), never mid-duty.
+      // 'prompt': src/app/UpdatePrompt.tsx decides when a new version loads (by itself when safe, never mid-duty).
       registerType: 'prompt',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'brand/*.webp'],
       // Precache only the app shell and its assets. School data always comes live from the server, never from a cache.

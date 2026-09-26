@@ -2,138 +2,161 @@
   <img src="docs/design/brand/jumpstart-logo-transparent.png" alt="Jumpstart" width="260">
 </p>
 
-<p align="center"><strong>Safe drop-offs and pickups for Jumpstart Preschool.</strong><br>
+<p align="center"><strong>Safe drop-offs and pickups for Jumpstart Preschool, Karve Road.</strong><br>
 Parents say they're on the way, the gate knows who is coming, and every handover is checked and recorded.</p>
 
 <p align="center">
-  <img src="docs/images/gate-ipad.png" alt="The gate screen on an iPad, with the arriving queue and the pickup code check" width="820">
+  <a href="https://jumpstart-preschool.singhankit91624.workers.dev">Open the app</a> ·
+  <a href="https://jumpstart-preschool.singhankit91624.workers.dev/privacy">Privacy Policy</a> ·
+  <a href="docs/product/prd.md">Product decisions</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/sign-in-desktop.png" alt="The sign-in page: the Jumpstart logo and star on an ivory panel, and the sign-in card" width="860">
 </p>
 
 ## What it does
 
-Jumpstart is an installable web app for a preschool. It has one screen for each person in the handover.
+Jumpstart is an installable web app for one school. Everyone signs in with their email and a 6-digit code: no passwords, and only people the school adds can get in.
 
 | Who | What they get |
 |---|---|
-| **Parents** | Today's drop-off and pickup times. An "I'm on my way" button. Changing a time or marking an absence. A one-time link and code for someone else collecting. Messages and announcements from the school. |
-| **Someone collecting** (driver, grandparent) | A link that works on one phone only. It opens after they confirm the last 4 digits of their mobile number. They can share their location while travelling and show a 4-digit code at the gate. |
-| **Gate coordinators** | An iPad queue of who is arriving and when. A spoken announcement in a natural voice. Code checks, walk-in check-ins and handovers to registered family. |
-| **Core team** | The live board for the day. Schedules, programme hours, messages, announcements and calls to families. |
-| **Front desk** | Calls and bookings for parents who phone in. |
-| **Admins** | Children, families, staff roles, school settings and a readable audit log. |
+| **Parents** | Today's drop-off and pickup times, "I'm on my way", changing a time, reporting an absence, and a one-time link for someone else to collect. Messages and announcements from the school. |
+| **Someone collecting** (a driver, a friend) | A web page from the link, no app needed. It opens after they confirm the last 4 digits of their mobile, shows their gate code, and can share their location on the way. |
+| **Gate coordinators** | A tablet queue of who is arriving and when, spoken announcements (a studio voice that says Indian names clearly, or the tablet's own), code checks and handovers. |
+| **Core team** | The day's board, attendance, programme timings, each child's regular times, messages and announcements. |
+| **Front desk** | Calls and walk-ins, sent to the gate at once. |
+| **Admin** | Children, families and staff, classes and timings, bulk upload from Excel, invitations, settings, name pronunciation and the audit log. |
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/images/parent-today.png" alt="Parent's today screen"></td>
-    <td width="33%"><img src="docs/images/parent-on-my-way.png" alt="Parent on the way"></td>
-    <td width="33%"><img src="docs/images/parent-link-ready.png" alt="Pickup link ready to send"></td>
+    <td width="33%"><img src="docs/images/parent-today.png" alt="Parent's Today screen"></td>
+    <td width="33%"><img src="docs/images/parent-on-my-way.png" alt="Choosing an arrival time"></td>
+    <td width="33%"><img src="docs/images/parent-link-ready.png" alt="A pickup link ready to send"></td>
   </tr>
   <tr>
     <td align="center">Today, at a glance</td>
-    <td align="center">On the way, with location</td>
+    <td align="center">On the way</td>
     <td align="center">Sending someone else</td>
   </tr>
   <tr>
-    <td><img src="docs/images/collector-link.png" alt="Collector's link on their phone"></td>
-    <td><img src="docs/images/sign-in.png" alt="Sign in"></td>
-    <td><img src="docs/images/front-desk-call.png" alt="Front desk taking a call"></td>
+    <td><img src="docs/images/collector-link.png" alt="The collector confirms their mobile"></td>
+    <td><img src="docs/images/collector-trip.png" alt="The collector on the way"></td>
+    <td><img src="docs/images/parent-live.png" alt="The parent sees the collector live on a map"></td>
   </tr>
   <tr>
     <td align="center">The collector's link</td>
-    <td align="center">Sign in with an email code</td>
+    <td align="center">On the way, sharing location</td>
+    <td align="center">Only the parent sees it live</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/images/gate-ipad.png" alt="The gate tablet on duty: announcements and the arriving queue" width="860">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/core-today.png" alt="The core team's board for the day"></td>
+    <td width="50%"><img src="docs/images/core-schedules.png" alt="Programme hours and regular times"></td>
+  </tr>
+  <tr>
+    <td align="center">The day's board</td>
+    <td align="center">Schedules</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/admin-classes.png" alt="Classes and their programmes"></td>
+    <td><img src="docs/images/admin-bulk.png" alt="Bulk upload from an Excel sheet"></td>
+  </tr>
+  <tr>
+    <td align="center">Classes and timings</td>
+    <td align="center">Bulk upload, checked before anything is added</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/admin-child.png" alt="A child's record with family and access"></td>
+    <td><img src="docs/images/admin-invite.png" alt="Inviting a parent by email, WhatsApp or SMS"></td>
+  </tr>
+  <tr>
+    <td align="center">A child's record</td>
+    <td align="center">Invitations</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/admin-settings.png" alt="Settings with the name pronunciation list"></td>
+    <td><img src="docs/images/front-desk-call.png" alt="The front desk logging a call"></td>
+  </tr>
+  <tr>
+    <td align="center">Settings and name pronunciation</td>
     <td align="center">Front desk</td>
   </tr>
 </table>
 
 <p align="center">
-  <img src="docs/images/core-today.png" alt="Core team's board for the day" width="820">
+  <img src="docs/images/email-invite.png" alt="The invitation email with the logo and an Accept invitation button" width="420"><br>
+  <sub>The invitation email. Its button opens sign-in with the parent's email already filled in.</sub>
 </p>
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/core-schedules.png" alt="Schedules"></td>
-    <td width="50%"><img src="docs/images/admin-child.png" alt="Admin child record"></td>
-  </tr>
-  <tr>
-    <td align="center">Schedules and programme hours</td>
-    <td align="center">A child's record, family and access</td>
-  </tr>
-</table>
 
 ## Principles
 
-- **Nothing is faked.** Location, arrival times, attendance and notifications come from real devices and the database. Development mocks exist only in the design preview, and the preview labels itself as one.
-- **The database is the security boundary.** Every table uses Postgres row-level security. Every write goes through a `security definer` function that checks the caller's role, validates the input and records an audit entry.
-- **Location is shared only during a trip.** Staff stop seeing a trip's points at the handover, by the server's clock.
-- **Built for the gate.** The layout is tablet-first, with large touch targets and clear states: live, recent, stale and unavailable.
+- **Nothing is faked.** Times, attendance, location and notifications come from real phones and the database.
+- **The database is the security boundary.** Every table uses Postgres row-level security, and every change goes through a function that checks the caller's role, validates the input and writes the audit log.
+- **Location stays private.** Parents, family and staff never share or see location. Only someone collecting with a one-time link may share theirs, and only the parent who sent the link sees it.
+- **Names are said properly.** Announcements keep names exactly as written on screen; the admin can set how a name is spoken.
+- **Built for real phones and tablets.** Large touch targets, clear live, recent and stale states, and no page that scrolls sideways.
 
 ## Design
 
 | | |
 |---|---|
-| Typeface | [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans) (variable, self-hosted via Fontsource) |
-| Source of truth | [Screen Book v3](docs/design/screen-book/v3-published.html) and the [Blueprint](docs/design/blueprint/blueprint.html) |
-| System | Tokens, colours, spacing and components in [design-system.md](docs/design/design-system.md) |
-| Icons | Lucide |
-| Maps | MapLibre GL |
-| Voice | Kokoro (open-weight TTS) runs on the device in a web worker. It uses WebGPU when available and WebAssembly otherwise, and falls back to the device voice. |
-
-Light and dark themes, safe areas, reduced motion and reduced transparency are all supported. Glass is used only on floating layers such as the tab bar, sheets and toasts.
+| Look | Logo red for actions, warm ivory surfaces, the smiling star, [design-system.md](docs/design/design-system.md) |
+| Typeface | [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans), self-hosted |
+| Icons | [Microsoft Fluent UI Color](https://github.com/microsoft/fluentui-system-icons) (MIT, notice in `public/iconsc`), with Lucide line icons for arrows and controls |
+| People | Initials on each person's colour |
+| Maps | MapLibre GL with OpenFreeMap's coloured Liberty style |
+| Voice | ElevenLabs studio voice (made once per announcement and cached), falling back to Kokoro on the device and then the device voice |
 
 ## Stack
 
-- **App:** React 19, TypeScript, Vite, Tailwind CSS 4 and React Router 7, shipped as an installable web app through `vite-plugin-pwa`.
-- **Backend:** Supabase with Postgres, row-level security, Realtime, Edge Functions (Deno), `pg_cron` and `pg_net`.
-- **Push:** Web Push with VAPID keys. The database queues notifications and the `push-send` edge function delivers them.
-- **Hosting:** Cloudflare Workers static assets.
+| Part | What it uses |
+|---|---|
+| App | React 19, TypeScript, Vite, Tailwind CSS 4, React Router 7, installable through `vite-plugin-pwa` |
+| Backend | Supabase: Postgres with row-level security, Auth (email codes), Realtime, Storage, Edge Functions (Deno) |
+| Email | Brevo: SMTP for sign-in codes, API for invitations (`invite-send`) |
+| Voice | ElevenLabs text-to-speech through the `voice-say` function; the key never reaches a browser |
+| Hosting | Cloudflare Workers static assets |
 
-Every service, its free-tier limits and the alternatives are listed in [services.md](docs/infrastructure/services.md).
+Every service, its cost, free-tier limits and alternatives are in [services.md](docs/infrastructure/services.md).
+
+## Updates on phones
+
+The app installs to the home screen (Share → Add to Home Screen on iPhone, or Install app in Chrome). It checks for a new version when it opens, when it comes back to the screen and every 15 minutes, and updates itself when nobody is in the middle of something. A gate tablet on duty shows an Update button instead, so announcements never stop mid-duty.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the Supabase URL and anon key
+cp .env.example .env.local   # the Supabase URL and publishable key
 npm run dev
 ```
 
-To try every screen without a backend, run the design preview:
-
-```bash
-npm run dev:demo
-```
-
-The sign-in screen lists a demo account for each role, and the code `246810` is filled in for you. No email is sent.
-
-### Push notifications
-
-```bash
-node scripts/vapid-keys.mjs
-```
-
-This prints a key pair. Put the public key in `.env.local` as `VITE_VAPID_PUBLIC_KEY`, and set the private key as a Supabase secret. The full steps are in [environments.md](docs/infrastructure/environments.md).
-
-### Database
-
-Migrations live in `supabase/migrations`. Apply them with:
+Migrations live in `supabase/migrations` (0001 to 0027). Apply them with:
 
 ```bash
 npx supabase db push
 ```
 
+Secrets for the edge functions (Brevo, ElevenLabs, the app's address) and the email templates are set up as described in [environments.md](docs/infrastructure/environments.md).
+
 ## Scripts
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Starts the dev server, against the Supabase project in `.env.local` |
-| `npm run dev:demo` | Starts it with sample data and a demo account per role (port 5178) |
+| `npm run dev` | Starts the app against the Supabase project in `.env.local` |
 | `npm run build` | Typechecks and builds for production |
 | `npm test` | Runs the unit tests (Vitest) |
 | `npm run test:db` | Runs the SQL tests against a throwaway local Postgres |
-| `npm run deploy` | Builds and deploys to Cloudflare |
-| `npm run deploy:design` | Deploys the design preview with demo data |
-
-The browser checks in `scripts/qa/` drive the app end to end with Playwright. `flows.cjs`, `parent.cjs`, `collector.cjs`, `trip.cjs` and `office.cjs` cover each role. `qa.cjs` checks the layout at 23 screen sizes.
+| `npm run deploy` | Builds and publishes to Cloudflare |
+| `node scripts/email-templates.ts` | Writes the sign-in email templates in `supabase/templates` |
+| `node scripts/qa/width.cjs` | Checks no page is wider than a phone, with animations running |
 
 ## Documentation
 

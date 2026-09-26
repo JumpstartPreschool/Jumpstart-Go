@@ -1,8 +1,8 @@
 // The page must never be wider than the phone, with animations running (the QA sweep turns motion off, so an animated
 // element poking past an edge would slip through). Android zooms the whole app out when anything overflows.
-// Usage: node scripts/qa/width.cjs   (npm run dev:demo first: sample data on port 5178)
+// Usage: node scripts/qa/width.cjs   (npm run dev first, on port 5173)
 const { chromium } = require('/Users/ankitsingh/.local/lib/node_modules/@playwright/cli/node_modules/playwright-core')
-const BASE = 'http://localhost:5178'
+const BASE = process.env.BASE ?? 'http://localhost:5173'
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   let bad = 0

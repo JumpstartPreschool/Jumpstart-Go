@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
-import { ArrowRight, Check, FlaskConical, HeartHandshake, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck } from '../../ui/icons'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { ArrowRight, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck } from '../../ui/icons'
 import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
@@ -8,8 +8,6 @@ import { TextField } from '../../ui/Field'
 import { useToast } from '../../ui/Toast'
 import { normalizeEmail } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
-import { DEMO_ACCOUNTS, DEMO_AVAILABLE, DEMO_CODE, enterDemo, isDemo, leaveDemo } from '../../demo/demo'
-import { AREA_ICON, AREA_LABEL } from './AreaShell'
 import { chooseArea } from './session'
 
 // Six digits, matching Supabase → Authentication → Email → Email OTP Length (environments.md).
@@ -90,23 +88,18 @@ export function SignInFrame({ children }: { children: ReactNode }) {
 
 /**
  * Invite-only login with a one-time code by email (AUTH-1, J11). One screen for every role: the account decides the area.
- * In development and design builds, demo accounts (sample data, never the real database) fill in their code, so testing
- * is one tap on Sign in. Real codes are never shown by the app; phones offer them from the email (one-time-code).
+ * Real codes are never shown by the app; phones offer them from the email (one-time-code).
  */
 export function LoginScreen() {
   const toast = useToast()
   const [step, setStep] = useState<'email' | 'code'>('email')
   // From the invitation email's button (/#email=…): their address is filled in, ready for Send me a code.
   const [email, setEmail] = useState(invitedEmail)
-  const [demoPick, setDemoPick] = useState(false)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resendIn, setResendIn] = useState(0)
-  // Always false in production builds, so the demo text is dropped there.
-  const demo = DEMO_AVAILABLE && isDemo()
   const codeInput = useRef<HTMLInputElement>(null)
-  const signInButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (resendIn <= 0) return
@@ -136,15 +129,9 @@ export function LoginScreen() {
       if (otpError) return setError(explain(otpError.message, otpError.status))
       setStep('code')
       setResendIn(RESEND_AFTER_S)
-      if (DEMO_AVAILABLE && isDemo()) {
-        setCode(DEMO_CODE)
-        toast('Code sent. The demo code is filled in: tap Sign in.', { tone: 'info' })
-        setTimeout(() => signInButton.current?.focus(), 50)
-      } else {
-        setCode('')
-        toast(`Code sent to ${address}.`)
-        setTimeout(() => codeInput.current?.focus(), 50)
-      }
+      setCode('')
+      toast(`Code sent to ${address}.`)
+      setTimeout(() => codeInput.current?.focus(), 50)
     } catch (e) {
       setError(explain((e as Error).message, undefined))
     } finally {
@@ -157,11 +144,6 @@ export function LoginScreen() {
     const address = normalizeEmail(email)
     if (!address) return setError('Enter a full email address, like name@example.com.')
     setEmail(address)
-    // A demo account talks to the sample backend in this tab; anything typed by hand is a real sign-in.
-    if (DEMO_AVAILABLE) {
-      if (demoPick) enterDemo()
-      else if (isDemo()) leaveDemo()
-    }
     await sendCode(address)
   }
 
@@ -205,7 +187,7 @@ export function LoginScreen() {
               spellCheck={false}
               placeholder="name@example.com"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setDemoPick(false); setError(null) }}
+              onChange={(e) => { setEmail(e.target.value); setError(null) }}
               error={error}
               autoFocus
             />
@@ -221,7 +203,7 @@ export function LoginScreen() {
               </span>
               <h1 className="mt-4 text-h2">Check your email</h1>
               <p className="mt-1.5 text-body text-ink-2">
-                We sent a 6-digit code to <span className="font-bold text-ink">{email}</span>.{!demo && ' It works for 5 minutes.'}
+                We sent a 6-digit code to <span className="font-bold text-ink">{email}</span>. It works for 5 minutes.
               </p>
             </div>
             <label htmlFor="code" className="sr-only">6-digit code</label>
@@ -256,50 +238,19 @@ export function LoginScreen() {
               </div>
             </div>
             {error && <p id="code-error" className="text-center text-small font-bold text-danger" role="alert">{error}</p>}
-            <Button ref={signInButton} type="submit" className="w-full" icon={<LogIn />} loading={busy} disabled={code.length !== CODE_LENGTH}>
+            <Button type="submit" className="w-full" icon={<LogIn />} loading={busy} disabled={code.length !== CODE_LENGTH}>
               Sign in
             </Button>
             <div className="flex flex-wrap items-center justify-between gap-x-2">
-              {DEMO_AVAILABLE && demo ? (
-                <button type="button" className="linkbtn" onClick={() => { setCode(DEMO_CODE); setError(null) }}>Use the demo code</button>
-              ) : (
-                <button type="button" className="linkbtn" disabled={resendIn > 0 || busy} onClick={() => void sendCode(email)}>
-                  {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
-                </button>
-              )}
+              <button type="button" className="linkbtn" disabled={resendIn > 0 || busy} onClick={() => void sendCode(email)}>
+                {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+              </button>
               <button type="button" className="linkbtn" onClick={() => { setStep('email'); setCode(''); setError(null) }}>Change email</button>
             </div>
-            {DEMO_AVAILABLE && demo && <p className="text-center text-caption font-semibold text-ink-3">Demo: the code {DEMO_CODE} is filled in and nothing is emailed. Any other code shows the error.</p>}
           </form>
         )}
       </div>
 
-      {DEMO_AVAILABLE && step === 'email' && (
-        <section className="mt-7 grid gap-3.5" aria-labelledby="demo-title">
-          <h2 id="demo-title" className="kicker flex items-center gap-3 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">Try a demo account</h2>
-          <div className="grid grid-cols-2 gap-2.5">
-            {DEMO_ACCOUNTS.map((a) => {
-              const label = a.label ?? AREA_LABEL[a.area]
-              const hintId = `demo-hint-${a.email}`
-              return (
-                <button key={a.email} type="button" className="demo-tile" style={{ '--tone': a.tone } as CSSProperties}
-                  aria-label={label} aria-describedby={hintId} aria-pressed={demoPick && email === a.email}
-                  onClick={() => { setEmail(a.email); setDemoPick(true); setError(null) }}>
-                  <span className="demo-tile__badge" aria-hidden>{a.label === 'Family' ? <HeartHandshake /> : AREA_ICON[a.area]}</span>
-                  <span className="grid min-w-0 gap-0.5">
-                    <span className="text-small font-extrabold text-ink">{label}</span>
-                    <span id={hintId} className="text-caption font-semibold leading-snug text-ink-2">{a.hint}</span>
-                  </span>
-                  <span className="demo-tile__check" aria-hidden><Check /></span>
-                </button>
-              )
-            })}
-          </div>
-          <p className="text-center text-caption font-semibold text-ink-3">
-            <FlaskConical aria-hidden className="mr-1 inline size-3.5 align-[-2px]" />Sample data only. Nothing reaches the school's records.
-          </p>
-        </section>
-      )}
     </SignInFrame>
   )
 }

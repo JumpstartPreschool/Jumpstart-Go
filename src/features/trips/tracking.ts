@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { onTableChange } from '../../lib/live'
 import { now } from '../../lib/clock'
-import { distanceM, positionOf, SCHOOL, type LatestPoint, type Point, type Position } from './geo'
+import { distanceM, positionOf, type LatestPoint, type Point, type Position } from './geo'
 
 // ---- Calls ------------------------------------------------------------------------------------------------
 
@@ -225,27 +225,4 @@ export function useSendLocation(on: boolean, send: (points: Point[]) => Promise<
   }, [on])
 
   return { error, lastSent, lastFix }
-}
-
-/**
- * DEMO MODE ONLY: a made-up traveller heading to the gate from about 1.6 km away, one point every 5 s at city speed,
- * so the location screens can be tried on a laptop. Every screen that uses it says "Simulated" next to the position.
- */
-export function useSimulatedTrip(on: boolean, send: (points: Point[]) => Promise<unknown>) {
-  const sendRef = useRef(send)
-  sendRef.current = send
-  useEffect(() => {
-    if (!on) return
-    const start = { lat: SCHOOL.lat + 0.0105, lng: SCHOOL.lng - 0.0102 }
-    let step = 0
-    const tick = () => {
-      const f = Math.min(1, step / 48) // about 4 minutes to the gate, then waiting there
-      const wobble = Math.sin(step / 3) * 0.00012
-      void sendRef.current([{ lat: start.lat + (SCHOOL.lat - start.lat) * f + wobble, lng: start.lng + (SCHOOL.lng - start.lng) * f, accuracy: 12, fix_at: new Date(Date.now() - 400).toISOString() }]).catch(() => {})
-      step += 1
-    }
-    tick()
-    const id = setInterval(tick, 5000)
-    return () => clearInterval(id)
-  }, [on])
 }

@@ -5,7 +5,6 @@ import { Button } from '../../ui/Button'
 import { Sheet } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { DEMO_AVAILABLE, isDemo } from '../../demo/demo'
 import { formatMobile, smsUrl, whatsappUrl } from '../../domain/contact'
 import { firstName, inviteText, type InviteDetails } from '../../../supabase/functions/_shared/invite.ts'
 import { explainDbError, inviteDetails, markInvited, sendInviteEmail, type Profile } from './api'
@@ -85,7 +84,7 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
               <p className="whitespace-pre-line text-small font-semibold text-ink">{text}</p>
             </div>
             {sent
-              ? <Notice tone="success" icon={<CircleCheck aria-hidden />}>{DEMO_AVAILABLE && isDemo() ? `Demo: recorded as emailed to ${sent}. No email is sent in the demo.` : `Emailed to ${sent}. It can take a minute to arrive; ask ${first} to check their spam folder if it doesn't.`}</Notice>
+              ? <Notice tone="success" icon={<CircleCheck aria-hidden />}>{`Emailed to ${sent}. It can take a minute to arrive; ask ${first} to check their spam folder if it doesn't.`}</Notice>
               : <Button size="xl" className="w-full" icon={<Mail />} loading={sending} onClick={() => void email()}>Email the invitation to {d.email}</Button>}
             {error && <Notice tone="danger">{error}</Notice>}
             {d.phone ? (

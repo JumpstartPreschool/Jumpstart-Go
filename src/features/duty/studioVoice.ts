@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase'
-import { isDemo } from '../../demo/demo'
 
 /**
  * The studio voice (ElevenLabs, D43) on the coordinator's tablet. Audio comes from the voice-say function, which makes
@@ -29,10 +28,9 @@ async function call(body: object, signal?: AbortSignal): Promise<Response> {
   })
 }
 
-/** Whether the school has set up the studio voice (asked once per session; the demo never has it). */
+/** Whether the school has set up the studio voice (asked once per session). */
 export function studioAvailable(): Promise<boolean> {
   if (configured !== null) return Promise.resolve(configured)
-  if (isDemo()) return Promise.resolve((configured = false))
   probing ??= call({ probe: true }, AbortSignal.timeout(8000))
     .then(async (r) => (r.ok ? !!((await r.json()) as { configured?: boolean }).configured : false))
     .catch(() => false)
