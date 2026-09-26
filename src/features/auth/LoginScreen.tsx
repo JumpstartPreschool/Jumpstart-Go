@@ -50,8 +50,8 @@ export function SignInFrame({ children }: { children: ReactNode }) {
   return (
     <main className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:p-4">
       <section aria-label="About Jumpstart"
-        className="signin-hero relative flex min-h-[50dvh] flex-col justify-center gap-7 overflow-hidden rounded-b-[36px] px-6 pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-20 text-white sm:px-10 md:min-h-[54dvh] md:pb-24 lg:min-h-0 lg:justify-between lg:gap-10 lg:rounded-[32px] lg:p-12 xl:p-16">
-        <div className="self-center rounded-[22px] bg-white px-5 py-3 shadow-[0_0_0_6px_rgb(255_255_255/0.12),0_18px_40px_-16px_rgb(0_0_0/0.55)] lg:self-start lg:px-6 lg:py-3.5">
+        className="signin-hero relative flex min-h-[50dvh] flex-col justify-center gap-7 overflow-hidden rounded-b-[36px] px-6 pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-20 text-ink sm:px-10 md:min-h-[54dvh] md:pb-24 lg:min-h-0 lg:justify-between lg:gap-10 lg:rounded-[32px] lg:p-12 xl:p-16">
+        <div className="self-center rounded-[22px] bg-white px-5 py-3 shadow-[0_0_0_1px_rgb(120_80_40/0.08),0_14px_34px_-18px_rgb(120_60_30/0.45)] lg:self-start lg:px-6 lg:py-3.5">
           <Logo className="h-10 sm:h-11 lg:h-12" />
         </div>
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
@@ -59,13 +59,13 @@ export function SignInFrame({ children }: { children: ReactNode }) {
           <p className="mt-3 max-w-[14ch] text-[30px] leading-[1.08] font-extrabold tracking-[-0.02em] text-balance sm:text-[36px] lg:mt-5 lg:text-[52px] 2xl:text-[64px]" role="heading" aria-level={2}>
             Safe drop-offs and pickups
           </p>
-          <p className="mt-3 text-body font-semibold text-[#fde2df] lg:text-lead">Jumpstart Preschool, Karve Road</p>
+          <p className="mt-3 text-body font-semibold text-ink-2 lg:text-lead">Jumpstart Preschool, Karve Road</p>
         </div>
         <ul className="hidden max-w-[520px] gap-3 lg:grid">
           {PROMISES.map((p) => (
-            <li key={p.title} className="flex items-center gap-3.5 rounded-2xl bg-white/[0.08] px-4 py-3 ring-1 ring-white/15 backdrop-blur-sm">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
-              <span className="text-body text-[#fdecea]"><b className="text-white">{p.title}.</b> {p.text}</span>
+            <li key={p.title} className="flex items-center gap-3.5 rounded-2xl bg-white/75 px-4 py-3 shadow-[0_1px_2px_rgb(120_80_40/0.06)] ring-1 ring-[#eadfce]">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fbf3e8] [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
+              <span className="text-body text-ink-2"><b className="text-ink">{p.title}.</b> {p.text}</span>
             </li>
           ))}
         </ul>

@@ -213,13 +213,14 @@
 
   .rainbow-bar { background: var(--rainbow); }
 
-  /* The sign-in page's brand panel: deep wine red rising to the logo's red, with warm sunshine and orange glows. */
+  /* The sign-in page's brand panel: warm ivory, a whisper of sunshine and orange from the logo, so it sits calmly with the page. */
   .signin-hero {
     background:
-      radial-gradient(34rem 24rem at 105% -5%, rgb(255 194 26 / 0.26), transparent 62%),
-      radial-gradient(30rem 24rem at -15% 105%, rgb(247 133 42 / 0.3), transparent 62%),
-      radial-gradient(26rem 20rem at 95% 100%, rgb(255 120 110 / 0.28), transparent 62%),
-      linear-gradient(155deg, #3d0a13 0%, #7a1420 55%, #b8232a 100%);
+      radial-gradient(34rem 24rem at 105% -5%, rgb(255 194 26 / 0.16), transparent 62%),
+      radial-gradient(30rem 24rem at -15% 105%, rgb(247 133 42 / 0.1), transparent 62%),
+      radial-gradient(26rem 20rem at 95% 100%, rgb(200 38 44 / 0.06), transparent 62%),
+      linear-gradient(160deg, #fcf7f0 0%, #f6ede1 100%);
+    box-shadow: inset 0 0 0 1px rgb(120 80 40 / 0.07);
   }
 
   /* Behind the sign-in card: a soft lavender light, so the card doesn't float in empty space. */
