@@ -2,12 +2,10 @@ import type { ReactNode } from 'react'
 
 const sizes = { sm: 'size-10 text-[14px]', md: 'size-12 text-[16px]', lg: 'size-14 text-[18px]' }
 
-/** "Aarav Kulkarni" → "AK", "Isha" → "I": the first and last names' first letters. */
+/** "Aarav Kulkarni" → "AK", "Isha" → "I", "Priya Mehta (Test)" → "PM": the first letters of the first and last names. */
 export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean)
-  const first = words[0]?.[0] ?? ''
-  const last = words.length > 1 ? words[words.length - 1]![0] : ''
-  return (first + last).toUpperCase()
+  const words = name.replace(/\([^)]*\)/g, ' ').split(/\s+/).map((w) => w.match(/\p{L}/u)?.[0] ?? '').filter(Boolean)
+  return ((words[0] ?? '') + (words.length > 1 ? words.at(-1)! : '')).toUpperCase()
 }
 
 /**

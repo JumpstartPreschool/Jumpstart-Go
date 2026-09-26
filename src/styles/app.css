@@ -401,6 +401,45 @@
   @media (hover: hover) { .signout:hover { background: var(--danger-soft); color: var(--danger); } }
   .signout:active { background: var(--danger-soft); color: var(--danger); transform: scale(0.985); }
 
+  /* Start duty: the one big action before a shift. Logo red with a light top edge, a white disc for the icon, and a lip
+     that presses in. It sits in a dock that fades the page out behind it. */
+  .duty-dock {
+    background: linear-gradient(to top, var(--canvas) 55%, color-mix(in oklab, var(--canvas) 80%, transparent) 80%, transparent);
+  }
+  .dutybtn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 72px;
+    padding: 10px 20px 10px 10px;
+    border-radius: 24px;
+    color: #fff;
+    background: linear-gradient(180deg, #e0474c 0%, var(--accent) 55%, #b41f25 100%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28), 0 4px 0 var(--accent-lip), 0 14px 30px -10px color-mix(in oklab, var(--accent) 65%, transparent);
+    transition: transform 150ms var(--ease-standard), box-shadow 150ms var(--ease-standard), filter 150ms ease;
+  }
+  .dutybtn-icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    flex: none;
+    border-radius: 18px;
+    background: #fff;
+    color: var(--accent);
+    box-shadow: 0 2px 6px rgb(90 10 14 / 0.25);
+  }
+  .dutybtn-icon svg { width: 26px; height: 26px; stroke-width: 2.6; }
+  .dutybtn-arrow { width: 22px; height: 22px; flex: none; stroke-width: 2.5; transition: transform 150ms var(--ease-standard); }
+  @media (hover: hover) {
+    .dutybtn:hover:not(:disabled) { filter: brightness(1.04); }
+    .dutybtn:hover:not(:disabled) .dutybtn-arrow { transform: translateX(3px); }
+  }
+  .dutybtn:active:not(:disabled) { transform: translateY(3px); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 1px 0 var(--accent-lip); }
+  .dutybtn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .dutybtn:disabled { filter: grayscale(0.85); opacity: 0.55; cursor: not-allowed; }
+
   /* End duty on the gate tablet's bar: a calm pill with a red power disc; it only turns red when touched. */
   .endduty {
     display: inline-flex;

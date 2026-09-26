@@ -176,7 +176,7 @@ function EditCoordinator({ person, classes, initial, onDone }: { person: Profile
       <div className="mt-8 border-t border-line pt-5">
         {confirmRemove ? (
           <>
-            <p className="text-body font-bold">Remove {firstName(person)} as a coordinator? They stop hearing announcements and can no longer run the gate. Their other roles stay.</p>
+            <p className="text-body font-bold">Remove {firstName(person)} as a center leader? They stop hearing announcements and can no longer run the gate. Their other roles stay.</p>
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <Button variant="secondary" onClick={() => setConfirmRemove(false)}>Keep</Button>
               <Button variant="danger" icon={<UserMinus />} loading={save.busy} onClick={() => void save.run(() => removeCoordinator(person.id), () => onDone(`${firstName(person)} is no longer a center leader.`))}>Remove</Button>
@@ -222,7 +222,7 @@ function AddCoordinator({ data, area, onDone }: { data: CoordinatorData; area: '
           <Button size="md" variant="quiet" onClick={() => setPerson(null)}>Change</Button>
         </div>
         {isParent && (
-          <Notice tone="warning" className="mt-3">{firstName(person)} is also a parent here. As a coordinator they will see every child's pickup details.</Notice>
+          <Notice tone="warning" className="mt-3">{firstName(person)} is also a parent here. As a center leader they will see every child's pickup details.</Notice>
         )}
         <p className="kicker mt-6">Their classes</p>
         <div className="mt-3">{data.classes.length ? <ClassPicker classes={data.classes} value={picked} onChange={setPicked} /> : <Notice>No class groups yet. You can choose classes later.</Notice>}</div>
