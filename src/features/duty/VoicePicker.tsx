@@ -176,10 +176,13 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
     <Sheet open={open} onClose={() => { stopSound(); onClose() }} title="Announcement voice" description="Tap Play to hear one, then choose.">
       {!hasIndian && voices.length > 0 && (
         <Notice tone="warning" className="mb-5" icon={<Sparkles aria-hidden />}>
-          For children's names said the Indian way, add an Indian English voice for free: {mobileApple
-            ? 'Settings, then Accessibility, then Spoken Content, then Voices, then English, then English (India)'
-            : 'System Settings, then Accessibility, then Spoken Content, then System voice, then Manage Voices, then English (India)'}
-          . Download Isha (Enhanced), then reopen this list.
+          <details>
+            <summary className="cursor-pointer font-bold">Add a free Indian English voice for names</summary>
+            <span className="mt-1.5 block">{mobileApple
+              ? 'Settings → Accessibility → Spoken Content → Voices → English → English (India)'
+              : 'System Settings → Accessibility → Spoken Content → System voice → Manage Voices → English (India)'}
+              . Download Isha (Enhanced), then reopen this list.</span>
+          </details>
         </Notice>
       )}
       {studio && (
@@ -232,13 +235,15 @@ export function VoicePicker({ open, onClose }: { open: boolean; onClose: () => v
         </ul>
       )}
       <div className="mt-7"><NaturalVoices chosen={chosen} playing={playing} onPlay={(id) => void play(id)} onUse={use} /></div>
-      {(mobileApple || mac) && (
-        <Notice className="mt-5" icon={<Sparkles aria-hidden />} tone={hasNatural ? 'info' : 'warning'}>
-          {hasNatural ? 'Voices marked Premium or Enhanced sound most like a person.' : 'This device has only its basic voices, which can sound mechanical.'}{' '}
-          For a human-sounding voice, download one for free: {mobileApple
-            ? 'Settings, then Accessibility, then Spoken Content, then Voices, then English'
-            : 'System Settings, then Accessibility, then Spoken Content, then System voice, then Manage Voices'}
-          . Choose a woman's Enhanced or Premium voice, such as Isha (India), then reopen this list and pick it.
+      {(mobileApple || mac) && !hasNatural && (
+        <Notice className="mt-5" icon={<Sparkles aria-hidden />} tone="info">
+          <details>
+            <summary className="cursor-pointer font-bold">Get a more human-sounding voice</summary>
+            <span className="mt-1.5 block">{mobileApple
+              ? 'Settings → Accessibility → Spoken Content → Voices → English'
+              : 'System Settings → Accessibility → Spoken Content → System voice → Manage Voices'}
+              . Download a woman's Enhanced or Premium voice, then reopen this list.</span>
+          </details>
         </Notice>
       )}
     </Sheet>

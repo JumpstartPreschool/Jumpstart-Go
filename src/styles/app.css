@@ -125,8 +125,27 @@
   color: var(--ink-2);
 }
 
+/* Phones: a tighter scale, so a screen reads at a glance instead of as a page of text. Tablets and computers keep the
+   full scale above. Fields keep their own 16px+ size (iOS zooms into smaller ones). */
+@media (max-width: 639px) {
+  :root {
+    --text-display: 2rem;
+    --text-h1: 1.625rem;
+    --text-h2: 1.25rem;
+    --text-h3: 1.0625rem;
+    --text-h4: 0.96875rem;
+    --text-lead: 0.96875rem;
+    --text-body: 0.9375rem;
+    --text-small: 0.8125rem;
+    --text-caption: 0.75rem;
+    --text-numeral: 1.25rem;
+  }
+}
+
 @layer base {
   html {
+    /* Nothing may widen the page: a stray pixel past the edge makes Android zoom the whole app out. */
+    overflow-x: clip;
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
     /* Installed on the Home Screen, the app shouldn't rubber-band like a web page. */

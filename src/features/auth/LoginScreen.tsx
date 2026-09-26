@@ -185,7 +185,7 @@ export function LoginScreen() {
 
   return (
     <SignInFrame>
-      <div className="card relative rounded-[28px] p-6 shadow-[var(--shadow-lift)] sm:p-8">
+      <div className="card relative overflow-hidden rounded-[28px] p-6 shadow-[var(--shadow-lift)] sm:p-8">
         <BorderBeam />
         {step === 'email' ? (
           <form key="email" onSubmit={onEmail} noValidate className="page-in grid gap-4">

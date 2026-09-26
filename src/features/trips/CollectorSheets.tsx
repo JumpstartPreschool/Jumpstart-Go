@@ -38,7 +38,7 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
   }
   return (
     <>
-      <p className="text-body text-ink-2">{first} shows this code at the gate. The link works on one phone and stops after the trip.</p>
+      <p className="text-body text-ink-2">{first} shows this code at the gate.</p>
       <div className="mt-5 rounded-xl bg-sunken px-4 py-6">
         <CodeTiles code={invite.code} size="xl" />
         <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatMobile(sendTo)}</p>
@@ -50,7 +50,7 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
           <a className="btn btn--primary btn--xl" href={whatsappUrl(sendTo, text)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(sendTo)}`}>
             <MessageCircle aria-hidden />WhatsApp
           </a>
-          <a className="btn btn--primary btn--xl" href={smsUrl(sendTo, text)} aria-label={`Send by text message to ${formatMobile(sendTo)}`}>
+          <a className="btn btn--secondary btn--xl" href={smsUrl(sendTo, text)} aria-label={`Send by text message to ${formatMobile(sendTo)}`}>
             <MessageSquareText aria-hidden />SMS
           </a>
         </div>

@@ -107,9 +107,10 @@ export function BulkImportSheet({ programmes, onClose, onImported }: { programme
               </div>
               <Button size="md" variant="secondary" icon={<Download />} onClick={() => download('jumpstart-children-template.csv', templateCsv(active[0]?.name ?? 'Nursery · 360°'))}>Template</Button>
             </div>
-            <p className="text-small font-semibold text-ink-2">
-              {COLUMNS.map((c, i) => <span key={c.field}>{c.header}{c.required ? '*' : ''}{i < COLUMNS.length - 1 ? ', ' : ''}</span>)}
-            </p>
+            <details className="text-small font-semibold text-ink-2">
+              <summary className="cursor-pointer text-accent-ink">See the {COLUMNS.length} columns</summary>
+              <p className="mt-1.5">{COLUMNS.map((c, i) => <span key={c.field}>{c.header}{c.required ? '*' : ''}{i < COLUMNS.length - 1 ? ', ' : ''}</span>)}</p>
+            </details>
             <details className="text-small font-semibold text-ink-2">
               <summary className="cursor-pointer py-1 font-bold text-accent-ink">Programme names to use</summary>
               <ul className="mt-2 grid gap-1 sm:grid-cols-2">{active.map((p) => <li key={p.id}>{p.name}</li>)}</ul>

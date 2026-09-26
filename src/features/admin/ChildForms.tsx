@@ -49,9 +49,9 @@ export function RelationPicker({ open, onClose, childName, initial, onUse }: { o
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3" role="radiogroup" aria-label={g.title}>
               {g.relations.map((r) => (
                 <button key={r} type="button" role="radio" aria-checked={rel === r} onClick={() => { setRel(r); if (!SIDED.includes(r)) setSide(''); setError(null) }}
-                  className="choice flex min-h-14 min-w-0 items-center gap-2.5 px-3 py-2.5 text-left">
+                  className="choice flex min-h-14 min-w-0 flex-col items-start gap-1.5 px-3 py-2.5 text-left min-[400px]:flex-row min-[400px]:items-center min-[400px]:gap-2.5">
                   <span className={`grid size-8 shrink-0 place-items-center rounded-sm [&_svg]:size-4 sm:size-9 sm:[&_svg]:size-[18px] ${rel === r ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>{iconFor(r)}</span>
-                  <span className="min-w-0 text-h4 leading-tight [overflow-wrap:anywhere]">{r}</span>
+                  <span className="min-w-0 text-h4 leading-tight [overflow-wrap:break-word]">{r}</span>
                 </button>
               ))}
             </div>

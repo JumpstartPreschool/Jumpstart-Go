@@ -23,7 +23,8 @@ export interface TripMapProps {
 
 // Free vector tiles (services.md). Light and dark are separate map styles, like the app themes.
 const STYLE = {
-  light: 'https://tiles.openfreemap.org/styles/positron',
+  // Liberty: OpenStreetMap's colours (parks green, water blue, main roads warm), so a parent can place it at a glance.
+  light: 'https://tiles.openfreemap.org/styles/liberty',
   dark: 'https://tiles.openfreemap.org/styles/dark',
 }
 

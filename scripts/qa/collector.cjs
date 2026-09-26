@@ -84,7 +84,7 @@ async function signIn(p, chip, area) {
   // 3. The parent sees him live.
   // No tab switching: on two real phones both screens are in front (a hidden tab's timers are throttled).
   await parent.waitForTimeout(11000)
-  ok('parent: Ramesh is LIVE with a distance', await card.getByText('Live', { exact: true }).isVisible() && await card.getByText(/from school/).isVisible(),
+  ok('parent: Ramesh is LIVE with a distance', await card.getByText('Live', { exact: true }).isVisible() && await card.getByText(/\d m away|km away|At the school/).isVisible(),
     (await card.locator('[aria-label^="Live"], [aria-label^="Recent"], [aria-label^="Stale"]').first().getAttribute('aria-label').catch(() => 'none')))
   await snap(parent, 'p-live', true)
 

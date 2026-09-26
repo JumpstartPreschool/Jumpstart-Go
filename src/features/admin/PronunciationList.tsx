@@ -89,7 +89,7 @@ export function PronunciationList() {
               ))}
             </ul>
           )}
-          <form noValidate onSubmit={(e) => void save(e)} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-center">
+          <form noValidate onSubmit={(e) => void save(e)} className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-center">
             <label className="input"><AudioLines aria-hidden /><input aria-label="Name as written" placeholder="Shreyas" value={written} autoCapitalize="words" spellCheck={false}
               onChange={(e) => { setWritten(e.target.value); setFormError(null) }} /></label>
             <label className="input"><input aria-label="Say it as" placeholder="Shrey-us" value={spoken} spellCheck={false}
