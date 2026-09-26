@@ -21,6 +21,7 @@ import { StaffSheet } from './StaffSheet'
 import { AddClassSheet, ClassSheet } from './ClassSheets'
 import { InviteSheet } from './InviteSheet'
 import { BulkImportSheet } from './BulkImportSheet'
+import { useAfterImport } from './importJob'
 import { levelOf } from './programmeCatalogue'
 import { levelIcon } from './ProgrammePicker'
 import { ROLE } from './roles'
@@ -58,6 +59,7 @@ export function AdminPeople() {
     }
   }, [])
   useEffect(() => { void reload() }, [reload])
+  useAfterImport(() => void reload().then(() => setTab('children')))
 
   const child = childId && dir ? dir.children.find((c) => c.id === childId && c.active) : null
   if (childId && dir && !child) return <AreaShell area="admin" title="People"><EmptyState title="This child isn't on the list" action={<Button onClick={() => navigate('/admin')}>Back to children</Button>}>They may have left the school, or the link is old.</EmptyState></AreaShell>
@@ -129,7 +131,7 @@ export function AdminPeople() {
           : !dir || !lists ? <SkeletonList />
           : tab === 'children' ? (
             lists.children.length === 0 ? (q ? none : <EmptyState title="No children yet" action={<Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button>}>Add each child with their parents and family in one step.</EmptyState>) : (
-              <ul className="grid gap-3 md:grid-cols-2">
+              <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {lists.children.map((c) => {
                   const programme = dir.programmes.find((p) => p.id === c.programme_id)
                   const people = dir.guardianships.filter((g) => g.child_id === c.id).map((g) => `${dir.profiles.find((p) => p.id === g.guardian_id)?.full_name.split(' ')[0] ?? '?'} (${g.relation.split(',')[0]})`)
@@ -152,7 +154,7 @@ export function AdminPeople() {
           ) : tab === 'family' ? (
             lists.family.length === 0 ? (q ? none : <EmptyState title="No parents yet">Parents and family are added inside a child. Add a child to begin.</EmptyState>) : (
               <>
-                <ul className="grid gap-3 md:grid-cols-2">
+                <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {lists.family.map((p) => {
                     const ks = kidsOf(p.id)
                     const parent = ks.some((x) => x.g.kind === 'parent')
@@ -179,8 +181,8 @@ export function AdminPeople() {
                 <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-5" aria-hidden><ShieldCheck /></span>
                 <div><p className="text-h4">Admin: Ankit Singh and Aditya Tapadia only</p><p className="text-small font-semibold text-ink-2">Nobody else can be given Admin, and admins can't be switched off here.</p></div>
               </div>
-              {lists.staff.length === 0 ? (q ? none : <EmptyState title="No staff yet">Add the core team, the front desk and the coordinators.</EmptyState>) : (
-                <ul className="grid gap-3 md:grid-cols-2">
+              {lists.staff.length === 0 ? (q ? none : <EmptyState title="No staff yet">Add the head office, the front desk and the center leaders.</EmptyState>) : (
+                <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {lists.staff.map((p) => {
                     const roles = dir.roles.get(p.id) ?? []
                     const admin = roles.includes('admin')
@@ -216,7 +218,7 @@ export function AdminPeople() {
                       <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{level ? levelIcon(levelOf(level).level) : <GraduationCap />}</span>
                       <span className="min-w-0">
                         <span className="block text-h4">{c.name}</span>
-                        <span className={`block text-small font-semibold ${who.length ? 'text-ink-2' : 'text-warning'}`}>{n} {n === 1 ? 'child' : 'children'}, {who.length ? who.map((p) => p!.full_name.split(' ')[0]).join(' and ') : 'no coordinator'}</span>
+                        <span className={`block text-small font-semibold ${who.length ? 'text-ink-2' : 'text-warning'}`}>{n} {n === 1 ? 'child' : 'children'}, {who.length ? who.map((p) => p!.full_name.split(' ')[0]).join(' and ') : 'no center leader'}</span>
                         <span className="block text-small font-semibold text-ink-3">{progs === 0 ? 'No programmes yet' : `${progs} ${progs === 1 ? 'programme' : 'programmes'}`}</span>
                       </span>
                       <ChevronRight className="ml-auto size-5 shrink-0 text-ink-3" aria-hidden />
@@ -231,7 +233,7 @@ export function AdminPeople() {
       </section>
 
       {dir && adding === 'child' && <AddChildSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(id, name) => void reload().then(() => { setAdding(null); toast(`${name} added.`); navigate(`/admin/child/${id}`) })} />}
-      {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} onImported={() => void reload().then(() => setTab('children'))} />}
+      {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} />}
       {inviting && <InviteSheet person={inviting} onClose={() => setInviting(null)} onDone={() => void reload()} />}
       {adding === 'class' && <AddClassSheet onClose={() => setAdding(null)} onAdded={(id) => void reload().then(() => { setAdding(null); setOpenClass(id); toast('Class added. Now add its programmes.') })} />}
       {dir && openClass && dir.classes.some((c) => c.id === openClass) && (

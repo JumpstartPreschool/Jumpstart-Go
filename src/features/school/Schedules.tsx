@@ -19,6 +19,7 @@ import { formatRange, programmeOf } from '../trips/rules'
 import { setRegularTimes } from './api'
 import { ProgrammeSheet } from './ProgrammeSheet'
 import { BulkImportSheet } from '../admin/BulkImportSheet'
+import { useAfterImport } from '../admin/importJob'
 
 const m = (t?: string | null) => (t ? toMinutes(t.slice(0, 5)) : 0)
 const hhmm = (x: Minutes) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`
@@ -83,6 +84,7 @@ export function Schedules() {
   const [tab, setTab] = useState<'programmes' | 'children'>('programmes')
   const [editing, setEditing] = useState<null | { programme: ProgrammeRow } | { child: Child }>(null)
   const load = () => { setError(false); void loadDirectory().then(setDir, () => setError(true)) }
+  useAfterImport(() => { load(); setTab('children') })
   useEffect(load, [])
   const saved = () => { setEditing(null); load() }
 
@@ -169,7 +171,7 @@ export function Schedules() {
         const p = dir.programmes.find((x) => x.id === editing.child.programme_id)!
         return <RegularSheet c={editing.child} p={p} current={dir.schedules.find((x) => x.child_id === editing.child.id) ?? null} onClose={() => setEditing(null)} onSaved={saved} />
       })()}
-      {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} onImported={(n) => { load(); setTab('children'); toast(`${n} ${n === 1 ? 'child' : 'children'} added. Set their regular times here.`) }} />}
+      {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} />}
     </AreaShell>
   )
 }
