@@ -225,6 +225,35 @@
   /* Behind the sign-in card: a soft lavender light, so the card doesn't float in empty space. */
   .signin-side { background: radial-gradient(32rem 26rem at 50% 40%, rgb(124 99 255 / 0.1), transparent 70%); }
 
+  /* A light travelling around a card's edge (src/ui/BorderBeam.tsx). Only where the browser can move it along the edge,
+     and never with reduced motion. */
+  .border-beam { display: none; }
+  @supports (offset-path: rect(0 auto auto 0 round 10px)) {
+    @media (prefers-reduced-motion: no-preference) {
+      .border-beam {
+        display: block;
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        border: 1.5px solid transparent;
+        mask: linear-gradient(transparent, transparent) padding-box, linear-gradient(#fff, #fff) border-box;
+        mask-composite: intersect;
+      }
+      .border-beam::after {
+        content: '';
+        position: absolute;
+        aspect-ratio: 1;
+        width: var(--beam-size);
+        background: linear-gradient(to left, var(--beam-from), var(--beam-to), transparent);
+        offset-anchor: 90% 50%;
+        offset-path: rect(0 auto auto 0 round var(--beam-size));
+        animation: border-beam var(--beam-duration) infinite linear;
+      }
+    }
+  }
+  @keyframes border-beam { to { offset-distance: 100%; } }
+
   /* Buttons (src/ui/Button.tsx): solid, with a darker lip that presses down. Hover is a colour change, never a shine. */
   .btn {
     --b: var(--accent);

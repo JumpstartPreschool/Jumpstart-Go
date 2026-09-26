@@ -10,11 +10,11 @@
 - **Plus Jakarta Sans only**, with emphasis in bold or italic of the same font.
 - Floating layers only (the top bar, toasts, the on-duty bar) are lightly frosted. Content cards are solid. Blur turns solid when it isn't supported or when Reduce Transparency is on.
 - Light and dark are designed separately. Dark is a calm night sky, with surfaces that step lighter as they rise.
-- The smiling star from the logo is the friendly mark for welcome, empty and loading moments.
+- The blue smiling star (owner, 2026-09-26; source in docs/design/brand) is the friendly mark for welcome, empty and loading moments, the map pin and the app icons. The wordmark keeps its own small stars.
 
 ## Logo
 - **Files:** `public/brand/logo.webp` (light), `logo-dark.webp` (dark theme, with the dotted flight path lightened so it stays visible) and `star.webp` (the smiling star). Transparent masters are in [brand/](brand/): the wordmark at 1796×584 and the star.
-- **App icons:** the smiling star on white. `apple-touch-icon.png` (180, opaque, because iOS rounds the corners), `icon-192.png` and `icon-512.png`, `icon-maskable-512.png` (the star inside the 80% safe zone), and `favicon.png` (64).
+- **App icons:** the blue smiling star on white. `apple-touch-icon.png` (180, opaque, because iOS rounds the corners), `icon-192.png` and `icon-512.png`, `icon-maskable-512.png` (the star inside the 80% safe zone), and `favicon.png` (64).
 - **Where it appears:** every top bar, Start duty, the login screen, the third person's link page (large, since a stranger opening a WhatsApp link needs to see it's really from the school), and the school pin on maps (the star).
 - **Rules:** never recolour, stretch or crop the wordmark; no busy backgrounds behind it; at least 28 px tall; clear space around it at least the height of the star.
 

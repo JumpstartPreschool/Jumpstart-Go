@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { ArrowRight, Check, FlaskConical, HeartHandshake, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck } from '../../ui/icons'
+import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { TextField } from '../../ui/Field'
@@ -39,11 +40,13 @@ export function SignInFrame({ children }: { children: ReactNode }) {
     <main className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:p-4">
       <section aria-label="About Jumpstart"
         className="signin-hero relative flex min-h-[50dvh] flex-col justify-center gap-7 overflow-hidden rounded-b-[36px] px-6 pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-20 text-white sm:px-10 md:min-h-[54dvh] md:pb-24 lg:min-h-0 lg:justify-between lg:gap-10 lg:rounded-[32px] lg:p-12 xl:p-16">
-        <div className="self-center rounded-2xl bg-white px-4 py-2.5 shadow-[0_12px_30px_-12px_rgb(0_0_0/0.45)] lg:self-start">
-          <Logo className="h-9 sm:h-10 lg:h-11" />
+        <div className="self-center rounded-[22px] bg-white px-5 py-3 shadow-[0_0_0_6px_rgb(255_255_255/0.12),0_18px_40px_-16px_rgb(0_0_0/0.55)] lg:self-start lg:px-6 lg:py-3.5">
+          <Logo className="h-10 sm:h-11 lg:h-12" />
         </div>
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-          <Mascot size={72} />
+          <span className="relative grid place-items-center before:absolute before:-inset-5 before:rounded-full before:bg-[radial-gradient(closest-side,rgb(255_255_255/0.4),transparent)]">
+            <Mascot size={84} className="relative" />
+          </span>
           <p className="mt-3 max-w-[14ch] text-[30px] leading-[1.08] font-extrabold tracking-[-0.02em] text-balance sm:text-[36px] lg:mt-5 lg:text-[52px] 2xl:text-[64px]" role="heading" aria-level={2}>
             Safe drop-offs and pickups
           </p>
@@ -172,7 +175,8 @@ export function LoginScreen() {
 
   return (
     <SignInFrame>
-      <div className="card rounded-[28px] p-6 shadow-[var(--shadow-lift)] sm:p-8">
+      <div className="card relative rounded-[28px] p-6 shadow-[var(--shadow-lift)] sm:p-8">
+        <BorderBeam />
         {step === 'email' ? (
           <form key="email" onSubmit={onEmail} noValidate className="page-in grid gap-4">
             <div className="text-center">
