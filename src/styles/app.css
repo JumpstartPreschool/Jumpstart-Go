@@ -213,10 +213,10 @@
 
   .rainbow-bar { background: var(--rainbow); }
 
-  /* The sign-in page's brand panel: deep royal purple with soft glows in the logo's colours. */
+  /* The sign-in page's brand panel: deep royal purple, a light sky-blue glow at the top, soft teal and blue below. */
   .signin-hero {
     background:
-      radial-gradient(34rem 24rem at 105% -5%, rgb(255 111 181 / 0.3), transparent 62%),
+      radial-gradient(34rem 24rem at 105% -5%, rgb(125 190 255 / 0.32), transparent 62%),
       radial-gradient(30rem 24rem at -15% 105%, rgb(20 175 165 / 0.38), transparent 62%),
       radial-gradient(26rem 20rem at 95% 100%, rgb(31 139 230 / 0.4), transparent 62%),
       linear-gradient(155deg, #24175f 0%, #3a2596 58%, #5b3fd6 100%);

@@ -55,9 +55,7 @@ export function SignInFrame({ children }: { children: ReactNode }) {
           <Logo className="h-10 sm:h-11 lg:h-12" />
         </div>
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-          <span className="relative grid place-items-center before:absolute before:-inset-5 before:rounded-full before:bg-[radial-gradient(closest-side,rgb(255_255_255/0.4),transparent)]">
-            <Mascot size={84} className="relative" />
-          </span>
+          <Mascot size={84} />
           <p className="mt-3 max-w-[14ch] text-[30px] leading-[1.08] font-extrabold tracking-[-0.02em] text-balance sm:text-[36px] lg:mt-5 lg:text-[52px] 2xl:text-[64px]" role="heading" aria-level={2}>
             Safe drop-offs and pickups
           </p>
