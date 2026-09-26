@@ -149,7 +149,7 @@ export async function sendInviteEmail(profile: string): Promise<void> {
   throw { code: 'P0001', message: body?.error ?? fallback }
 }
 /** Settings → Check email setup: whether Brevo accepts the key and the sender, without sending anything. */
-export interface EmailSetup { key?: 'ok' | 'missing' | 'refused'; sender?: 'verified' | 'not_verified' | 'missing'; emailsLeft?: number | null; message?: string; error?: string }
+export interface EmailSetup { key?: 'ok' | 'missing' | 'refused'; sender?: 'verified' | 'not_verified' | 'missing'; emailsLeft?: number | null; message?: string; detail?: string; error?: string }
 export async function checkEmailSetup(): Promise<EmailSetup> {
   const { data, error } = await supabase.functions.invoke('invite-send', { body: { check: true } })
   if (!error) return data as EmailSetup

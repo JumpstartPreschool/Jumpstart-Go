@@ -135,7 +135,7 @@ export function AdminSettings() {
             </Row>
             {emailCheck && (() => {
               const ok = emailCheck.key === 'ok' && emailCheck.sender === 'verified'
-              return <Notice tone={ok ? 'success' : 'danger'} icon={ok ? <CircleCheck aria-hidden /> : <TriangleAlert aria-hidden />} className="mt-1">{emailCheck.error ?? emailCheck.message}</Notice>
+              return <Notice tone={ok ? 'success' : 'danger'} icon={ok ? <CircleCheck aria-hidden /> : <TriangleAlert aria-hidden />} className="mt-1"><span>{emailCheck.error ?? emailCheck.message}{emailCheck.detail && <span className="mt-1 block text-caption font-semibold opacity-80">{emailCheck.detail}</span>}</span></Notice>
             })()}
           </div>
         )}

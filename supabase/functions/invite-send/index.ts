@@ -54,7 +54,9 @@ async function checkSetup(db: ReturnType<typeof clientFor>, auth: string) {
   const account = await brevo('account')
   if (!account.ok) {
     const body = (await account.json().catch(() => ({}))) as { code?: unknown; message?: unknown }
-    return reply({ key: 'refused', message: brevoProblem(account.status, String(body.code ?? ''), String(body.message ?? '')) })
+    // For the admin only: Brevo's own reason, which names the problem but never contains the key.
+    const reason = String(body.message ?? '').slice(0, 300)
+    return reply({ key: 'refused', message: brevoProblem(account.status, String(body.code ?? ''), reason), detail: `Brevo says (${account.status}): ${reason || 'no reason given'}` })
   }
   const info = (await account.json()) as { plan?: Array<{ type?: string; credits?: number; creditsType?: string }> }
   const left = info.plan?.find((p) => p.creditsType === 'sendLimit')?.credits ?? null
