@@ -6,8 +6,7 @@ export function GenderChoice({ value, onChange }: { value: 'boy' | 'girl' | null
       <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Boy or girl">
         {(['boy', 'girl'] as const).map((g) => (
           <button key={g} type="button" role="radio" aria-checked={value === g} onClick={() => onChange(value === g ? null : g)}
-            className="choice flex h-14 items-center justify-center gap-2.5 px-3 text-h4">
-            <img src={`/icons3d/${g}.webp`} alt="" width={96} height={96} className="size-8" />
+            className="choice flex h-12 items-center justify-center px-3 text-h4">
             {g === 'boy' ? 'Boy' : 'Girl'}
           </button>
         ))}

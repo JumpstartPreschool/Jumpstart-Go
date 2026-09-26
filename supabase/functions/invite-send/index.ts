@@ -16,6 +16,20 @@ const cors = {
 }
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
+/** What the admin can do about a refused email, in words (Brevo's API error codes). */
+function brevoProblem(status: number, code: string): string {
+  if (status === 401 || code === 'unauthorized') {
+    return "Brevo didn't accept the email key. In Brevo, open SMTP & API → API keys, create an API key (it starts with xkeysib-, not xsmtpsib-), and set it as BREVO_API_KEY."
+  }
+  if (code === 'permission_denied' || status === 403) return "Brevo's account can't send yet: check that it's activated and the key has permission to send emails."
+  if (code === 'invalid_parameter' || code === 'missing_parameter' || status === 400) {
+    return `Brevo refused the sender ${FROM}. In Brevo, open Senders, Domains & Dedicated IPs → Senders and verify ${FROM}, or set INVITE_FROM to a verified sender.`
+  }
+  if (status === 402 || code === 'not_enough_credits') return "Brevo's free daily email limit is used up. Try again tomorrow, or send it by WhatsApp or SMS now."
+  if (status === 429) return 'Brevo is busy. Try again in a minute, or send it by WhatsApp or SMS now.'
+  return "The email couldn't be sent. Try again in a minute, or send it by WhatsApp or SMS now."
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
   if (req.method !== 'POST') return reply({ error: 'Use POST.' }, 405)
@@ -50,9 +64,10 @@ Deno.serve(async (req) => {
     }),
   })
   if (!sent.ok) {
-    // Only the status is logged: Brevo's error text can repeat the recipient's address.
-    console.error('brevo send failed', sent.status)
-    return reply({ error: "The email couldn't be sent. Try again in a minute, or send the invitation by text or WhatsApp." }, 502)
+    // Brevo's code says what to fix; only the status and code are logged, never its message (it can repeat the address).
+    const code = String(((await sent.json().catch(() => ({}))) as { code?: unknown }).code ?? '')
+    console.error('brevo send failed', sent.status, code)
+    return reply({ error: brevoProblem(sent.status, code), brevo: { status: sent.status, code } }, 502)
   }
   await db.rpc('mark_invited', { p_profile: profile, p_via: 'email' })
   return reply({ sent: true, to: d.email })

@@ -63,7 +63,7 @@ async function signIn(p, chip) {
     await p.getByRole('button', { name: `Invite ${who}`, exact: true }).click()
     await dlg().getByText('The invitation says').waitFor({ timeout: 5000 })
     const text = await dlg().locator('p.text-ink').first().textContent()
-    ok('invite: the message has the link and how to sign in', text.includes('Open https://app.jumpstartpreschool.in and sign in with') && text.includes('6-digit code'), text.slice(0, 90))
+    ok('invite: the message has the link and how to sign in', text.includes('1. Open https://app.jumpstartpreschool.in') && text.includes('2. Enter ') && text.includes('6-digit code'), text.slice(0, 90))
     const wa = dlg().getByRole('link', { name: /^Send on WhatsApp/ })
     const phoneOk = (await wa.count()) ? (await wa.getAttribute('href')).startsWith('https://wa.me/') && (await dlg().getByRole('link', { name: /^Send by text message/ }).getAttribute('href')).startsWith('sms:+') : await dlg().getByText('so the invitation goes by email').isVisible()
     ok('invite: phone options when there is a number, email only when there is not', phoneOk)

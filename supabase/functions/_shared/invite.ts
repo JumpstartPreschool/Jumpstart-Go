@@ -22,12 +22,24 @@ function what(d: InviteDetails): string {
     : `See ${d.children.length === 1 ? `${d.children[0]}'s` : 'your children\'s'} day, tell the school you're on the way, and hear from the school.`
 }
 
-/** The text or WhatsApp message: short, with the link and how to sign in. */
-export function inviteText(d: InviteDetails): string {
+/**
+ * The WhatsApp or text message: a greeting, what it's for, three numbered steps and the school's name. WhatsApp shows
+ * *stars* as bold; a text message gets the same words without them.
+ */
+export function inviteText(d: InviteDetails, channel: 'whatsapp' | 'sms' = 'sms'): string {
+  const b = (s: string) => (channel === 'whatsapp' ? `*${s}*` : s)
   return [
-    `Hello ${firstName(d.full_name)}, ${SCHOOL} has added you to the Jumpstart app${forWhom(d)}.`,
-    `Open ${d.app_url} and sign in with ${d.email ?? 'your email address'}. We'll email you a 6-digit code to enter; no password needed.`,
-  ].join(' ')
+    `Hello ${firstName(d.full_name)},`,
+    '',
+    `${SCHOOL} has invited you to the ${b('Jumpstart app')}${forWhom(d)}. ${what(d)}`,
+    '',
+    b('To sign in:'),
+    `1. Open ${d.app_url}`,
+    `2. Enter ${d.email ?? 'your email address'}`,
+    '3. Type the 6-digit code we email you. No password needed.',
+    '',
+    `${SCHOOL}, Karve Road, Pune`,
+  ].join('\n')
 }
 
 /** The address without "https://", as people read it: "app.jumpstartpreschool.in". */
@@ -46,7 +58,8 @@ export function inviteEmail(d: InviteDetails): { subject: string; html: string; 
     eyebrow: d.staff ? 'Staff invitation' : 'Family invitation',
     heading: `Hello ${name}, you're invited`,
     intro: `The school has added you to the Jumpstart app${who}. ${escapeHtml(what(d))}`,
-    main: invitationCard(url, escapeHtml(host(d.app_url))),
+    // The email rides after the #, which browsers never send to a server; the sign-in screen fills it in (LoginScreen).
+    main: invitationCard(d.email ? `${url}/#email=${encodeURIComponent(d.email)}` : url, url, escapeHtml(host(d.app_url))),
     after: steps([
       `Open Jumpstart on your phone, tablet or computer. On a phone, choose ${b('Add to Home Screen')} from the browser's menu to keep it like an app.`,
       `Enter ${b(email)}.`,

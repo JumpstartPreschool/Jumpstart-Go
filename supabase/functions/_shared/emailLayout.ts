@@ -21,10 +21,10 @@ export function escapeHtml(s: string): string {
 }
 
 /**
- * The invitation itself: a navy card with a gold button, the one thing in the email to tap. The link fills the gold cell,
+ * The invitation itself: a navy card with a gold button that opens sign-in with their email filled in. The link fills the gold cell,
  * so the whole button is tappable in every client; Outlook, which ignores gradients, gets the solid colours.
  */
-export function invitationCard(href: string, host: string): string {
+export function invitationCard(signInHref: string, siteHref: string, host: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#1b1f4b" style="background:#1b1f4b;background-image:linear-gradient(135deg,#252a63 0%,#16193a 100%);border-radius:24px;box-shadow:0 16px 36px rgba(22,25,58,0.28);">
                 <tr>
                   <td align="center" class="hero" style="padding:30px 28px 30px;">
@@ -33,11 +33,11 @@ export function invitationCard(href: string, host: string): string {
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn" style="margin:22px auto 0;">
                       <tr>
                         <td align="center" bgcolor="#ffc21a" style="border-radius:999px;background:#ffc21a;background-image:linear-gradient(180deg,#ffdc5e 0%,#ffc21a 100%);box-shadow:0 10px 24px rgba(255,194,26,0.35),inset 0 -3px 0 rgba(0,0,0,0.12);">
-                          <a href="${href}" target="_blank" style="display:inline-block;padding:19px 46px;font-family:${DISPLAY};font-size:18px;line-height:20px;font-weight:800;letter-spacing:0.2px;color:#16193a;text-decoration:none;border-radius:999px;">Accept &amp; open Jumpstart&nbsp;&nbsp;&rarr;</a>
+                          <a href="${signInHref}" target="_blank" style="display:inline-block;padding:19px 46px;font-family:${DISPLAY};font-size:18px;line-height:20px;font-weight:800;letter-spacing:0.2px;color:#16193a;text-decoration:none;border-radius:999px;">Accept invitation &amp; sign in&nbsp;&nbsp;&rarr;</a>
                         </td>
                       </tr>
                     </table>
-                    <div style="margin-top:16px;font-family:${SANS};font-size:13px;line-height:20px;color:#aab0d6;">or visit <a href="${href}" target="_blank" style="color:#ffffff;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.35);">${host}</a></div>
+                    <div style="margin-top:16px;font-family:${SANS};font-size:13px;line-height:20px;color:#aab0d6;">or visit <a href="${siteHref}" target="_blank" style="color:#ffffff;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.35);">${host}</a></div>
                   </td>
                 </tr>
               </table>`

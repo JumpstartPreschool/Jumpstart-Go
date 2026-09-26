@@ -45,7 +45,9 @@ async function signIn(p, chip) {
     // A wrong file is explained.
     const junk = path.join(os.tmpdir(), 'jumpstart-junk.csv'); fs.writeFileSync(junk, 'Name,Class\nA,B\n')
     await dlg().locator('input[type=file]').setInputFiles(junk)
-    ok('a sheet without the needed columns is explained', await dlg().getByText('The sheet needs these columns: Date of birth, Parent 1 name.', { exact: false }).isVisible())
+    const needs = dlg().getByText('The sheet needs these columns: Date of birth, Parent 1 name.', { exact: false })
+    await needs.waitFor({ timeout: 5000 }).catch(() => {})
+    ok('a sheet without the needed columns is explained', await needs.isVisible())
 
     // The real Excel file: 2 good rows, 1 to fix, the blank row ignored.
     await dlg().locator('input[type=file]').setInputFiles(XLSX)

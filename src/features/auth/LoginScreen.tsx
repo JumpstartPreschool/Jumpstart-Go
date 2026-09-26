@@ -17,6 +17,17 @@ const CODE_LENGTH = 6
 // Supabase sends one code per email a minute; the Send-a-new-code timer waits the same.
 const RESEND_AFTER_S = 60
 
+/** The address an invitation link carries after the #, read once and then cleared from the address bar. */
+let invited: string | null = null
+function invitedEmail(): string {
+  if (invited === null) {
+    const found = new URLSearchParams(location.hash.slice(1)).get('email') ?? ''
+    if (found) history.replaceState(null, '', location.pathname + location.search)
+    invited = normalizeEmail(found) ?? ''
+  }
+  return invited
+}
+
 function explain(message: string | undefined, status: number | undefined): string {
   if (message?.includes('not_invited')) return "This email isn't on Jumpstart's list. Only people the school adds can sign in."
   if (message?.startsWith('rate_limited')) return "You've asked for a lot of codes in the last hour. Use the latest one in your email, or try again later."
@@ -87,7 +98,8 @@ export function SignInFrame({ children }: { children: ReactNode }) {
 export function LoginScreen() {
   const toast = useToast()
   const [step, setStep] = useState<'email' | 'code'>('email')
-  const [email, setEmail] = useState('')
+  // From the invitation email's button (/#email=…): their address is filled in, ready for Send me a code.
+  const [email, setEmail] = useState(invitedEmail)
   const [demoPick, setDemoPick] = useState(false)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)

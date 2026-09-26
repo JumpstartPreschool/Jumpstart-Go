@@ -352,12 +352,11 @@
   }
   .choice:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* 3D icons (src/ui/icons.tsx): a soft shadow gives them depth on flat surfaces. In a tinted icon tile (a grid span
-     marked aria-hidden, like the Start duty checks, role and class tiles) they fill more of it, as 3D art is meant to. */
-  .icon3d { filter: drop-shadow(0 1px 1.25px rgb(22 25 58 / 0.18)); overflow: visible; }
-  span[aria-hidden='true'].grid > .icon3d,
-  .demo-tile__badge > .icon3d { width: 64%; height: 64%; }
-  @media (prefers-reduced-transparency: reduce) { .icon3d { filter: none; } }
+  /* Colour icons (src/ui/icons.tsx). In a tinted icon tile (a grid span marked aria-hidden, like the Start duty checks,
+     role and class tiles) they fill more of it. */
+  .iconc { overflow: visible; }
+  span[aria-hidden='true'].grid > .iconc,
+  .demo-tile__badge > .iconc { width: 60%; height: 60%; }
 
   /* A screen that fills the viewport exactly: less the demo pill's spacer when it's on the page, so it never scrolls. */
   :root:has(.demo-space) { --demo-space: 80px; }

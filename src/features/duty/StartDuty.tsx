@@ -167,7 +167,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
               </Tile>
             ) : (
               <Tile tone="warn" icon={<TriangleAlert />} title="Add to the Home Screen">
-                From the browser's menu, choose Add to Home Screen (on an iPad: Share, then Add to Home Screen) and open Jumpstart from there. The screen stays on reliably and alerts reach a locked device.
+                Choose Add to Home Screen in the browser's menu (on an iPad: Share), then open Jumpstart from there.
               </Tile>
             )}
             {duty.wakeSupported ? (

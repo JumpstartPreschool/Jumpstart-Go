@@ -76,12 +76,13 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
       {load.state === 'ready' && (() => {
         const d = load.d
         const text = inviteText(d)
+        const whatsapp = inviteText(d, 'whatsapp')
         return (
           <div className="grid gap-4">
             {already && !sent && <Notice>{already}. {first} hasn't signed in yet, so you can send it again.</Notice>}
             <div className="rounded-xl bg-sunken p-4">
               <p className="kicker mb-1.5">The invitation says</p>
-              <p className="text-small font-semibold text-ink">{text}</p>
+              <p className="whitespace-pre-line text-small font-semibold text-ink">{text}</p>
             </div>
             {sent
               ? <Notice tone="success" icon={<CircleCheck aria-hidden />}>{DEMO_AVAILABLE && isDemo() ? `Demo: recorded as emailed to ${sent}. No email is sent in the demo.` : `Emailed to ${sent}. It can take a minute to arrive; ask ${first} to check their spam folder if it doesn't.`}</Notice>
@@ -91,7 +92,7 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
               <div className="grid gap-2.5">
                 <p className="kicker">Also send it from your phone, free</p>
                 <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-44">
-                  <a className="btn btn--secondary btn--lg" href={whatsappUrl(d.phone, text)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(d.phone)}`} onClick={() => phone('whatsapp')}>
+                  <a className="btn btn--secondary btn--lg" href={whatsappUrl(d.phone, whatsapp)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(d.phone)}`} onClick={() => phone('whatsapp')}>
                     <MessageCircle aria-hidden />WhatsApp
                   </a>
                   <a className="btn btn--secondary btn--lg" href={smsUrl(d.phone, text)} aria-label={`Send by text message to ${formatMobile(d.phone)}`} onClick={() => phone('sms')}>

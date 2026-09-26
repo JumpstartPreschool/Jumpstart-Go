@@ -8,7 +8,9 @@ describe('invitations (D36)', () => {
     const t = inviteText(parent)
     expect(t).toContain('Hello Neha,')
     expect(t).toContain('for Kabir and Meera')
-    expect(t).toContain('Open https://app.jumpstartpreschool.in and sign in with neha@example.com')
+    expect(t).toContain('1. Open https://app.jumpstartpreschool.in\n2. Enter neha@example.com')
+    expect(t).not.toContain('*')
+    expect(inviteText(parent, 'whatsapp')).toContain('*Jumpstart app*')
     expect(inviteText({ ...parent, staff: true })).not.toContain('for Kabir')
   })
   it('escapes names in the email, so a record can never inject markup', () => {
@@ -16,6 +18,7 @@ describe('invitations (D36)', () => {
     expect(html).not.toContain('<img src=x')
     expect(html).toContain('&lt;img')
     expect(html).toContain('&lt;b&gt;Kabir&lt;/b&gt;')
+    expect(html).toContain('href="https://app.jumpstartpreschool.in/#email=neha%40example.com"')
     expect(html).toContain('href="https://app.jumpstartpreschool.in"')
     expect(text).toContain('1. Open https://app.jumpstartpreschool.in')
     expect(subject).toBe("You're invited to Jumpstart")

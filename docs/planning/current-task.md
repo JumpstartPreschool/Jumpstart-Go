@@ -55,7 +55,7 @@
 
 - **Location only for a one-off collector** (`0024`, D38): parents and family no longer share location; the gate shows none; only the parent who sent the link sees the collector, on a new tracker (live map, distance, freshness, Call). Consent notice version raised, so parents agree again. Sign-in: a quick second request goes straight to the code (Supabase allows one a minute), codes 10 an hour per email (`0023`); the sign-in page has a welcome panel on tablets; privacy and terms updated.
 
-- **3D icons and people pictures** (D39, `0025`): `src/ui/icons.tsx` (92 Fluent 3D WebP files in `public/icons3d`, 248 KB), `Avatar` with 3D boy, girl, man, woman and older figures, Boy or girl on children (forms, bulk upload).
+- **Icons and people** (D39, `0025`): `src/ui/icons.tsx` (76 Fluent Color SVG files in `public/iconsc`), `Avatar` with initials on each person's colour, Boy or girl on children (forms, bulk upload).
 
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
