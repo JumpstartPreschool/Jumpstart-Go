@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase'
 
 /**
  * The studio voice (ElevenLabs, D43) on the coordinator's tablet. Audio comes from the voice-say function, which makes
@@ -17,6 +16,8 @@ let probing: Promise<boolean> | null = null
 const listeners = new Set<(ok: boolean | null) => void>()
 
 async function call(body: object, signal?: AbortSignal): Promise<Response> {
+  // Loaded when first needed, so the voice modules (and their tests) don't open a Supabase connection just by loading.
+  const { supabase } = await import('../../lib/supabase')
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('signed out')
