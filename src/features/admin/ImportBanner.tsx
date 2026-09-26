@@ -8,7 +8,7 @@ export function ImportBanner() {
   const notAdded = job.rows.filter((r) => r.problems.length || job.failed.has(r.line)).length
   const gaps = job.rows.filter((r) => !r.problems.length && r.warnings.length && !job.failed.has(r.line)).length
   return (
-    <div className="gutter pointer-events-none fixed inset-x-0 bottom-[max(16px,env(safe-area-inset-bottom))] z-40 flex justify-center">
+    <div className="gutter pointer-events-none fixed inset-x-0 bottom-[max(16px,env(safe-area-inset-bottom))] z-40 max-md:bottom-[calc(88px+env(safe-area-inset-bottom))] flex justify-center">
       <div role="status" aria-live="polite" className="glass page-in pointer-events-auto flex w-full max-w-[520px] items-center gap-3 rounded-xl py-3 pl-4 pr-2 shadow-float">
         {job.finished
           ? (notAdded ? <CircleAlert className="size-6 shrink-0 text-warning" aria-hidden /> : <CircleCheck className="size-6 shrink-0 text-live" aria-hidden />)
