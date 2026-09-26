@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
+import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, Pencil, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
@@ -17,7 +17,7 @@ import { useSession } from '../auth/session'
 import { explainDbError, loadDirectory, setAppAccess, setPersonActive, type Directory, type Profile } from './api'
 import { AccessState, ChildPage } from './ChildPage'
 import { AddChildSheet } from './ChildForms'
-import { StaffSheet } from './StaffSheet'
+import { EditStaffSheet, StaffSheet } from './StaffSheet'
 import { AddClassSheet, ClassSheet } from './ClassSheets'
 import { InviteSheet } from './InviteSheet'
 import { BulkImportSheet } from './BulkImportSheet'
@@ -40,6 +40,7 @@ export function AdminPeople() {
   const [dir, setDir] = useState<Directory | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('children')
+  const [editingStaff, setEditingStaff] = useState<Profile | null>(null)
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState<null | 'child' | 'staff' | 'class'>(null)
   const [openClass, setOpenClass] = useState<string | null>(null)
@@ -195,6 +196,7 @@ export function AdminPeople() {
                           <div className="mt-1.5 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
                         </div>
                         {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
+                        <Button size="md" variant="quiet" icon={<Pencil />} aria-label={`Edit ${p.full_name}`} onClick={() => setEditingStaff(p)} />
                         {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
                           : p.active ? <Button size="md" variant="secondary" onClick={() => { setActionError(null); setConfirm({ person: p, what: 'staff' }) }}>Turn off</Button>
                           : <Button size="md" icon={<CircleCheck />} loading={busy} onClick={() => void act(() => setPersonActive(p.id, true), `${p.full_name.split(' ')[0]} can sign in again.`)}>Turn on</Button>}
@@ -239,6 +241,7 @@ export function AdminPeople() {
       {dir && openClass && dir.classes.some((c) => c.id === openClass) && (
         <ClassSheet cls={dir.classes.find((c) => c.id === openClass)!} dir={dir} onClose={() => setOpenClass(null)} onChanged={reload} />
       )}
+      {dir && editingStaff && <EditStaffSheet dir={dir} person={editingStaff} onClose={() => setEditingStaff(null)} onSaved={(m) => void reload().then(() => { setEditingStaff(null); toast(m) })} />}
       {dir && adding === 'staff' && <StaffSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(m) => void reload().then(() => { setAdding(null); setTab('staff'); toast(m) })} />}
       <Sheet open={!!confirm} onClose={() => setConfirm(null)}
         title={confirm ? (confirm.what === 'staff' ? `Turn off ${confirm.person.full_name.split(' ')[0]}'s access?` : `Turn off app access for ${confirm.person.full_name.split(' ')[0]}?`) : ''}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, Mail, Smartphone, UserPlus } from '../../ui/icons'
+import { Check, Lock, Mail, Smartphone, UserPlus } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
@@ -7,7 +7,7 @@ import { Notice } from '../../ui/States'
 import { normalizeEmail, normalizeMobile } from '../../domain/contact'
 import type { StaffRole } from '../auth/session'
 import { setCoordinator } from '../coordinators/api'
-import { addPerson, explainDbError, type Directory } from './api'
+import { addPerson, explainDbError, updatePerson, type Directory, type Profile } from './api'
 import { ROLE } from './roles'
 
 const GIVEN: StaffRole[] = ['core', 'pro', 'coordinator']
@@ -99,6 +99,50 @@ export function StaffSheet({ dir, open, onClose, onSaved }: { dir: Directory; op
       <SheetFooter>
         <Button size="xl" className="w-full" icon={<UserPlus />} loading={busy} onClick={() => void save()}>Add {name.trim().split(' ')[0] || 'staff member'}</Button>
       </SheetFooter>
+    </Sheet>
+  )
+}
+
+/** Edit a staff member's name, email and mobile. A new email moves their sign-in, so their next code goes there. */
+export function EditStaffSheet({ dir, person, onClose, onSaved }: { dir: Directory; person: Profile; onClose: () => void; onSaved: (message: string) => void }) {
+  const [name, setName] = useState(person.full_name)
+  const [email, setEmail] = useState(person.email ?? '')
+  const [phone, setPhone] = useState(person.phone ?? '')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const first = person.full_name.split(' ')[0]
+  async function save() {
+    const e: Record<string, string> = {}
+    const mail = normalizeEmail(email)
+    const mobile = phone.trim() ? normalizeMobile(phone) : null
+    if (name.trim().split(/\s+/).length < 2) e.name = 'First and last name.'
+    if (!mail) e.email = 'An email is needed: the sign-in code goes there.'
+    else if (dir.profiles.some((x) => x.id !== person.id && x.email === mail)) e.email = 'Someone else here already uses this email.'
+    if (phone.trim() && !mobile) e.phone = '10-digit mobile, or + and a country code.'
+    setErrors(e)
+    if (Object.keys(e).length) return
+    setBusy(true)
+    try {
+      await updatePerson(person.id, null, { full_name: name.trim(), email: mail, phone: mobile, app_access: true })
+      onSaved(person.user_id && mail !== person.email ? `Saved. ${first}'s sign-in code now goes to ${mail}.` : 'Saved.')
+    } catch (err) {
+      setErrors({ form: explainDbError(err as { code?: string; message?: string }) })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Sheet open onClose={onClose} title={`Edit ${first}`} description="Roles and classes are changed in Center leaders; the details are here.">
+      <div className="grid gap-4">
+        <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField label="Email, for the sign-in code" type="email" inputMode="email" autoCapitalize="none" spellCheck={false} icon={<Mail aria-hidden />} value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
+          <TextField label="Mobile (optional)" type="tel" inputMode="tel" icon={<Smartphone aria-hidden />} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone} />
+        </div>
+        {person.user_id && normalizeEmail(email) && normalizeEmail(email) !== person.email && <Notice>{first} has signed in before. From now on their sign-in code goes to the new email.</Notice>}
+        {errors.form && <Notice tone="danger">{errors.form}</Notice>}
+      </div>
+      <SheetFooter><Button size="xl" className="w-full" icon={<Check />} loading={busy} onClick={() => void save()}>Save changes</Button></SheetFooter>
     </Sheet>
   )
 }

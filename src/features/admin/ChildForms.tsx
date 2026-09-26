@@ -8,7 +8,7 @@ import { Notice } from '../../ui/States'
 import { Switch } from '../../ui/Switch'
 import { childColor } from '../../ui/childColor'
 import { normalizeEmail } from '../../domain/contact'
-import { addGuardian, explainDbError, saveChild, type Child, type Directory } from './api'
+import { addGuardian, explainDbError, saveChild, updatePerson, type Child, type Directory, type Profile } from './api'
 import { blankPerson, kindOf, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
 import { formatAge, levelOf, suggestedLevel } from './programmeCatalogue'
 import { levelIcon, ProgrammePicker } from './ProgrammePicker'
@@ -332,6 +332,51 @@ export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: 
       </SheetFooter>
       {relationOpen && <RelationPicker open onClose={() => setRelationOpen(false)} childName={first} initial={p.relation}
         onUse={(relation) => { setP({ ...p, relation, abroad: kindOf(relation) === 'parent' && p.abroad }); setRelationOpen(false) }} />}
+    </Sheet>
+  )
+}
+
+/** Edit a parent or relative on the child's page: every detail, and how they're related. Opens filled in. */
+export function EditGuardianSheet({ dir, child, person, relation, onClose, onSaved }: {
+  dir: Directory; child: Child; person: Profile; relation: string; onClose: () => void; onSaved: (message: string) => void
+}) {
+  const first = child.preferred_name ?? child.full_name.split(' ')[0]!
+  const [p, setP] = useState<PersonDraft>({ key: person.id, name: person.full_name, email: person.email ?? '', phone: person.phone ?? '', abroad: person.abroad, appAccess: person.app_access, relation })
+  const [errors, setErrors] = useState<Errors>({})
+  const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [relationOpen, setRelationOpen] = useState(false)
+  const emails = new Set(dir.profiles.filter((x) => x.id !== person.id).map((x) => x.email).filter(Boolean) as string[])
+  const signedIn = !!person.user_id
+
+  async function save() {
+    const pe = personErrors(p, (em) => emails.has(em))
+    const e: Errors = Object.fromEntries(Object.entries(pe).map(([k, v]) => [`${k}.0`, v === 'Already here. Use Link someone already here.' ? 'Someone else here already uses this email.' : v]))
+    setErrors(e)
+    if (Object.keys(e).length) return
+    setBusy(true)
+    setFormError(null)
+    try {
+      await updatePerson(person.id, child.id, toInput(p) as Parameters<typeof updatePerson>[2])
+      const newEmail = normalizeEmail(p.email)
+      onSaved(signedIn && newEmail && newEmail !== person.email ? `Saved. ${p.name.trim().split(' ')[0]}'s sign-in code now goes to ${newEmail}.` : 'Saved.')
+    } catch (err) {
+      setFormError(explainDbError(err as { code?: string; message?: string }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open onClose={onClose} title={`Edit ${person.full_name.split(' ')[0]}`} description={`${relation} of ${first}. Changes show everywhere at once.`}>
+      <PersonCard p={p} i={0} errors={errors} onChange={setP} onRelation={() => setRelationOpen(true)} />
+      {signedIn && normalizeEmail(p.email) && normalizeEmail(p.email) !== person.email && (
+        <Notice className="mt-4">{person.full_name.split(' ')[0]} has signed in before. From now on their sign-in code goes to the new email.</Notice>
+      )}
+      {formError && <Notice tone="danger" className="mt-4">{formError}</Notice>}
+      <SheetFooter><Button size="xl" className="w-full" icon={<Check />} loading={busy} onClick={() => void save()}>Save changes</Button></SheetFooter>
+      {relationOpen && <RelationPicker open onClose={() => setRelationOpen(false)} childName={first} initial={p.relation}
+        onUse={(r) => { setP({ ...p, relation: r, abroad: kindOf(r) === 'parent' && p.abroad }); setRelationOpen(false) }} />}
     </Sheet>
   )
 }

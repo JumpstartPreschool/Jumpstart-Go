@@ -12,7 +12,7 @@ import { childColor } from '../../ui/childColor'
 import { formatMobile } from '../../domain/contact'
 import { formatTime, toMinutes } from '../../domain/time'
 import { childLeft, explainDbError, removeGuardian, setAppAccess, updateChild, type Child, type Directory, type Profile } from './api'
-import { AddGuardianSheet } from './ChildForms'
+import { AddGuardianSheet, EditGuardianSheet } from './ChildForms'
 import { GenderChoice } from '../../ui/GenderChoice'
 import { InviteSheet, invitedLine } from './InviteSheet'
 import { formatAge, levelOf } from './programmeCatalogue'
@@ -64,6 +64,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
   const [sheet, setSheet] = useState<null | 'programme' | 'add' | 'edit'>(null)
   const [pending, setPending] = useState<Pending>(null)
   const [inviting, setInviting] = useState<Profile | null>(null)
+  const [editing, setEditing] = useState<{ person: Profile; relation: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [edit, setEdit] = useState({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth ?? '', gender: child.gender ?? null })
@@ -114,6 +115,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       </div>
       <AccessState person={p} onInvite={setInviting} />
       <Switch on={p.app_access} label={`App access for ${p.full_name}`} busy={busy} onChange={() => toggleAccess(p)} />
+      <Button size="md" variant="quiet" icon={<Pencil />} aria-label={`Edit ${p.full_name}`} onClick={() => setEditing({ person: p, relation: g.relation })} />
       <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => { setError(null); setPending({ kind: 'remove', person: p }) }} />
     </li>
   )
@@ -216,6 +218,8 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         title={`${first} has left the school?`}
         body={`${first} leaves every list today. Attendance is kept for the school's records. Parents with no other child here lose app access.`}
         action={`Yes, ${first} has left`} onYes={() => void run(() => childLeft(child.id), `${first} has been removed from today's lists.`).then((ok) => ok && onBack())} />
+      {editing && <EditGuardianSheet dir={dir} child={child} person={editing.person} relation={editing.relation} onClose={() => setEditing(null)}
+        onSaved={(m) => void onChanged().then(() => { setEditing(null); toast(m) })} />}
       {inviting && <InviteSheet person={inviting} onClose={() => setInviting(null)} onDone={() => void onChanged()} />}
     </div>
   )
