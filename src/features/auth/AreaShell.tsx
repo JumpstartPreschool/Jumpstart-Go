@@ -24,18 +24,18 @@ export const AREA_DOES: Record<Area, string> = {
 }
 
 /** Pages inside an area, shown as tabs under the top bar. */
-const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; icon: ReactNode }>>> = {
+const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; short?: string; icon: ReactNode }>>> = {
   admin: [
     { to: '/admin', label: 'People', icon: <UsersRound /> },
-    { to: '/admin/coordinators', label: 'Center leaders', icon: <BellRing /> },
+    { to: '/admin/coordinators', label: 'Center leaders', short: 'Leaders', icon: <BellRing /> },
     { to: '/admin/announce', label: 'Announce', icon: <Megaphone /> },
     { to: '/admin/settings', label: 'Settings', icon: <Settings /> },
-    { to: '/admin/audit', label: 'Audit log', icon: <ScrollText /> },
+    { to: '/admin/audit', label: 'Audit log', short: 'Audit', icon: <ScrollText /> },
   ],
   core: [
     { to: '/core', label: 'Today', icon: <CalendarClock /> },
-    { to: '/core/schedules', label: 'Schedules', icon: <Clock /> },
-    { to: '/core/coordinators', label: 'Center leaders', icon: <BellRing /> },
+    { to: '/core/schedules', label: 'Schedules', short: 'Times', icon: <Clock /> },
+    { to: '/core/coordinators', label: 'Center leaders', short: 'Leaders', icon: <BellRing /> },
     { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
     { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
   ],
@@ -137,10 +137,10 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
         </div>
         <OfflineNotice />
       </header>
-      <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${area === 'parent' ? 'max-md:pb-[calc(96px+env(safe-area-inset-bottom))]' : ''}`}>
+      <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${pages ? 'max-md:pb-[calc(104px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
           // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'xl:hidden' : 'lg:hidden'}`}>
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'max-md:hidden xl:hidden' : 'max-md:hidden lg:hidden'}`}>
             {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
           </nav>
         )}
@@ -155,7 +155,27 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           {children}
         </div>
       </main>
-      {area === 'parent' ? <ParentTabBar /> : <ImportBanner />}
+      {area === 'parent' ? <ParentTabBar /> : (
+        <>
+          <ImportBanner />
+          {pages && (
+            // Phones: the area's pages as a glass tab bar at the thumb, the same as the parent's.
+            <nav aria-label={`${AREA_LABEL[area]} pages`} className="glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-40 mx-auto grid max-w-[520px] rounded-[26px] p-1.5 md:hidden"
+              style={{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }}>
+              {pages.map((page) => {
+                const active = isActive(page.to)
+                return (
+                  <Link key={page.to} to={page.to} aria-current={active ? 'page' : undefined} aria-label={page.label}
+                    className={`grid h-14 min-w-0 place-items-center content-center gap-0.5 rounded-[20px] px-0.5 text-[11.5px] font-bold transition-colors duration-150 [&_svg]:size-[22px] ${active ? 'bg-surface text-accent-ink shadow-[0_2px_0_var(--line-2)]' : 'text-ink-2'}`}>
+                    {page.icon}
+                    <span className="max-w-full truncate">{page.short ?? page.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+          )}
+        </>
+      )}
     </div>
   )
 }
