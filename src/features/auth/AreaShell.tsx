@@ -7,7 +7,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
 import { SignOutButton } from '../../ui/SignOutButton'
 import { areasFor, useSession, type Area } from './session'
-import { PARENT_PAGES, ParentTabBar } from '../family/ParentNav'
+import { PARENT_PAGES, ParentTabBar, ParentTopNav } from '../family/ParentNav'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { ImportBanner } from '../admin/ImportBanner'
 
@@ -114,6 +114,8 @@ export function OfflineNotice() {
 export function AreaShell({ area, title, subtitle, actions, children }: { area: Area; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   const pages = AREA_PAGES[area]
   const { pathname } = useLocation()
+  // An area's first page stays selected on the pages it opens (a child's page under People, a parent's conversation).
+  const isActive = (to: string) => pathname === to || (to === `/${area}` ? pathname.startsWith(`/${area}/child/`) : pathname.startsWith(`${to}/`))
   return (
     <div className="min-h-dvh">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-[max(12px,env(safe-area-inset-top))] focus:z-50 focus:rounded-sm focus:bg-surface focus:px-4 focus:py-3 focus:font-bold focus:shadow-float">
@@ -124,19 +126,22 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           <Logo className="h-7 sm:h-8" />
           <span className="h-6 w-px bg-line-2 max-[359px]:hidden" aria-hidden />
           <AreaChip area={area} />
-          <span className="flex-1" />
+          <div className="flex min-w-0 flex-1 justify-center">
+            {area === 'parent' ? <ParentTopNav /> : pages && (
+              <nav aria-label={`${AREA_LABEL[area]} pages`} className="topnav max-xl:hidden">
+                {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
+              </nav>
+            )}
+          </div>
           <AccountButton area={area} />
         </div>
         <OfflineNotice />
       </header>
       <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${area === 'parent' ? 'max-md:pb-[calc(96px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden' : ''}`}>
-            {pages.map((page) => {
-              // An area's first page stays selected on the pages it opens (a child's page under People).
-              const active = pathname === page.to || (page.to === `/${area}` && pathname.startsWith(`/${area}/child/`))
-              return <Link key={page.to} to={page.to} aria-current={active ? 'page' : undefined}>{page.icon}{page.label}</Link>
-            })}
+          // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : 'xl:hidden'}`}>
+            {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
           </nav>
         )}
         <div className="page-in">

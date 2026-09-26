@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { CalendarDays, CalendarX, Check, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from '../../ui/icons'
+import { CalendarDays, CalendarX, Check, MessageSquare, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField, TextField } from '../../ui/Field'
@@ -118,43 +118,57 @@ export function ParentMessages() {
   const kids = useMyKids()
   const messages = useLive<{ child_id: string; body: string; sender: string; sender_name: string; created_at: string }>('messages', () => supabase.from('messages').select('child_id, body, sender, sender_name, created_at').order('created_at'), [])
   const kid = kids.rows?.find((k) => k.id === childId)
-  if (kid) {
-    return (
-      <AreaShell area="parent" title="Messages">
-        <div className="mt-4 grid max-w-[760px] gap-4">
-          <Button size="md" variant="quiet" icon={<ChevronLeft />} className="justify-self-start" onClick={() => navigate('/parent/messages')}>Messages</Button>
-          <div className="flex items-center gap-3"><Avatar name={first(kid)} color={childColor(kid.id)} /><div><h2 className="text-h2">{first(kid)} and the school</h2><p className="text-small font-semibold text-ink-2">The head office and the front desk</p></div></div>
-          <Thread childId={kid.id} mine={(m) => m.sender === me} footnote="Messages are for everyday things. To change a pickup, use Change time on Today." />
-        </div>
-      </AreaShell>
-    )
-  }
+  // Phones: the list, or one conversation. Wide screens: both side by side.
   return (
     <AreaShell area="parent" title="Messages" subtitle="A conversation with the school for each of your children.">
-      <section className="mt-6" aria-busy={!kids.rows}>
-        {kids.error ? <ErrorState title="Couldn't load messages" onRetry={() => void kids.reload()}>Check your connection and try again.</ErrorState>
-          : !kids.rows ? <SkeletonList count={2} className="grid gap-2.5" />
-          : kids.rows.length === 0 ? <EmptyState title="No children yet">No children are linked to your account yet. Please contact the school.</EmptyState>
-          : (
-            <ul className="grid gap-2.5 md:grid-cols-2">
-              {kids.rows.map((k) => {
-                const last = messages.rows?.filter((m) => m.child_id === k.id).at(-1)
-                return (
-                  <li key={k.id}>
-                    <button type="button" onClick={() => navigate(`/parent/messages/${k.id}`)} className="card flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
-                      <Avatar name={first(k)} color={childColor(k.id)} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-h4">{first(k)} and the school</span>
-                        <span className="block truncate text-small font-semibold text-ink-2">{last ? `${last.sender === me ? 'You' : last.sender_name.split(' ')[0]}: ${last.body}` : 'No messages yet.'}</span>
-                      </span>
-                      {last && <span className="text-caption font-bold text-ink-2 tabular-nums">{clockTime(last.created_at)}</span>}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+      <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+        <section className={`lg:sticky lg:top-28 ${kid ? 'max-lg:hidden' : ''}`} aria-busy={!kids.rows} aria-label="Conversations">
+          {kids.error ? <ErrorState title="Couldn't load messages" onRetry={() => void kids.reload()}>Check your connection and try again.</ErrorState>
+            : !kids.rows ? <SkeletonList count={2} className="grid gap-2.5" />
+            : kids.rows.length === 0 ? <EmptyState title="No children yet">No children are linked to your account yet. Please contact the school.</EmptyState>
+            : (
+              <ul className="grid gap-2.5 md:max-lg:grid-cols-2">
+                {kids.rows.map((k) => {
+                  const last = messages.rows?.filter((m) => m.child_id === k.id).at(-1)
+                  return (
+                    <li key={k.id}>
+                      <button type="button" onClick={() => navigate(`/parent/messages/${k.id}`)} aria-current={k.id === childId || undefined}
+                        className="card flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)] aria-[current]:shadow-[inset_0_0_0_2px_var(--accent)]">
+                        <Avatar name={first(k)} color={childColor(k.id)} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-h4">{first(k)} and the school</span>
+                          <span className="block truncate text-small font-semibold text-ink-2">{last ? `${last.sender === me ? 'You' : last.sender_name.split(' ')[0]}: ${last.body}` : 'No messages yet.'}</span>
+                        </span>
+                        {last && <span className="text-caption font-bold text-ink-2 tabular-nums">{clockTime(last.created_at)}</span>}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+        </section>
+
+        <section className={kid ? '' : 'max-lg:hidden'} aria-label="Conversation">
+          {kid ? (
+            <div className="card grid gap-4 rounded-2xl p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <Button size="md" variant="quiet" icon={<ChevronLeft />} className="lg:hidden" aria-label="All conversations" onClick={() => navigate('/parent/messages')} />
+                <Avatar name={first(kid)} color={childColor(kid.id)} />
+                <div><h2 className="text-h2">{first(kid)} and the school</h2><p className="text-small font-semibold text-ink-2">The head office and the front desk</p></div>
+              </div>
+              <Thread childId={kid.id} mine={(m) => m.sender === me} footnote="Messages are for everyday things. To change a pickup, use Change time on Today." />
+            </div>
+          ) : (
+            <div className="grid min-h-[360px] place-items-center rounded-2xl border-2 border-dashed border-line p-8 text-center">
+              <div className="grid justify-items-center gap-2">
+                <MessageSquare className="size-10 text-ink-3" aria-hidden />
+                <p className="text-h4">Choose a conversation</p>
+                <p className="max-w-[36ch] text-small font-semibold text-ink-2">Each child has their own conversation with the school.</p>
+              </div>
+            </div>
           )}
-      </section>
+        </section>
+      </div>
     </AreaShell>
   )
 }
@@ -358,18 +372,30 @@ export function ParentAccount() {
 
   return (
     <AreaShell area="parent" title="Account">
-      <div className="mt-6 grid max-w-[760px] gap-6">
-        <div className="card flex items-center gap-4 rounded-2xl p-5">
-          <Avatar name={name} color="var(--rb-blue)" size="lg" />
-          <div className="min-w-0">
-            <p className="text-h3">{name}</p>
-            <p className="truncate text-small font-semibold text-ink-2">{mine?.email}</p>
-            {kids.rows && <p className="text-small font-semibold">{kids.rows.length ? `Parent of ${kids.rows.map(first).join(' and ')}` : ''}</p>}
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)] xl:gap-8">
+        <div className="profile-hero relative overflow-hidden rounded-[28px] p-6 sm:p-7 lg:col-span-2">
+          <div className="relative flex flex-wrap items-center gap-5">
+            <Avatar name={name} color="var(--accent)" size="lg" />
+            <div className="min-w-0 flex-1">
+              <p className="kicker">Signed in as a parent</p>
+              <p className="text-h2 text-balance">{name}</p>
+              <p className="truncate text-small font-semibold text-ink-2">{mine?.email}</p>
+            </div>
+            {kids.rows && kids.rows.length > 0 && (
+              <ul className="flex flex-wrap gap-2" aria-label="Your children">
+                {kids.rows.map((k) => (
+                  <li key={k.id} className="flex items-center gap-2 rounded-full bg-surface/80 py-1 pl-1 pr-3.5 text-small font-bold shadow-[0_1px_2px_rgb(22_25_58/0.08)] backdrop-blur">
+                    <Avatar name={first(k)} color={childColor(k.id)} size="sm" />{first(k)}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
+        <div className="grid gap-6">
         <section aria-labelledby="fam-h">
-          <div className="mb-2 flex items-center justify-between gap-2"><h2 id="fam-h" className="kicker">Parents and family</h2><Button size="md" variant="secondary" icon={<UserPlus />} disabled={!kids.rows?.length} onClick={() => setSheet('relative')}>Add a relative</Button></div>
+          <div className="mb-2 flex items-center justify-between gap-2"><h2 id="fam-h" className="kicker">Parents and family</h2><Button size="md" variant="secondary" className="whitespace-nowrap" icon={<UserPlus />} disabled={!kids.rows?.length} onClick={() => setSheet('relative')}>Add a relative</Button></div>
           <div className="card divide-y divide-line rounded-2xl px-5">
             {family === null ? <div className="my-4 h-12 animate-pulse rounded-lg bg-sunken" /> : family.length === 0 ? <p className="py-4 text-small font-semibold text-ink-2">Nobody else yet. Add a grandparent or relative who collects.</p>
               : family.map((f) => row(`${f.child_id}-${f.guardian_id}`, <Avatar name={f.full_name} color={f.kind === 'parent' ? 'var(--rb-blue)' : 'var(--ink-3)'} size="sm" />, f.full_name,
@@ -380,18 +406,22 @@ export function ParentAccount() {
         </section>
 
         <section aria-labelledby="saved-h">
-          <div className="mb-2 flex items-center justify-between gap-2"><h2 id="saved-h" className="kicker">Saved people, not family</h2><Button size="md" variant="secondary" icon={<Plus />} onClick={() => setSheet('person')}>Add a person</Button></div>
+          <div className="mb-2 flex items-center justify-between gap-2"><h2 id="saved-h" className="kicker">Saved people</h2><Button size="md" variant="secondary" className="whitespace-nowrap" icon={<Plus />} onClick={() => setSheet('person')}>Add a person</Button></div>
           <div className="card divide-y divide-line rounded-2xl px-5">
             {!people.rows ? <div className="my-4 h-12 animate-pulse rounded-lg bg-sunken" /> : people.rows.length === 0 ? <p className="py-4 text-small font-semibold text-ink-2">Nobody saved yet. A regular driver saved here is one tap away in Someone else is collecting.</p>
               : people.rows.map((p) => row(p.id, <Avatar name={p.full_name} color="var(--ink-3)" size="sm" />, p.full_name, `${p.relation}, ${formatMobile(p.phone)}`,
                 <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => void removeSavedPerson(p.id).then(() => { void people.reload(); toast(`${p.full_name.split(' ')[0]} removed from saved people.`) }, (e) => toast(explainDbError(e)))} />))}
           </div>
+          <p className="mt-2 text-caption font-semibold text-ink-2">Drivers and friends, not family. They collect with a one-time link.</p>
         </section>
 
+        </div>
+
+        <div className="grid gap-6 lg:sticky lg:top-28">
         <section aria-labelledby="notify-h">
           <h2 id="notify-h" className="kicker mb-2">Notifications</h2>
           <div className="card divide-y divide-line rounded-2xl px-5">
-            <PushSwitch label="Notifications on this phone" />
+            <PushSwitch label="Notifications on this device" />
             {row('morning', undefined, 'Morning reminder, 8:00 AM', "Today's drop-off and pickup times", <Switch on={!!mine?.notify_morning} busy={!mine} label="Morning reminder" onChange={(v) => void toggle('notify_morning', v)} />)}
             {row('family', undefined, 'When the other parent changes something', 'Time changes, absences, someone else collecting', <Switch on={!!mine?.notify_family} busy={!mine} label="When the other parent changes something" onChange={(v) => void toggle('notify_family', v)} />)}
           </div>
@@ -404,6 +434,7 @@ export function ParentAccount() {
         </section>
 
         <SignOutButton onClick={() => setSheet('signout')} />
+        </div>
       </div>
 
       {sheet === 'person' && me && <PersonSheet me={me} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); void people.reload() }} />}

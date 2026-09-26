@@ -442,6 +442,59 @@
   .linkbtn:disabled { color: var(--ink-3); cursor: default; }
 
   /* Segmented tabs: a sunken track and a raised segment for the current one. */
+  /* The parent's name at the top of Account: warm ivory into the logo's blush, with a soft glow of the red. */
+  .profile-hero {
+    background:
+      radial-gradient(120% 140% at 100% 0%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 55%),
+      linear-gradient(135deg, color-mix(in oklab, var(--surface) 70%, #fff8ee), color-mix(in oklab, var(--accent-soft) 70%, var(--surface)));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 12%, var(--line)), var(--shadow-lift);
+  }
+
+  /* Page links inside the floating top bar on wide screens: quiet words, the current page a soft red pill. */
+  .topnav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--sunken) 70%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--line) 70%, transparent);
+  }
+  .topnav > a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding-inline: 16px;
+    border-radius: 999px;
+    font-size: 14.5px;
+    font-weight: 750;
+    white-space: nowrap;
+    color: var(--ink-2);
+    transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+  }
+  .topnav > a svg { width: 18px; height: 18px; flex: none; }
+  @media (hover: hover) { .topnav > a:hover:not([aria-current='page']) { color: var(--ink); background: var(--surface); } }
+  .topnav > a[aria-current='page'] {
+    color: var(--accent-ink);
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgb(22 25 58 / 0.08), 0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+  .topnav-badge {
+    display: grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding-inline: 5px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
   .seg {
     display: flex;
     gap: 2px;
