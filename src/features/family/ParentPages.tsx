@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { Switch } from '../../ui/Switch'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
+import { SignOutButton } from '../../ui/SignOutButton'
 import { formatMobile, normalizeMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
@@ -329,8 +330,9 @@ export function ParentAccount() {
           <h2 id="school-h" className="kicker">School</h2>
           <Button variant="secondary" icon={<CalendarX />} disabled={!kids.rows?.length} onClick={() => setSheet('absence')}>Report an absence</Button>
           {schoolPhone && <a className="btn btn--secondary btn--lg" href={`tel:${schoolPhone}`}><Phone aria-hidden />Call the school, {formatMobile(schoolPhone)}</a>}
-          <Button variant="danger" icon={<LogOut />} onClick={() => setSheet('signout')}>Sign out</Button>
         </section>
+
+        <SignOutButton onClick={() => setSheet('signout')} />
       </div>
 
       {sheet === 'person' && me && <PersonSheet me={me} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); void people.reload() }} />}

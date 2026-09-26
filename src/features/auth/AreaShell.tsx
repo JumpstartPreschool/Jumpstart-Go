@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, LogOut, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
+import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
-import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
+import { SignOutButton } from '../../ui/SignOutButton'
 import { areasFor, useSession, type Area } from './session'
 import { PARENT_PAGES, ParentTabBar } from '../family/ParentNav'
 import { PushSwitch } from '../notifications/PushSwitch'
@@ -87,9 +87,7 @@ export function AccountButton({ area }: { area: Area }) {
           </>
         )}
         {area !== 'parent' && <div className="mt-4 rounded-lg bg-sunken px-3.5"><PushSwitch /></div>}
-        <Button variant="danger" className="mt-6 w-full" icon={<LogOut />} onClick={() => void signOut()}>
-          Sign out
-        </Button>
+        <SignOutButton className="mt-6" onClick={() => void signOut()} />
       </Sheet>
     </>
   )

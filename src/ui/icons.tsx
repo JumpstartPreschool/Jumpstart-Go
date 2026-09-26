@@ -22,8 +22,8 @@ function icon(file: string, name: string) {
   return Icon
 }
 
-// Controls, not pictures: arrows, chevrons, close, backspace and the search glass stay thin line glyphs, like system UI.
-export { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Delete, LoaderCircle, Mail as MailLine, MailCheck, Search, X } from 'lucide-react'
+// Controls, not pictures: arrows, chevrons, close, backspace, sign out and the search glass stay thin line glyphs, like system UI.
+export { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Delete, LoaderCircle, LogOut, Mail as MailLine, MailCheck, Search, X } from 'lucide-react'
 
 export const AudioLines = icon('mic', 'AudioLines')
 export const Baby = icon('person-heart', 'Baby')
@@ -65,7 +65,6 @@ export const Link2 = icon('link', 'Link2')
 export const LocateFixed = icon('location-ripple', 'LocateFixed')
 export const Lock = icon('lock-closed', 'Lock')
 export const LogIn = icon('person-available', 'LogIn')
-export const LogOut = icon('arrow-square', 'LogOut')
 export const Mail = icon('mail', 'Mail')
 export const MapPin = icon('location-ripple', 'MapPin')
 export const MapPinOff = icon('dismiss-circle', 'MapPinOff')
