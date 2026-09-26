@@ -10,7 +10,7 @@ import { NATURAL_VOICES, onNaturalStatus, playBuffer, prepareNaturalVoice, type 
 import { currentPronunciations, speechText } from './pronunciation'
 import { onStudioAvailable, studioAudio, studioAvailable, studioKnown } from './studioVoice'
 
-const SAMPLE = 'New announcement. Please get Aarav Kulkarni ready for pickup. His grandfather, Ramesh, arrives at about twelve forty-five.'
+const SAMPLE = 'New announcement. Please get Aarav Kulkarni ready for pickup. Aarav\'s grandfather, Ramesh, is on the way. Arriving about twelve forty-five.'
 const ACCENT: Record<string, string> = {
   'en-in': 'Indian English', 'en-gb': 'British English', 'en-us': 'American English', 'en-au': 'Australian English',
   'en-ie': 'Irish English', 'en-za': 'South African English', 'en-nz': 'New Zealand English', 'en-ca': 'Canadian English',

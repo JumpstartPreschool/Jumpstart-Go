@@ -178,14 +178,23 @@ let spoken = 0
  * The studio voice when it's chosen, else the natural voice when chosen and ready, else the device voice. Each one
  * that fails or is slow falls back to the next, so the gate always hears it.
  */
+/** "Please get Aarav ready. Sneha is on the way." → one entry per sentence. */
+export const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean)
+
 export async function speak(text: string, override?: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO): Promise<void> {
   const said = speechText(text, currentPronunciations())
   if (!said) return
   if ((override === STUDIO || (override === undefined && studioChosen())) && ctx) {
     const mine = ++spoken
     try {
-      const buf = await studioAudio(ctx, said)
-      if (mine === spoken) await playBuffer(ctx, buf)
+      // Sentence by sentence: each is made once and kept, and most repeat every day (gate.ts), so the studio voice costs
+      // almost nothing once the children's names are made.
+      const bufs = await Promise.all(sentences(said).map((x) => studioAudio(ctx!, x)))
+      for (const [i, buf] of bufs.entries()) {
+        if (mine !== spoken) return
+        if (i > 0) await new Promise((r) => setTimeout(r, 140))
+        await playBuffer(ctx, buf)
+      }
       return
     } catch {
       if (mine !== spoken) return
@@ -211,7 +220,7 @@ export function prepare(text: string): void {
   const said = speechText(text, currentPronunciations())
   if (!said) return
   if (studioChosen()) {
-    void studioAudio(ctx, said).catch(() => {})
+    for (const x of sentences(said)) void studioAudio(ctx, x).catch(() => {})
     return
   }
   const natural = naturalChoice()

@@ -23,14 +23,16 @@ function who(trip: Trip, child: GateChild): string {
 
 /**
  * What the iPad says. It names the arrival time rather than "in 20 minutes", so a repeat two minutes later is still true.
+ * Short sentences on purpose: the studio voice makes each sentence once, and the child's, the person's and the time's
+ * sentences repeat day after day, so almost every announcement is already made (see sound.ts).
  */
 export function spokenText(trip: Trip, child: GateChild): string {
   const at = clockTime(trip.arrive_at)
   const update = Date.parse(trip.updated_at) - Date.parse(trip.created_at) > 5_000 ? 'New time. ' : ''
   const flag = trip.off_schedule && trip.reason ? `Outside the usual time: ${trip.reason}. ` : ''
   return trip.direction === 'pickup'
-    ? `${update}${flag}Please get ${child.fullName} ready for pickup. ${who(trip, child)} arrives at about ${at}.`
-    : `${update}${flag}${child.fullName} is coming for drop-off. ${who(trip, child)} arrives at about ${at}.`
+    ? `${update}${flag}Please get ${child.fullName} ready for pickup. ${who(trip, child)} is on the way. Arriving about ${at}.`
+    : `${update}${flag}${child.fullName} is coming for drop-off. ${who(trip, child)} is on the way. Arriving about ${at}.`
 }
 
 export function cancelledText(trip: Trip, child: GateChild): string {
