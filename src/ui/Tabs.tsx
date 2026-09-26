@@ -1,9 +1,9 @@
-import type { KeyboardEvent, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 
-export interface TabItem<K extends string> { key: K; label: string; icon?: ReactNode; count?: number | null }
+export interface TabItem<K extends string> { key: K; label: string; short?: string; icon?: ReactNode; count?: number | null }
 
 /**
- * Segmented tabs (styles: `.seg`). Arrow keys, Home and End move between tabs, as screen-reader users expect;
+ * Segmented tabs, like iOS: one frosted track with a white pill that slides to the chosen tab (styles: `.segx`). Arrow keys, Home and End move between tabs, as screen-reader users expect;
  * the panel is labelled by the chosen tab (give it id `${id}-panel`).
  */
 export function Tabs<K extends string>({ id, label, items, value, onChange }: { id: string; label: string; items: Array<TabItem<K>>; value: K; onChange: (key: K) => void }) {
@@ -16,15 +16,19 @@ export function Tabs<K extends string>({ id, label, items, value, onChange }: { 
     onChange(key)
     document.getElementById(`${id}-${key}`)?.focus()
   }
+  const index = Math.max(0, items.findIndex((t) => t.key === value))
   return (
-    <div className="seg" role="tablist" aria-label={label} onKeyDown={onKey}>
+    <div className="segx" role="tablist" aria-label={label} onKeyDown={onKey} style={{ '--n': items.length, '--i': index } as CSSProperties}>
+      <span className="segx-pill" aria-hidden />
       {items.map((t) => {
         const on = t.key === value
         return (
           <button key={t.key} id={`${id}-${t.key}`} type="button" role="tab" aria-selected={on} aria-controls={`${id}-panel`} tabIndex={on ? 0 : -1} onClick={() => onChange(t.key)}>
             {t.icon}
-            <span className="seg-label">{t.label}</span>
-            {t.count != null && <span className="count">{t.count}</span>}
+            <span className="segx-label">
+              {t.short ? <><span className="sm:hidden">{t.short}</span><span className="max-sm:hidden">{t.label}</span></> : t.label}
+            </span>
+            {t.count != null && <span className="segx-count">{t.count}</span>}
           </button>
         )
       })}

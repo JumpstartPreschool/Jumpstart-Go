@@ -109,9 +109,9 @@ export function AdminPeople() {
 
   const none = <EmptyState title={`No one matches "${query.trim()}"`}>Try a first name, an email or part of a phone number.</EmptyState>
   const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(', ') || 'No contact details'
-  const TABS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
+  const TABS: Array<{ key: Tab; label: string; short?: string; icon: ReactNode }> = [
     { key: 'children', label: 'Children', icon: <Baby /> },
-    { key: 'family', label: 'Parents and family', icon: <Users /> },
+    { key: 'family', label: 'Parents and family', short: 'Families', icon: <Users /> },
     { key: 'staff', label: 'Staff', icon: <ShieldCheck /> },
     { key: 'classes', label: 'Classes', icon: <GraduationCap /> },
   ]
@@ -120,7 +120,7 @@ export function AdminPeople() {
     <AreaShell area="admin" title="People" subtitle="Children, families and staff."
       actions={tab === 'staff' ? <Button icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</Button>
         : tab === 'classes' ? <Button icon={<Plus />} onClick={() => setAdding('class')}>Add class</Button>
-        : <div className="flex flex-wrap gap-2.5"><Button variant="secondary" icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</Button><Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button></div>}>
+        : <><Button variant="secondary" icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</Button><Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button></>}>
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <Tabs id="people" label="People" value={tab} onChange={setTab} items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
         <SearchField label="Search people" className="min-w-0 lg:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, emails or phones" />
