@@ -128,7 +128,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           <AreaChip area={area} />
           <div className="flex min-w-0 flex-1 justify-center">
             {area === 'parent' ? <ParentTopNav /> : pages && (
-              <nav aria-label={`${AREA_LABEL[area]} pages`} className="topnav max-xl:hidden">
+              <nav aria-label={`${AREA_LABEL[area]} pages`} className={`topnav ${pages.length > 3 ? 'max-xl:hidden' : 'max-lg:hidden'}`}>
                 {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
               </nav>
             )}
@@ -140,7 +140,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
       <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${area === 'parent' ? 'max-md:pb-[calc(96px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
           // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : 'xl:hidden'}`}>
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'xl:hidden' : 'lg:hidden'}`}>
             {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
           </nav>
         )}
