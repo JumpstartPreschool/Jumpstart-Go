@@ -101,6 +101,12 @@ export async function addGuardian(childId: string, person: PersonInput): Promise
 }
 
 /** The last parent or relative can't be removed (the database refuses). */
+/** The admin changes someone's details (0029); with a child, also how they're related. A new email moves their sign-in. */
+export async function updatePerson(profileId: string, childId: string | null, person: { full_name: string; email: string | null; phone: string | null; abroad?: boolean; app_access: boolean; relation?: string; kind?: 'parent' | 'family' }): Promise<void> {
+  const { error } = await supabase.rpc('admin_update_person', { p_profile: profileId, p_child: childId, p_person: person })
+  if (error) throw error
+}
+
 export async function removeGuardian(childId: string, guardianId: string): Promise<void> {
   const { error } = await supabase.from('guardianships').delete().eq('child_id', childId).eq('guardian_id', guardianId)
   if (error) throw error
