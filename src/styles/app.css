@@ -213,6 +213,18 @@
 
   .rainbow-bar { background: var(--rainbow); }
 
+  /* The sign-in page's brand panel: deep royal purple with soft glows in the logo's colours. */
+  .signin-hero {
+    background:
+      radial-gradient(34rem 24rem at 105% -5%, rgb(255 111 181 / 0.3), transparent 62%),
+      radial-gradient(30rem 24rem at -15% 105%, rgb(20 175 165 / 0.38), transparent 62%),
+      radial-gradient(26rem 20rem at 95% 100%, rgb(31 139 230 / 0.4), transparent 62%),
+      linear-gradient(155deg, #24175f 0%, #3a2596 58%, #5b3fd6 100%);
+  }
+
+  /* Behind the sign-in card: a soft lavender light, so the card doesn't float in empty space. */
+  .signin-side { background: radial-gradient(32rem 26rem at 50% 40%, rgb(124 99 255 / 0.1), transparent 70%); }
+
   /* Buttons (src/ui/Button.tsx): solid, with a darker lip that presses down. Hover is a colour change, never a shine. */
   .btn {
     --b: var(--accent);
@@ -265,7 +277,8 @@
   .btn--icon { padding-inline: 0; }
   .btn--primary { --b: var(--accent); --fg: var(--on-accent); --lip: var(--accent-lip); --hover: var(--accent-hover); }
   /* A soft light from above on the deep violet: depth without a shine. */
-  .btn--primary:not(:disabled) { background-image: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0)); }
+  .btn--primary:not(:disabled) { background-image: linear-gradient(180deg, #6a50ea, #5238cf); box-shadow: 0 var(--lipw) 0 var(--lip), 0 10px 22px -10px rgb(91 63 214 / 0.65); }
+  @media (hover: hover) { .btn--primary:hover:not(:disabled) { background-image: linear-gradient(180deg, #6147e2, #4a31c2); } }
   .btn--secondary { --b: var(--surface); --fg: var(--ink); --lip: var(--line-2); --edge: var(--line-2); --hover: var(--sunken); }
   .btn--sunshine { --b: var(--sun); --fg: var(--sun-ink); --lip: var(--sun-lip); --hover: var(--sun-hover); }
   .btn--success { --b: var(--success); --fg: #fff; --lip: var(--success-lip); --hover: var(--success-hover); }
@@ -517,7 +530,7 @@
   .trip-person__dot {
     position: absolute; inset: 3px; border-radius: 9999px;
     background: var(--accent);
-    border: 3px solid #fff; box-shadow: 0 3px 10px rgb(47 42 124 / 0.35);
+    border: 3px solid #fff; box-shadow: 0 3px 10px rgb(91 63 214 / 0.35);
     transition: background var(--dur-slow) var(--ease-standard), opacity var(--dur-slow) var(--ease-standard);
   }
   .trip-person__pulse {

@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
-import { Check, FlaskConical, HeartHandshake, KeyRound, LogIn, Mail, MapPin, UserCheck } from '../../ui/icons'
+import { ArrowRight, Check, FlaskConical, HeartHandshake, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { TextField } from '../../ui/Field'
@@ -31,41 +31,47 @@ const PROMISES = [
 ]
 
 /**
- * The sign-in page frame. Phones and upright tablets: one centred column (the logo, the card, three short promises).
- * Wide screens: a calm welcome panel beside the card. Words kept to the minimum: a title and one line each.
+ * The sign-in page. Phones and upright tablets: a royal-purple brand band with the logo and the promise, and the card
+ * rising over it. Wide screens: the brand panel on the left, the card centred on the right. Words kept to a minimum.
  */
 export function SignInFrame({ children }: { children: ReactNode }) {
   return (
-    <main className="gutter mx-auto grid min-h-dvh w-full max-w-[calc(1080px+2*var(--gutter))] content-center items-center gap-10 pt-[max(32px,calc(env(safe-area-inset-top)+20px))] pb-[max(28px,env(safe-area-inset-bottom))] lg:grid-cols-[1fr_minmax(0,420px)] lg:gap-20">
-      <section className="hidden lg:block" aria-label="About Jumpstart">
-        <Logo className="h-16" />
-        <Mascot size={72} className="mt-12" />
-        <p className="mt-4 max-w-[12ch] text-display" role="heading" aria-level={2}>Safe drop-offs and pickups</p>
-        <p className="mt-4 text-lead text-ink-2">For Jumpstart families and staff, Karve Road.</p>
-        <ul className="mt-10 grid gap-4">
+    <main className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:p-4">
+      <section aria-label="About Jumpstart"
+        className="signin-hero relative flex min-h-[50dvh] flex-col justify-center gap-7 overflow-hidden rounded-b-[36px] px-6 pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-20 text-white sm:px-10 md:min-h-[54dvh] md:pb-24 lg:min-h-0 lg:justify-between lg:gap-10 lg:rounded-[32px] lg:p-12 xl:p-16">
+        <div className="self-center rounded-2xl bg-white px-4 py-2.5 shadow-[0_12px_30px_-12px_rgb(0_0_0/0.45)] lg:self-start">
+          <Logo className="h-9 sm:h-10 lg:h-11" />
+        </div>
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+          <Mascot size={72} />
+          <p className="mt-3 max-w-[14ch] text-[30px] leading-[1.08] font-extrabold tracking-[-0.02em] text-balance sm:text-[36px] lg:mt-5 lg:text-[52px] 2xl:text-[64px]" role="heading" aria-level={2}>
+            Safe drop-offs and pickups
+          </p>
+          <p className="mt-3 text-body font-semibold text-[#d9d0ff] lg:text-lead">Jumpstart Preschool, Karve Road</p>
+        </div>
+        <ul className="hidden max-w-[520px] gap-3 lg:grid">
           {PROMISES.map((p) => (
-            <li key={p.title} className="flex items-center gap-3.5">
-              <span className="grid size-11 shrink-0 place-items-center rounded-md bg-surface shadow-[var(--shadow-card)] [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
-              <span className="text-body text-ink-2"><b className="text-ink">{p.title}.</b> {p.text}</span>
+            <li key={p.title} className="flex items-center gap-3.5 rounded-2xl bg-white/[0.08] px-4 py-3 ring-1 ring-white/15 backdrop-blur-sm">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
+              <span className="text-body text-[#e6e0ff]"><b className="text-white">{p.title}.</b> {p.text}</span>
             </li>
           ))}
         </ul>
       </section>
-      <div className="mx-auto w-full max-w-[420px]">
-        <div className="flex flex-col items-center lg:hidden">
-          <Logo className="h-14 sm:h-16" />
+      <section className="signin-side relative -mt-14 flex-1 px-4 pb-[max(24px,env(safe-area-inset-bottom))] sm:px-6 md:-mt-16 lg:mt-0 lg:flex lg:items-center lg:justify-center lg:px-10 lg:pb-0">
+        <div className="mx-auto w-full max-w-[460px]">
+          {children}
+          <ul className="mt-6 flex flex-wrap justify-center gap-2 lg:hidden">
+            {PROMISES.map((p) => (
+              <li key={p.title} className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-caption font-bold text-ink-2 shadow-[var(--shadow-card)] [&_svg]:size-4 [&_svg]:shrink-0">{p.icon}{p.title}</li>
+            ))}
+          </ul>
+          <nav aria-label="Policies" className="mt-5 flex justify-center gap-x-5 text-caption font-bold">
+            <Link to="/privacy" className="linkbtn">Privacy Policy</Link>
+            <Link to="/terms" className="linkbtn">Terms of Use</Link>
+          </nav>
         </div>
-        {children}
-        <ul className="mt-6 flex flex-wrap justify-center gap-2 lg:hidden">
-          {PROMISES.map((p) => (
-            <li key={p.title} className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-caption font-bold text-ink-2 shadow-[var(--shadow-card)] [&_svg]:size-4 [&_svg]:shrink-0">{p.icon}{p.title}</li>
-          ))}
-        </ul>
-        <nav aria-label="Policies" className="mt-5 flex justify-center gap-x-5 text-caption font-bold">
-          <Link to="/privacy" className="linkbtn">Privacy Policy</Link>
-          <Link to="/terms" className="linkbtn">Terms of Use</Link>
-        </nav>
-      </div>
+      </section>
     </main>
   )
 }
@@ -166,16 +172,17 @@ export function LoginScreen() {
 
   return (
     <SignInFrame>
-      <div className="card mt-8 rounded-2xl p-6 sm:p-8 lg:mt-0">
+      <div className="card rounded-[28px] p-6 shadow-[var(--shadow-lift)] sm:p-8">
         {step === 'email' ? (
           <form key="email" onSubmit={onEmail} noValidate className="page-in grid gap-4">
             <div className="text-center">
-              <h1 className="text-h2">Sign in</h1>
-              <p className="mt-1.5 text-body text-ink-2">Use the email the school has for you.</p>
+              <p className="text-caption font-extrabold uppercase tracking-[0.14em] text-accent-ink">Welcome</p>
+              <h1 className="mt-1 text-h1">Sign in to Jumpstart</h1>
+              <p className="mt-2 text-body text-ink-2">Use the email the school has for you.</p>
             </div>
             <TextField
               label="Email"
-              icon={<Mail aria-hidden />}
+              icon={<MailLine aria-hidden />}
               type="email"
               inputMode="email"
               autoComplete="email"
@@ -188,15 +195,15 @@ export function LoginScreen() {
               error={error}
               autoFocus
             />
-            <Button type="submit" className="w-full" icon={<Mail />} loading={busy}>
-              Send me a code
+            <Button type="submit" className="w-full" loading={busy}>
+              Send me a code<ArrowRight aria-hidden />
             </Button>
           </form>
         ) : (
           <form key="code" onSubmit={onCode} noValidate className="page-in grid gap-4">
             <div className="text-center">
-              <span className="mx-auto grid size-16 place-items-center rounded-lg bg-accent-soft text-accent">
-                <Mail className="size-8" aria-hidden />
+              <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(155deg,#3a2596,#5b3fd6)] text-white shadow-[0_12px_24px_-12px_rgb(91_63_214/0.8)]">
+                <MailCheck className="size-8" strokeWidth={1.75} aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check your email</h1>
               <p className="mt-1.5 text-body text-ink-2">

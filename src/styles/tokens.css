@@ -38,13 +38,14 @@
   --line-2: #ddd8e6; /* input edges, button lips on light surfaces */
   --line-hover: #cfc9dc;
 
-  /* Primary: midnight violet, the one next action on a screen. A deep blue-purple that lets every colour of the logo
-     shine beside it, with light lavender for tints (white text 12:1). */
-  --accent: #2f2a7c;
-  --accent-hover: #3b3596;
-  --accent-lip: #1b1850;
-  --accent-soft: #f1edff;
-  --accent-ink: #4b3fb8; /* accent text and links on light surfaces, 7.8:1 */
+  /* Primary: royal violet, the one next action on a screen, from the same family as the deep purple of the sign-in
+     panel; light lavender for tints (white text 6.7:1). */
+  --accent: #5b3fd6;
+  --accent-hover: #4f35c9;
+  --accent-lip: #3a2596;
+  --accent-soft: #f0ecff;
+  --accent-ink: #4f35c9; /* accent text and links on light surfaces, 7.8:1 */
+  --brand-deep: #2a1b6e; /* the sign-in panel and other large brand surfaces */
 
   /* Secondary: ink, for area chips and solid labels */
   --secondary: #16193a;
@@ -69,8 +70,8 @@
   --danger-hover: #fff0ef;
   --danger-line: #f0c6c4;
   --danger-strong: #b91c1c; /* filled alerts with white text */
-  --info: #4b3fb8;
-  --info-soft: #f1edff;
+  --info: #4f35c9;
+  --info-soft: #f0ecff;
   --recent: #8f5a00;
   --recent-soft: #fff0cc;
   --stale: #5b6478;

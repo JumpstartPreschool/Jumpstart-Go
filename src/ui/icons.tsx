@@ -23,7 +23,7 @@ function icon3d(file: string, name: string) {
 }
 
 // Arrows and chevrons are direction, not pictures: thin line glyphs read cleaner than 3D ones at any size.
-export { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
+export { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, LoaderCircle, Mail as MailLine, MailCheck } from 'lucide-react'
 
 export const AudioLines = icon3d('studio-microphone', 'AudioLines')
 export const Baby = icon3d('baby', 'Baby')
