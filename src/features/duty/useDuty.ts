@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
-import { listPronunciations } from '../admin/api'
-import { setPronunciations } from './pronunciation'
+import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
 import { chime, deviceOutput, soundSupported, speak, stopSound, unlockSound } from './sound'
 import { createWakeLock } from './wakeLock'
 import { now } from '../../lib/clock'
@@ -40,10 +39,12 @@ export function useDuty() {
   const [ann, setAnn] = useState<AnnouncerState>({ speaking: null, waiting: 0, mutedUntil: null })
 
   useEffect(() => announcer.subscribe(setAnn), [announcer])
+  // Leaving the duty screen any way at all (End duty, signing out, another page) silences this device at once.
   useEffect(
     () => () => {
       void wake.stop()
       announcer.clear()
+      stopSound()
     },
     [wake, announcer],
   )
@@ -53,7 +54,7 @@ export function useDuty() {
     setTestsPlayed((n) => n + 1)
     try {
       await chime('normal')
-      await speak('Sound check. Announcements are on.')
+      await speak(SOUND_CHECK)
     } finally {
       setTesting(false)
     }
@@ -62,8 +63,6 @@ export function useDuty() {
   /** Must be called directly from the Start duty tap: iPadOS only unlocks sound inside a user gesture. */
   const start = useCallback(() => {
     unlockSound()
-    // The school's pronunciation list (D43); without it names are simply said as written.
-    void listPronunciations().then(setPronunciations, () => {})
     void wake.start()
     setTestsPlayed(0)
     setPhase('check')
@@ -79,9 +78,10 @@ export function useDuty() {
 
   const back = useCallback(() => {
     void wake.stop()
+    announcer.clear()
     stopSound()
     setPhase('idle')
-  }, [wake])
+  }, [wake, announcer])
 
   const end = useCallback(() => {
     void wake.stop()

@@ -1,106 +1,102 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { AudioLines, Play, Plus, Trash2 } from '../../ui/icons'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import { ChevronRight, CircleCheck, TriangleAlert } from '../../ui/icons'
 import { Button } from '../../ui/Button'
-import { ErrorState, Notice } from '../../ui/States'
+import { Pill } from '../../ui/Pill'
+import { ErrorState, SkeletonList } from '../../ui/States'
+import { SpeakButton } from '../../ui/SpeakButton'
 import { useToast } from '../../ui/Toast'
-import { audioContext, speak, stopSound } from '../duty/sound'
-import { setPronunciations } from '../duty/pronunciation'
-import { explainDbError, listPronunciations, setPronunciation, type Pronunciation } from './api'
+import { supabase } from '../../lib/supabase'
+import { onTableChange } from '../../lib/live'
+import { voiceSentence } from '../../../supabase/functions/_shared/announce.ts'
+import { playSentence, stopSound } from '../duty/sound'
+import { explainDbError, listChildPronunciations, setChildPronunciation, type ChildPronunciation } from './api'
 
-const title = (w: string) => w.charAt(0).toLocaleUpperCase('en-IN') + w.slice(1)
+interface Row extends ChildPronunciation { full_name: string; preferred_name: string | null }
 
 /**
- * Admin → Settings → Name pronunciation (D43): when the gate voice says a name wrongly, the admin writes how it should
- * sound ("Shreyas" → "Shrey-us"). It applies to that word in every announcement; names on screen never change.
+ * Admin → Settings → Name pronunciation (D48): every child whose name nobody has listened to yet, or whose announcements
+ * couldn't be made, to play and approve in one place. Changing how a name is said happens on the child's page.
  */
 export function PronunciationList() {
   const toast = useToast()
-  const [rows, setRows] = useState<Pronunciation[] | null>(null)
+  const [rows, setRows] = useState<Row[] | null>(null)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [written, setWritten] = useState('')
-  const [spoken, setSpoken] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
+  const [playing, setPlaying] = useState<{ id: string; started: boolean } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [playing, setPlaying] = useState<string | null>(null)
 
   const load = () => {
     setError(null)
-    listPronunciations().then((r) => { setRows(r); setPronunciations(r) }, (e) => setError(explainDbError(e)))
+    Promise.all([listChildPronunciations(), supabase.from('children').select('id, full_name, preferred_name').eq('active', true).order('full_name')])
+      .then(([voices, kids]) => {
+        if (kids.error) throw kids.error
+        const byChild = new Map(voices.map((v) => [v.child_id, v]))
+        const all = (kids.data ?? []).flatMap((k) => { const v = byChild.get(k.id); return v ? [{ ...v, full_name: k.full_name, preferred_name: k.preferred_name }] : [] })
+        setTotal(all.length)
+        setRows(all.filter((r) => !r.approved || r.audio_status === 'failed'))
+      })
+      .catch((e: { code?: string; message?: string }) => setError(explainDbError(e)))
   }
   useEffect(load, [])
+  useEffect(() => onTableChange('child_pronunciations', load), [])
   useEffect(() => () => stopSound(), [])
 
-  async function hear(key: string, words: string) {
-    stopSound()
-    audioContext() // this tap allows sound
-    setPlaying(key)
-    await speak(words)
-    setPlaying((p) => (p === key ? null : p))
+  async function play(r: Row) {
+    setPlaying({ id: r.child_id, started: false })
+    try {
+      const sentence = voiceSentence(`${r.full_name}.`, { fullName: r.full_name, name: r.preferred_name ?? r.full_name.split(' ')[0]!, spoken: r.spoken_name })
+      await playSentence(sentence, () => setPlaying({ id: r.child_id, started: true }))
+    } catch {
+      toast("Couldn't play the name. The school's voice computer may be off; try again in a minute.", { tone: 'danger' })
+    } finally {
+      setPlaying(null)
+    }
   }
 
-  async function save(e: FormEvent) {
-    e.preventDefault()
-    const w = written.trim()
-    if (!w || /\s/.test(w)) return setFormError('Enter one name, like Shreyas. For a full name, add each part on its own.')
-    if (!spoken.trim()) return setFormError('Write how it should sound, like Shrey-us.')
-    setBusy('add')
-    setFormError(null)
+  async function approve(r: Row) {
+    setBusy(r.child_id)
     try {
-      await setPronunciation(w, spoken.trim())
-      toast(`The gate will say ${title(w.toLowerCase())} as "${spoken.trim()}".`)
-      setWritten('')
-      setSpoken('')
-      load()
-    } catch (err) {
-      setFormError(explainDbError(err as { code?: string; message?: string }))
+      await setChildPronunciation(r.child_id, r.spoken_name ?? '', true)
+      toast(`Approved: ${r.full_name}.`)
+    } catch (e) {
+      toast(explainDbError(e as { code?: string; message?: string }), { tone: 'danger' })
     } finally {
       setBusy(null)
     }
   }
 
-  async function remove(w: string) {
-    setBusy(w)
-    try {
-      await setPronunciation(w, '')
-      toast(`${title(w)} is said as written again.`)
-      load()
-    } catch (err) {
-      toast(explainDbError(err as { code?: string; message?: string }), { tone: 'danger' })
-    } finally {
-      setBusy(null)
-    }
-  }
-
+  const waiting = rows?.length ?? 0
   return (
     <section className="card rounded-2xl p-5 sm:p-6" aria-labelledby="pronunciation-title">
-      <h2 id="pronunciation-title" className="text-h3">Name pronunciation</h2>
-      <p className="mt-1 text-small font-semibold text-ink-2">If the gate voice says a name wrongly, write how it should sound. Names on screen don't change.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="pronunciation-title" className="text-h3">Name pronunciation</h2>
+        {rows && (waiting ? <Pill tone="warning">{waiting} to listen to</Pill> : <Pill tone="live" icon={<CircleCheck />}>All {total} approved</Pill>)}
+      </div>
+      <p className="mt-1 text-small font-semibold text-ink-2">Play each name and approve it if it sounds right. If it doesn't, open the child and write it the way it sounds. Names on screen never change.</p>
 
-      {error ? <ErrorState title="Couldn't load the list" onRetry={load}>{error}</ErrorState> : (
-        <>
-          {rows && rows.length > 0 && (
-            <ul className="mt-4 grid gap-2">
-              {rows.map((r) => (
-                <li key={r.written} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-sunken px-4 py-3">
-                  <span className="min-w-0 flex-1 text-body"><b className="text-ink">{title(r.written)}</b> <span className="text-ink-2">is said as</span> <b className="text-ink">{r.spoken}</b></span>
-                  <Button size="md" variant="quiet" icon={<Play />} aria-label={`Play ${title(r.written)}`} loading={playing === r.written} onClick={() => void hear(r.written, `Please get ${r.spoken} ready for pickup.`)} />
-                  <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${title(r.written)}`} loading={busy === r.written} onClick={() => void remove(r.written)} />
-                </li>
-              ))}
-            </ul>
-          )}
-          <form noValidate onSubmit={(e) => void save(e)} className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-center xl:grid-cols-2">
-            <label className="input"><AudioLines aria-hidden /><input aria-label="Name as written" placeholder="Shreyas" value={written} autoCapitalize="words" spellCheck={false}
-              onChange={(e) => { setWritten(e.target.value); setFormError(null) }} /></label>
-            <label className="input"><input aria-label="Say it as" placeholder="Shrey-us" value={spoken} spellCheck={false}
-              onChange={(e) => { setSpoken(e.target.value); setFormError(null) }} /></label>
-            <Button size="md" variant="secondary" icon={<Play />} disabled={!spoken.trim()} loading={playing === 'draft'} onClick={() => void hear('draft', `Please get ${spoken.trim()} ready for pickup.`)}>Hear it</Button>
-            <Button type="submit" size="md" icon={<Plus />} loading={busy === 'add'}>Add</Button>
-          </form>
-          {formError && <Notice tone="danger" className="mt-2">{formError}</Notice>}
-          {rows && rows.length === 0 && <p className="mt-3 text-caption font-semibold text-ink-2">No names yet. Most names are said correctly as written.</p>}
-        </>
-      )}
+      {error ? <ErrorState title="Couldn't load the names" onRetry={load}>{error}</ErrorState>
+        : !rows ? <SkeletonList count={3} height="h-[72px]" className="mt-4 grid gap-2" />
+        : waiting === 0 ? <p className="mt-4 text-body font-semibold text-ink-2">Every child's name has been listened to and approved.</p>
+        : (
+          <ul className="mt-4 grid gap-2">
+            {rows.map((r) => (
+              <li key={r.child_id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-sunken py-2.5 pl-2.5 pr-3">
+                <SpeakButton name={r.full_name} state={playing?.id === r.child_id ? (playing.started ? 'playing' : 'loading') : 'idle'}
+                  disabled={!!playing && playing.id !== r.child_id} onPlay={() => void play(r)} onStop={() => { stopSound(); setPlaying(null) }} />
+                <span className="min-w-0 flex-1 basis-[160px]">
+                  <span className="block truncate text-h4">{r.full_name}</span>
+                  <span className="flex items-center gap-1.5 truncate text-small font-semibold text-ink-2">
+                    {r.audio_status === 'failed' ? <><TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />Announcements couldn't be made</>
+                      : r.spoken_name ? <>Said as <b className="text-ink">{r.spoken_name}</b></> : 'Said as registered'}
+                  </span>
+                </span>
+                {!r.approved && <Button size="md" variant="secondary" icon={<CircleCheck />} loading={busy === r.child_id} onClick={() => void approve(r)}>Sounds right</Button>}
+                <Link to={`/admin/child/${r.child_id}`} className="iconbtn" aria-label={`Change how ${r.full_name} is said`}><ChevronRight /></Link>
+              </li>
+            ))}
+          </ul>
+        )}
     </section>
   )
 }

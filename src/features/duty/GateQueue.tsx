@@ -21,10 +21,12 @@ import { CallSheet } from '../school/CallSheet'
 import { useSchoolDay } from '../school/useSchoolDay'
 import { NEW_LEAD, PRIORITY, URGENT_LEAD, type Announcer } from './announcer'
 import { deviceOutput } from './sound'
+import { setVoiceChildren, warmClips } from './voiceClips'
+import { commonPhrases, warmSentences, type VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
 import { cancelledText, isUrgent, shouldAnnounce, spokenText, type GateChild } from './gate'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
-interface GateData { children: Map<string, GateChild & { guardians: Guardian[] }>; myClasses: Set<string>; covered: Set<string> }
+interface GateData { children: Map<string, GateChild & { guardians: Guardian[]; spoken: string | null }>; myClasses: Set<string>; covered: Set<string> }
 
 /** The children, their guardians and who covers which class: everything the gate needs besides the trips. */
 function useGateData() {
@@ -33,26 +35,31 @@ function useGateData() {
   const [data, setData] = useState<GateData | null>(null)
   const [error, setError] = useState(false)
   const load = useCallback(async () => {
-    const [kids, people, assigned] = await Promise.all([
+    const [kids, people, assigned, voices] = await Promise.all([
       supabase.from('children').select('id, full_name, preferred_name, gender, class_id, classes(name), programmes(name), guardianships(guardian_id, relation, kind)').eq('active', true),
       supabase.from('profiles').select('id, full_name, active, abroad'),
       supabase.from('coordinator_classes').select('profile_id, class_id'),
+      // Separate, and its failure ignored: the gate works without pronunciations (names are then said as registered).
+      supabase.from('child_pronunciations').select('child_id, spoken_name'),
     ])
     if (kids.error || people.error || assigned.error) return setError(true)
     setError(false)
+    const spoken = new Map(((voices.data ?? []) as Array<{ child_id: string; spoken_name: string | null }>).map((v) => [v.child_id, v.spoken_name]))
     const names = new Map((people.data ?? []).map((p) => [p.id as string, p as { id: string; full_name: string; active: boolean; abroad: boolean }]))
     type Kid = { id: string; full_name: string; preferred_name: string | null; gender: string | null; class_id: string; classes: { name: string } | null; programmes: { name: string } | null; guardianships: Array<{ guardian_id: string; relation: string; kind: 'parent' | 'family' }> }
     const children = new Map(((kids.data ?? []) as unknown as Kid[]).map((c) => [c.id, {
       id: c.id, name: c.preferred_name ?? c.full_name.split(' ')[0]!, gender: c.gender, fullName: c.full_name, classId: c.class_id,
-      className: c.classes?.name ?? '', programmeName: c.programmes?.name ?? '',
+      className: c.classes?.name ?? '', programmeName: c.programmes?.name ?? '', spoken: spoken.get(c.id) ?? null,
       guardians: c.guardianships.map((g) => ({ id: g.guardian_id, name: names.get(g.guardian_id)?.full_name ?? 'Guardian', relation: g.relation, active: names.get(g.guardian_id)?.active ?? false, kind: g.kind ?? 'parent', abroad: names.get(g.guardian_id)?.abroad ?? false })),
     }]))
+    // The voice says each child's name the way the school approved (D48); the screen always shows it as registered.
+    setVoiceChildren(new Map([...children.values()].map((c) => [c.id, { fullName: c.fullName, name: c.name, spoken: c.spoken } satisfies VoiceChild])))
     const rows = (assigned.data ?? []) as Array<{ profile_id: string; class_id: string }>
     setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), covered: new Set(rows.map((r) => r.class_id)) })
   }, [myId])
   useEffect(() => {
     void load()
-    const stops = ['children', 'guardianships', 'coordinator_classes'].map((t) => onTableChange(t, () => void load()))
+    const stops = ['children', 'guardianships', 'coordinator_classes', 'child_pronunciations'].map((t) => onTableChange(t, () => void load()))
     return () => stops.forEach((s) => s())
   }, [load])
   return { data, error, reload: load }
@@ -108,9 +115,27 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
 
   // The gate never sees anyone's location (D38): only the expected time, and the steps at the gate.
 
+  // On duty, this iPad copies the school's clips for every child's everyday sentences (and the shared phrases), so
+  // announcements play from the iPad itself the moment they're needed, even without Wi-Fi. Once a day it's a few
+  // megabytes; after that almost everything is already here. Again whenever a name, class or collector changes.
+  const warmFor = useMemo(() => {
+    if (!gate.data) return []
+    const list = commonPhrases()
+    for (const c of gate.data.children.values()) {
+      const guardians = c.guardians.filter((g) => g.active).map((g) => ({ name: g.name, relation: g.relation }))
+      list.push(...warmSentences({ fullName: c.fullName, name: c.name, spoken: c.spoken }, c.className, guardians))
+    }
+    return list
+  }, [gate.data])
+  useEffect(() => {
+    if (!warmFor.length) return
+    const stop = new AbortController()
+    void warmClips(warmFor, stop.signal)
+    return () => stop.abort()
+  }, [warmFor])
+
   // Trips this tablet may still have to announce (another class's, said here if nobody answers in 2 minutes) get their
-  // audio ready now, so the studio voice starts without a pause. Its own classes are announced at once, and the
-  // announcer readies queued ones itself. Three at a time, soonest first, so few credits go on words never said.
+  // clips ready now. Its own classes are announced at once, and the announcer readies queued ones itself.
   useEffect(() => {
     if (!trips.trips || !gate.data) return
     const upcoming = trips.trips
@@ -120,7 +145,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     for (const t of upcoming) {
       const child = gate.data.children.get(t.child_id)
       if (!child) continue
-      deviceOutput.prepare?.((isUrgent(t, nowMs) ? URGENT_LEAD : NEW_LEAD) + spokenText(t, child, nowMs))
+      deviceOutput.prepare?.((isUrgent(t, nowMs) ? URGENT_LEAD : NEW_LEAD) + spokenText(t, child, nowMs), t.child_id)
       if (++prepared === 3) break
     }
   }, [trips.trips, gate.data])
@@ -137,7 +162,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
         if (announced.current.get(t.id) !== t.updated_at) {
           announced.current.set(t.id, t.updated_at)
           const urgent = isUrgent(t, nowMs)
-          announcer.announce({ id, text: spokenText(t, child, nowMs), urgent, chime: urgent ? 'flagged' : 'normal', priority: t.off_schedule ? PRIORITY.flagged : urgent ? PRIORITY.runningLate : PRIORITY.newRequest })
+          announcer.announce({ id, childId: t.child_id, text: spokenText(t, child, nowMs), urgent, chime: urgent ? 'flagged' : 'normal', priority: t.off_schedule ? PRIORITY.flagged : urgent ? PRIORITY.runningLate : PRIORITY.newRequest })
         }
       } else if (announced.current.has(t.id)) {
         announced.current.delete(t.id)
@@ -146,7 +171,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       // A cancellation is said once, if it happened in the last 10 minutes.
       if (t.status === 'cancelled' && nowMs - Date.parse(t.updated_at) < 10 * 60_000 && !cancelHeard.current.has(t.id)) {
         cancelHeard.current.add(t.id)
-        announcer.announce({ id: `${id}:cancel`, text: cancelledText(t, child), chime: 'normal', priority: PRIORITY.info })
+        announcer.announce({ id: `${id}:cancel`, childId: t.child_id, text: cancelledText(t, child), chime: 'normal', priority: PRIORITY.info })
         setTimeout(() => announcer.acknowledge(`${id}:cancel`), 30_000)
       }
     }

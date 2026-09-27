@@ -31,6 +31,7 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 |---|---|---|
 | `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
 | `push-send` | Delivers queued push notifications (0016) and forgets dead devices; called by the database | `PUSH_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
+| `pronounce` | The gate voice (0030, D48): a sentence's clip for staff (made on the school computer if new), and the background making of each child's clips; the only caller of the school's voice computer | `TTS_SERVICE_URL`, `TTS_SHARED_SECRET`, `VOICE_CRON_SECRET` |
 
 Deploying needs a Supabase login on this machine (`npx supabase login`, once):
 ```
@@ -47,12 +48,23 @@ npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
    `insert into app.push_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/push-send', '<the same PUSH_SECRET>');`
    and re-run the `cron.schedule` blocks from `0016` and `0021` (push delivery, morning reminders and the daily clean-up of old records; they only schedule when `pg_cron` exists at migration time). `npm run check:routing` tests the key and the ETA maths from this machine.
 
+### Turning on the gate voice (0030, D48)
+The voice runs on the school's always-on computer; [voice-architecture.md](../architecture/voice-architecture.md) has the design and resource needs.
+1. On the school computer (macOS or Linux, 8 GB RAM minimum, 16 GB recommended, about 10 GB free disk): install [uv](https://docs.astral.sh/uv/) and `cloudflared`. Accept the model's terms at https://huggingface.co/ai4bharat/indic-parler-tts, create a Hugging Face read token, and run `hf auth login`.
+2. In `tts-service/`: `GIT_LFS_SKIP_SMUDGE=1 uv sync` (the codec library's repository stores test files in Git LFS; they aren't needed), then `uv run pytest -q` (15 checks, no model needed).
+3. Make one secret for the voice and one for the database: `openssl rand -hex 32` twice.
+4. Start the voice: `TTS_SHARED_SECRET=<first secret> uv run uvicorn app:app --host 127.0.0.1 --port 8765`. The first start downloads the model (3.75 GB) and a small tokenizer; later starts load from disk in about 25 seconds. Keep it running (a login item on macOS, or a systemd service on Linux).
+5. Give it a stable address with a named Cloudflare Tunnel (`cloudflared tunnel login`, `cloudflared tunnel create jumpstart-voice`, route a hostname such as `voice.jumpstartpreschool.in` to `http://127.0.0.1:8765`, `cloudflared tunnel run jumpstart-voice`). For a quick test, `cloudflared tunnel --url http://127.0.0.1:8765` prints a temporary `trycloudflare.com` address.
+6. `npx supabase secrets set --project-ref <ref> TTS_SERVICE_URL=https://voice.jumpstartpreschool.in TTS_SHARED_SECRET=<first secret> VOICE_CRON_SECRET=<second secret>`, then `npx supabase functions deploy pronounce --project-ref <ref> --no-verify-jwt`.
+7. In the SQL editor: `insert into app.voice_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/pronounce', '<second secret>');` and re-run the `cron.schedule` block at the end of `0030` (it only schedules when `pg_cron` exists at migration time).
+8. Within a few minutes Admin → Settings → Name pronunciation fills with names to listen to. Play each one; approve it, or open the child and write it the way it sounds.
+9. Remove the old voice: `npx supabase secrets unset --project-ref <ref> ELEVENLABS_API_KEY ELEVENLABS_VOICE_ID AZURE_SPEECH_KEY AZURE_SPEECH_REGION AZURE_VOICE`, `npx supabase functions delete voice-say --project-ref <ref>`, and in Storage empty and delete the `voice-cache` bucket.
+
 ## Auth settings (Supabase dashboard)
 Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):
 - **Sign-ups stay on:** a parent's first code creates their sign-in account (`shouldCreateUser`), and the database refuses anyone the school hasn't added (0002). Turning sign-ups off would stop every first sign-in.
 - **Codes, not links:** the email templates use `{{ .Token }}` so people receive a 6-digit code.
 - **Sign-in code:** Authentication → Sign In / Providers → Email: Email OTP Length 6 (the app has exactly six boxes) and Email OTP Expiration 300 seconds (the app and the emails say 5 minutes).
 - **Email sender:** custom SMTP (Brevo). The built-in sender is only for testing and delivers only to the project team.
-- **Studio voice (0027, D43):** in ElevenLabs, add a calm Indian English woman's voice from the Voice Library to your voices and copy its voice ID; create an API key (Developers → API keys). Then `npx supabase secrets set ELEVENLABS_API_KEY=… ELEVENLABS_VOICE_ID=…` and `npx supabase functions deploy voice-say`. The key stays in the function; the browser never sees it. Until both are set, tablets use the natural or device voice. The free plan is for trying it; school use needs Starter (commercial licence).
 - **Invitations (0020, D36):** set the app's https address in Admin → Settings. Create a Brevo API key (SMTP & API → API keys) and deploy the function: `npx supabase secrets set BREVO_API_KEY=…` then `npx supabase functions deploy invite-send`. The sender (`INVITE_FROM`, default ai@jumpstartpreschool.in) must be a verified Brevo sender. Once the app has its address, set `APP_ORIGIN` (for example `https://app.jumpstartpreschool.in`) so only the app can call `invite-send` and `route`. Without the key the Invite sheet says email isn't set up and SMS and WhatsApp still work.
 - **Sign-in emails:** `supabase/templates/magic_link.html` (subject "Your Jumpstart sign-in code") and `confirmation.html` (subject "Welcome to Jumpstart: your sign-in code", anyone's first sign-in; Supabase sends it as "Confirm signup"), pasted into Authentication → Emails → Templates. They show the 6-digit `{{ .Token }}` and no link: the app signs in with the code only. Editing templates needs custom SMTP on. The logo is `jumpstart-email-logo.png` in a public Storage bucket named `brand`. In Brevo, turn off "block unknown IP addresses": Supabase sends from changing IPs.

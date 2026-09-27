@@ -1,147 +1,57 @@
+import { voiceLines } from '../../../supabase/functions/_shared/announce.ts'
 import type { AnnouncerOutput, ChimeKind } from './announcer'
-import { NATURAL_VOICES, naturalAudio, naturalStatus, playBuffer, prepareNaturalVoice, stopNatural, type NaturalVoiceId } from './naturalVoice'
-import { currentPronunciations, speechText } from './pronunciation'
-import { studioAudio, studioAvailable, studioKnown } from './studioVoice'
+import { clearRetiredVoiceCaches, clipAudio, voiceChild } from './voiceClips'
 
 /**
- * Chime (Web Audio) and speech (Web Speech) for announcements on the coordinator's iPad (PRD D7).
+ * Chime and voice for announcements on the coordinator's iPad (PRD D7, D48). The voice is the school's own Indian
+ * voice, made ahead of time on the school's computer (voiceClips.ts). When a sentence isn't ready in time, the iPad's own
+ * Indian English voice says that announcement instead; without one, the chime and the screen still carry it.
  * iPadOS only allows sound after a tap, so `unlockSound()` must run inside the Start duty tap.
  */
 
 let ctx: AudioContext | null = null
-let voice: SpeechSynthesisVoice | null = null
+// Bumped by stopSound. Anything started before a Stop (a clip still downloading, a sentence still queued) checks it
+// and never plays afterwards, so End duty and Mute are silent at once.
+let generation = 0
+// Everything now sounding through Web Audio: chime notes and voice clips.
+const sounding = new Set<AudioScheduledSourceNode>()
+// Ends the device voice's sentence at once: browsers don't always fire onend/onerror after cancel().
+let endDevice: (() => void) | null = null
 // Safari can skip `onend` for utterances that were garbage-collected, so keep the current one referenced.
-let current: SpeechSynthesisUtterance | null = null
-// Ends the device voice's pending sentence at once: browsers don't always fire onend/onerror after cancel().
-let endCurrent: (() => void) | null = null
+let utterance: SpeechSynthesisUtterance | null = null
 
-export const soundSupported = typeof window !== 'undefined' && 'speechSynthesis' in window && 'AudioContext' in window
+export const soundSupported = typeof window !== 'undefined' && 'AudioContext' in window
+const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-// macOS and iOS novelty and old-style voices: they sound robotic, so they are never offered.
-const ROBOTIC = /^(albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|eddy|flo|fred|good news|grandma|grandpa|hysterical|jester|junior|kathy|organ|pipe organ|princess|ralph|reed|rocko|sandy|shelley|superstar|trinoids|whisper|wobble|zarvox)\b/i
+/** How long speech may wait for its clips after the chime before the iPad's own voice says it instead. */
+export const CLIP_BUDGET_MS = 1200
+const SENTENCE_GAP_MS = 120
 
-/**
- * How human a voice sounds, from what browsers expose: neural voices (Edge "Natural", "Online") and Apple's downloaded
- * Premium and Enhanced voices first, then Google's, then the rest. Indian English is preferred, then British. -1 = never.
- */
-export type VoiceQuality = 'natural' | 'premium' | 'enhanced' | 'online' | 'standard'
-
-/** How natural a voice sounds, from its name alone. */
-export function voiceQuality(name: string): VoiceQuality {
-  if (/natural|neural|online/i.test(name)) return 'natural'
-  if (/premium/i.test(name)) return 'premium'
-  if (/enhanced/i.test(name)) return 'enhanced'
-  return /^google/i.test(name) ? 'online' : 'standard'
-}
-const QUALITY_SCORE: Record<VoiceQuality, number> = { natural: 100, premium: 90, enhanced: 80, online: 60, standard: 0 }
-
-export function voiceScore(v: Pick<SpeechSynthesisVoice, 'name' | 'lang'>): number {
-  const lang = v.lang.replace('_', '-').toLowerCase()
-  if (!(lang.startsWith('en') || lang === 'hi-in') || ROBOTIC.test(v.name)) return -1
-  let score = QUALITY_SCORE[voiceQuality(v.name)]
-  // Among the built-in (compact) voices these are the smooth ones; older ones such as Rishi sound mechanical.
-  // Samantha, the warmest of them, leads when nothing better is installed.
-  if (score === 0 && SMOOTH.test(v.name)) score += /^samantha\b/i.test(v.name) ? 45 : 40
-  // The school wants a warm woman's voice for announcements (owner, 2026-09-25), so any woman's voice comes first.
-  if (voiceGender(v.name) === 'female') score += 100
-  // Indian names said the way families say them matter most (owner, 2026-09-27): an Indian English voice first, then
-  // the Hindi voice (it reads English with an Indian accent and says names correctly), and only then any other.
-  score += lang === 'en-in' ? 190 : lang === 'hi-in' ? 140 : lang === 'en-gb' ? 15 : 10
-  return score
-}
-const SMOOTH = /^(samantha|daniel|karen|moira|tessa|serena|kate|oliver|arthur|martha|ava|allison|susan|tom|evan|nathan|zoe|nicky|aaron|fiona|isha|veena|tara)\b/i
-
-// Browsers don't say whether a voice is a woman's or a man's, so it's recognised from the well-known voice names.
-const FEMALE = /\b(tara|samantha|karen|moira|tessa|serena|kate|martha|ava|allison|susan|zoe|nicky|fiona|isha|veena|victoria|catherine|neerja|aria|jenny|sonia|libby|natasha|clara|emily|michelle|ana|maisie|hazel|heera|kalpana|zira|female)\b/i
-const MALE = /\b(daniel|rishi|aman|oliver|arthur|tom|evan|nathan|aaron|prabhat|guy|ryan|thomas|alex|gordon|lee|ravi|george|david|mark|william|christopher|eric|brian|male)\b/i
-
-export function voiceGender(name: string): 'female' | 'male' | null {
-  if (FEMALE.test(name)) return 'female'
-  return MALE.test(name) ? 'male' : null
-}
-
-/** Voices on this device that can read the announcements (English, and Hindi for Indian pronunciation), best first. */
-export function rankedVoices(): SpeechSynthesisVoice[] {
-  if (!soundSupported) return []
-  return speechSynthesis.getVoices()
-    .filter((v) => voiceScore(v) >= 0)
-    .sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name))
-}
-
-const VOICE_KEY = 'jumpstart.voice'
-const NATURAL_PREFIX = 'natural:'
-/** The studio voice (ElevenLabs, D43), made by the school's voice-say function. */
-export const STUDIO = 'studio'
-
-function savedChoice(): string | null {
-  try { return localStorage.getItem(VOICE_KEY) } catch { return null }
-}
-
-/** An Indian English woman's voice on this device (Tara, Isha, Veena…), which says Indian names properly. */
-export function indianVoice(): SpeechSynthesisVoice | null {
-  return rankedVoices().find((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in' && voiceGender(v.name) === 'female') ?? null
-}
-
-/**
- * The natural voice this iPad uses, or null when a device voice is used instead. Only when chosen: it's a large
- * download that many devices can't run, and its voices are American and British, so it's never the default.
- */
-export function naturalChoice(): NaturalVoiceId | null {
-  const saved = savedChoice()
-  if (!saved) return null
-  const id = saved.startsWith(NATURAL_PREFIX) ? saved.slice(NATURAL_PREFIX.length) : null
-  return NATURAL_VOICES.find((v) => v.id === id)?.id ?? null
-}
-
-/** The device voice: the one chosen, or the most human-sounding one (also the stand-in while the natural voice loads). */
-function pickVoice() {
-  const voices = rankedVoices()
-  const saved = savedChoice()
-  voice = voices.find((v) => v.name === saved) ?? voices[0] ?? null
-}
-
-export function currentVoice(): SpeechSynthesisVoice | null {
-  if (!voice && soundSupported) pickVoice()
-  return voice
-}
-
-/**
- * Whether announcements use the studio voice: when it's chosen, or when nothing is chosen and the school has set it
- * up (it's the best voice for Indian names, so it's the default once available).
- */
-export function studioChosen(): boolean {
-  const saved = savedChoice()
-  return saved === STUDIO || (saved === null && studioKnown() === true)
-}
-
-/** Remember a voice for this device: the studio voice, a device voice's name, or a natural voice's id. */
-export function chooseVoice(name: string): void {
-  const natural = NATURAL_VOICES.some((v) => v.id === name)
-  try { localStorage.setItem(VOICE_KEY, natural ? NATURAL_PREFIX + name : name) } catch { /* not remembered; still used now */ }
-  pickVoice()
-  if (natural) prepareNaturalVoice()
-}
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 /** Call from a tap. Unlocks the chime and the voice for the rest of the session. */
 export function unlockSound(): void {
   // Play through the speaker even when the iPad is in Silent Mode (WebKit Audio Session API, Safari 16.4+).
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
   if (session) session.type = 'playback'
-  ctx ??= new AudioContext()
-  void ctx.resume()
-  speechSynthesis.cancel()
-  speechSynthesis.speak(new SpeechSynthesisUtterance(' '))
-  pickVoice()
-  speechSynthesis.onvoiceschanged = pickVoice
-  if (naturalChoice()) prepareNaturalVoice()
-  void studioAvailable()
+  audioContext()
+  if (speechSupported) {
+    speechSynthesis.cancel()
+    speechSynthesis.speak(new SpeechSynthesisUtterance(' '))
+  }
+  void clearRetiredVoiceCaches()
 }
 
-/** Makes sure the chime and the natural voice can play (call from a tap, e.g. a voice sample). */
+/** The shared audio output, resumed (call from a tap, e.g. a pronunciation preview). */
 export function audioContext(): AudioContext {
   ctx ??= new AudioContext()
   void ctx.resume()
   return ctx
+}
+
+function track(node: AudioScheduledSourceNode): void {
+  sounding.add(node)
+  node.addEventListener('ended', () => sounding.delete(node))
 }
 
 // Flagged requests get a different, rising three-note pattern (ANN-2).
@@ -163,103 +73,121 @@ export function chime(kind: ChimeKind): Promise<void> {
     gain.gain.exponentialRampToValueAtTime(0.4, t + 0.015)
     gain.gain.exponentialRampToValueAtTime(0.0001, t + NOTE_LENGTH)
     osc.connect(gain).connect(audio.destination)
+    track(osc)
     osc.start(t)
     osc.stop(t + NOTE_LENGTH + 0.05)
   })
-  const ms = ((NOTES[kind].length - 1) * NOTE_GAP + NOTE_LENGTH + 0.15) * 1000
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return wait(((NOTES[kind].length - 1) * NOTE_GAP + NOTE_LENGTH + 0.15) * 1000)
 }
 
-// Bumped by stopSound, so a sentence still being made is never played after Stop or Mute.
-let spoken = 0
+/** Plays one clip, unless a Stop came first. Resolves when it ends or is stopped. */
+function play(buf: AudioBuffer, mine: number): Promise<void> {
+  if (mine !== generation || !ctx) return Promise.resolve()
+  const src = ctx.createBufferSource()
+  src.buffer = buf
+  src.connect(ctx.destination)
+  return new Promise((resolve) => {
+    src.addEventListener('ended', () => resolve())
+    track(src)
+    src.start()
+  })
+}
 
 /**
- * Says `text` (the words shown on screen; they're tidied and the school's pronunciations applied only for the voice).
- * The studio voice when it's chosen, else the natural voice when chosen and ready, else the device voice. Each one
- * that fails or is slow falls back to the next, so the gate always hears it.
+ * Says an announcement (the words shown on screen; the child's approved pronunciation is applied only for the voice).
+ * The school's voice when every sentence's clip is ready within CLIP_BUDGET_MS, else the iPad's Indian English voice,
+ * so one announcement is never said in two voices and the gate never waits. Never rejects.
  */
-/** "Please get Aarav ready. Sneha is on the way." → one entry per sentence. */
-export const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean)
-
-export async function speak(text: string, override?: SpeechSynthesisVoice | NaturalVoiceId | typeof STUDIO): Promise<void> {
-  const said = speechText(text, currentPronunciations())
-  if (!said) return
-  if ((override === STUDIO || (override === undefined && studioChosen())) && ctx) {
-    const mine = ++spoken
-    try {
-      // Sentence by sentence: each is made once and kept, and most repeat every day (gate.ts), so the studio voice costs
-      // almost nothing once the children's names are made.
-      const bufs = await Promise.all(sentences(said).map((x) => studioAudio(ctx!, x)))
-      for (const [i, buf] of bufs.entries()) {
-        if (mine !== spoken) return
-        if (i > 0) await new Promise((r) => setTimeout(r, 140))
-        await playBuffer(ctx, buf)
+export async function speak(text: string, childId?: string): Promise<void> {
+  const lines = voiceLines(text, voiceChild(childId))
+  if (!lines.length) return
+  const mine = generation
+  if (ctx) {
+    const audio = ctx
+    const all = Promise.all(lines.map((line) => clipAudio(audio, line)))
+    // Still being made in the background when the budget runs out: the next repeat uses it.
+    all.catch(() => {})
+    const clips = await Promise.race([all, wait(CLIP_BUDGET_MS).then(() => null)]).catch(() => null)
+    if (mine !== generation) return
+    if (clips) {
+      for (const [i, clip] of clips.entries()) {
+        if (mine !== generation) return
+        if (i > 0) await wait(SENTENCE_GAP_MS)
+        await play(clip, mine)
       }
       return
-    } catch {
-      if (mine !== spoken) return
     }
   }
-  const natural = typeof override === 'string' && override !== STUDIO ? override : override ? null : naturalChoice()
-  if (natural && ctx && naturalStatus().state === 'ready') {
-    const mine = ++spoken
-    try {
-      const buf = await naturalAudio(ctx, said, natural)
-      if (mine === spoken) await playBuffer(ctx, buf)
-      return
-    } catch {
-      if (mine !== spoken) return
-    }
-  }
-  return speakDevice(said, typeof override === 'object' ? override : undefined)
+  await speakDevice(lines.join(' '), mine)
 }
 
-/** Get an announcement ready (studio or natural voice) while earlier ones play, so it starts without a pause. */
-export function prepare(text: string): void {
+/** Starts getting an announcement's clips (from this iPad, the school, or made now) so speech starts without a pause. */
+export function prepare(text: string, childId?: string): void {
   if (!ctx) return
-  const said = speechText(text, currentPronunciations())
-  if (!said) return
-  if (studioChosen()) {
-    for (const x of sentences(said)) void studioAudio(ctx, x).catch(() => {})
-    return
-  }
-  const natural = naturalChoice()
-  if (natural && naturalStatus().state === 'ready') void naturalAudio(ctx, said, natural).catch(() => {})
+  for (const line of voiceLines(text, voiceChild(childId))) void clipAudio(ctx, line).catch(() => {})
 }
 
-function speakDevice(text: string, voiceOverride?: SpeechSynthesisVoice): Promise<void> {
+/**
+ * Plays one sentence in the school's voice, waiting for it to be made if needed (a pronunciation preview, not the
+ * gate). `onStart` runs the moment sound begins. Rejects when it can't be made, so the preview can say so.
+ */
+export async function playSentence(sentence: string, onStart?: () => void): Promise<void> {
+  stopSound()
+  const mine = generation
+  const [line] = voiceLines(sentence)
+  if (!line) return
+  const clip = await clipAudio(audioContext(), line)
+  if (mine !== generation) return
+  onStart?.()
+  await play(clip, mine)
+}
+
+// The iPad's own Indian English voice, used only when the school's clip isn't ready. Never another accent: a wrong
+// accent says Indian names worse than silence plus the name on screen.
+const FEMALE = /\b(isha|veena|neerja|heera|kalpana|lekha|swara|tara|female)\b/i
+function indianVoice(): SpeechSynthesisVoice | null {
+  const voices = speechSynthesis.getVoices().filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')
+  return voices.find((v) => FEMALE.test(v.name)) ?? voices[0] ?? null
+}
+
+function speakDevice(text: string, mine: number): Promise<void> {
+  if (!speechSupported || mine !== generation) return Promise.resolve()
+  const voice = indianVoice()
+  if (!voice) return Promise.resolve()
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text)
-    const v = voiceOverride ?? currentVoice()
-    if (v) u.voice = v
-    u.lang = v?.lang ?? 'en-IN'
+    u.voice = voice
+    u.lang = voice.lang
     // A touch slower than default, at natural pitch: clearer across a noisy gate without sounding drawn out.
     u.rate = 0.95
-    u.pitch = 1
     let done = false
     const finish = () => {
       if (done) return
       done = true
       clearTimeout(fallback)
-      if (current === u) current = null
-      if (endCurrent === finish) endCurrent = null
+      if (utterance === u) utterance = null
+      if (endDevice === finish) endDevice = null
       resolve()
     }
     // ponytail: Safari occasionally never fires onend; a length-based timeout keeps the queue moving.
     const fallback = setTimeout(finish, 4000 + text.length * 90)
     u.onend = finish
     u.onerror = finish
-    current = u
-    endCurrent = finish
+    utterance = u
+    endDevice = finish
     speechSynthesis.speak(u)
   })
 }
 
+/** Silences everything at once: chime, voice clip, device voice, and anything still on its way. */
 export function stopSound(): void {
-  spoken += 1
-  stopNatural()
-  if (soundSupported) speechSynthesis.cancel()
-  endCurrent?.()
+  generation += 1
+  for (const node of sounding) {
+    try { node.stop() } catch { /* not started or already ended */ }
+  }
+  sounding.clear()
+  if (speechSupported) speechSynthesis.cancel()
+  endDevice?.()
 }
 
-export const deviceOutput: AnnouncerOutput = { chime, speak: (text) => speak(text), stop: stopSound, prepare }
+export const deviceOutput: AnnouncerOutput = { chime, speak, stop: stopSound, prepare }

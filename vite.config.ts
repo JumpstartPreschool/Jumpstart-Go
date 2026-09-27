@@ -18,18 +18,6 @@ export default defineConfig({
         // Push notifications (public/push-sw.js): shown even when the app is closed or the iPad is locked.
         importScripts: ['push-sw.js'],
         cleanupOutdatedCaches: true,
-        // The natural voice (coordinator iPads only) is left out of the precache so parents' phones never download it,
-        // and kept once an iPad has used it so announcements still work offline. The model itself is cached by
-        // Transformers.js; its runtime comes from jsDelivr.
-        globIgnores: ['**/voice.worker-*.js'],
-        runtimeCaching: [
-          { urlPattern: /\/assets\/voice\.worker-.*\.js$/, handler: 'CacheFirst', options: { cacheName: 'natural-voice-app', expiration: { maxEntries: 4 } } },
-          {
-            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@.*\.(wasm|mjs)$/,
-            handler: 'CacheFirst',
-            options: { cacheName: 'natural-voice-runtime', expiration: { maxEntries: 8 }, cacheableResponse: { statuses: [0, 200] } },
-          },
-        ],
       },
       manifest: {
         name: 'Jumpstart',
