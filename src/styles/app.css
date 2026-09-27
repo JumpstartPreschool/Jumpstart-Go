@@ -592,53 +592,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .seg {
-    display: flex;
-    gap: 2px;
-    width: fit-content;
-    max-width: 100%;
-    padding: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    border-radius: var(--radius-md);
-    background: var(--sunken);
-    box-shadow: inset 0 1px 2px rgb(22 25 58 / 0.07);
-  }
-  .seg::-webkit-scrollbar { display: none; }
-  .seg > * {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: 8px;
-    height: 44px;
-    padding-inline: 14px;
-    border-radius: var(--radius-sm);
-    font-size: 15px;
-    font-weight: 750;
-    white-space: nowrap;
-    color: var(--ink-2);
-    transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
-  }
-  .seg > * svg { width: 18px; height: 18px; flex: none; color: var(--ink-3); transition: color var(--dur-fast) var(--ease-standard); }
-  @media (hover: hover) { .seg > *:hover { color: var(--ink); background: color-mix(in oklab, var(--surface) 55%, transparent); } }
-  .seg > :is([aria-selected='true'], [aria-current='page']) {
-    color: var(--ink);
-    background: var(--surface);
-    box-shadow: 0 2px 0 var(--line-2), 0 1px 3px rgb(22 25 58 / 0.08);
-  }
-  .seg > :is([aria-selected='true'], [aria-current='page']) svg { color: var(--accent); }
-  .seg .count { flex: none; font-size: 12px; font-weight: 750; padding: 2px 7px; border-radius: 999px; background: rgb(22 25 58 / 0.06); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-  /* Phones: every tab stays in view as an even grid of two, never a strip that scrolls off the edge. */
-  @media (max-width: 639px) {
-    .seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-    /* A long label wraps onto two lines inside its tab instead of spilling past it. */
-    .seg > * { justify-content: center; min-width: 0; height: auto; min-height: 44px; padding: 6px 10px; gap: 6px; white-space: normal; text-align: center; line-height: 1.15; }
-    .seg-label { min-width: 0; line-height: 1.15; text-align: center; text-wrap: balance; }
-    /* The smallest phones: the label says it all, so the icon gives its room to the words. */
-    @media (max-width: 399px) { .seg > * svg { display: none; } }
-    .seg > :last-child:nth-child(odd) { grid-column: span 2; }
-  }
-
   /* Text inputs, selects and search (src/ui/Field.tsx). 17px text so iOS never zooms in on focus. */
   .input {
     display: flex;

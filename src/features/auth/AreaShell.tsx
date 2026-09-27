@@ -140,7 +140,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
       <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${pages ? 'max-md:pb-[calc(104px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
           // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`seg mb-6 ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'max-md:hidden xl:hidden' : 'max-md:hidden lg:hidden'}`}>
+          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`topnav mb-6 w-fit max-w-full overflow-x-auto [scrollbar-width:none] ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'max-md:hidden xl:hidden' : 'max-md:hidden lg:hidden'}`}>
             {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
           </nav>
         )}
