@@ -61,8 +61,8 @@ export function SignInFrame({ children }: { children: ReactNode }) {
         </div>
         <ul className="hidden max-w-[520px] gap-3 lg:grid">
           {PROMISES.map((p) => (
-            <li key={p.title} className="flex items-center gap-3.5 rounded-2xl bg-white/75 px-4 py-3 shadow-[0_1px_2px_rgb(120_80_40/0.06)] ring-1 ring-[#eadfce]">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fbf3e8] [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
+            <li key={p.title} className="signin-pill flex items-center gap-3.5 rounded-2xl px-4 py-3">
+              <span className="grid size-10 shrink-0 place-items-center signin-pill__icon rounded-xl [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
               <span className="text-body text-ink-2"><b className="text-ink">{p.title}.</b> {p.text}</span>
             </li>
           ))}

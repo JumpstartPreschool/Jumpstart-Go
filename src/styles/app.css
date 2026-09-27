@@ -243,6 +243,19 @@
   }
 
   /* Behind the sign-in card: a soft lavender light, so the card doesn't float in empty space. */
+  /* Dark: the same panel at night, deep ink warmed by the logo's colours, so its light text reads. */
+  :root[data-theme='dark'] .signin-hero {
+    background:
+      radial-gradient(34rem 24rem at 105% -5%, rgb(255 194 26 / 0.1), transparent 62%),
+      radial-gradient(30rem 24rem at -15% 105%, rgb(247 133 42 / 0.08), transparent 62%),
+      linear-gradient(160deg, #1d2044 0%, #151833 100%);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  /* The promises on the sign-in panel ("Invite only" and the others). */
+  .signin-pill { background: rgb(255 255 255 / 0.75); box-shadow: 0 1px 2px rgb(120 80 40 / 0.06), 0 0 0 1px #eadfce; }
+  .signin-pill__icon { background: #fbf3e8; }
+  :root[data-theme='dark'] .signin-pill { background: rgb(255 255 255 / 0.05); box-shadow: 0 0 0 1px var(--line-2); }
+  :root[data-theme='dark'] .signin-pill__icon { background: var(--sunken); }
   .signin-side { background: radial-gradient(32rem 26rem at 50% 40%, rgb(200 38 44 / 0.07), transparent 70%); }
 
   /* A light travelling around a card's edge (src/ui/BorderBeam.tsx). Only where the browser can move it along the edge,
@@ -659,7 +672,7 @@
     min-width: 20px;
     padding: 1px 6px;
     border-radius: 999px;
-    background: rgb(22 25 58 / 0.06);
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
     color: var(--ink-2);
     font-size: 11.5px;
     font-weight: 800;
