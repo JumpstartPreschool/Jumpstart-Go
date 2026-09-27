@@ -25,7 +25,8 @@ start_voice() {
   if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN > /dev/null 2>&1; then
     log "port $PORT is used by another program; set TTS_PORT in tts-service/.env"; sleep 60; return 1
   fi
-  HF_HUB_OFFLINE=1 uv run uvicorn app:app --host 127.0.0.1 --port "$PORT" >> "$RUN/voice.log" 2>&1 &
+  # Low priority: the voice waits behind whatever the person at this computer is doing, so the Mac never lags.
+  HF_HUB_OFFLINE=1 nice -n 15 uv run uvicorn app:app --host 127.0.0.1 --port "$PORT" >> "$RUN/voice.log" 2>&1 &
   voice_pid=$!
   echo "$voice_pid" > "$RUN/voice.pid"
   for _ in $(seq 1 60); do health "http://127.0.0.1:$PORT" && { log "voice up on port $PORT"; return 0; }; sleep 1; done

@@ -81,6 +81,17 @@ describe('gate sound', () => {
     await said
   })
 
+  it('gives the sound check time to fetch the school voice, instead of the tablet voice after 1.2 s', async () => {
+    const said = sound.speak('Sound check.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    await vi.advanceTimersByTimeAsync(3000)
+    arrive('Sound check.')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(heard).toEqual(['start:Sound check.'])
+    finish()
+    await said
+    expect(heard.some((h) => h.startsWith('device'))).toBe(false)
+  })
+
   it('says nothing after Stop (End duty or Mute), even when a clip arrives later', async () => {
     const said = sound.speak('Pickup for Aarav, Nursery.')
     sound.stopSound()

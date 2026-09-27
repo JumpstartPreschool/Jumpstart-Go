@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatTime } from '../../../src/domain/time'
 import { cancelledText, spokenText } from '../../../src/features/duty/gate'
 import type { Trip } from '../../../src/features/trips/api'
-import { checkSpeech, clipKey, clockText, commonPhrases, NEW_LEAD, sayable, sentences, tidy, VOICE_VERSION, voiceLines, voiceSentence, warmSentences, type VoiceChild } from './announce'
+import { checkSpeech, clipKey, clockText, commonPhrases, NEW_LEAD, REPEAT_LEAD, sayable, sentences, tidy, VOICE_VERSION, voiceLines, voiceSentence, warmSentences, type VoiceChild } from './announce'
 
 const aaradhya: VoiceChild = { fullName: 'Aaradhya Sharma', name: 'Aaradhya', spoken: null }
 const trip = (over: Partial<Trip> = {}) => ({
@@ -18,7 +18,7 @@ describe('the gate voice words', () => {
     for (const text of [
       NEW_LEAD + spokenText(trip(), gateChild, Date.parse('2026-09-28T09:00:00Z')),
       NEW_LEAD + spokenText(trip({ direction: 'dropoff' }), gateChild, Date.parse('2026-09-28T09:43:00Z')),
-      'Reminder. ' + spokenText(trip({ updated_at: '2026-09-28T09:10:00Z' }), gateChild, Date.parse('2026-09-28T09:15:00Z')),
+      REPEAT_LEAD + spokenText(trip({ updated_at: '2026-09-28T09:10:00Z' }), gateChild, Date.parse('2026-09-28T09:15:00Z')),
       cancelledText(trip(), gateChild),
     ]) {
       for (const line of voiceLines(text, aaradhya)) expect(made, line).toContain(line)

@@ -9,6 +9,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
 import { useTodayTrips } from '../trips/api'
 import { now } from '../../lib/clock'
+import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
 
 type Tone = 'ok' | 'warn' | 'error' | 'info'
 
@@ -97,7 +98,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           </div>
           <h1 className="mt-6 text-h1">Did you hear the test?</h1>
           <p className="mt-2 text-lead text-ink-2" aria-live="polite">
-            {duty.testing ? 'Playing a chime and "Sound check. Announcements are on."' : 'You should have heard a chime, then "Sound check. Announcements are on."'}
+            {duty.testing ? `Playing a chime and "${SOUND_CHECK}"` : `You should have heard a chime, then "${SOUND_CHECK}"`}
           </p>
           {struggling && (
             <ul className="mt-6 grid list-disc gap-1.5 rounded-lg bg-warning-soft p-5 pl-9 text-left text-body text-ink marker:text-warning">
@@ -163,7 +164,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
               </Tile>
             ) : (
               <Tile tone="warn" icon={<TriangleAlert />} title="Add to the Home Screen">
-                Choose Add to Home Screen in the browser's menu (on an iPad: Share), then open Jumpstart from there.
+                Choose Add to Home Screen in the browser's menu (on an iPad: Share), then open Jumpstart Go from there.
               </Tile>
             )}
             {duty.wakeSupported ? (
@@ -176,7 +177,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
                 A short test plays when you start. Turn the volume up.
               </Tile>
             ) : (
-              <Tile tone="error" icon={<TriangleAlert />} title="Can't play sound here">Open Jumpstart in Chrome or Safari on the gate tablet.</Tile>
+              <Tile tone="error" icon={<TriangleAlert />} title="Can't play sound here">Open Jumpstart Go in Chrome or Safari on the gate tablet.</Tile>
             )}
             {online ? (
               <Tile tone="ok" icon={<Wifi />} title="Connected">New requests arrive the moment a parent makes them.</Tile>

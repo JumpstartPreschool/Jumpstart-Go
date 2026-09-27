@@ -16,7 +16,7 @@ export const VOICE_VERSION = 'indic-parler-tts@7b527af5|mary|calm-v1|seed-202609
  * Bump when the words a voice is given change (sayable(), the building blocks below) but the voice doesn't. The
  * pronounce function then makes the shared phrases again and requeues every child's sentences.
  */
-export const WORDING_VERSION = 'words-2'
+export const WORDING_VERSION = 'words-3'
 export const MAX_CHARS = 400
 
 // Letters and marks in any script, digits, and the punctuation a voice uses for pauses and initials.
@@ -146,12 +146,14 @@ function named(tidied: string, child?: VoiceChild | null): string {
 export const voiceLines = (text: string, child?: VoiceChild | null) => sentences(tidy(text)).map((s) => voiceSentence(s, child)).filter(Boolean)
 
 // The announcement's building blocks. gate.ts composes them; warmSentences() below makes the everyday ones ahead of time.
+// Checked with the school voice (2026-09-27): it garbles one-word or plural sentences ("Reminder." → "Remindo",
+// "Announcements are on." → "Unmentsments are on", "Time changed." rambles on), so these are short full sentences.
 export const NEW_LEAD = 'New announcement. '
 export const URGENT_LEAD = 'Urgent. '
-export const REPEAT_LEAD = 'Reminder. '
-export const TIME_CHANGED = 'Time changed. '
+export const REPEAT_LEAD = 'This is a reminder. '
+export const TIME_CHANGED = 'The time has changed. '
 export const ARRIVING_NOW = 'Arriving now.'
-export const SOUND_CHECK = 'Sound check. Announcements are on.'
+export const SOUND_CHECK = 'This is a sound check. Gate announcements are working.'
 export type Kind = 'pickup' | 'dropoff'
 const kindWord = (k: Kind) => (k === 'pickup' ? 'Pickup' : 'Drop-off')
 export const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? name

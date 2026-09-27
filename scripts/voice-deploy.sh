@@ -60,7 +60,7 @@ start_voice() {
       echo "Stop it, or set TTS_PORT=<free port> in .env.local, then run this again."; exit 1
     fi
     say "Starting the voice (the model takes about 25 s to load)"
-    (cd "$ROOT/tts-service" && HF_HUB_OFFLINE=1 TTS_SHARED_SECRET="$TTS_SHARED_SECRET" nohup uv run uvicorn app:app --host 127.0.0.1 --port "$PORT" > "$RUN/voice.log" 2>&1 & echo $! > "$RUN/voice.pid")
+    (cd "$ROOT/tts-service" && HF_HUB_OFFLINE=1 TTS_SHARED_SECRET="$TTS_SHARED_SECRET" nohup nice -n 15 uv run uvicorn app:app --host 127.0.0.1 --port "$PORT" > "$RUN/voice.log" 2>&1 & echo $! > "$RUN/voice.pid")
   fi
   local waited=0
   until curl -s -H "Authorization: Bearer $TTS_SHARED_SECRET" "http://127.0.0.1:$PORT/health" | grep -q '"ready":true'; do

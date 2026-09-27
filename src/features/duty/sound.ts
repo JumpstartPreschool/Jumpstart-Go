@@ -25,6 +25,11 @@ const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in wi
 
 /** How long speech may wait for its clips after the chime before the iPad's own voice says it instead. */
 export const CLIP_BUDGET_MS = 1200
+/**
+ * The sound check after Start duty waits longer: on that first tap the clip still has to download to the iPad, which
+ * takes more than 1.2 s, and the check should sound like the real gate, not the tablet's voice.
+ */
+export const SOUND_CHECK_BUDGET_MS = 8000
 const SENTENCE_GAP_MS = 120
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -98,7 +103,7 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
  * The school's voice when every sentence's clip is ready within CLIP_BUDGET_MS, else the iPad's Indian English voice,
  * so one announcement is never said in two voices and the gate never waits. Never rejects.
  */
-export async function speak(text: string, childId?: string): Promise<void> {
+export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<void> {
   const lines = voiceLines(text, voiceChild(childId))
   if (!lines.length) return
   const mine = generation
@@ -107,7 +112,7 @@ export async function speak(text: string, childId?: string): Promise<void> {
     const all = Promise.all(lines.map((line) => clipAudio(audio, line)))
     // Still being made in the background when the budget runs out: the next repeat uses it.
     all.catch(() => {})
-    const clips = await Promise.race([all, wait(CLIP_BUDGET_MS).then(() => null)]).catch(() => null)
+    const clips = await Promise.race([all, wait(budgetMs).then(() => null)]).catch(() => null)
     if (mine !== generation) return
     if (clips) {
       for (const [i, clip] of clips.entries()) {
