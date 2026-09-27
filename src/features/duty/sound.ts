@@ -144,10 +144,21 @@ export async function playSentence(sentence: string, onStart?: () => void): Prom
 
 // The iPad's own Indian English voice, used only when the school's clip isn't ready. Never another accent: a wrong
 // accent says Indian names worse than silence plus the name on screen.
-const FEMALE = /\b(isha|veena|neerja|heera|kalpana|lekha|swara|tara|female)\b/i
+// Clearest first, measured by recording each voice and transcribing it (2026-09-27): Apple's Tara, the Siri voice,
+// garbled "Urgent. Reminder. Pickup for…" into nonsense; Rishi and Aman said every word. Natural voices (Edge's Neerja,
+// "Enhanced"/"Premium" downloads) beat all of them.
+const PREFERRED = [/natural|online|enhanced|premium/i, /\brishi\b/i, /\baman\b/i, /\b(neerja|isha|heera|lekha)\b/i]
+const LAST = /\b(tara|siri|veena)\b/i
+export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {
+  const voices = all.filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')
+  for (const p of PREFERRED) {
+    const v = voices.find((x) => p.test(x.name) && !LAST.test(x.name))
+    if (v) return v
+  }
+  return voices.find((v) => !LAST.test(v.name)) ?? voices[0] ?? null
+}
 function indianVoice(): SpeechSynthesisVoice | null {
-  const voices = speechSynthesis.getVoices().filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')
-  return voices.find((v) => FEMALE.test(v.name)) ?? voices[0] ?? null
+  return pickIndianVoice(speechSynthesis.getVoices())
 }
 
 function speakDevice(text: string, mine: number): Promise<void> {
