@@ -138,7 +138,7 @@ cp .env.example .env.local   # the Supabase URL and publishable key
 npm run dev
 ```
 
-Migrations live in `supabase/migrations` (0001 to 0030). Apply them with:
+Migrations live in `supabase/migrations` (0001 to 0031). Apply them with:
 
 ```bash
 npx supabase db push

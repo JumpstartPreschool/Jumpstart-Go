@@ -103,7 +103,7 @@ do $$ begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
   perform cron.unschedule('voice-drain') where exists (select 1 from cron.job where jobname = 'voice-drain');
   perform cron.schedule('voice-drain', '* * * * *', $job$
-    select net.http_post(url := c.url, headers := jsonb_build_object('Authorization', 'Bearer ' || c.secret, 'Content-Type', 'application/json'), body := '{"drain":true}'::jsonb)
+    select net.http_post(url := c.url, headers := jsonb_build_object('Authorization', 'Bearer ' || c.secret, 'Content-Type', 'application/json'), body := '{"drain":true}'::jsonb, timeout_milliseconds := 150000)
     from app.voice_config c
     where extract(minute from now())::int % 10 = 0
        or exists (select 1 from public.child_pronunciations p
@@ -189,7 +189,10 @@ case "${1:-}" in
   start) start_voice; kick ;;
   check) check ;;
   update)
-    # New voice-service or pronounce code: restart the voice (new tunnel address), redeploy pronounce, relink, run.
+    # New code: apply new migrations, restart the voice (new tunnel address), redeploy pronounce, relink, run.
+    say "New migrations (dry run, then apply)"
+    $SB db push --dry-run --db-url "$DB_URL"
+    $SB db push --db-url "$DB_URL"
     stop_all
     start_voice
     say "Deploying pronounce"
