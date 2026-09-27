@@ -125,7 +125,7 @@ publish() {
   npm run build > /dev/null
   local dir; dir=$(mktemp -d)
   cp wrangler.jsonc "$dir/" && cp -R dist "$dir/dist"
-  (cd "$dir" && env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID npx wrangler@4 deploy)
+  (cd "$dir" && env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID npx wrangler@4 deploy --env-file /dev/null)
   rm -rf "$dir"
 }
 
