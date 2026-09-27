@@ -1,4 +1,8 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+
+// These are pure rules; the real client needs the Supabase address, which CI doesn't have.
+vi.mock('../../lib/supabase', () => ({ supabase: {} }))
+
 import { CONSENT_VERSION } from './session'
 
 // public.accept_consent (0002) only takes a plain date; anything else leaves every parent stuck on the consent screen.
