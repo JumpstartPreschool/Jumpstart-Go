@@ -13,7 +13,7 @@
 // (optional: host suffixes the voice may register, default .trycloudflare.com), TTS_SERVICE_URL (optional: a fixed
 // address used until the computer first registers), APP_ORIGIN (optional, as for invite-send).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { checkSpeech, clipKey, clipPath, commonPhrases, VOICE_VERSION, warmSentences, WORDING_VERSION } from '../_shared/announce.ts'
+import { checkSpeech, clipKey, clipPath, leadPhrases, timePhrases, VOICE_VERSION, warmSentences, WORDING_VERSION } from '../_shared/announce.ts'
 
 const FIXED_TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
 const ALLOWED_HOSTS = (Deno.env.get('TTS_ALLOWED_HOSTS') ?? '.trycloudflare.com').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
@@ -210,20 +210,25 @@ async function drain(): Promise<Record<string, unknown>> {
   }
   const have = await madeAlready()
   let phrases = 0
-  const { data: meta } = await store.from('voice_meta').select('value').eq('key', 'phrases').maybeSingle()
   // The voice and the words together: a change to either makes every clip again.
   const phrasesVersion = `${VOICE_VERSION}|${WORDING_VERSION}`
-  if (meta?.value !== phrasesVersion) {
-    try {
-      phrases = await ensure(commonPhrases(), have, deadline, true)
-    } catch (e) {
-      if (!(e instanceof OutOfTime)) throw e
-      log('drain', { phrases: 'partial', ms: Date.now() - started })
-      return { phrases: 'partial' }
-    }
-    await store.from('voice_meta').upsert({ key: 'phrases', value: phrasesVersion, updated_at: new Date().toISOString() })
-    // A different voice or wording than before: every child's clips are made again.
-    if (meta) await store.rpc('voice_requeue_all')
+  const { data: metaRows } = await store.from('voice_meta').select('key, value').in('key', ['phrases', 'queued'])
+  const meta = new Map((metaRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
+  const now = () => new Date().toISOString()
+  // A different voice or wording than before: every child's sentences are made again, once (not on a fresh install,
+  // where every child is already waiting).
+  if (meta.get('queued') !== phrasesVersion) {
+    if (meta.size) await store.rpc('voice_requeue_all')
+    await store.from('voice_meta').upsert({ key: 'queued', value: phrasesVersion, updated_at: now() })
+  }
+  // Order matters on a slow computer (~20 s a sentence): the few leads, then each child's sentences, then the ~150
+  // times. The gate uses the school's voice only when every sentence of an announcement is ready.
+  try {
+    phrases += await ensure(leadPhrases(), have, deadline, true)
+  } catch (e) {
+    if (!(e instanceof OutOfTime)) throw e
+    log('drain', { phrases: 'partial', ms: Date.now() - started })
+    return { phrases: 'partial' }
   }
   let children = 0
   let clips = 0
@@ -249,6 +254,14 @@ async function drain(): Promise<Record<string, unknown>> {
         }
       }
       await store.rpc('voice_finish', { p_child: row.child_id, p_revision: row.revision, p_ok: ok })
+    }
+  }
+  if (meta.get('phrases') !== phrasesVersion && Date.now() < deadline) {
+    try {
+      phrases += await ensure(timePhrases(), have, deadline, true)
+      await store.from('voice_meta').upsert({ key: 'phrases', value: phrasesVersion, updated_at: now() })
+    } catch (e) {
+      if (!(e instanceof OutOfTime)) throw e
     }
   }
   const result = { phrases, children, clips, failed, ms: Date.now() - started }

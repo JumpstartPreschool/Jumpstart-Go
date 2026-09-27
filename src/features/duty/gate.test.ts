@@ -15,6 +15,10 @@ describe('gate announcements', () => {
     expect(spokenText(trip(), child, at('2026-09-28T06:50:00Z'))).toBe(
       "Pickup for Aarav Kulkarni, Nursery. Aarav's mother, Sneha, is on the way. Arriving about 12:45 PM. Please get Aarav ready.")
   })
+  it('says a live arrival to the nearest 5 minutes, a time already made in the school voice', () => {
+    expect(spokenText(trip({ arrive_at: '2026-09-28T07:17:20Z' }), child, at('2026-09-28T06:50:00Z'))).toContain('Arriving about 12:45 PM.')
+    expect(spokenText(trip({ arrive_at: '2026-09-28T07:18:00Z' }), child, at('2026-09-28T06:50:00Z'))).toContain('Arriving about 12:50 PM.')
+  })
   it('is urgent, and says "Arriving now", within five minutes of arrival', () => {
     const now = at('2026-09-28T07:12:00Z')
     expect(isUrgent(trip(), now)).toBe(true)

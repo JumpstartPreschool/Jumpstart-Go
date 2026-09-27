@@ -169,12 +169,19 @@ export function clockText(min: number): string {
   return `${h % 12 === 0 ? 12 : h % 12}:${String(min % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-/** Sentences every announcement shares: the leads, "Arriving now.", and every 5-minute time from 7 AM to 8 PM. */
-export function commonPhrases(): string[] {
+/** The few sentences almost every announcement starts or ends with: made first. */
+export const leadPhrases = () =>
+  sentences(NEW_LEAD + URGENT_LEAD + REPEAT_LEAD + TIME_CHANGED + ARRIVING_NOW + ' ' + SOUND_CHECK).map((s) => voiceSentence(s))
+
+/** "Arriving about …" for every 5-minute time from 7 AM to 8 PM (gate.ts rounds arrivals to 5 minutes). */
+export function timePhrases(): string[] {
   const times: string[] = []
-  for (let m = 7 * 60; m < 20 * 60; m += 5) times.push(arrivingAbout(clockText(m)))
-  return [...sentences(NEW_LEAD + URGENT_LEAD + REPEAT_LEAD + TIME_CHANGED + ARRIVING_NOW + ' ' + SOUND_CHECK), ...times].map((s) => voiceSentence(s))
+  for (let m = 7 * 60; m < 20 * 60; m += 5) times.push(voiceSentence(arrivingAbout(clockText(m))))
+  return times
 }
+
+/** Sentences every announcement shares: the leads and the times. */
+export const commonPhrases = () => [...leadPhrases(), ...timePhrases()]
 
 /** A child's everyday sentences, as the voice is given them: made ahead so the gate never waits for them. */
 export function warmSentences(child: VoiceChild, className: string, guardians: ReadonlyArray<{ name: string; relation: string | null }>): string[] {

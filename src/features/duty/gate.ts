@@ -31,7 +31,9 @@ export function isUrgent(trip: Trip, nowMs: number): boolean {
  */
 export function spokenText(trip: Trip, child: GateChild, nowMs = Date.now()): string {
   const changed = Date.parse(trip.updated_at) - Date.parse(trip.created_at) > 5_000 ? TIME_CHANGED : ''
-  const when = Date.parse(trip.arrive_at) - nowMs <= SOON_MS ? ARRIVING_NOW : arrivingAbout(clockTime(trip.arrive_at))
+  // Said to the nearest 5 minutes ("about"): those sentences are made ahead in the school's voice, an exact 3:17 isn't.
+  const at = new Date(Math.round(Date.parse(trip.arrive_at) / 300_000) * 300_000).toISOString()
+  const when = Date.parse(trip.arrive_at) - nowMs <= SOON_MS ? ARRIVING_NOW : arrivingAbout(clockTime(at))
   const reason = trip.off_schedule && trip.reason ? ` Reason: ${trip.reason}.` : ''
   const ready = trip.direction === 'pickup' ? ` ${getReady(child.name)}` : ''
   return `${changed}${kindFor(trip.direction, child.fullName, child.className)} ${onTheWay(child.name, trip.traveller_relation, trip.traveller_name)} ${when}${reason}${ready}`
