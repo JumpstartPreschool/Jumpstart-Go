@@ -23,6 +23,22 @@ describe('bulk upload: reading files (D37)', () => {
     expect(rows[2]![0]).toBe('Meera & Co') // an escaped character
   })
 
+  it('keeps sheet row numbers when Excel leaves out blank rows or writes an empty one as <row/>', async () => {
+    const sheet = '<worksheet><sheetData>'
+      + '<row r="1" spans="1:2"><c r="A1" t="inlineStr"><is><t>Child full name</t></is></c></row>'
+      + '<row r="2"><c r="A2" t="inlineStr"><is><t>Aarav</t></is></c></row>'
+      + '<row r="4"/>'
+      + '<row r="5" x14ac:dyDescent="0.25"><c r="A5" t="inlineStr"><is><t>Diya</t></is></c><c r="B5"/></row>'
+      + '</sheetData></worksheet>'
+    const rows = await readSheet(Object.assign(new Blob([storedZip({ 'xl/worksheets/sheet1.xml': sheet })]), { name: 'gaps.xlsx' }))
+    expect(rows.map((r) => r[0] ?? '')).toEqual(['Child full name', 'Aarav', '', '', 'Diya'])
+  })
+
+  it("reads a CSV saved by Excel on Windows (not UTF-8) without garbling names", async () => {
+    const bytes = new Uint8Array([...new TextEncoder().encode('Child full name\nZo'), 0xeb, ...new TextEncoder().encode(' Kulkarni\n')])
+    expect((await readSheet(Object.assign(new Blob([bytes]), { name: 'kids.csv' })))[1]).toEqual(['Zoë Kulkarni'])
+  })
+
   it('refuses the old .xls format with a reason', async () => {
     await expect(readSheet(Object.assign(new Blob(['\xd0\xcf']), { name: 'old.xls' }))).rejects.toThrow('old_excel')
   })
@@ -73,6 +89,16 @@ describe('bulk upload: understanding rows', () => {
     expect(bad.people[0]!.phone).toBe('+919876500000') // the child's contact number stands in for Parent 1's mobile
   })
 
+  it('finds the column names below a title row, and keeps the sheet row numbers', () => {
+    const header = COLUMNS.map((c) => c.header)
+    const row = ['Aarav Kulkarni', '', '2022/03/04', 'Boy', 'nursery 360', '', 'Priya Kulkarni', 'Mother', '98765 43210']
+    const { rows, missing, header: found } = checkRows([['Jumpstart children 2026'], [], header, row], PROGRAMMES, TODAY)
+    expect(missing).toEqual([])
+    expect(found).toEqual(header)
+    expect(rows[0]).toMatchObject({ line: 4, childName: 'Aarav Kulkarni', problems: [] })
+    expect(rows[0]!.child!.date_of_birth).toBe('2022-03-04')
+  })
+
   it('names the columns a sheet is missing', () => {
     expect(checkRows([['Name', 'Class']], PROGRAMMES, TODAY).missing).toEqual(['Parent 1 name'])
   })
@@ -94,3 +120,23 @@ describe('bulk upload: understanding rows', () => {
     expect(checked[0]!.people).toHaveLength(3)
   })
 })
+
+/** A zip of uncompressed files, as Excel writes them (the reader ignores CRCs, so they're left 0). */
+function storedZip(files: Record<string, string>): Uint8Array<ArrayBuffer> {
+  const enc = new TextEncoder()
+  const parts: number[] = []
+  const central: number[] = []
+  const le = (n: number, bytes: number) => Array.from({ length: bytes }, (_, i) => (n >>> (8 * i)) & 0xff)
+  for (const [name, text] of Object.entries(files)) {
+    const nameBytes = [...enc.encode(name)]
+    const data = [...enc.encode(text)]
+    const offset = parts.length
+    parts.push(...le(0x04034b50, 4), ...le(20, 2), ...le(0, 2), ...le(0, 2), ...le(0, 4), ...le(0, 4), ...le(data.length, 4), ...le(data.length, 4),
+      ...le(nameBytes.length, 2), ...le(0, 2), ...nameBytes, ...data)
+    central.push(...le(0x02014b50, 4), ...le(20, 2), ...le(20, 2), ...le(0, 2), ...le(0, 2), ...le(0, 4), ...le(0, 4), ...le(data.length, 4),
+      ...le(data.length, 4), ...le(nameBytes.length, 2), ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0, 4), ...le(offset, 4), ...nameBytes)
+  }
+  const n = Object.keys(files).length
+  return new Uint8Array([...parts, ...central, ...le(0x06054b50, 4), ...le(0, 2), ...le(0, 2), ...le(n, 2), ...le(n, 2),
+    ...le(central.length, 4), ...le(parts.length, 4), ...le(0, 2)])
+}
