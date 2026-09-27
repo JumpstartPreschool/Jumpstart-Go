@@ -21,6 +21,9 @@ class ToneVoice:
     def __init__(self, fail: Exception | None = None, seconds: float = 1.5) -> None:
         self.fail, self.seconds, self.calls, self.seeds = fail, seconds, 0, []
 
+    def close(self) -> None:
+        self.closed = getattr(self, "closed", 0) + 1
+
     def speak(self, text: str, seed: int = 0) -> np.ndarray:
         self.calls += 1
         self.seeds.append(seed)
@@ -56,7 +59,7 @@ def test_every_endpoint_needs_the_secret():
 def test_health_reports_ready_and_version():
     with client(ToneVoice()) as c:
         body = c.get("/health", headers=AUTH).json()
-        assert body == {"ready": True, "version": service.VOICE_VERSION, "busy": False}
+        assert body == {"ready": True, "loaded": False, "version": service.VOICE_VERSION, "busy": False}
 
 
 def test_makes_a_trimmed_mp3_with_the_voice_version():
@@ -143,3 +146,32 @@ def test_a_clip_finished_after_the_caller_gave_up_is_handed_back_at_once():
     assert first.status_code == again.status_code == 200
     assert again.content == first.content
     assert voice.calls == 1
+
+
+def test_the_model_loads_on_first_work_and_unloads_when_idle():
+    import time as clock
+
+    loads: list[ToneVoice] = []
+
+    def load() -> ToneVoice:
+        loads.append(ToneVoice())
+        return loads[-1]
+
+    with TestClient(service.create_app(load, secret=SECRET, idle_seconds=0.2, idle_check_seconds=0.05)) as c:
+        assert c.get("/health", headers=AUTH).json()["loaded"] is False  # nothing held while there's no work
+        assert c.post("/synthesize", json={"text": "Aarav."}, headers=AUTH).status_code == 200
+        assert c.get("/health", headers=AUTH).json()["loaded"] is True
+        clock.sleep(0.5)
+        assert c.get("/health", headers=AUTH).json()["loaded"] is False  # freed after the idle time
+        assert loads[0].closed == 1
+        assert c.post("/synthesize", json={"text": "Saanvi."}, headers=AUTH).status_code == 200
+    assert len(loads) == 2  # loaded again when work came back
+
+
+def test_a_model_that_cant_load_is_a_clean_error():
+    def broken() -> ToneVoice:
+        raise MemoryError("out of memory")
+
+    with TestClient(service.create_app(broken, secret=SECRET)) as c:
+        res = c.post("/synthesize", json={"text": "Aarav."}, headers=AUTH)
+        assert res.status_code == 500 and "memory" not in res.text.lower()

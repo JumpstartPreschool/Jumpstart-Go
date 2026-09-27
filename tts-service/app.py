@@ -7,7 +7,11 @@ once at start-up and kept in memory; one sentence is made at a time, because one
 
     TTS_SHARED_SECRET=...  uv run uvicorn app:app --host 127.0.0.1 --port 8790
 
-Environment: TTS_SHARED_SECRET (required, 32+ characters), TTS_DEVICE (auto | mps | cuda | cpu; default auto).
+Environment: TTS_SHARED_SECRET (required, 32+ characters), TTS_DEVICE (auto | mps | cuda | cpu; default auto),
+TTS_IDLE_UNLOAD_MINUTES (default 10; 0 keeps the model loaded).
+
+The model is loaded when the first sentence is asked for and unloaded after the idle minutes, so a computer left on
+all day uses its memory only while there is work (about 25 s to load again when the next work arrives).
 """
 
 from __future__ import annotations
@@ -78,6 +82,8 @@ class Voice(Protocol):
 
     def speak(self, text: str, seed: int = ...) -> np.ndarray: ...
 
+    def close(self) -> None: ...
+
 
 class ParlerVoice:
     """The model, loaded once. speak() is not thread-safe: the service calls it one sentence at a time."""
@@ -105,6 +111,16 @@ class ParlerVoice:
         # The description never changes, so it's encoded once.
         self.description = self.description_tokenizer(DESCRIPTION, return_tensors="pt").to(device)
         event("model_loaded", device=device, ms=round((time.monotonic() - started) * 1000))
+
+    def close(self) -> None:
+        """Frees the model's memory (the idle unload)."""
+        del self.model, self.description
+        gc.collect()
+        if self.device == "mps":
+            self.torch.mps.empty_cache()
+        elif self.device == "cuda":
+            self.torch.cuda.empty_cache()
+        event("model_unloaded", device=self.device)
 
     def speak(self, text: str, seed: int = SEED) -> np.ndarray:
         prompt = self.prompt_tokenizer(text, return_tensors="pt").to(self.device)
@@ -192,12 +208,34 @@ class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_CHARS * 2)
 
 
-def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> FastAPI:
+def create_app(load_voice: Callable[[], Voice], secret: str | None = None, idle_seconds: float | None = None,
+               idle_check_seconds: float = 60) -> FastAPI:
     secret = secret if secret is not None else os.environ.get("TTS_SHARED_SECRET", "")
     if len(secret) < 32:
         raise SystemExit("Set TTS_SHARED_SECRET to a random value of 32 or more characters (the same as the pronounce function's).")
-    lock = asyncio.Lock()
+    if idle_seconds is None:
+        idle_seconds = float(os.environ.get("TTS_IDLE_UNLOAD_MINUTES", "10")) * 60
+    lock = asyncio.Lock()  # one sentence, or one load or unload, at a time
     state: dict[str, Voice] = {}
+    last_used = {"at": time.monotonic()}
+
+    async def voice_now() -> Voice:
+        """The loaded model, loading it first if needed. Call with the lock held."""
+        if "voice" not in state:
+            event("model_loading")
+            state["voice"] = await run_in_threadpool(load_voice)
+        last_used["at"] = time.monotonic()
+        return state["voice"]
+
+    async def unload_when_idle() -> None:
+        while True:
+            await asyncio.sleep(idle_check_seconds)
+            if "voice" not in state or lock.locked() or time.monotonic() - last_used["at"] < idle_seconds:
+                continue
+            async with lock:
+                if "voice" in state and time.monotonic() - last_used["at"] >= idle_seconds:
+                    voice = state.pop("voice")
+                    await run_in_threadpool(voice.close)
     waiting = {"count": 0}
     recent: OrderedDict[str, bytes] = OrderedDict()
 
@@ -206,8 +244,10 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        state["voice"] = await run_in_threadpool(load_voice)
+        janitor = asyncio.create_task(unload_when_idle()) if idle_seconds > 0 else None
         yield
+        if janitor:
+            janitor.cancel()
 
     app = FastAPI(title="Jumpstart gate voice", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
@@ -220,14 +260,14 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
 
     @app.get("/health")
     async def health() -> dict[str, object]:
-        return {"ready": "voice" in state, "version": VOICE_VERSION, "busy": lock.locked()}
+        # Ready means it can take work now: the model loads on the first sentence if it isn't loaded.
+        return {"ready": True, "loaded": "voice" in state, "version": VOICE_VERSION, "busy": lock.locked()}
 
     @app.post("/synthesize")
     async def synthesize(body: SpeakRequest) -> Response:
         text = check_speech(body.text)
         if text is None:
             return JSONResponse({"error": "That can't be spoken."}, status_code=400)
-        voice = state["voice"]
         if text in recent:
             recent.move_to_end(text)
             event("recent_hit", chars=len(text))
@@ -243,6 +283,11 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
         try:
             if text in recent:  # made while this request waited for its turn
                 return reply(recent[text])
+            try:
+                voice = await voice_now()
+            except Exception as error:  # the model couldn't load (memory, missing download): logged, never shown
+                event("model_load_failed", reason=type(error).__name__)
+                return JSONResponse({"error": "The voice couldn't start."}, status_code=500)
             started = time.monotonic()
             try:
                 audio = await run_in_threadpool(best_take, voice, text)
@@ -253,6 +298,7 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
                 event("generation_failed", reason=type(error).__name__, chars=len(text))
                 return JSONResponse({"error": "The voice failed."}, status_code=500)
             mp3 = to_mp3(audio, voice.sampling_rate)
+            last_used["at"] = time.monotonic()
             recent[text] = mp3
             while len(recent) > RECENT:
                 recent.popitem(last=False)

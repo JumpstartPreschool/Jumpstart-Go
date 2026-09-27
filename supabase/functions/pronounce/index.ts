@@ -6,13 +6,17 @@
 //                        if needed. The database checks they're staff and under the hourly limit (voice_allowed).
 //   POST { drain: true } the database (pg_net, and a minute job) with VOICE_CRON_SECRET: makes the shared phrases once
 //                        per voice version, then each pending child's everyday sentences (voice_claim / voice_finish).
+//   POST { register }    the school's voice computer, with TTS_SHARED_SECRET, each time it starts: its current tunnel
+//                        address. Checked (it must answer as the school voice), saved (0032), and waiting work starts.
 // Deploy: npx supabase functions deploy pronounce --no-verify-jwt
-// Secrets: TTS_SERVICE_URL (the school computer's tunnel address), TTS_SHARED_SECRET (as tts-service), VOICE_CRON_SECRET
-// (as app.voice_config.secret), APP_ORIGIN (optional, as for invite-send).
+// Secrets: TTS_SHARED_SECRET (as tts-service), VOICE_CRON_SECRET (as app.voice_config.secret), TTS_ALLOWED_HOSTS
+// (optional: host suffixes the voice may register, default .trycloudflare.com), TTS_SERVICE_URL (optional: a fixed
+// address used until the computer first registers), APP_ORIGIN (optional, as for invite-send).
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { checkSpeech, clipKey, clipPath, commonPhrases, VOICE_VERSION, warmSentences, WORDING_VERSION } from '../_shared/announce.ts'
 
-const TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
+const FIXED_TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
+const ALLOWED_HOSTS = (Deno.env.get('TTS_ALLOWED_HOSTS') ?? '.trycloudflare.com').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
 const TTS_SECRET = Deno.env.get('TTS_SHARED_SECRET') ?? ''
 const CRON_SECRET = Deno.env.get('VOICE_CRON_SECRET') ?? ''
 const BUCKET = 'voice-audio'
@@ -39,10 +43,34 @@ const log = (event: string, extra: Record<string, unknown> = {}) => console.log(
 
 const store = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
 
-async function healthy(): Promise<boolean> {
-  if (!TTS_URL || !TTS_SECRET) return false
+// The voice computer's address: the one it last registered (0032), read at most every 15 s per worker.
+let known: { url: string; at: number } | null = null
+async function ttsUrl(): Promise<string> {
+  if (known && Date.now() - known.at < 15_000) return known.url
+  const { data } = await store.rpc('voice_tts_url')
+  known = { url: (typeof data === 'string' && data) || FIXED_TTS_URL, at: Date.now() }
+  return known.url
+}
+
+/** A plain https address on an allowed host (the tunnel), or null. */
+function allowedUrl(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length > 200) return null
   try {
-    const res = await fetch(`${TTS_URL}/health`, { headers: { Authorization: `Bearer ${TTS_SECRET}` }, signal: AbortSignal.timeout(5_000) })
+    const u = new URL(input)
+    const host = u.hostname.toLowerCase()
+    const allowed = ALLOWED_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) && host.length > h.length : host === h))
+    return u.protocol === 'https:' && allowed && !u.username && !u.password && (u.pathname === '/' || u.pathname === '') && !u.search && !u.hash
+      ? `https://${u.host}` : null
+  } catch {
+    return null
+  }
+}
+
+async function healthy(url?: string): Promise<boolean> {
+  const base = url ?? (await ttsUrl())
+  if (!base || !TTS_SECRET) return false
+  try {
+    const res = await fetch(`${base}/health`, { headers: { Authorization: `Bearer ${TTS_SECRET}` }, signal: AbortSignal.timeout(5_000) })
     const body = res.ok ? ((await res.json()) as { ready?: boolean; version?: string }) : null
     if (body?.ready && body.version !== VOICE_VERSION) log('version_mismatch', { service: body.version })
     return !!body?.ready && body.version === VOICE_VERSION
@@ -68,7 +96,7 @@ async function synthesize(text: string): Promise<Uint8Array<ArrayBuffer>> {
   const started = Date.now()
   let res: Response
   try {
-    res = await fetch(`${TTS_URL}/synthesize`, {
+    res = await fetch(`${await ttsUrl()}/synthesize`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${TTS_SECRET}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
@@ -232,8 +260,24 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
   if (req.method !== 'POST') return reply({ error: 'Use POST.' }, 405)
 
-  let body: { text?: unknown; drain?: unknown } = {}
+  let body: { text?: unknown; drain?: unknown; register?: unknown } = {}
   try { body = await req.json() } catch { /* checked below */ }
+
+  if (body.register !== undefined) {
+    if (!TTS_SECRET || !(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${TTS_SECRET}`))) return reply({ error: 'unauthorized' }, 401)
+    const url = allowedUrl(body.register)
+    if (!url) return reply({ error: 'That address is not allowed.' }, 400)
+    // Only an address that answers as this voice (same secret, same version) is saved.
+    if (!(await healthy(url))) return reply({ error: 'That address does not answer as the school voice.' }, 400)
+    const { error: saveError } = await store.rpc('voice_register', { p_url: url })
+    if (saveError) {
+      log('register_failed')
+      return reply({ error: saveError.message.replace(/^[a-z_]+: /, '') }, 409)
+    }
+    known = { url, at: Date.now() }
+    log('registered')
+    return reply({ registered: true })
+  }
 
   if (body.drain === true) {
     if (!(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${CRON_SECRET}`)) || !CRON_SECRET) return reply({ error: 'unauthorized' }, 401)
@@ -263,7 +307,7 @@ Deno.serve(async (req) => {
     return audio(new Uint8Array(await cached.data.arrayBuffer()), 'hit')
   }
   log('cache_miss')
-  if (!TTS_URL || !TTS_SECRET) return reply({ error: 'The school voice is not set up.' }, 503)
+  if (!(await ttsUrl()) || !TTS_SECRET) return reply({ error: 'The school voice is not set up.' }, 503)
   // A new sentence ties up the school's computer, so each person has a smaller hourly allowance for those.
   const { data: mayMake, error: makeError } = await db.rpc('voice_make_allowed')
   if (makeError || !mayMake) return reply({ error: 'Too many new announcements. Try again in a while.' }, 429)
