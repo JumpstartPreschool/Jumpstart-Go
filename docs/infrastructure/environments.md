@@ -5,8 +5,8 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Singapore (ap-southeast-1); database pooler aws-0-ap-southeast-1.pooler.supabase.com |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0006` live. `0007`–`0018` approved by the owner on 2026-09-25 and waiting to be pushed (the push command needs the owner's terminal) |
-| App hosting | Cloudflare Workers static assets, `jumpstart-preschool` (production) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
+| Migrations applied | `0001`–`0032` live (pushed from the owner's terminal with `bash scripts/voice-deploy.sh update`; the push needs the database password) |
+| App hosting | Cloudflare Workers static assets, `jumpstart-go` at https://jumpstart-go.singhankit91624.workers.dev (production; the old `jumpstart-preschool` address redirects there, see `scripts/old-link-redirect/`) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
 - `npm run deploy` publishes the production app; `npm run deploy:design` publishes the design-review build with the sample-data preview. Both read `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from `.env.local` (load it first: `set -a; . ./.env.local; set +a`).

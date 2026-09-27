@@ -2,7 +2,7 @@
 // Headers come from public/_headers. Publish with `npm run deploy`.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "jumpstart-preschool",
+  "name": "jumpstart-go",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./dist",
