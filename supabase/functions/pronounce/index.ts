@@ -126,15 +126,26 @@ async function madeAlready(): Promise<Set<string>> {
 
 class OutOfTime extends Error {}
 
-/** Makes each sentence not yet in the bucket, until the deadline. Returns how many were made. */
-async function ensure(list: readonly string[], have: Set<string>, deadline: number): Promise<number> {
+/**
+ * Makes each sentence not yet in the bucket, until the deadline. Returns how many were made. The school computer being
+ * busy or slow ends the run early (OutOfTime: the next run continues). `skipUnusable` (the shared phrases) logs a
+ * sentence the voice can't read clearly and goes on; for a child it fails the child, so a person can look at it.
+ */
+async function ensure(list: readonly string[], have: Set<string>, deadline: number, skipUnusable = false): Promise<number> {
   let made = 0
   for (const text of list) {
     const key = await clipKey(text)
     const path = clipPath(key)
     if (have.has(path)) continue
     if (Date.now() > deadline) throw new OutOfTime()
-    await make(key, text)
+    try {
+      await make(key, text)
+    } catch (e) {
+      if (e instanceof Busy) throw new OutOfTime()
+      if (!skipUnusable) throw e
+      log('phrase_skipped', { chars: text.length })
+      continue
+    }
     have.add(path)
     made++
   }
@@ -174,7 +185,7 @@ async function drain(): Promise<Record<string, unknown>> {
   const { data: meta } = await store.from('voice_meta').select('value').eq('key', 'phrases').maybeSingle()
   if (meta?.value !== VOICE_VERSION) {
     try {
-      phrases = await ensure(commonPhrases(), have, deadline)
+      phrases = await ensure(commonPhrases(), have, deadline, true)
     } catch (e) {
       if (!(e instanceof OutOfTime)) throw e
       log('drain', { phrases: 'partial', ms: Date.now() - started })
@@ -200,8 +211,8 @@ async function drain(): Promise<Record<string, unknown>> {
         children++
       } catch (e) {
         // Out of time, or the computer busy or slow: back in the queue with no try used up; the next run carries on
-        // from the clips already made.
-        if (e instanceof OutOfTime || e instanceof Busy) ok = null
+        // from the clips already made (and the school computer hands back a clip it finished after we stopped waiting).
+        if (e instanceof OutOfTime) ok = null
         else {
           failed++
           log('child_failed')

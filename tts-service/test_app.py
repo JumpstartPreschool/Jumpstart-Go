@@ -133,3 +133,13 @@ def test_a_flood_is_refused_instead_of_queued_for_hours():
         for t in threads:
             t.join()
     assert sorted(codes) == [200, 200, 200, 503]  # one making, two waiting, the fourth told to come back
+
+
+def test_a_clip_finished_after_the_caller_gave_up_is_handed_back_at_once():
+    voice = ToneVoice()
+    with client(voice) as c:
+        first = c.post("/synthesize", json={"text": "Urgent."}, headers=AUTH)
+        again = c.post("/synthesize", json={"text": "Urgent."}, headers=AUTH)
+    assert first.status_code == again.status_code == 200
+    assert again.content == first.content
+    assert voice.calls == 1

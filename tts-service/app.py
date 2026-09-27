@@ -21,6 +21,7 @@ import logging
 import os
 import time
 import unicodedata
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from typing import Callable, Protocol
 
@@ -49,6 +50,9 @@ TAKES = 3
 # Sentences allowed to wait while one is being made. More are refused (503) so a flood of requests can't queue up
 # hours of work; the caller tries later and the gate uses the tablet's own voice meanwhile.
 MAX_WAITING = 2
+# Clips made recently, by exact words. When the caller gave up waiting (the pronounce function stops at 60 s) the clip
+# still finishes here, and its next request is answered at once instead of making it all over again. ~20 KB each.
+RECENT = 64
 PAUSES = set(" .,'?!:;-")
 
 log = logging.getLogger("jumpstart-tts")
@@ -195,6 +199,10 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
     lock = asyncio.Lock()
     state: dict[str, Voice] = {}
     waiting = {"count": 0}
+    recent: OrderedDict[str, bytes] = OrderedDict()
+
+    def reply(mp3: bytes) -> Response:
+        return Response(mp3, media_type="audio/mpeg", headers={"x-voice-version": VOICE_VERSION, "cache-control": "no-store"})
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -220,6 +228,10 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
         if text is None:
             return JSONResponse({"error": "That can't be spoken."}, status_code=400)
         voice = state["voice"]
+        if text in recent:
+            recent.move_to_end(text)
+            event("recent_hit", chars=len(text))
+            return reply(recent[text])
         if lock.locked() and waiting["count"] >= MAX_WAITING:
             event("busy", chars=len(text))
             return JSONResponse({"error": "Busy. Try again shortly."}, status_code=503)
@@ -229,6 +241,8 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
         finally:
             waiting["count"] -= 1
         try:
+            if text in recent:  # made while this request waited for its turn
+                return reply(recent[text])
             started = time.monotonic()
             try:
                 audio = await run_in_threadpool(best_take, voice, text)
@@ -239,11 +253,14 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
                 event("generation_failed", reason=type(error).__name__, chars=len(text))
                 return JSONResponse({"error": "The voice failed."}, status_code=500)
             mp3 = to_mp3(audio, voice.sampling_rate)
+            recent[text] = mp3
+            while len(recent) > RECENT:
+                recent.popitem(last=False)
             event("generation_completed", chars=len(text), ms=round((time.monotonic() - started) * 1000),
                   seconds=round(audio.size / voice.sampling_rate, 2), bytes=len(mp3))
         finally:
             lock.release()
-        return Response(mp3, media_type="audio/mpeg", headers={"x-voice-version": VOICE_VERSION, "cache-control": "no-store"})
+        return reply(mp3)
 
     return app
 

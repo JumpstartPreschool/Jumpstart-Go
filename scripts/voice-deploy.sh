@@ -6,6 +6,7 @@
 #   bash scripts/voice-deploy.sh status       is it running, and what did the last background run make
 #   bash scripts/voice-deploy.sh check        why the background job isn't running (cron, net, link, queue), then a run now
 #   bash scripts/voice-deploy.sh publish      build and publish the app (with the Cloudflare browser login)
+#   bash scripts/voice-deploy.sh update       after a code change: restart the voice, redeploy pronounce, relink, run
 #   bash scripts/voice-deploy.sh remove-old   delete the old cloud voice (voice-say, its secrets); run after deploy works
 # Reads SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD and the Cloudflare keys from .env.local. Creates TTS_SHARED_SECRET and
 # VOICE_CRON_SECRET there once (git-ignored). Never prints a secret. The tunnel is a Cloudflare quick tunnel, whose
@@ -83,6 +84,30 @@ start_voice() {
   echo "Secrets set."
 }
 
+link_db() {
+  say "Linking the database to pronounce, and the minute job"
+  psql "$DB_URL" -v ON_ERROR_STOP=1 -q -X -v url="$FN_URL" -v secret="$VOICE_CRON_SECRET" <<'SQL'
+insert into app.voice_config (url, secret) values (:'url', :'secret')
+  on conflict (id) do update set url = excluded.url, secret = excluded.secret;
+do $$ begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+  perform cron.unschedule('voice-drain') where exists (select 1 from cron.job where jobname = 'voice-drain');
+  perform cron.schedule('voice-drain', '* * * * *', $job$
+    select net.http_post(url := c.url, headers := jsonb_build_object('Authorization', 'Bearer ' || c.secret, 'Content-Type', 'application/json'), body := '{"drain":true}'::jsonb)
+    from app.voice_config c
+    where extract(minute from now())::int % 10 = 0
+       or exists (select 1 from public.child_pronunciations p
+                  where (p.audio_status = 'pending' and p.next_attempt_at <= now())
+                     or (p.audio_status = 'generating' and p.claimed_at < now() - interval '10 minutes'))
+  $job$);
+  raise notice 'Minute job scheduled.';
+  else
+  raise notice 'pg_cron is not enabled: turn it on (Database → Extensions) and run deploy again.';
+  end if;
+end $$;
+SQL
+}
+
 # Wrangler reads CLOUDFLARE_API_TOKEN from .env.local by itself, and that token can't edit this worker. Publishing from
 # a folder without .env.local uses the Cloudflare browser login (npx wrangler login), which can.
 publish() {
@@ -99,9 +124,14 @@ check() {
   psql "$DB_URL" -q -X <<'SQL'
 select 'pg_cron enabled' as check, exists (select 1 from pg_extension where extname = 'pg_cron') as ok
 union all select 'pg_net enabled', exists (select 1 from pg_extension where extname = 'pg_net')
-union all select 'link to pronounce saved (app.voice_config)', exists (select 1 from app.voice_config)
-union all select 'minute job scheduled (voice-drain)', exists (select 1 from pg_extension where extname = 'pg_cron')
-  and (select count(*) from cron.job where jobname = 'voice-drain') > 0;
+union all select 'link to pronounce saved (app.voice_config)', exists (select 1 from app.voice_config);
+do $$ begin
+  if to_regclass('cron.job') is not null then
+    raise notice 'voice-drain scheduled: %', (select count(*) > 0 from cron.job where jobname = 'voice-drain');
+  else
+    raise notice 'pg_cron is off: Supabase dashboard → Database → Extensions → enable pg_cron (and pg_net), then: bash scripts/voice-deploy.sh update';
+  end if;
+end $$;
 select audio_status, count(*) from public.child_pronunciations group by 1 order by 1;
 SQL
   psql "$DB_URL" -q -X -c "select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'voice-drain') order by start_time desc limit 3" 2>/dev/null || true
@@ -135,26 +165,7 @@ case "${1:-}" in
     $SB functions deploy pronounce --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
 
     say "5/7 The database's link to pronounce, and the minute job"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -q -X -v url="$FN_URL" -v secret="$VOICE_CRON_SECRET" <<'SQL'
-insert into app.voice_config (url, secret) values (:'url', :'secret')
-  on conflict (id) do update set url = excluded.url, secret = excluded.secret;
-do $$ begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    perform cron.unschedule('voice-drain') where exists (select 1 from cron.job where jobname = 'voice-drain');
-    perform cron.schedule('voice-drain', '* * * * *', $job$
-      select net.http_post(url := c.url, headers := jsonb_build_object('Authorization', 'Bearer ' || c.secret, 'Content-Type', 'application/json'), body := '{"drain":true}'::jsonb)
-      from app.voice_config c
-      where extract(minute from now())::int % 10 = 0
-         or exists (select 1 from public.child_pronunciations p
-                    where (p.audio_status = 'pending' and p.next_attempt_at <= now())
-                       or (p.audio_status = 'generating' and p.claimed_at < now() - interval '10 minutes'))
-    $job$);
-    raise notice 'Minute job scheduled.';
-  else
-    raise notice 'pg_cron is not enabled: turn it on (Database → Extensions) and run deploy again.';
-  end if;
-end $$;
-SQL
+    link_db
 
     say "6/7 First background run"
     kick
@@ -167,6 +178,16 @@ SQL
     ;;
   start) start_voice; kick ;;
   check) check ;;
+  update)
+    # New voice-service or pronounce code: restart the voice (new tunnel address), redeploy pronounce, relink, run.
+    for p in tunnel voice; do alive "$p" && kill "$(cat "$RUN/$p.pid")" && echo "Stopped $p."; rm -f "$RUN/$p.pid"; done
+    sleep 2
+    start_voice
+    say "Deploying pronounce"
+    $SB functions deploy pronounce --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+    link_db
+    kick
+    ;;
   publish) publish ;;
   stop)
     for p in tunnel voice; do alive "$p" && kill "$(cat "$RUN/$p.pid")" && echo "Stopped $p."; rm -f "$RUN/$p.pid"; done
@@ -183,5 +204,5 @@ SQL
     $SB functions delete voice-say --project-ref "$SUPABASE_PROJECT_REF" || true
     echo "Now, in the Supabase dashboard → Storage, empty and delete the voice-cache bucket (old cloud recordings)."
     ;;
-  *) sed -n 2,13p "$0"; exit 1 ;;
+  *) sed -n 2,14p "$0"; exit 1 ;;
 esac
