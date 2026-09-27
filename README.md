@@ -6,8 +6,8 @@
 Parents say they're on the way, the gate knows who is coming, and every handover is checked and recorded.</p>
 
 <p align="center">
-  <a href="https://jumpstart-preschool.singhankit91624.workers.dev">Open the app</a> ·
-  <a href="https://jumpstart-preschool.singhankit91624.workers.dev/privacy">Privacy Policy</a> ·
+  <a href="https://jumpstart-go.singhankit91624.workers.dev">Open the app</a> ·
+  <a href="https://jumpstart-go.singhankit91624.workers.dev/privacy">Privacy Policy</a> ·
   <a href="docs/product/prd.md">Product decisions</a>
 </p>
 
