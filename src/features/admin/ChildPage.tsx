@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
+import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, PencilLine, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -115,7 +115,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       </div>
       <AccessState person={p} onInvite={setInviting} />
       <Switch on={p.app_access} label={`App access for ${p.full_name}`} busy={busy} onChange={() => toggleAccess(p)} />
-      <Button size="md" variant="quiet" icon={<Pencil />} aria-label={`Edit ${p.full_name}`} onClick={() => setEditing({ person: p, relation: g.relation })} />
+      <button type="button" className="iconbtn" aria-label={`Edit ${p.full_name}`} onClick={() => setEditing({ person: p, relation: g.relation })}><PencilLine /></button>
       <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => { setError(null); setPending({ kind: 'remove', person: p }) }} />
     </li>
   )

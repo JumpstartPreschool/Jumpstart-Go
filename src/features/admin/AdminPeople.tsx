@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, Pencil, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
+import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, PencilLine, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
@@ -138,7 +138,7 @@ export function AdminPeople() {
                   const people = dir.guardianships.filter((g) => g.child_id === c.id).map((g) => `${dir.profiles.find((p) => p.id === g.guardian_id)?.full_name.split(' ')[0] ?? '?'} (${g.relation.split(',')[0]})`)
                   return (
                     <li key={c.id}>
-                      <button type="button" onClick={() => navigate(`/admin/child/${c.id}`)} className="card flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left transition-shadow duration-150 hover:shadow-[var(--shadow-lift)]">
+                      <button type="button" onClick={() => navigate(`/admin/child/${c.id}`)} className="card lift flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left">
                         <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-h3">{c.full_name}</span>
@@ -160,15 +160,19 @@ export function AdminPeople() {
                     const ks = kidsOf(p.id)
                     const parent = ks.some((x) => x.g.kind === 'parent')
                     return (
-                      <li key={p.id} className="card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3.5">
-                        <Avatar name={p.full_name} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} />
-                        <div className="min-w-0 flex-1 basis-[180px]">
-                          <p className="flex items-center gap-2 text-h4"><span className="truncate">{p.full_name}</span>{p.abroad && <Pill icon={<Globe />}>Abroad</Pill>}</p>
-                          <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
-                          <p className="truncate text-small font-semibold">{ks.map((x) => `${x.g.relation.split(',')[0]} of ${x.k!.preferred_name ?? x.k!.full_name.split(' ')[0]}`).join(', ')}</p>
+                      <li key={p.id} className="card lift flex h-full flex-col rounded-2xl p-4">
+                        <div className="flex items-start gap-3">
+                          <Avatar name={p.full_name} color={parent ? 'var(--rb-blue)' : 'var(--ink-3)'} />
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <p className="flex items-center gap-2 text-h4"><span className="truncate">{p.full_name}</span>{p.abroad && <Pill icon={<Globe />}>Abroad</Pill>}</p>
+                            <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
+                          </div>
                         </div>
-                        <AccessState person={p} onInvite={setInviting} />
-                        <Switch on={p.app_access} busy={busy} label={`App access for ${p.full_name}`} onChange={() => accessSwitch(p)} />
+                        <p className="mb-4 mt-3 text-small font-semibold">{ks.map((x) => `${x.g.relation.split(',')[0]} of ${x.k!.preferred_name ?? x.k!.full_name.split(' ')[0]}`).join(', ')}</p>
+                        <div className="mt-auto flex min-h-[57px] items-center justify-between gap-3 border-t border-line pt-3">
+                          <AccessState person={p} onInvite={setInviting} />
+                          <Switch on={p.app_access} busy={busy} label={`App access for ${p.full_name}`} onChange={() => accessSwitch(p)} />
+                        </div>
                       </li>
                     )
                   })}
@@ -188,18 +192,22 @@ export function AdminPeople() {
                     const roles = dir.roles.get(p.id) ?? []
                     const admin = roles.includes('admin')
                     return (
-                      <li key={p.id} className={`card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3.5 ${p.active ? '' : 'opacity-75'}`}>
-                        <Avatar name={p.full_name} color={childColor(p.id)} />
-                        <div className="min-w-0 flex-1 basis-[180px]">
-                          <p className="truncate text-h4">{p.full_name}{p.id === myId && <span className="font-semibold text-ink-3"> (you)</span>}</p>
-                          <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
+                      <li key={p.id} className={`card lift flex h-full flex-col rounded-2xl p-4 ${p.active ? '' : 'opacity-75'}`}>
+                        <div className="flex items-start gap-3">
+                          <Avatar name={p.full_name} color={childColor(p.id)} />
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <p className="truncate text-h4">{p.full_name}{p.id === myId && <span className="font-semibold text-ink-3"> (you)</span>}</p>
+                            <p className="truncate text-small font-semibold text-ink-2">{contact(p)}</p>
+                          </div>
+                          <button type="button" className="iconbtn" aria-label={`Edit ${p.full_name}`} onClick={() => setEditingStaff(p)}><PencilLine /></button>
                         </div>
-                        {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
-                        <Button size="md" variant="quiet" icon={<Pencil />} aria-label={`Edit ${p.full_name}`} onClick={() => setEditingStaff(p)} />
-                        {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
-                          : p.active ? <Button size="md" variant="secondary" onClick={() => { setActionError(null); setConfirm({ person: p, what: 'staff' }) }}>Turn off</Button>
-                          : <Button size="md" icon={<CircleCheck />} loading={busy} onClick={() => void act(() => setPersonActive(p.id, true), `${p.full_name.split(' ')[0]} can sign in again.`)}>Turn on</Button>}
+                        <div className="mb-4 mt-3 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
+                        <div className="mt-auto flex min-h-[57px] flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-3">
+                          {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
+                          {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
+                            : p.active ? <Button size="md" variant="secondary" onClick={() => { setActionError(null); setConfirm({ person: p, what: 'staff' }) }}>Turn off</Button>
+                            : <Button size="md" icon={<CircleCheck />} loading={busy} onClick={() => void act(() => setPersonActive(p.id, true), `${p.full_name.split(' ')[0]} can sign in again.`)}>Turn on</Button>}
+                        </div>
                       </li>
                     )
                   })}
@@ -216,7 +224,7 @@ export function AdminPeople() {
                   const progs = dir.programmes.filter((p) => p.class_id === c.id).length
                   return (
                     <li key={c.id}>
-                      <button type="button" className="choice flex w-full items-center gap-3.5 p-3.5 text-left" onClick={() => setOpenClass(c.id)}>
+                      <button type="button" className="card lift flex w-full items-center gap-3.5 rounded-xl p-3.5 text-left" onClick={() => setOpenClass(c.id)}>
                       <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{level ? levelIcon(levelOf(level).level) : <GraduationCap />}</span>
                       <span className="min-w-0">
                         <span className="block text-h4">{c.name}</span>
