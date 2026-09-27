@@ -39,7 +39,7 @@ export function ConsentScreen() {
     const { error: e } = await supabase.rpc('accept_consent', { p_version: CONSENT_VERSION })
     if (e) {
       setBusy(false)
-      return setError("We couldn't save that. Check your connection and try again.")
+      return setError(e.code ? "The school's system couldn't do that. Try again, and call the school if it keeps happening." : "We couldn't save that. Check your connection and try again.")
     }
     await refresh()
     // The parent's Today page opens at the top, not at this page's scroll position (under the floating top bar).
