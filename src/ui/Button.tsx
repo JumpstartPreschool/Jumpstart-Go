@@ -36,3 +36,16 @@ export function Button({ variant = 'primary', size = 'lg', icon, loading = false
     </button>
   )
 }
+
+/**
+ * A rich action (`.lux` in app.css): frosted glass on a soft raised base, the icon in a sunken well. Used only where the
+ * owner asked for it (People's Add child and Bulk upload); `primary` is the red main action.
+ */
+export function LuxButton({ primary = false, icon, children, className = '', ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean; icon: ReactNode }) {
+  return (
+    <button type="button" className={`lux ${primary ? 'lux--primary' : ''} ${className}`} {...rest}>
+      <span className="lux__icon" aria-hidden>{icon}</span>
+      {children}
+    </button>
+  )
+}
