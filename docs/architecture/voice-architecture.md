@@ -54,6 +54,8 @@ Admin adds or renames a child ─► 0030 trigger ─► pending ─► minute j
 ## Security
 
 - `pronounce` checks the caller is staff and within 300 new sentences an hour (`voice_allowed`). Input is limited to 1–400 characters of letters, marks, digits, spaces and pauses, and is checked again by the TTS service. `set_child_pronunciation` and `retry_child_voice` are admin and head office only, rate-limited, and pronunciation changes are audit-logged. `voice_claim`, `voice_finish` and `voice_requeue_all` are service-role only.
+- Load limits, so a flood can't jam pickup time: staff may have 60 new sentences made an hour each (`voice_make_allowed`), each at most 200 characters. The voice service lets 2 sentences wait and answers 503 (busy) beyond that. A bulk change starts at most one background run every 20 seconds. A busy or timed-out sentence goes back in the queue without using a try.
+- The drain secret is compared in constant time. Set `APP_ORIGIN` in production so only the app's address may call `pronounce` from a browser.
 - The TTS service rejects every request without the shared secret (constant-time compare), has no docs pages, and returns no internal errors. The secret and URL exist only as function secrets, never in the browser.
 - The drain endpoint needs `VOICE_CRON_SECRET`. Logs record counts, sizes, timings and the voice version, never the words or who asked.
 - Names now reach only the school's own computer. The consent version was raised and the privacy text rewritten.

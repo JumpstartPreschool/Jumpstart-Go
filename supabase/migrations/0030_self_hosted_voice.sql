@@ -46,15 +46,21 @@ drop function public.admin_set_pronunciation(text, text);
 drop table public.pronunciations;
 
 -- Where the pronounce function lives, and the secret the database sends it (set once, as for push: environments.md).
-create table app.voice_config (id boolean primary key default true check (id), url text not null, secret text not null);
+create table app.voice_config (id boolean primary key default true check (id), url text not null, secret text not null,
+  kicked_at timestamptz);
 revoke all on app.voice_config from public, anon, authenticated;
 
-/** Asks the pronounce function to make pending clips now; the minute job below catches anything missed. */
+/**
+ * Asks the pronounce function to make pending clips now, at most once every 20 seconds: a bulk change (a class renamed,
+ * an import) queues many children but starts one run, not one per child. The minute job catches anything missed.
+ */
 create function app.kick_voice() returns void
 language plpgsql security definer set search_path = '' as $$
 declare cfg app.voice_config;
 begin
-  select * into cfg from app.voice_config;
+  update app.voice_config set kicked_at = now()
+   where kicked_at is null or kicked_at < now() - interval '20 seconds'
+  returning * into cfg;
   if found and exists (select 1 from pg_extension where extname = 'pg_net') then
     execute 'select net.http_post(url := $1, headers := $2, body := ''{"drain":true}''::jsonb)'
       using cfg.url, jsonb_build_object('Authorization', 'Bearer ' || cfg.secret, 'Content-Type', 'application/json');
@@ -154,6 +160,20 @@ begin
    where child_id = p_child;
   if s is distinct from before then perform app.voice_requeue(array[p_child]); end if;
 end $$;
+
+/**
+ * A staff member may have at most 60 new sentences made an hour (on top of voice_allowed's 300 requests): making one
+ * ties up the school's voice computer for seconds, and ready clips cost nothing. The pronounce function asks first.
+ */
+create function public.voice_make_allowed() returns boolean
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not app.is_staff() then return false; end if;
+  perform app.throttle('voice-make:' || app.me(), 60, interval '1 hour');
+  return true;
+end $$;
+revoke all on function public.voice_make_allowed() from public, anon;
+grant execute on function public.voice_make_allowed() to authenticated;
 
 /** Try making a child's clips again after they failed (the Try again button). Admin and head office only. */
 create function public.retry_child_voice(p_child uuid) returns void

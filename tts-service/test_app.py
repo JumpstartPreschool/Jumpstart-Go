@@ -111,3 +111,25 @@ def test_a_take_that_ran_to_the_limit_gets_a_fresh_seed():
     with client(voice) as c:
         assert c.post("/synthesize", json={"text": "Aadhya."}, headers=AUTH).status_code == 200
     assert voice.seeds == [service.SEED, service.SEED + 1]
+
+
+def test_a_flood_is_refused_instead_of_queued_for_hours():
+    import threading
+    import time as clock
+
+    class Slow(ToneVoice):
+        def speak(self, text, seed=0):
+            clock.sleep(0.4)
+            return super().speak(text, seed)
+
+    codes: list[int] = []
+    with client(Slow()) as c:
+        def ask(i: int) -> None:
+            codes.append(c.post("/synthesize", json={"text": f"Sentence {i}."}, headers=AUTH).status_code)
+        threads = [threading.Thread(target=ask, args=(i,)) for i in range(4)]
+        for t in threads:
+            t.start()
+            clock.sleep(0.05)
+        for t in threads:
+            t.join()
+    assert sorted(codes) == [200, 200, 200, 503]  # one making, two waiting, the fourth told to come back

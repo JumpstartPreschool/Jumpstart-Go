@@ -15,6 +15,7 @@ set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000d1"}';
 set role authenticated;
 do $$ begin
   assert public.voice_allowed(), 'coordinator allowed';
+  assert public.voice_make_allowed(), 'coordinator may have a new sentence made';
   assert (select count(*) from public.child_pronunciations) > 0, 'coordinator reads';
 end $$;
 -- Coordinators listen but don't change.
@@ -28,6 +29,7 @@ set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000f7"}';
 set role authenticated;
 do $$ begin
   assert not public.voice_allowed(), 'parent refused';
+  assert not public.voice_make_allowed(), 'parent may not have sentences made';
   assert (select count(*) from public.child_pronunciations) = 0, 'parent sees none';
 end $$;
 do $$ begin

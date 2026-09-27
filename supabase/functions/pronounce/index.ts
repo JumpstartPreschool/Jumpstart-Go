@@ -16,6 +16,8 @@ const TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
 const TTS_SECRET = Deno.env.get('TTS_SHARED_SECRET') ?? ''
 const CRON_SECRET = Deno.env.get('VOICE_CRON_SECRET') ?? ''
 const BUCKET = 'voice-audio'
+// Sentences from a tablet are one sentence of an announcement; the longest everyday one is well under this.
+const STAFF_MAX_CHARS = 200
 // A long sentence on a CPU can take several seconds; past this the school computer is treated as unavailable.
 const MAKE_TIMEOUT_MS = 60_000
 // Supabase stops a function at 150 s. A drain starts no new sentence after 80 s (one sentence may take up to 60 s on a
@@ -49,14 +51,37 @@ async function healthy(): Promise<boolean> {
   }
 }
 
+/** The school computer is busy (its short queue is full) or too slow right now: try later, it's not a failure. */
+class Busy extends Error {}
+
+/** Compares secrets in constant time (as digests, so their lengths don't matter either). */
+async function sameSecret(given: string, expected: string): Promise<boolean> {
+  if (!expected) return false
+  const digest = async (s: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))
+  const [a, b] = await Promise.all([digest(given), digest(expected)])
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!
+  return diff === 0
+}
+
 async function synthesize(text: string): Promise<Uint8Array<ArrayBuffer>> {
   const started = Date.now()
-  const res = await fetch(`${TTS_URL}/synthesize`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${TTS_SECRET}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-    signal: AbortSignal.timeout(MAKE_TIMEOUT_MS),
-  })
+  let res: Response
+  try {
+    res = await fetch(`${TTS_URL}/synthesize`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TTS_SECRET}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(MAKE_TIMEOUT_MS),
+    })
+  } catch (e) {
+    log('generation_failed', { reason: (e as Error).name === 'TimeoutError' ? 'timeout' : 'unreachable', ms: Date.now() - started })
+    throw new Busy()
+  }
+  if (res.status === 503) {
+    log('tts_busy')
+    throw new Busy()
+  }
   if (!res.ok) {
     log('generation_failed', { status: res.status, ms: Date.now() - started })
     throw new Error(`tts ${res.status}`)
@@ -174,8 +199,9 @@ async function drain(): Promise<Record<string, unknown>> {
         ok = true
         children++
       } catch (e) {
-        // Out of time: back in the queue with no try used up; the next run carries on from the clips already made.
-        if (e instanceof OutOfTime) ok = null
+        // Out of time, or the computer busy or slow: back in the queue with no try used up; the next run carries on
+        // from the clips already made.
+        if (e instanceof OutOfTime || e instanceof Busy) ok = null
         else {
           failed++
           log('child_failed')
@@ -197,7 +223,7 @@ Deno.serve(async (req) => {
   try { body = await req.json() } catch { /* checked below */ }
 
   if (body.drain === true) {
-    if (!CRON_SECRET || req.headers.get('Authorization') !== `Bearer ${CRON_SECRET}`) return reply({ error: 'unauthorized' }, 401)
+    if (!(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${CRON_SECRET}`)) || !CRON_SECRET) return reply({ error: 'unauthorized' }, 401)
     try {
       return reply(await drain())
     } catch {
@@ -215,7 +241,7 @@ Deno.serve(async (req) => {
   if (!allowed) return reply({ error: 'Only school staff can make announcements.' }, 403)
 
   const text = checkSpeech(body.text)
-  if (!text) return reply({ error: 'That can’t be spoken.' }, 400)
+  if (!text || text.length > STAFF_MAX_CHARS) return reply({ error: 'That can’t be spoken.' }, 400)
   const key = await clipKey(text)
   log('tts_requested', { chars: text.length })
   const cached = await store.storage.from(BUCKET).download(clipPath(key))
@@ -225,9 +251,12 @@ Deno.serve(async (req) => {
   }
   log('cache_miss')
   if (!TTS_URL || !TTS_SECRET) return reply({ error: 'The school voice is not set up.' }, 503)
+  // A new sentence ties up the school's computer, so each person has a smaller hourly allowance for those.
+  const { data: mayMake, error: makeError } = await db.rpc('voice_make_allowed')
+  if (makeError || !mayMake) return reply({ error: 'Too many new announcements. Try again in a while.' }, 429)
   try {
     return audio(await make(key, text), 'miss')
-  } catch {
-    return reply({ error: 'The school voice is unavailable right now.' }, 502)
+  } catch (e) {
+    return reply({ error: 'The school voice is unavailable right now.' }, e instanceof Busy ? 503 : 502)
   }
 })

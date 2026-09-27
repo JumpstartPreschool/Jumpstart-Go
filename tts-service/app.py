@@ -46,6 +46,9 @@ SEED = 20260927
 VOICE_VERSION = "indic-parler-tts@7b527af5|mary|calm-v1|seed-20260927|mp3-64k"
 MAX_CHARS = 400
 TAKES = 3
+# Sentences allowed to wait while one is being made. More are refused (503) so a flood of requests can't queue up
+# hours of work; the caller tries later and the gate uses the tablet's own voice meanwhile.
+MAX_WAITING = 2
 PAUSES = set(" .,'?!:;-")
 
 log = logging.getLogger("jumpstart-tts")
@@ -191,6 +194,7 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
         raise SystemExit("Set TTS_SHARED_SECRET to a random value of 32 or more characters (the same as the pronounce function's).")
     lock = asyncio.Lock()
     state: dict[str, Voice] = {}
+    waiting = {"count": 0}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -216,7 +220,15 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
         if text is None:
             return JSONResponse({"error": "That can't be spoken."}, status_code=400)
         voice = state["voice"]
-        async with lock:
+        if lock.locked() and waiting["count"] >= MAX_WAITING:
+            event("busy", chars=len(text))
+            return JSONResponse({"error": "Busy. Try again shortly."}, status_code=503)
+        waiting["count"] += 1
+        try:
+            await lock.acquire()
+        finally:
+            waiting["count"] -= 1
+        try:
             started = time.monotonic()
             try:
                 audio = await run_in_threadpool(best_take, voice, text)
@@ -229,6 +241,8 @@ def create_app(load_voice: Callable[[], Voice], secret: str | None = None) -> Fa
             mp3 = to_mp3(audio, voice.sampling_rate)
             event("generation_completed", chars=len(text), ms=round((time.monotonic() - started) * 1000),
                   seconds=round(audio.size / voice.sampling_rate, 2), bytes=len(mp3))
+        finally:
+            lock.release()
         return Response(mp3, media_type="audio/mpeg", headers={"x-voice-version": VOICE_VERSION, "cache-control": "no-store"})
 
     return app
