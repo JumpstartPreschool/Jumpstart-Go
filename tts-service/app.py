@@ -5,7 +5,7 @@ It runs on the school's own computer and knows nothing about children: it turns 
 Only the Supabase `pronounce` function calls it, with a shared secret, through a Cloudflare Tunnel. The model is loaded
 once at start-up and kept in memory; one sentence is made at a time, because one computer gains nothing from more.
 
-    TTS_SHARED_SECRET=...  uv run uvicorn app:app --host 127.0.0.1 --port 8765
+    TTS_SHARED_SECRET=...  uv run uvicorn app:app --host 127.0.0.1 --port 8790
 
 Environment: TTS_SHARED_SECRET (required, 32+ characters), TTS_DEVICE (auto | mps | cuda | cpu; default auto).
 """

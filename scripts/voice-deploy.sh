@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.."
 ROOT=$PWD
 RUN="$HOME/.jumpstart-voice"
 mkdir -p "$RUN"
+# Its own port, away from the usual 8000/8080/8765 that other local tools pick. TTS_PORT in .env.local to change.
+PORT=${TTS_PORT:-8790}
 
 [ -f .env.local ] || { echo "No .env.local here."; exit 1; }
 set -a; . ./.env.local; set +a
@@ -40,11 +42,17 @@ alive() { [ -f "$RUN/$1.pid" ] && kill -0 "$(cat "$RUN/$1.pid")" 2>/dev/null; }
 
 start_voice() {
   if alive voice; then echo "Voice already running."; else
+    if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN > /dev/null 2>&1; then
+      echo "Port $PORT is already used by another program:"; lsof -nP -iTCP:"$PORT" -sTCP:LISTEN
+      echo "Stop it, or set TTS_PORT=<free port> in .env.local, then run this again."; exit 1
+    fi
     say "Starting the voice (the model takes about 25 s to load)"
-    (cd "$ROOT/tts-service" && HF_HUB_OFFLINE=1 TTS_SHARED_SECRET="$TTS_SHARED_SECRET" nohup uv run uvicorn app:app --host 127.0.0.1 --port 8765 > "$RUN/voice.log" 2>&1 & echo $! > "$RUN/voice.pid")
+    (cd "$ROOT/tts-service" && HF_HUB_OFFLINE=1 TTS_SHARED_SECRET="$TTS_SHARED_SECRET" nohup uv run uvicorn app:app --host 127.0.0.1 --port "$PORT" > "$RUN/voice.log" 2>&1 & echo $! > "$RUN/voice.pid")
   fi
-  until curl -s -H "Authorization: Bearer $TTS_SHARED_SECRET" http://127.0.0.1:8765/health | grep -q '"ready":true'; do
+  local waited=0
+  until curl -s -H "Authorization: Bearer $TTS_SHARED_SECRET" "http://127.0.0.1:$PORT/health" | grep -q '"ready":true'; do
     alive voice || { echo "The voice stopped; see $RUN/voice.log"; tail -20 "$RUN/voice.log"; exit 1; }
+    waited=$((waited + 3)); [ "$waited" -lt 300 ] || { echo "The voice didn't get ready in 5 minutes; see $RUN/voice.log"; exit 1; }
     sleep 3
   done
   echo "Voice ready on this computer."
@@ -52,7 +60,7 @@ start_voice() {
   if alive tunnel; then kill "$(cat "$RUN/tunnel.pid")" 2>/dev/null || true; sleep 1; fi
   say "Opening the tunnel"
   : > "$RUN/tunnel.log"
-  nohup cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8765 > "$RUN/tunnel.log" 2>&1 & echo $! > "$RUN/tunnel.pid"
+  nohup cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$PORT" > "$RUN/tunnel.log" 2>&1 & echo $! > "$RUN/tunnel.pid"
   local url=""
   for _ in $(seq 1 40); do
     url=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$RUN/tunnel.log" | head -1 || true)
@@ -61,7 +69,11 @@ start_voice() {
   done
   [ -n "$url" ] || { echo "No tunnel address; see $RUN/tunnel.log"; exit 1; }
   echo "$url" > "$RUN/tunnel.url"
-  until curl -s -H "Authorization: Bearer $TTS_SHARED_SECRET" "$url/health" | grep -q '"ready":true'; do sleep 2; done
+  waited=0
+  until curl -s -H "Authorization: Bearer $TTS_SHARED_SECRET" "$url/health" | grep -q '"ready":true'; do
+    waited=$((waited + 2)); [ "$waited" -lt 120 ] || { echo "The tunnel address didn't answer in 2 minutes; see $RUN/tunnel.log"; exit 1; }
+    sleep 2
+  done
   echo "Reachable at $url"
 
   say "Pointing Supabase at it"
