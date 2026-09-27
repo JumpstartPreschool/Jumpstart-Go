@@ -1,5 +1,5 @@
 import type { AnnouncerOutput, ChimeKind } from './announcer'
-import { DEFAULT_NATURAL, NATURAL_VOICES, naturalAudio, naturalStatus, playBuffer, prepareNaturalVoice, stopNatural, type NaturalVoiceId } from './naturalVoice'
+import { NATURAL_VOICES, naturalAudio, naturalStatus, playBuffer, prepareNaturalVoice, stopNatural, type NaturalVoiceId } from './naturalVoice'
 import { currentPronunciations, speechText } from './pronunciation'
 import { studioAudio, studioAvailable, studioKnown } from './studioVoice'
 
@@ -37,16 +37,16 @@ const QUALITY_SCORE: Record<VoiceQuality, number> = { natural: 100, premium: 90,
 
 export function voiceScore(v: Pick<SpeechSynthesisVoice, 'name' | 'lang'>): number {
   const lang = v.lang.replace('_', '-').toLowerCase()
-  if (!lang.startsWith('en') || ROBOTIC.test(v.name)) return -1
+  if (!(lang.startsWith('en') || lang === 'hi-in') || ROBOTIC.test(v.name)) return -1
   let score = QUALITY_SCORE[voiceQuality(v.name)]
   // Among the built-in (compact) voices these are the smooth ones; older ones such as Rishi sound mechanical.
   // Samantha, the warmest of them, leads when nothing better is installed.
   if (score === 0 && SMOOTH.test(v.name)) score += /^samantha\b/i.test(v.name) ? 45 : 40
   // The school wants a warm woman's voice for announcements (owner, 2026-09-25), so any woman's voice comes first.
   if (voiceGender(v.name) === 'female') score += 100
-  // Indian English says the children's names the way families say them (owner, 2026-09-25), so it outranks a more
-  // polished American or British voice.
-  score += lang === 'en-in' ? 70 : lang === 'en-gb' ? 15 : 10
+  // Indian names said the way families say them matter most (owner, 2026-09-27): an Indian English voice first, then
+  // the Hindi voice (it reads English with an Indian accent and says names correctly), and only then any other.
+  score += lang === 'en-in' ? 190 : lang === 'hi-in' ? 140 : lang === 'en-gb' ? 15 : 10
   return score
 }
 const SMOOTH = /^(samantha|daniel|karen|moira|tessa|serena|kate|oliver|arthur|martha|ava|allison|susan|tom|evan|nathan|zoe|nicky|aaron|fiona|isha|veena|tara)\b/i
@@ -60,7 +60,7 @@ export function voiceGender(name: string): 'female' | 'male' | null {
   return MALE.test(name) ? 'male' : null
 }
 
-/** English voices on this device, most human-sounding first. */
+/** Voices on this device that can read the announcements (English, and Hindi for Indian pronunciation), best first. */
 export function rankedVoices(): SpeechSynthesisVoice[] {
   if (!soundSupported) return []
   return speechSynthesis.getVoices()
@@ -83,12 +83,12 @@ export function indianVoice(): SpeechSynthesisVoice | null {
 }
 
 /**
- * The natural voice this iPad uses, or null when a device voice is used instead: the one chosen, else the device's
- * Indian English woman's voice when it has one (names sound right), else the natural voice.
+ * The natural voice this iPad uses, or null when a device voice is used instead. Only when chosen: it's a large
+ * download that many devices can't run, and its voices are American and British, so it's never the default.
  */
 export function naturalChoice(): NaturalVoiceId | null {
   const saved = savedChoice()
-  if (!saved) return indianVoice() ? null : DEFAULT_NATURAL
+  if (!saved) return null
   const id = saved.startsWith(NATURAL_PREFIX) ? saved.slice(NATURAL_PREFIX.length) : null
   return NATURAL_VOICES.find((v) => v.id === id)?.id ?? null
 }
