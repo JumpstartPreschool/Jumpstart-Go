@@ -43,6 +43,16 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 alive() { [ -f "$RUN/$1.pid" ] && kill -0 "$(cat "$RUN/$1.pid")" 2>/dev/null; }
 
+# Stops the voice and its tunnel. `uv run` starts the server as a child process, so the server is found by its port
+# as well as by the saved pid, and the port is waited on until it's free.
+stop_all() {
+  for p in tunnel voice; do alive "$p" && kill "$(cat "$RUN/$p.pid")" 2>/dev/null && echo "Stopped $p."; rm -f "$RUN/$p.pid"; done
+  local pids; pids=$(lsof -tiTCP:"$PORT" -sTCP:LISTEN -c python 2>/dev/null || true)
+  [ -n "$pids" ] && kill $pids 2>/dev/null || true
+  for _ in $(seq 1 15); do lsof -nP -iTCP:"$PORT" -sTCP:LISTEN > /dev/null 2>&1 || return 0; sleep 1; done
+  echo "Port $PORT is still busy after stopping the voice."; exit 1
+}
+
 start_voice() {
   if alive voice; then echo "Voice already running."; else
     if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN > /dev/null 2>&1; then
@@ -180,8 +190,7 @@ case "${1:-}" in
   check) check ;;
   update)
     # New voice-service or pronounce code: restart the voice (new tunnel address), redeploy pronounce, relink, run.
-    for p in tunnel voice; do alive "$p" && kill "$(cat "$RUN/$p.pid")" && echo "Stopped $p."; rm -f "$RUN/$p.pid"; done
-    sleep 2
+    stop_all
     start_voice
     say "Deploying pronounce"
     $SB functions deploy pronounce --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
@@ -189,9 +198,7 @@ case "${1:-}" in
     kick
     ;;
   publish) publish ;;
-  stop)
-    for p in tunnel voice; do alive "$p" && kill "$(cat "$RUN/$p.pid")" && echo "Stopped $p."; rm -f "$RUN/$p.pid"; done
-    ;;
+  stop) stop_all ;;
   status)
     alive voice && echo "Voice: running" || echo "Voice: stopped"
     alive tunnel && echo "Tunnel: $(cat "$RUN/tunnel.url" 2>/dev/null)" || echo "Tunnel: stopped"
