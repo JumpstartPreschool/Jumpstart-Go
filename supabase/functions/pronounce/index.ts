@@ -10,7 +10,7 @@
 // Secrets: TTS_SERVICE_URL (the school computer's tunnel address), TTS_SHARED_SECRET (as tts-service), VOICE_CRON_SECRET
 // (as app.voice_config.secret), APP_ORIGIN (optional, as for invite-send).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { checkSpeech, clipKey, clipPath, commonPhrases, VOICE_VERSION, warmSentences } from '../_shared/announce.ts'
+import { checkSpeech, clipKey, clipPath, commonPhrases, VOICE_VERSION, warmSentences, WORDING_VERSION } from '../_shared/announce.ts'
 
 const TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
 const TTS_SECRET = Deno.env.get('TTS_SHARED_SECRET') ?? ''
@@ -183,7 +183,9 @@ async function drain(): Promise<Record<string, unknown>> {
   const have = await madeAlready()
   let phrases = 0
   const { data: meta } = await store.from('voice_meta').select('value').eq('key', 'phrases').maybeSingle()
-  if (meta?.value !== VOICE_VERSION) {
+  // The voice and the words together: a change to either makes every clip again.
+  const phrasesVersion = `${VOICE_VERSION}|${WORDING_VERSION}`
+  if (meta?.value !== phrasesVersion) {
     try {
       phrases = await ensure(commonPhrases(), have, deadline, true)
     } catch (e) {
@@ -191,8 +193,8 @@ async function drain(): Promise<Record<string, unknown>> {
       log('drain', { phrases: 'partial', ms: Date.now() - started })
       return { phrases: 'partial' }
     }
-    await store.from('voice_meta').upsert({ key: 'phrases', value: VOICE_VERSION, updated_at: new Date().toISOString() })
-    // A different voice than before: every child's clips are made again in this voice.
+    await store.from('voice_meta').upsert({ key: 'phrases', value: phrasesVersion, updated_at: new Date().toISOString() })
+    // A different voice or wording than before: every child's clips are made again.
     if (meta) await store.rpc('voice_requeue_all')
   }
   let children = 0
