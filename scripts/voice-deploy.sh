@@ -4,6 +4,8 @@
 #   bash scripts/voice-deploy.sh start        (re)start the voice and its tunnel, and point Supabase at the new address
 #   bash scripts/voice-deploy.sh stop         stop the voice and its tunnel (made clips keep playing)
 #   bash scripts/voice-deploy.sh status       is it running, and what did the last background run make
+#   bash scripts/voice-deploy.sh check        why the background job isn't running (cron, net, link, queue), then a run now
+#   bash scripts/voice-deploy.sh publish      build and publish the app (with the Cloudflare browser login)
 #   bash scripts/voice-deploy.sh remove-old   delete the old cloud voice (voice-say, its secrets); run after deploy works
 # Reads SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD and the Cloudflare keys from .env.local. Creates TTS_SHARED_SECRET and
 # VOICE_CRON_SECRET there once (git-ignored). Never prints a secret. The tunnel is a Cloudflare quick tunnel, whose
@@ -81,6 +83,32 @@ start_voice() {
   echo "Secrets set."
 }
 
+# Wrangler reads CLOUDFLARE_API_TOKEN from .env.local by itself, and that token can't edit this worker. Publishing from
+# a folder without .env.local uses the Cloudflare browser login (npx wrangler login), which can.
+publish() {
+  say "Publishing the app"
+  npm run build > /dev/null
+  local dir; dir=$(mktemp -d)
+  cp wrangler.jsonc "$dir/" && cp -R dist "$dir/dist"
+  (cd "$dir" && env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID npx wrangler@4 deploy)
+  rm -rf "$dir"
+}
+
+check() {
+  say "Database side of the background job"
+  psql "$DB_URL" -q -X <<'SQL'
+select 'pg_cron enabled' as check, exists (select 1 from pg_extension where extname = 'pg_cron') as ok
+union all select 'pg_net enabled', exists (select 1 from pg_extension where extname = 'pg_net')
+union all select 'link to pronounce saved (app.voice_config)', exists (select 1 from app.voice_config)
+union all select 'minute job scheduled (voice-drain)', exists (select 1 from pg_extension where extname = 'pg_cron')
+  and (select count(*) from cron.job where jobname = 'voice-drain') > 0;
+select audio_status, count(*) from public.child_pronunciations group by 1 order by 1;
+SQL
+  psql "$DB_URL" -q -X -c "select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'voice-drain') order by start_time desc limit 3" 2>/dev/null || true
+  psql "$DB_URL" -q -X -c "select status_code, left(coalesce(content, error_msg), 120) as reply, created from net._http_response order by created desc limit 3" 2>/dev/null || true
+  kick
+}
+
 kick() {
   say "Asking pronounce to make clips now"
   curl -s -X POST "$FN_URL" -H "Authorization: Bearer $VOICE_CRON_SECRET" -H 'Content-Type: application/json' -d '{"drain":true}'; echo
@@ -128,16 +156,18 @@ do $$ begin
 end $$;
 SQL
 
-    say "6/7 Publishing the app"
-    npm run deploy
-
-    say "7/7 First background run"
+    say "6/7 First background run"
     kick
+
+    say "7/7 Publishing the app"
+    publish
     echo
     echo "Done. Admin → Settings → Name pronunciation fills as clips are made (on this Mac, ~20 s a sentence)."
     echo "Keep this computer awake with the voice running. Check with: bash scripts/voice-deploy.sh status"
     ;;
   start) start_voice; kick ;;
+  check) check ;;
+  publish) publish ;;
   stop)
     for p in tunnel voice; do alive "$p" && kill "$(cat "$RUN/$p.pid")" && echo "Stopped $p."; rm -f "$RUN/$p.pid"; done
     ;;
@@ -153,5 +183,5 @@ SQL
     $SB functions delete voice-say --project-ref "$SUPABASE_PROJECT_REF" || true
     echo "Now, in the Supabase dashboard → Storage, empty and delete the voice-cache bucket (old cloud recordings)."
     ;;
-  *) sed -n 2,11p "$0"; exit 1 ;;
+  *) sed -n 2,13p "$0"; exit 1 ;;
 esac
