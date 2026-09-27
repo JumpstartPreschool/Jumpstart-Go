@@ -47,7 +47,7 @@ const PROMISES = [
 export function SignInFrame({ children }: { children: ReactNode }) {
   return (
     <main className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:p-4">
-      <section aria-label="About Jumpstart"
+      <section aria-label="About Jumpstart Go"
         className="signin-hero relative flex min-h-[50dvh] flex-col justify-center gap-7 overflow-hidden rounded-b-[36px] px-6 pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-20 text-ink sm:px-10 md:min-h-[54dvh] md:pb-24 lg:min-h-0 lg:justify-between lg:gap-10 lg:rounded-[32px] lg:p-12 xl:p-16">
         <div className="self-center rounded-[22px] bg-white px-5 py-3 shadow-[0_0_0_1px_rgb(120_80_40/0.08),0_14px_34px_-18px_rgb(120_60_30/0.45)] lg:self-start lg:px-6 lg:py-3.5">
           <Logo className="h-10 sm:h-11 lg:h-12" />
@@ -173,7 +173,7 @@ export function LoginScreen() {
           <form key="email" onSubmit={onEmail} noValidate className="page-in grid gap-4">
             <div className="text-center">
               <p className="text-caption font-extrabold uppercase tracking-[0.14em] text-accent-ink">Welcome</p>
-              <h1 className="mt-1 text-h1">Sign in to Jumpstart</h1>
+              <h1 className="mt-1 text-h1">Sign in to Jumpstart Go</h1>
               <p className="mt-2 text-body text-ink-2">Use the email the school has for you.</p>
             </div>
             <TextField

@@ -1,8 +1,8 @@
-// Web push for Jumpstart (loaded into the app's service worker). Shows what push-send sends; a tap opens that page.
+// Web push for Jumpstart Go (loaded into the app's service worker). Shows what push-send sends; a tap opens that page.
 self.addEventListener('push', (event) => {
   let d = {}
   try { d = event.data ? event.data.json() : {} } catch { d = { body: event.data ? event.data.text() : '' } }
-  event.waitUntil(self.registration.showNotification(d.title || 'Jumpstart', {
+  event.waitUntil(self.registration.showNotification(d.title || 'Jumpstart Go', {
     body: d.body || '',
     tag: d.tag,
     renotify: Boolean(d.tag),

@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     method: 'POST',
     headers: { 'api-key': brevoKey(), 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
-      sender: { name: 'Jumpstart', email: sender() },
+      sender: { name: 'Jumpstart Go', email: sender() },
       to: [{ email: d.email, name: d.full_name }],
       subject: mail.subject, htmlContent: mail.html, textContent: mail.text,
       tags: ['invite'],

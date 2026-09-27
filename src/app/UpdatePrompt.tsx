@@ -32,7 +32,7 @@ export function UpdatePrompt() {
   useEffect(() => {
     if (!needRefresh) return
     if (onDuty()) {
-      toast('A new version of Jumpstart is ready.', { tone: 'info', action: { label: 'Update', run: () => void updateServiceWorker(true) } })
+      toast('A new version of Jumpstart Go is ready.', { tone: 'info', action: { label: 'Update', run: () => void updateServiceWorker(true) } })
       return
     }
     if (Date.now() - openedAt.current < FRESH_MS || document.visibilityState === 'hidden') {

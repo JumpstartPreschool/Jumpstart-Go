@@ -9,7 +9,7 @@ const SAYS: Record<PushState, string> = {
   on: 'On. Alerts arrive even when the app is closed.',
   off: 'Off. Turn on to hear about pickups, check-ins and school news.',
   denied: 'Blocked in the browser settings for this site. Allow notifications there, then come back.',
-  'needs-install': 'Add Jumpstart to the Home Screen first (on an iPhone or iPad: Share, then Add to Home Screen), then open it from there.',
+  'needs-install': 'Add Jumpstart Go to the Home Screen first (on an iPhone or iPad: Share, then Add to Home Screen), then open it from there.',
   unsupported: "This browser can't receive notifications. Updates still show in the app.",
   'not-configured': "Notifications aren't set up for the school yet. Updates still show in the app.",
 }
