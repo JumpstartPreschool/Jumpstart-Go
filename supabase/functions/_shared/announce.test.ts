@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatTime } from '../../../src/domain/time'
 import { cancelledText, spokenText } from '../../../src/features/duty/gate'
 import type { Trip } from '../../../src/features/trips/api'
-import { checkSpeech, clipKey, clockText, commonPhrases, NEW_LEAD, sentences, tidy, VOICE_VERSION, voiceLines, voiceSentence, warmSentences, type VoiceChild } from './announce'
+import { checkSpeech, clipKey, clockText, commonPhrases, NEW_LEAD, REPEAT_LEAD, sayable, sentences, tidy, VOICE_VERSION, voiceLines, voiceSentence, warmSentences, type VoiceChild } from './announce'
 
 const aaradhya: VoiceChild = { fullName: 'Aaradhya Sharma', name: 'Aaradhya', spoken: null }
 const trip = (over: Partial<Trip> = {}) => ({
@@ -18,7 +18,7 @@ describe('the gate voice words', () => {
     for (const text of [
       NEW_LEAD + spokenText(trip(), gateChild, Date.parse('2026-09-28T09:00:00Z')),
       NEW_LEAD + spokenText(trip({ direction: 'dropoff' }), gateChild, Date.parse('2026-09-28T09:43:00Z')),
-      'Reminder. ' + spokenText(trip({ updated_at: '2026-09-28T09:10:00Z' }), gateChild, Date.parse('2026-09-28T09:15:00Z')),
+      REPEAT_LEAD + spokenText(trip({ updated_at: '2026-09-28T09:10:00Z' }), gateChild, Date.parse('2026-09-28T09:15:00Z')),
       cancelledText(trip(), gateChild),
     ]) {
       for (const line of voiceLines(text, aaradhya)) expect(made, line).toContain(line)
@@ -69,10 +69,24 @@ describe('the gate voice words', () => {
   it('says times exactly as the app shows them, every 5 minutes of the school day', () => {
     for (const m of [0, 7 * 60, 12 * 60 + 45, 15 * 60 + 5, 19 * 60 + 55]) expect(clockText(m)).toBe(formatTime(m))
     const phrases = commonPhrases()
-    expect(phrases).toContain('Arriving about 7:00 AM.')
-    expect(phrases).toContain('Arriving about 7:55 PM.')
+    expect(phrases).toContain("Arriving about seven o'clock in the morning.")
+    expect(phrases).toContain('Arriving about seven fifty five in the evening.')
     expect(phrases).toContain('New announcement.')
     expect(new Set(phrases).size).toBe(phrases.length)
+  })
+
+  it('writes out times, numbers and class abbreviations for the voice, which reads text literally', () => {
+    expect(sayable('Arriving about 3:15 PM.')).toBe('Arriving about three fifteen in the afternoon.')
+    expect(sayable('Arriving about 12:00 PM.')).toBe('Arriving about twelve noon.')
+    expect(sayable('Arriving about 12:45 PM.')).toBe('Arriving about twelve forty five in the afternoon.')
+    expect(sayable('Arriving about 9:05 AM.')).toBe('Arriving about nine oh five in the morning.')
+    expect(sayable('Arriving about 12:30 AM.')).toBe('Arriving about twelve thirty in the morning.')
+    expect(sayable('Reason: doctor at 16:30.')).toBe('Reason: doctor at four thirty.')
+    expect(sayable('Pickup for Aarav Kulkarni, Jr KG.')).toBe('Pickup for Aarav Kulkarni, Junior K G.')
+    expect(sayable('Sr KG, room 360, 2 bags, 1015.')).toBe('Senior K G, room three hundred and sixty, two bags, one thousand and fifteen.')
+    expect(sayable('Call 9876543210.')).toBe('Call nine eight seven six five four three two one zero.')
+    expect(sayable('Aarav Kulkarni.')).toBe('Aarav Kulkarni.')
+    for (const s of commonPhrases()) expect(s).not.toMatch(/\d/)
   })
 
   it('splits announcements into one clip per sentence', () => {

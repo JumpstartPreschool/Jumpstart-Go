@@ -1,4 +1,4 @@
-# Jumpstart is a private app for one school's families and staff. Only the policies are public.
+# Jumpstart Go is a private app for one school's families and staff. Only the policies are public.
 User-agent: *
 Allow: /privacy
 Allow: /terms

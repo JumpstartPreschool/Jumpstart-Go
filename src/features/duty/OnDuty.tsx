@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AudioLines, Bell, BellOff, PowerLine, Sun, TriangleAlert, Volume2, WifiOff } from '../../ui/icons'
-import { Button } from '../../ui/Button'
+import { Button, LuxButton } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
@@ -18,7 +18,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const { speaking, waiting, mutedUntil } = duty.ann
 
   return (
-    <div className="screen-h pb-[env(safe-area-inset-bottom)]">
+    <div className="screen-h">
       {/* Floating bar: duty status, clock and the controls a coordinator needs mid-shift. */}
       <header className="gutter sticky top-0 z-10 pt-[max(12px,env(safe-area-inset-top))]">
         <div className="glass flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl py-2.5 pl-4 pr-2.5 sm:pl-5">
@@ -38,13 +38,13 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
           </p>
           <div className="flex items-center gap-2">
             {mutedUntil ? (
-              <Button size="md" variant="sunshine" icon={<Bell />} onClick={duty.unmute}>
+              <LuxButton size="sm" tone="sun" icon={<Bell />} onClick={duty.unmute}>
                 Unmute
-              </Button>
+              </LuxButton>
             ) : (
-              <Button size="md" variant="secondary" icon={<BellOff />} onClick={duty.mute}>
+              <LuxButton size="sm" icon={<BellOff />} onClick={duty.mute}>
                 Mute 5 min
-              </Button>
+              </LuxButton>
             )}
             <button type="button" className="endduty" onClick={() => setEnding(true)}>
               <span aria-hidden><PowerLine /></span>
@@ -102,12 +102,12 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
         </div>
       </header>
 
-      <main className="gutter pt-6">
+      <main className="gutter pt-6 pb-[max(32px,calc(env(safe-area-inset-bottom)+16px))]">
         <GateQueue announcer={duty.announcer} />
         <section className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-line pt-5" aria-label="Sound">
-          <Button size="md" variant="secondary" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
+          <LuxButton size="sm" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
             Test the speaker
-          </Button>
+          </LuxButton>
           <p className="text-caption font-semibold text-ink-3">Sound plays through this device's speaker, or a Bluetooth speaker when one is connected.</p>
         </section>
       </main>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
-import { Button } from '../../ui/Button'
+import { Button, LuxButton } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { ErrorState, Notice, SkeletonList } from '../../ui/States'
@@ -262,7 +262,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
         <div className="flex flex-wrap items-center gap-3">
           <Tabs id="scope" label="Whose children" value={scope} onChange={setScope}
             items={[{ key: 'mine', label: gate.data.myClasses.size ? 'Your classes' : 'Uncovered classes', icon: <BellRing /> }, { key: 'all', label: 'Whole school', icon: <School /> }]} />
-          <Button size="md" variant="secondary" icon={<Phone />} className="ml-auto" disabled={!school.children} onClick={() => setCalling(true)}>Log a call</Button>
+          <LuxButton size="sm" icon={<Phone />} className="ml-auto" disabled={!school.children} onClick={() => setCalling(true)}>Log a call</LuxButton>
         </div>
         {error && <Notice tone="danger">{error}</Notice>}
         {sections.attention.length > 0 && <Section title="Needs attention" icon={<TriangleAlert />} list={sections.attention} />}
@@ -367,8 +367,8 @@ function TripDetail({ trip, child, busy, locked, onStep }: { trip: Trip; child: 
           {pickup && !trip.ready_at && <Button variant="secondary" icon={<CircleCheck />} loading={busy} onClick={() => onStep('ready')}>{child.name} is ready</Button>}
           {locked ? <Notice tone="danger" icon={<Lock aria-hidden />}>Locked after three wrong codes. Call the parent before releasing {child.name}.</Notice>
             : pickup
-            ? <Button size="xl" icon={third ? <KeyRound /> : <UserCheck />} loading={busy} onClick={() => onStep('handover')}>{third ? `Enter ${who}'s code` : 'Hand over'}</Button>
-            : <Button size="xl" icon={<DoorOpen />} loading={busy} onClick={() => onStep('close')}>Check in {child.name}</Button>}
+            ? <LuxButton primary size="xl" icon={third ? <KeyRound /> : <UserCheck />} loading={busy} onClick={() => onStep('handover')}>{third ? `Enter ${who}'s code` : 'Hand over'}</LuxButton>
+            : <LuxButton primary size="xl" icon={<DoorOpen />} loading={busy} onClick={() => onStep('close')}>Check in {child.name}</LuxButton>}
           {third && trip.traveller_phone && <a className="btn btn--quiet btn--md" href={`tel:${trip.traveller_phone}`}><Phone aria-hidden />Call {who}, {formatMobile(trip.traveller_phone)}</a>}
         </div>
       )}

@@ -1,7 +1,7 @@
 /**
  * The coordinator's announcement queue (ANN-1, ANN-2): one announcement at a time, most urgent first,
  * a chime then speech, repeated every 2 minutes until acknowledged. Muting holds the queue; nothing is dropped.
- * The first time something is said it starts "New announcement." ("Urgent." when it needs acting on now); each repeat starts "Reminder.",
+ * The first time something is said it starts "New announcement." ("Urgent." when it needs acting on now); each repeat starts "This is a reminder.",
  * so the gate can tell a new request from one it has already heard.
  * Output is injected so the queue can be tested without a speaker.
  */

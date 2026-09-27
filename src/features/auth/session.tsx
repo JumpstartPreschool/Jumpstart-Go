@@ -26,7 +26,8 @@ export const chooseArea = {
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
 // Raised when what parents agree to changes, so everyone is asked again: gate announcements, names included, are now
 // made on the school's own computer instead of a cloud voice service (D48).
-export const CONSENT_VERSION = '2026-09-27.2'
+// Must be a plain YYYY-MM-DD date: public.accept_consent rejects anything else, and parents would be stuck here.
+export const CONSENT_VERSION = '2026-09-28'
 
 /** The areas a person may open, most senior first (their home is the first one). */
 export function areasFor(me: Me): Area[] {
@@ -52,13 +53,49 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null)
 
+/** The database refused the sign-in pass (expired or not valid), as opposed to the network failing. */
+export const isAuthError = (e: { code?: string; message?: string; status?: number } | null | undefined) =>
+  !!e && (e.code === 'PGRST301' || e.code === 'PGRST303' || e.status === 401 || /jwt|token/i.test(e.message ?? ''))
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// A phone waking up needs a moment for Wi-Fi or data; three tries over about 3 s ride out that gap.
+const RETRY_MS = [0, 800, 2500]
+
+/**
+ * Who is signed in, sturdily. An expired pass (a phone or iPad reopened after an hour) is renewed and asked again; a
+ * network blip is retried; a pass that can't be renewed any more (signed out elsewhere) means signed out, not an error.
+ */
+async function whoami(): Promise<{ me: Me | null; error: string | null; ended: boolean }> {
+  let error: string | null = null
+  for (const wait of RETRY_MS) {
+    if (wait) await sleep(wait)
+    const res = await supabase.rpc('whoami')
+    if (!res.error) return { me: (res.data as Me | null) ?? null, error: null, ended: false }
+    error = res.error.message
+    if (isAuthError(res.error)) {
+      const renewed = await supabase.auth.refreshSession()
+      // Refused by the server (not a network failure): this sign-in is over.
+      if (renewed.error && renewed.error.name !== 'AuthRetryableFetchError' && (renewed.error.status ?? 0) >= 400) return { me: null, error, ended: true }
+    }
+  }
+  return { me: null, error, ended: false }
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SessionState>({ status: 'loading' })
 
   const load = useCallback(async (session: Session | null) => {
     if (!session) return setState({ status: 'signed-out' })
-    const { data, error } = await supabase.rpc('whoami')
-    setState({ status: 'signed-in', session, me: (data as Me | null) ?? null, error: error ? error.message : null })
+    const { me, error, ended } = await whoami()
+    if (ended) {
+      await supabase.auth.signOut({ scope: 'local' })
+      return setState({ status: 'signed-out' })
+    }
+    setState((prev) =>
+      // Already showing this person and only a background re-check failed: keep the app open rather than an error page.
+      error && prev.status === 'signed-in' && prev.me && prev.session.user.id === session.user.id
+        ? { ...prev, session }
+        : { status: 'signed-in', session, me, error })
   }, [])
 
   useEffect(() => {
@@ -69,6 +106,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     })
     return () => data.subscription.unsubscribe()
   }, [load])
+
+  // Couldn't load (offline, or the device just woke): try again by itself when the connection or the app comes back.
+  const failed = state.status === 'signed-in' && !!state.error
+  useEffect(() => {
+    if (!failed) return
+    const retry = () => { if (document.visibilityState === 'visible' && navigator.onLine) void supabase.auth.getSession().then(({ data }) => load(data.session)) }
+    window.addEventListener('online', retry)
+    document.addEventListener('visibilitychange', retry)
+    return () => {
+      window.removeEventListener('online', retry)
+      document.removeEventListener('visibilitychange', retry)
+    }
+  }, [failed, load])
 
   const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getSession()

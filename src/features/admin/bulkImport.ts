@@ -14,7 +14,10 @@ export async function readSheet(file: Blob & { name?: string }): Promise<string[
   // A zip file (every .xlsx) starts "PK\x03\x04".
   if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 3 && bytes[3] === 4) return readXlsx(bytes)
   if (/\.xls$/i.test(file.name ?? '')) throw new Error('old_excel')
-  return parseCsv(new TextDecoder().decode(bytes))
+  // Excel on Windows saves "CSV (Comma delimited)" in the old Windows encoding, not UTF-8: read it as that, or Zoë is garbled.
+  let text: string
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes) } catch { text = new TextDecoder('windows-1252').decode(bytes) }
+  return parseCsv(text)
 }
 
 /** RFC 4180 CSV: quoted fields with commas, quotes and line breaks; comma, semicolon or tab, whichever the header uses. */
@@ -93,9 +96,13 @@ export async function readXlsx(b: Uint8Array): Promise<string[][]> {
   if (!sheet) throw new Error('bad_file')
   const shared = [...(files.get('xl/sharedStrings.xml') ?? '').matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)].map((m) => textOf(m[1]!))
   const rows: string[][] = []
-  for (const r of sheet.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  // An empty row can be written <row r="4"/>, and blank rows are often left out: the r="" number keeps each row in its place,
+  // so "row 12" in a message is row 12 in the school's sheet.
+  for (const r of sheet.matchAll(/<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+    const at = Number(/\br="(\d+)"/.exec(r[1]!)?.[1] ?? rows.length + 1)
+    while (rows.length < at - 1) rows.push([])
     const row: string[] = []
-    for (const c of r[1]!.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const c of (r[2] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = c[1]!
       const ref = /\br="([A-Z]+)\d+"/.exec(attrs)?.[1]
       const col = ref ? [...ref].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : row.length
@@ -160,7 +167,7 @@ const iso = (y: number, m: number, d: number) => {
 /** A date of birth as YYYY-MM-DD: 2022-03-04, 04/03/2022 or 4-3-2022 (day first, as in India), 4 Mar 2022, or an Excel date. */
 export function parseDate(input: string): string | null {
   const s = input.trim()
-  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s)
+  let m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s)
   if (m) return iso(+m[1]!, +m[2]!, +m[3]!)
   m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s)
   if (m) return iso(+m[3]!, +m[2]!, +m[1]!)
@@ -200,17 +207,23 @@ export interface ImportRow {
  * imported. Anything else missing or unreadable is a warning, and the row goes in without it. Each is a sentence the
  * school can act on.
  */
-export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = new Date()): { rows: ImportRow[]; missing: string[] } {
-  const [header = [], ...data] = rows
-  const { map, missing } = mapHeader(header)
-  if (missing.length) return { rows: [], missing }
+export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = new Date()): { rows: ImportRow[]; missing: string[]; header: string[] } {
+  // The column names are usually row 1, but a sheet often has a title or a note above them: the first of the top 10 rows
+  // that names every needed column is the header. Otherwise the gaps of the row that comes closest are reported.
+  const top = rows.slice(0, 10).map((r, i) => ({ i, ...mapHeader(r) }))
+  const found = top.reduce<(typeof top)[number] | undefined>((best, h) => (!best || h.missing.length < best.missing.length ? h : best), undefined)
+    ?? { i: 0, ...mapHeader([]) }
+  const { map, missing } = found
+  const header = rows[found.i] ?? []
+  const data = rows.slice(found.i + 1)
+  if (missing.length) return { rows: [], missing, header }
   const get = (r: string[], f: Field) => (map[f] === undefined ? '' : (r[map[f]!] ?? '').trim())
   const todayIso = today.toISOString().slice(0, 10)
   const seen = new Map<string, number>()
   const out: ImportRow[] = []
   data.forEach((r, i) => {
     if (r.every((c) => !c.trim())) return
-    const line = i + 2
+    const line = found.i + i + 2
     const problems: string[] = []
     const warnings: string[] = []
     const name = get(r, 'child').replace(/\s+/g, ' ')
@@ -261,7 +274,7 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
       child: name.length >= 2 && programme ? { full_name: name, preferred_name: get(r, 'called') || null, date_of_birth: dobOk ? dob : null, programme_id: programme.id, gender } : null,
     })
   })
-  return { rows: out, missing: [] }
+  return { rows: out, missing: [], header }
 }
 
 // ---- Writing CSV (the template, and the rows to fix) ---------------------------------------------------------------

@@ -63,6 +63,8 @@ export async function gateStep(tripId: string, step: GateStep, handedTo?: string
 export function explainTripError(e: { code?: string; message?: string } | null): string {
   if (e?.code === 'P0001' && e.message) return e.message.replace(/^[a-z_]+: /, '')
   if (e?.code === '42501') return "You don't have permission to do that."
+  // A code means the server answered: blaming the connection would send people chasing the wrong problem.
+  if (e?.code) return "The school's system couldn't do that. Try again, and call the school if it keeps happening."
   return "Couldn't reach the school. Check your connection and try again."
 }
 

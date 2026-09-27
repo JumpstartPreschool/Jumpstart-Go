@@ -6,13 +6,17 @@
 //                        if needed. The database checks they're staff and under the hourly limit (voice_allowed).
 //   POST { drain: true } the database (pg_net, and a minute job) with VOICE_CRON_SECRET: makes the shared phrases once
 //                        per voice version, then each pending child's everyday sentences (voice_claim / voice_finish).
+//   POST { register }    the school's voice computer, with TTS_SHARED_SECRET, each time it starts: its current tunnel
+//                        address. Checked (it must answer as the school voice), saved (0032), and waiting work starts.
 // Deploy: npx supabase functions deploy pronounce --no-verify-jwt
-// Secrets: TTS_SERVICE_URL (the school computer's tunnel address), TTS_SHARED_SECRET (as tts-service), VOICE_CRON_SECRET
-// (as app.voice_config.secret), APP_ORIGIN (optional, as for invite-send).
+// Secrets: TTS_SHARED_SECRET (as tts-service), VOICE_CRON_SECRET (as app.voice_config.secret), TTS_ALLOWED_HOSTS
+// (optional: host suffixes the voice may register, default .trycloudflare.com), TTS_SERVICE_URL (optional: a fixed
+// address used until the computer first registers), APP_ORIGIN (optional, as for invite-send).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { checkSpeech, clipKey, clipPath, commonPhrases, VOICE_VERSION, warmSentences } from '../_shared/announce.ts'
+import { checkSpeech, clipKey, clipPath, leadPhrases, timePhrases, VOICE_VERSION, warmSentences, WORDING_VERSION } from '../_shared/announce.ts'
 
-const TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
+const FIXED_TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
+const ALLOWED_HOSTS = (Deno.env.get('TTS_ALLOWED_HOSTS') ?? '.trycloudflare.com').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
 const TTS_SECRET = Deno.env.get('TTS_SHARED_SECRET') ?? ''
 const CRON_SECRET = Deno.env.get('VOICE_CRON_SECRET') ?? ''
 const BUCKET = 'voice-audio'
@@ -39,10 +43,34 @@ const log = (event: string, extra: Record<string, unknown> = {}) => console.log(
 
 const store = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
 
-async function healthy(): Promise<boolean> {
-  if (!TTS_URL || !TTS_SECRET) return false
+// The voice computer's address: the one it last registered (0032), read at most every 15 s per worker.
+let known: { url: string; at: number } | null = null
+async function ttsUrl(): Promise<string> {
+  if (known && Date.now() - known.at < 15_000) return known.url
+  const { data } = await store.rpc('voice_tts_url')
+  known = { url: (typeof data === 'string' && data) || FIXED_TTS_URL, at: Date.now() }
+  return known.url
+}
+
+/** A plain https address on an allowed host (the tunnel), or null. */
+function allowedUrl(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length > 200) return null
   try {
-    const res = await fetch(`${TTS_URL}/health`, { headers: { Authorization: `Bearer ${TTS_SECRET}` }, signal: AbortSignal.timeout(5_000) })
+    const u = new URL(input)
+    const host = u.hostname.toLowerCase()
+    const allowed = ALLOWED_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) && host.length > h.length : host === h))
+    return u.protocol === 'https:' && allowed && !u.username && !u.password && (u.pathname === '/' || u.pathname === '') && !u.search && !u.hash
+      ? `https://${u.host}` : null
+  } catch {
+    return null
+  }
+}
+
+async function healthy(url?: string): Promise<boolean> {
+  const base = url ?? (await ttsUrl())
+  if (!base || !TTS_SECRET) return false
+  try {
+    const res = await fetch(`${base}/health`, { headers: { Authorization: `Bearer ${TTS_SECRET}` }, signal: AbortSignal.timeout(5_000) })
     const body = res.ok ? ((await res.json()) as { ready?: boolean; version?: string }) : null
     if (body?.ready && body.version !== VOICE_VERSION) log('version_mismatch', { service: body.version })
     return !!body?.ready && body.version === VOICE_VERSION
@@ -68,7 +96,7 @@ async function synthesize(text: string): Promise<Uint8Array<ArrayBuffer>> {
   const started = Date.now()
   let res: Response
   try {
-    res = await fetch(`${TTS_URL}/synthesize`, {
+    res = await fetch(`${await ttsUrl()}/synthesize`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${TTS_SECRET}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
@@ -126,15 +154,26 @@ async function madeAlready(): Promise<Set<string>> {
 
 class OutOfTime extends Error {}
 
-/** Makes each sentence not yet in the bucket, until the deadline. Returns how many were made. */
-async function ensure(list: readonly string[], have: Set<string>, deadline: number): Promise<number> {
+/**
+ * Makes each sentence not yet in the bucket, until the deadline. Returns how many were made. The school computer being
+ * busy or slow ends the run early (OutOfTime: the next run continues). `skipUnusable` (the shared phrases) logs a
+ * sentence the voice can't read clearly and goes on; for a child it fails the child, so a person can look at it.
+ */
+async function ensure(list: readonly string[], have: Set<string>, deadline: number, skipUnusable = false): Promise<number> {
   let made = 0
   for (const text of list) {
     const key = await clipKey(text)
     const path = clipPath(key)
     if (have.has(path)) continue
     if (Date.now() > deadline) throw new OutOfTime()
-    await make(key, text)
+    try {
+      await make(key, text)
+    } catch (e) {
+      if (e instanceof Busy) throw new OutOfTime()
+      if (!skipUnusable) throw e
+      log('phrase_skipped', { chars: text.length })
+      continue
+    }
     have.add(path)
     made++
   }
@@ -171,18 +210,25 @@ async function drain(): Promise<Record<string, unknown>> {
   }
   const have = await madeAlready()
   let phrases = 0
-  const { data: meta } = await store.from('voice_meta').select('value').eq('key', 'phrases').maybeSingle()
-  if (meta?.value !== VOICE_VERSION) {
-    try {
-      phrases = await ensure(commonPhrases(), have, deadline)
-    } catch (e) {
-      if (!(e instanceof OutOfTime)) throw e
-      log('drain', { phrases: 'partial', ms: Date.now() - started })
-      return { phrases: 'partial' }
-    }
-    await store.from('voice_meta').upsert({ key: 'phrases', value: VOICE_VERSION, updated_at: new Date().toISOString() })
-    // A different voice than before: every child's clips are made again in this voice.
-    if (meta) await store.rpc('voice_requeue_all')
+  // The voice and the words together: a change to either makes every clip again.
+  const phrasesVersion = `${VOICE_VERSION}|${WORDING_VERSION}`
+  const { data: metaRows } = await store.from('voice_meta').select('key, value').in('key', ['phrases', 'queued'])
+  const meta = new Map((metaRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
+  const now = () => new Date().toISOString()
+  // A different voice or wording than before: every child's sentences are made again, once (not on a fresh install,
+  // where every child is already waiting).
+  if (meta.get('queued') !== phrasesVersion) {
+    if (meta.size) await store.rpc('voice_requeue_all')
+    await store.from('voice_meta').upsert({ key: 'queued', value: phrasesVersion, updated_at: now() })
+  }
+  // Order matters on a slow computer (~20 s a sentence): the few leads, then each child's sentences, then the ~150
+  // times. The gate uses the school's voice only when every sentence of an announcement is ready.
+  try {
+    phrases += await ensure(leadPhrases(), have, deadline, true)
+  } catch (e) {
+    if (!(e instanceof OutOfTime)) throw e
+    log('drain', { phrases: 'partial', ms: Date.now() - started })
+    return { phrases: 'partial' }
   }
   let children = 0
   let clips = 0
@@ -200,14 +246,22 @@ async function drain(): Promise<Record<string, unknown>> {
         children++
       } catch (e) {
         // Out of time, or the computer busy or slow: back in the queue with no try used up; the next run carries on
-        // from the clips already made.
-        if (e instanceof OutOfTime || e instanceof Busy) ok = null
+        // from the clips already made (and the school computer hands back a clip it finished after we stopped waiting).
+        if (e instanceof OutOfTime) ok = null
         else {
           failed++
           log('child_failed')
         }
       }
       await store.rpc('voice_finish', { p_child: row.child_id, p_revision: row.revision, p_ok: ok })
+    }
+  }
+  if (meta.get('phrases') !== phrasesVersion && Date.now() < deadline) {
+    try {
+      phrases += await ensure(timePhrases(), have, deadline, true)
+      await store.from('voice_meta').upsert({ key: 'phrases', value: phrasesVersion, updated_at: now() })
+    } catch (e) {
+      if (!(e instanceof OutOfTime)) throw e
     }
   }
   const result = { phrases, children, clips, failed, ms: Date.now() - started }
@@ -219,8 +273,24 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
   if (req.method !== 'POST') return reply({ error: 'Use POST.' }, 405)
 
-  let body: { text?: unknown; drain?: unknown } = {}
+  let body: { text?: unknown; drain?: unknown; register?: unknown } = {}
   try { body = await req.json() } catch { /* checked below */ }
+
+  if (body.register !== undefined) {
+    if (!TTS_SECRET || !(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${TTS_SECRET}`))) return reply({ error: 'unauthorized' }, 401)
+    const url = allowedUrl(body.register)
+    if (!url) return reply({ error: 'That address is not allowed.' }, 400)
+    // Only an address that answers as this voice (same secret, same version) is saved.
+    if (!(await healthy(url))) return reply({ error: 'That address does not answer as the school voice.' }, 400)
+    const { error: saveError } = await store.rpc('voice_register', { p_url: url })
+    if (saveError) {
+      log('register_failed')
+      return reply({ error: saveError.message.replace(/^[a-z_]+: /, '') }, 409)
+    }
+    known = { url, at: Date.now() }
+    log('registered')
+    return reply({ registered: true })
+  }
 
   if (body.drain === true) {
     if (!(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${CRON_SECRET}`)) || !CRON_SECRET) return reply({ error: 'unauthorized' }, 401)
@@ -250,7 +320,7 @@ Deno.serve(async (req) => {
     return audio(new Uint8Array(await cached.data.arrayBuffer()), 'hit')
   }
   log('cache_miss')
-  if (!TTS_URL || !TTS_SECRET) return reply({ error: 'The school voice is not set up.' }, 503)
+  if (!(await ttsUrl()) || !TTS_SECRET) return reply({ error: 'The school voice is not set up.' }, 503)
   // A new sentence ties up the school's computer, so each person has a smaller hourly allowance for those.
   const { data: mayMake, error: makeError } = await db.rpc('voice_make_allowed')
   if (makeError || !mayMake) return reply({ error: 'Too many new announcements. Try again in a while.' }, 429)

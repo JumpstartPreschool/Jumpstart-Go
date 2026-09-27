@@ -134,3 +134,33 @@ do $$ begin
   assert exists (select 1 from storage.buckets where id = 'voice-audio' and not public), 'private audio bucket';
   assert to_regclass('public.pronunciations') is null, 'old word list removed';
 end $$;
+
+-- 6. The voice computer registers its address through pronounce (service role only); users can't.
+set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000a1"}';
+set role authenticated;
+do $$ begin
+  perform public.voice_register('https://evil.example');
+  raise exception 'FAIL: a user registered a voice address';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+do $$ begin
+  begin
+    perform public.voice_register('https://x.trycloudflare.com');
+    raise exception 'FAIL: registered before the database was linked';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if;
+    assert sqlerrm like 'not_linked%', sqlerrm;
+  end;
+  insert into app.voice_config (url, secret) values ('https://ref.supabase.co/functions/v1/pronounce', 's');
+  perform public.voice_register('https://piece-flags-mac.trycloudflare.com/');
+  assert public.voice_tts_url() = 'https://piece-flags-mac.trycloudflare.com', 'saved without the trailing slash';
+  begin
+    perform public.voice_register('http://127.0.0.1:8790');
+    raise exception 'FAIL: accepted a non-https address';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if;
+    assert sqlerrm like 'bad_url%', sqlerrm;
+  end;
+  delete from app.voice_config;
+end $$;

@@ -31,7 +31,7 @@ export function inviteText(d: InviteDetails, channel: 'whatsapp' | 'sms' = 'sms'
   return [
     `Hello ${firstName(d.full_name)},`,
     '',
-    `${SCHOOL} has invited you to the ${b('Jumpstart app')}${forWhom(d)}. ${what(d)}`,
+    `${SCHOOL} has invited you to the ${b('Jumpstart Go app')}${forWhom(d)}. ${what(d)}`,
     '',
     b('To sign in:'),
     `1. Open ${d.app_url}`,
@@ -45,7 +45,7 @@ export function inviteText(d: InviteDetails, channel: 'whatsapp' | 'sms' = 'sms'
 /** The address without "https://", as people read it: "app.jumpstartpreschool.in". */
 const host = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
-/** The invitation email, in the design every Jumpstart email shares (emailLayout.ts). */
+/** The invitation email, in the design every Jumpstart Go email shares (emailLayout.ts). */
 export function inviteEmail(d: InviteDetails): { subject: string; html: string; text: string } {
   const name = escapeHtml(firstName(d.full_name))
   const url = escapeHtml(d.app_url.replace(/\/$/, ''))
@@ -53,26 +53,26 @@ export function inviteEmail(d: InviteDetails): { subject: string; html: string; 
   const who = escapeHtml(forWhom(d))
   const b = (s: string) => `<b style="color:${INK};">${s}</b>`
   const html = emailLayout({
-    title: "You're invited to Jumpstart",
-    preheader: `${escapeHtml(SCHOOL)} has added you to the Jumpstart app${who}. Sign in with ${email}.`,
+    title: "You're invited to Jumpstart Go",
+    preheader: `${escapeHtml(SCHOOL)} has added you to the Jumpstart Go app${who}. Sign in with ${email}.`,
     eyebrow: d.staff ? 'Staff invitation' : 'Family invitation',
     heading: `Hello ${name}, you're invited`,
-    intro: `The school has added you to the Jumpstart app${who}. ${escapeHtml(what(d))}`,
+    intro: `The school has added you to the Jumpstart Go app${who}. ${escapeHtml(what(d))}`,
     // The email rides after the #, which browsers never send to a server; the sign-in screen fills it in (LoginScreen).
     main: invitationCard(d.email ? `${url}/#email=${encodeURIComponent(d.email)}` : url, url, escapeHtml(host(d.app_url))),
     after: steps([
-      `Open Jumpstart on your phone, tablet or computer. On a phone, choose ${b('Add to Home Screen')} from the browser's menu to keep it like an app.`,
+      `Open Jumpstart Go on your phone, tablet or computer. On a phone, choose ${b('Add to Home Screen')} from the browser's menu to keep it like an app.`,
       `Enter ${b(email)}.`,
       `We email you a ${b('6-digit code')}. Type it into the app; there is no password to remember.`,
     ]),
     note: 'Only people the school adds can sign in, and only with this email address. If you weren\'t expecting this, you can ignore it.',
-    footerNote: "You're getting this because the school added this email to Jumpstart.",
+    footerNote: "You're getting this because the school added this email to Jumpstart Go.",
     appUrl: url,
   })
   const text = [
-    `Hello ${firstName(d.full_name)}, you're invited to Jumpstart.`,
+    `Hello ${firstName(d.full_name)}, you're invited to Jumpstart Go.`,
     '',
-    `The school has added you to the Jumpstart app${forWhom(d)}. ${what(d)}`,
+    `The school has added you to the Jumpstart Go app${forWhom(d)}. ${what(d)}`,
     '',
     `1. Open ${d.app_url}`,
     `2. Enter ${d.email ?? 'your email address'}`,
@@ -80,5 +80,5 @@ export function inviteEmail(d: InviteDetails): { subject: string; html: string; 
     '',
     `${SCHOOL}, ${ADDRESS}`,
   ].join('\n')
-  return { subject: "You're invited to Jumpstart", html, text }
+  return { subject: "You're invited to Jumpstart Go", html, text }
 }

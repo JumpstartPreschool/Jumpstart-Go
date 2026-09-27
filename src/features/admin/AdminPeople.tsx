@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Baby, ChevronRight, CircleCheck, FileSpreadsheet, Globe, GraduationCap, Lock, PencilLine, Plus, ShieldCheck, ShieldOff, UserPlus, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
-import { Button } from '../../ui/Button'
+import { Button, LuxButton } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
@@ -118,9 +118,9 @@ export function AdminPeople() {
 
   return (
     <AreaShell area="admin" title="People" subtitle="Children, families and staff."
-      actions={tab === 'staff' ? <Button icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</Button>
-        : tab === 'classes' ? <Button icon={<Plus />} onClick={() => setAdding('class')}>Add class</Button>
-        : <><Button variant="secondary" icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</Button><Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button></>}>
+      actions={tab === 'staff' ? <LuxButton primary icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</LuxButton>
+        : tab === 'classes' ? <LuxButton primary icon={<Plus />} onClick={() => setAdding('class')}>Add class</LuxButton>
+        : <><LuxButton icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</LuxButton><LuxButton primary icon={<Plus />} onClick={() => setAdding('child')}>Add child</LuxButton></>}>
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <Tabs id="people" label="People" value={tab} onChange={setTab} items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
         <SearchField label="Search people" className="min-w-0 lg:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, emails or phones" />
@@ -131,7 +131,7 @@ export function AdminPeople() {
         {loadError ? <ErrorState title="Couldn't load people" onRetry={() => void reload()}>{loadError}</ErrorState>
           : !dir || !lists ? <SkeletonList />
           : tab === 'children' ? (
-            lists.children.length === 0 ? (q ? none : <EmptyState title="No children yet" action={<Button icon={<Plus />} onClick={() => setAdding('child')}>Add child</Button>}>Add each child with their parents and family in one step.</EmptyState>) : (
+            lists.children.length === 0 ? (q ? none : <EmptyState title="No children yet" action={<LuxButton primary icon={<Plus />} onClick={() => setAdding('child')}>Add child</LuxButton>}>Add each child with their parents and family in one step.</EmptyState>) : (
               <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {lists.children.map((c) => {
                   const programme = dir.programmes.find((p) => p.id === c.programme_id)

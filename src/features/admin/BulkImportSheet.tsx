@@ -47,12 +47,12 @@ export function BulkImportSheet({ programmes, onClose }: { programmes: Programme
     if (file.size > 5_000_000) return setStep({ name: 'choose', error: 'That file is over 5 MB. A sheet of children is usually far smaller: check it is the right file.' })
     try {
       const sheet = await readSheet(file)
-      const { rows, missing } = checkRows(sheet, active)
+      const { rows, missing, header } = checkRows(sheet, active)
       if (missing.length) return setStep({ name: 'choose', error: `The sheet needs these columns: ${missing.join(', ')}. Download the template to see them all.` })
       if (!rows.length) return setStep({ name: 'choose', error: 'The sheet has no children in it, only the header row.' })
       if (rows.length > 500) return setStep({ name: 'choose', error: `The sheet has ${rows.length} rows. Upload up to 500 at a time.` })
       clearImport()
-      setStep({ name: 'preview', file: file.name, header: sheet[0] ?? [], rows })
+      setStep({ name: 'preview', file: file.name, header, rows })
     } catch (e) {
       const why = (e as Error).message
       setStep({ name: 'choose', error: why === 'old_excel' ? 'That is the old Excel format (.xls). In Excel, choose File, Save As, then Excel Workbook (.xlsx) or CSV, and upload that.' : "That file couldn't be read. Upload a CSV or an Excel (.xlsx) file." })

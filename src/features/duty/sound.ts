@@ -25,6 +25,11 @@ const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in wi
 
 /** How long speech may wait for its clips after the chime before the iPad's own voice says it instead. */
 export const CLIP_BUDGET_MS = 1200
+/**
+ * The sound check after Start duty waits longer: on that first tap the clip still has to download to the iPad, which
+ * takes more than 1.2 s, and the check should sound like the real gate, not the tablet's voice.
+ */
+export const SOUND_CHECK_BUDGET_MS = 8000
 const SENTENCE_GAP_MS = 120
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -98,7 +103,7 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
  * The school's voice when every sentence's clip is ready within CLIP_BUDGET_MS, else the iPad's Indian English voice,
  * so one announcement is never said in two voices and the gate never waits. Never rejects.
  */
-export async function speak(text: string, childId?: string): Promise<void> {
+export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<void> {
   const lines = voiceLines(text, voiceChild(childId))
   if (!lines.length) return
   const mine = generation
@@ -107,7 +112,7 @@ export async function speak(text: string, childId?: string): Promise<void> {
     const all = Promise.all(lines.map((line) => clipAudio(audio, line)))
     // Still being made in the background when the budget runs out: the next repeat uses it.
     all.catch(() => {})
-    const clips = await Promise.race([all, wait(CLIP_BUDGET_MS).then(() => null)]).catch(() => null)
+    const clips = await Promise.race([all, wait(budgetMs).then(() => null)]).catch(() => null)
     if (mine !== generation) return
     if (clips) {
       for (const [i, clip] of clips.entries()) {
@@ -144,10 +149,21 @@ export async function playSentence(sentence: string, onStart?: () => void): Prom
 
 // The iPad's own Indian English voice, used only when the school's clip isn't ready. Never another accent: a wrong
 // accent says Indian names worse than silence plus the name on screen.
-const FEMALE = /\b(isha|veena|neerja|heera|kalpana|lekha|swara|tara|female)\b/i
+// Clearest first, measured by recording each voice and transcribing it (2026-09-27): Apple's Tara, the Siri voice,
+// garbled "Urgent. Reminder. Pickup for…" into nonsense; Rishi and Aman said every word. Natural voices (Edge's Neerja,
+// "Enhanced"/"Premium" downloads) beat all of them.
+const PREFERRED = [/natural|online|enhanced|premium/i, /\brishi\b/i, /\baman\b/i, /\b(neerja|isha|heera|lekha)\b/i]
+const LAST = /\b(tara|siri|veena)\b/i
+export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {
+  const voices = all.filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')
+  for (const p of PREFERRED) {
+    const v = voices.find((x) => p.test(x.name) && !LAST.test(x.name))
+    if (v) return v
+  }
+  return voices.find((v) => !LAST.test(v.name)) ?? voices[0] ?? null
+}
 function indianVoice(): SpeechSynthesisVoice | null {
-  const voices = speechSynthesis.getVoices().filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')
-  return voices.find((v) => FEMALE.test(v.name)) ?? voices[0] ?? null
+  return pickIndianVoice(speechSynthesis.getVoices())
 }
 
 function speakDevice(text: string, mine: number): Promise<void> {

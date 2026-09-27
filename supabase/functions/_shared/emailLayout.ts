@@ -29,7 +29,7 @@ export function invitationCard(signInHref: string, siteHref: string, host: strin
                 <tr>
                   <td align="center" class="hero" style="padding:30px 28px 30px;">
                     <div style="font-family:${SANS};font-size:11px;line-height:16px;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;color:#ffd54a;">&#9733;&nbsp; Your personal invitation &nbsp;&#9733;</div>
-                    <div style="margin-top:10px;font-family:${DISPLAY};font-size:22px;line-height:30px;font-weight:800;color:#ffffff;">Your place in Jumpstart is ready</div>
+                    <div style="margin-top:10px;font-family:${DISPLAY};font-size:22px;line-height:30px;font-weight:800;color:#ffffff;">Your place in Jumpstart Go is ready</div>
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn" style="margin:22px auto 0;">
                       <tr>
                         <td align="center" bgcolor="#ffc21a" style="border-radius:999px;background:#ffc21a;background-image:linear-gradient(180deg,#ffdc5e 0%,#ffc21a 100%);box-shadow:0 10px 24px rgba(255,194,26,0.35),inset 0 -3px 0 rgba(0,0,0,0.12);">
@@ -125,7 +125,7 @@ export function emailLayout(o: Layout): string {
           <tr><td style="padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${strip}</tr></table></td></tr>
           <tr>
             <td class="head" align="center" bgcolor="#ffffff" style="padding:34px 40px 22px;background:#ffffff;">
-              <img src="${LOGO}" width="224" alt="Jumpstart" style="display:block;width:224px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
+              <img src="${LOGO}" width="224" alt="Jumpstart Go" style="display:block;width:224px;max-width:70%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
               <div class="sub" style="margin-top:12px;font-family:${SANS};font-size:11px;line-height:16px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${INK_3};">Preschool &amp; Learning Center &middot; Karve Road</div>
             </td>
           </tr>

@@ -46,6 +46,7 @@ export function explainDbError(e: { code?: string; message?: string } | null): s
   if (e.code === '42501') return "You don't have permission to do that."
   if (e.code === '23514' || e.code === 'P0001') return e.message?.replace(/^[a-z_]+: /, '') ?? 'Please check the details.'
   if (e.code === '23503') return 'Something it refers to no longer exists. Refresh and try again.'
+  if (e.code) return "The school's system couldn't do that. Try again, and call the school if it keeps happening."
   return "Couldn't save. Check your connection and try again."
 }
 

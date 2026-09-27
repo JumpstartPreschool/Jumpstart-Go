@@ -12,6 +12,11 @@
  * audio format changes: every clip is then made again instead of mixing two voices.
  */
 export const VOICE_VERSION = 'indic-parler-tts@7b527af5|mary|calm-v1|seed-20260927|mp3-64k'
+/**
+ * Bump when the words a voice is given change (sayable(), the building blocks below) but the voice doesn't. The
+ * pronounce function then makes the shared phrases again and requeues every child's sentences.
+ */
+export const WORDING_VERSION = 'words-3'
 export const MAX_CHARS = 400
 
 // Letters and marks in any script, digits, and the punctuation a voice uses for pauses and initials.
@@ -80,9 +85,48 @@ function nameMap(child: VoiceChild): { whole: [string, string] | null; byWord: M
   return { whole: written.length === said.length ? null : [child.fullName, spoken], byWord }
 }
 
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
+
+/** 0–9999 in words, the Indian English way ("three hundred and sixty"). */
+function numberWords(n: number): string {
+  if (n < 20) return ONES[n]!
+  if (n < 100) return TENS[Math.floor(n / 10)]! + (n % 10 ? ` ${ONES[n % 10]}` : '')
+  if (n < 1000) return `${ONES[Math.floor(n / 100)]} hundred` + (n % 100 ? ` and ${numberWords(n % 100)}` : '')
+  return `${numberWords(Math.floor(n / 1000))} thousand` + (n % 1000 ? `${n % 1000 < 100 ? ' and' : ''} ${numberWords(n % 1000)}` : '')
+}
+
+/** "3:15 PM" → "three fifteen in the afternoon"; "12:00 PM" → "twelve noon"; "13:05" → "one oh five". */
+function timeWords(hour: number, min: number, half?: string): string {
+  const h24 = half ? (hour % 12) + (half.toUpperCase() === 'PM' ? 12 : 0) : hour
+  if (h24 === 12 && min === 0 && half) return 'twelve noon'
+  const said = `${numberWords(h24 % 12 || 12)} ${min === 0 ? "o'clock" : min < 10 ? `oh ${ONES[min]}` : numberWords(min)}`
+  if (!half) return said
+  return `${said} ${h24 < 12 ? 'in the morning' : h24 < 17 ? 'in the afternoon' : 'in the evening'}`
+}
+
+/**
+ * The words a voice can read aloud. The gate voice reads text literally: "3:15 PM" or "Jr KG" come out garbled, so
+ * times, numbers and the school's abbreviations are written out. Only the voice gets this; the screen keeps "3:15 PM".
+ */
+export function sayable(text: string): string {
+  return text
+    .replace(/\b(\d{1,2}):(\d{2})(?:\s*([AP]M)\b)?/gi, (all, h: string, m: string, half?: string) =>
+      +h > 23 || +m > 59 || (half && (+h < 1 || +h > 12)) ? all : timeWords(+h, +m, half))
+    .replace(/\bJr\b\.?/g, 'Junior').replace(/\bSr\b\.?/g, 'Senior').replace(/\bKG\b/g, 'K G')
+    // Five or more digits is a phone or code: said digit by digit. Shorter numbers are said as numbers.
+    .replace(/\d+/g, (d) => (d.length >= 5 ? [...d].map((x) => ONES[+x]).join(' ') : numberWords(+d)))
+    .replace(/\s+/g, ' ')
+}
+
 /** A sentence as the voice is given it: tidied, with this child's pronunciation applied to their name only. */
 export function voiceSentence(sentence: string, child?: VoiceChild | null): string {
-  let text = tidy(sentence)
+  return sayable(named(tidy(sentence), child))
+}
+
+function named(tidied: string, child?: VoiceChild | null): string {
+  let text = tidied
   if (!child?.spoken) return text
   const { whole, byWord } = nameMap(child)
   if (whole) {
@@ -102,12 +146,14 @@ export function voiceSentence(sentence: string, child?: VoiceChild | null): stri
 export const voiceLines = (text: string, child?: VoiceChild | null) => sentences(tidy(text)).map((s) => voiceSentence(s, child)).filter(Boolean)
 
 // The announcement's building blocks. gate.ts composes them; warmSentences() below makes the everyday ones ahead of time.
+// Checked with the school voice (2026-09-27): it garbles one-word or plural sentences ("Reminder." → "Remindo",
+// "Announcements are on." → "Unmentsments are on", "Time changed." rambles on), so these are short full sentences.
 export const NEW_LEAD = 'New announcement. '
 export const URGENT_LEAD = 'Urgent. '
-export const REPEAT_LEAD = 'Reminder. '
-export const TIME_CHANGED = 'Time changed. '
+export const REPEAT_LEAD = 'This is a reminder. '
+export const TIME_CHANGED = 'The time has changed. '
 export const ARRIVING_NOW = 'Arriving now.'
-export const SOUND_CHECK = 'Sound check. Announcements are on.'
+export const SOUND_CHECK = 'This is a sound check. Gate announcements are working.'
 export type Kind = 'pickup' | 'dropoff'
 const kindWord = (k: Kind) => (k === 'pickup' ? 'Pickup' : 'Drop-off')
 export const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? name
@@ -125,12 +171,19 @@ export function clockText(min: number): string {
   return `${h % 12 === 0 ? 12 : h % 12}:${String(min % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-/** Sentences every announcement shares: the leads, "Arriving now.", and every 5-minute time from 7 AM to 8 PM. */
-export function commonPhrases(): string[] {
+/** The few sentences almost every announcement starts or ends with: made first. */
+export const leadPhrases = () =>
+  sentences(NEW_LEAD + URGENT_LEAD + REPEAT_LEAD + TIME_CHANGED + ARRIVING_NOW + ' ' + SOUND_CHECK).map((s) => voiceSentence(s))
+
+/** "Arriving about …" for every 5-minute time from 7 AM to 8 PM (gate.ts rounds arrivals to 5 minutes). */
+export function timePhrases(): string[] {
   const times: string[] = []
-  for (let m = 7 * 60; m < 20 * 60; m += 5) times.push(arrivingAbout(clockText(m)))
-  return [...sentences(NEW_LEAD + URGENT_LEAD + REPEAT_LEAD + TIME_CHANGED + ARRIVING_NOW + ' ' + SOUND_CHECK), ...times].map((s) => voiceSentence(s))
+  for (let m = 7 * 60; m < 20 * 60; m += 5) times.push(voiceSentence(arrivingAbout(clockText(m))))
+  return times
 }
+
+/** Sentences every announcement shares: the leads and the times. */
+export const commonPhrases = () => [...leadPhrases(), ...timePhrases()]
 
 /** A child's everyday sentences, as the voice is given them: made ahead so the gate never waits for them. */
 export function warmSentences(child: VoiceChild, className: string, guardians: ReadonlyArray<{ name: string; relation: string | null }>): string[] {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Headset, Phone } from '../../ui/icons'
-import { Button } from '../../ui/Button'
+import { LuxButton } from '../../ui/Button'
 import { ErrorState, SkeletonList } from '../../ui/States'
 import { useNow } from '../../ui/hooks'
 import { supabase } from '../../lib/supabase'
@@ -30,7 +30,7 @@ export function FrontDesk() {
 
   return (
     <AreaShell area="pro" title="Front desk" subtitle="Calls and walk-ins, sent to the gate at once."
-      actions={<Button icon={<Phone />} disabled={!children} onClick={() => setCalling(true)}>Log a call</Button>}>
+      actions={<LuxButton primary icon={<Phone />} disabled={!children} onClick={() => setCalling(true)}>Log a call</LuxButton>}>
       <div className="mt-6 grid gap-6">
         {error ? <ErrorState title="Couldn't load today" onRetry={reload}>Check your connection and try again.</ErrorState> : !children ? <SkeletonList count={6} /> : (
           <Board children={children} editable={false} nowMs={nowMs} onChanged={reload} onLogCall={(id) => setCalling(id)} onMessages={(id) => navigate(`/pro/messages?child=${id}`)}

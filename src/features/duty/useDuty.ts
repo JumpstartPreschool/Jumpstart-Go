@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
 import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
-import { chime, deviceOutput, soundSupported, speak, stopSound, unlockSound } from './sound'
+import { chime, deviceOutput, prepare, SOUND_CHECK_BUDGET_MS, soundSupported, speak, stopSound, unlockSound } from './sound'
 import { createWakeLock } from './wakeLock'
 import { now } from '../../lib/clock'
 
@@ -53,8 +53,10 @@ export function useDuty() {
     setTesting(true)
     setTestsPlayed((n) => n + 1)
     try {
+      // Fetch the school voice's clip while the chime plays, and give it time: this is a test, not the busy gate.
+      prepare(SOUND_CHECK)
       await chime('normal')
-      await speak(SOUND_CHECK)
+      await speak(SOUND_CHECK, undefined, SOUND_CHECK_BUDGET_MS)
     } finally {
       setTesting(false)
     }

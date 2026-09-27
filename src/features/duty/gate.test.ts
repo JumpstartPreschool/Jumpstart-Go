@@ -15,6 +15,10 @@ describe('gate announcements', () => {
     expect(spokenText(trip(), child, at('2026-09-28T06:50:00Z'))).toBe(
       "Pickup for Aarav Kulkarni, Nursery. Aarav's mother, Sneha, is on the way. Arriving about 12:45 PM. Please get Aarav ready.")
   })
+  it('says a live arrival to the nearest 5 minutes, a time already made in the school voice', () => {
+    expect(spokenText(trip({ arrive_at: '2026-09-28T07:17:20Z' }), child, at('2026-09-28T06:50:00Z'))).toContain('Arriving about 12:45 PM.')
+    expect(spokenText(trip({ arrive_at: '2026-09-28T07:18:00Z' }), child, at('2026-09-28T06:50:00Z'))).toContain('Arriving about 12:50 PM.')
+  })
   it('is urgent, and says "Arriving now", within five minutes of arrival', () => {
     const now = at('2026-09-28T07:12:00Z')
     expect(isUrgent(trip(), now)).toBe(true)
@@ -25,7 +29,7 @@ describe('gate announcements', () => {
     const t = trip({ off_schedule: true, reason: "Doctor's visit", updated_at: '2026-09-28T06:55:00Z' })
     expect(isUrgent(t, at('2026-09-28T06:00:00Z'))).toBe(true)
     const said = spokenText(t, child, at('2026-09-28T06:00:00Z'))
-    expect(said.startsWith('Time changed. Pickup for Aarav Kulkarni')).toBe(true)
+    expect(said.startsWith('The time has changed. Pickup for Aarav Kulkarni')).toBe(true)
     expect(said).toContain("Reason: Doctor's visit.")
   })
   it('drop-offs skip "get ready", and cancellations are one sentence', () => {

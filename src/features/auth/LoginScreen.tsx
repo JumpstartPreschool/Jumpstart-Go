@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowRight, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck } from '../../ui/icons'
+import { ArrowRight, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck, PencilLine, RotateCcw } from '../../ui/icons'
 import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
@@ -47,7 +47,7 @@ const PROMISES = [
 export function SignInFrame({ children }: { children: ReactNode }) {
   return (
     <main className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:p-4">
-      <section aria-label="About Jumpstart"
+      <section aria-label="About Jumpstart Go"
         className="signin-hero relative flex min-h-[50dvh] flex-col justify-center gap-7 overflow-hidden rounded-b-[36px] px-6 pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-20 text-ink sm:px-10 md:min-h-[54dvh] md:pb-24 lg:min-h-0 lg:justify-between lg:gap-10 lg:rounded-[32px] lg:p-12 xl:p-16">
         <div className="self-center rounded-[22px] bg-white px-5 py-3 shadow-[0_0_0_1px_rgb(120_80_40/0.08),0_14px_34px_-18px_rgb(120_60_30/0.45)] lg:self-start lg:px-6 lg:py-3.5">
           <Logo className="h-10 sm:h-11 lg:h-12" />
@@ -61,8 +61,8 @@ export function SignInFrame({ children }: { children: ReactNode }) {
         </div>
         <ul className="hidden max-w-[520px] gap-3 lg:grid">
           {PROMISES.map((p) => (
-            <li key={p.title} className="flex items-center gap-3.5 rounded-2xl bg-white/75 px-4 py-3 shadow-[0_1px_2px_rgb(120_80_40/0.06)] ring-1 ring-[#eadfce]">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fbf3e8] [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
+            <li key={p.title} className="signin-pill flex items-center gap-3.5 rounded-2xl px-4 py-3">
+              <span className="grid size-10 shrink-0 place-items-center signin-pill__icon rounded-xl [&_svg]:size-[22px]" aria-hidden>{p.icon}</span>
               <span className="text-body text-ink-2"><b className="text-ink">{p.title}.</b> {p.text}</span>
             </li>
           ))}
@@ -173,7 +173,7 @@ export function LoginScreen() {
           <form key="email" onSubmit={onEmail} noValidate className="page-in grid gap-4">
             <div className="text-center">
               <p className="text-caption font-extrabold uppercase tracking-[0.14em] text-accent-ink">Welcome</p>
-              <h1 className="mt-1 text-h1">Sign in to Jumpstart</h1>
+              <h1 className="mt-1 text-h1">Sign in to Jumpstart Go</h1>
               <p className="mt-2 text-body text-ink-2">Use the email the school has for you.</p>
             </div>
             <TextField
@@ -202,9 +202,14 @@ export function LoginScreen() {
                 <MailCheck className="size-8" strokeWidth={1.75} aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check your email</h1>
-              <p className="mt-1.5 text-body text-ink-2">
-                We sent a 6-digit code to <span className="font-bold text-ink">{email}</span>. It works for 5 minutes.
-              </p>
+              <p className="mt-1.5 text-body text-ink-2">We sent a 6-digit code to your email. It works for 5 minutes.</p>
+              {/* The address the code went to, with Change right on it: where people look when it's the wrong one. */}
+              <button type="button" className="email-chip mt-3" aria-label={`Change email, now ${email}`}
+                onClick={() => { setStep('email'); setCode(''); setError(null) }}>
+                <MailLine className="email-chip__mail" aria-hidden />
+                <span className="min-w-0 truncate">{email}</span>
+                <span className="email-chip__edit"><PencilLine aria-hidden />Change</span>
+              </button>
             </div>
             <label htmlFor="code" className="sr-only">6-digit code</label>
             {/* One real input (so phones can fill the code from the email), drawn as six boxes. */}
@@ -241,12 +246,9 @@ export function LoginScreen() {
             <Button type="submit" className="w-full" icon={<LogIn />} loading={busy} disabled={code.length !== CODE_LENGTH}>
               Sign in
             </Button>
-            <div className="flex flex-wrap items-center justify-between gap-x-2">
-              <button type="button" className="linkbtn" disabled={resendIn > 0 || busy} onClick={() => void sendCode(email)}>
-                {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
-              </button>
-              <button type="button" className="linkbtn" onClick={() => { setStep('email'); setCode(''); setError(null) }}>Change email</button>
-            </div>
+            <Button variant="quiet" size="md" className="mx-auto tabular-nums" icon={<RotateCcw />} disabled={resendIn > 0 || busy} onClick={() => void sendCode(email)}>
+              {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            </Button>
           </form>
         )}
       </div>

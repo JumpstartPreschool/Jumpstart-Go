@@ -206,7 +206,7 @@ export default function CollectorLink() {
     return (
       <Page pill={<Pill icon={<Link2 />}>Pickup link</Pill>}>
         <div>
-          <p className="kicker">Pickup link from Jumpstart</p>
+          <p className="kicker">Pickup link from Jumpstart Go</p>
           <h1 className="mt-1 text-display text-balance">Hi {nm}, you're collecting {l.child} today</h1>
         </div>
         <div className="card grid grid-cols-2 gap-4 rounded-2xl p-5">

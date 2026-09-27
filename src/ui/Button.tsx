@@ -36,3 +36,23 @@ export function Button({ variant = 'primary', size = 'lg', icon, loading = false
     </button>
   )
 }
+
+/**
+ * A rich action (`.lux` in app.css): frosted glass on a soft raised base, the icon in a sunken well. `tone` colours the
+ * glass (red for the main action, sunshine, green); `size` sm suits toolbars and list rows, xl the gate's big action.
+ * While loading it shows a spinner in the well and ignores presses, like Button.
+ */
+export function LuxButton({ tone = 'glass', primary = false, size = 'lg', icon, loading = false, children, className = '', onClick, ...rest }:
+  ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'glass' | 'primary' | 'sun' | 'success'; primary?: boolean; size?: 'sm' | 'lg' | 'xl'; icon: ReactNode; loading?: boolean; ref?: Ref<HTMLButtonElement> }) {
+  const guard = (e: MouseEvent<HTMLButtonElement>) => {
+    if (loading) return e.preventDefault()
+    onClick?.(e)
+  }
+  return (
+    <button type="button" className={`lux lux--${primary ? 'primary' : tone} lux--${size} ${className}`}
+      aria-busy={loading || undefined} aria-disabled={loading || undefined} onClick={guard} {...rest}>
+      <span className="lux__icon" aria-hidden>{loading ? <LoaderCircle className="animate-spin" /> : icon}</span>
+      <span className="lux__label">{children}</span>
+    </button>
+  )
+}

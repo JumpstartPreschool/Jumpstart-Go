@@ -20,8 +20,8 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
       },
       manifest: {
-        name: 'Jumpstart',
-        short_name: 'Jumpstart',
+        name: 'Jumpstart Go',
+        short_name: 'Jumpstart Go',
         description: 'Pickups, drop-offs and attendance for Jumpstart Preschool',
         id: '/',
         scope: '/',

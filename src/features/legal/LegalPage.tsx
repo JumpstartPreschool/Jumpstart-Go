@@ -42,8 +42,8 @@ function Frame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <main className="gutter mx-auto w-full max-w-[calc(760px+2*var(--gutter))] pt-[max(24px,calc(env(safe-area-inset-top)+16px))] pb-[max(40px,env(safe-area-inset-bottom))]">
       <header className="flex items-center justify-between gap-3">
-        <Link to="/" aria-label="Jumpstart home"><Logo className="h-10" /></Link>
-        <Link to="/" className="linkbtn inline-flex items-center gap-1.5 [&_svg]:size-4"><ArrowLeft aria-hidden />Back to Jumpstart</Link>
+        <Link to="/" aria-label="Jumpstart Go home"><Logo className="h-10" /></Link>
+        <Link to="/" className="linkbtn inline-flex items-center gap-1.5 [&_svg]:size-4"><ArrowLeft aria-hidden />Back to Jumpstart Go</Link>
       </header>
       <article className="card mt-6 grid gap-8 rounded-2xl p-6 sm:p-9">
         <div>
@@ -64,7 +64,7 @@ export function PrivacyPage() {
   usePageMeta('Privacy Policy · Jumpstart Preschool', "How the Jumpstart app for Jumpstart Preschool, Karve Road, looks after families' and children's information.")
   return (
     <Frame title="Privacy Policy">
-      <p className="text-lead text-ink-2">The Jumpstart app helps {SCHOOL}, Karve Road, run safe drop-offs and pickups. This page explains what it keeps, why, who sees it and for how long.</p>
+      <p className="text-lead text-ink-2">The Jumpstart Go app helps {SCHOOL}, Karve Road, run safe drop-offs and pickups. This page explains what it keeps, why, who sees it and for how long.</p>
       <Section title="Who is responsible">
         <p>{SCHOOL}, {ADDRESS}, is responsible for the information in the app. Contact us at <a className="linkbtn px-0" href={`mailto:${EMAIL}`}>{EMAIL}</a>.</p>
       </Section>
@@ -132,7 +132,7 @@ export function TermsPage() {
   usePageMeta('Terms of Use · Jumpstart Preschool', 'The terms for using the Jumpstart app for drop-offs and pickups at Jumpstart Preschool, Karve Road.')
   return (
     <Frame title="Terms of Use">
-      <p className="text-lead text-ink-2">These terms cover the Jumpstart app, which {SCHOOL} provides to its families and staff.</p>
+      <p className="text-lead text-ink-2">These terms cover the Jumpstart Go app, which {SCHOOL} provides to its families and staff.</p>
       <Section title="Who can use it">
         <p>Only people the school adds: parents and family of enrolled children, and school staff. Someone collecting a child can open the one-time link a parent sends them, on one phone, for that trip only.</p>
       </Section>

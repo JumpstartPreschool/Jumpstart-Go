@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { BellRing, CalendarClock, ChevronDown, Clock, Headset, Megaphone, MessageSquare, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
+import { BellRing, CalendarClock, Check, ChevronDown, ChevronRight, Clock, Headset, Megaphone, MessageSquare, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
@@ -68,8 +68,8 @@ export function AccountButton({ area }: { area: Area }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Account: ${me.full_name}`}
-        className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-line bg-surface p-0.5 pr-2 text-small font-bold transition-colors duration-150 hover:bg-sunken sm:pr-3">
-        <Avatar name={me.full_name} color="var(--accent)" size="sm" />
+        className="account-pill flex h-11 shrink-0 items-center gap-2 rounded-full p-1 pr-2.5 text-small font-bold sm:pr-3.5">
+        <Avatar name={me.full_name} color="var(--accent)" size="xs" />
         <span className="hidden sm:inline">{me.full_name.split(' ')[0]}</span>
         <ChevronDown className="size-4 text-ink-3" aria-hidden />
       </button>
@@ -77,12 +77,16 @@ export function AccountButton({ area }: { area: Area }) {
         {areas.length > 1 && (
           <>
             <p className="kicker">Switch area</p>
-            <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
+            <div className="lux-panel mt-2 grid gap-3 sm:grid-cols-2">
               {areas.map((a) => (
-                <button key={a} type="button" className="choice flex h-14 items-center gap-3 px-4 text-h4 [&>svg]:size-5 [&>svg]:text-accent" aria-pressed={a === area}
+                <button key={a} type="button" className="lux lux-tile gap-3.5" aria-pressed={a === area}
                   onClick={() => { setOpen(false); if (a !== area) navigate(`/${a}`) }}>
-                  {AREA_ICON[a]}
-                  {AREA_LABEL[a]}
+                  <span className="lux__icon" aria-hidden>{AREA_ICON[a]}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-h4">{AREA_LABEL[a]}</span>
+                    <span className="block text-caption font-semibold text-ink-2">{a === area ? 'You are here' : AREA_DOES[a]}</span>
+                  </span>
+                  {a === area ? <Check className="size-5 shrink-0 text-accent" aria-hidden /> : <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />}
                 </button>
               ))}
             </div>
