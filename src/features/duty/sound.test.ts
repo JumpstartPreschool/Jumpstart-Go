@@ -11,17 +11,20 @@ describe('announcement voice', () => {
       v('Microsoft Neerja Online (Natural) - English (India)', 'en-IN'), v('Ava (Premium)', 'en-US'),
     ].sort((a, b) => voiceScore(b) - voiceScore(a)).map((x) => x.name)
     expect(ranked).toEqual([
-      'Microsoft Neerja Online (Natural) - English (India)', 'Isha (Enhanced)', 'Ava (Premium)', 'Google UK English Female', 'Samantha', 'Rishi',
+      'Microsoft Neerja Online (Natural) - English (India)', 'Isha (Enhanced)', 'Ava (Premium)', 'Rishi', 'Google UK English Female', 'Samantha',
     ])
   })
-  it("on a device with only built-in voices, picks a smooth woman's voice", () => {
+  it('on a device with only built-in voices, the Indian one leads, since it says the names right', () => {
     const builtIn = [v('Rishi', 'en-IN'), v('Daniel', 'en-GB'), v('Samantha', 'en-US'), v('Fred', 'en-US')]
-    expect(builtIn.sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name).toBe('Samantha')
+    expect(builtIn.sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name).toBe('Rishi')
   })
-  it("prefers a woman's voice even over a man's neural voice", () => {
+  it("an Indian voice outranks a British one, even a woman's (owner, 2026-09-27)", () => {
     const best = [v('Microsoft Prabhat Online (Natural) - English (India)', 'en-IN'), v('Google UK English Female', 'en-GB'), v('Google UK English Male', 'en-GB')]
       .sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name
-    expect(best).toBe('Google UK English Female')
+    expect(best).toBe('Microsoft Prabhat Online (Natural) - English (India)')
+    const chrome = [v('Google UK English Female', 'en-GB'), v('Google US English', 'en-US'), v('Google हिन्दी', 'hi-IN')]
+      .sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name
+    expect(chrome).toBe('Google हिन्दी')
   })
   it("an Indian English woman's voice outranks a more polished American one, so names sound right", () => {
     const best = [v('Ava (Premium)', 'en-US'), v('Tara', 'en-IN'), v('Aman', 'en-IN'), v('Samantha', 'en-US')].sort((a, b) => voiceScore(b) - voiceScore(a))[0]!.name
@@ -36,7 +39,8 @@ describe('announcement voice', () => {
   })
   it('never offers robotic novelty voices or other languages', () => {
     for (const name of ['Zarvox', 'Bubbles', 'Bad News', 'Eddy (English (US))', 'Grandpa']) expect(voiceScore(v(name, 'en-US'))).toBe(-1)
-    expect(voiceScore(v('Lekha', 'hi-IN'))).toBe(-1)
+    expect(voiceScore(v('Amélie', 'fr-FR'))).toBe(-1)
+    expect(voiceScore(v('Lekha', 'hi-IN'))).toBeGreaterThan(0)
   })
   it('shows a short friendly name', () => {
     expect(voiceLabel(v('Microsoft Neerja Online (Natural) - English (India)', 'en-IN'))).toBe('Neerja')
