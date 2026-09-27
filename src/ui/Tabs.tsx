@@ -1,9 +1,9 @@
-import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 
 export interface TabItem<K extends string> { key: K; label: string; short?: string; icon?: ReactNode; count?: number | null }
 
 /**
- * Segmented tabs, like iOS: one frosted track with a white pill that slides to the chosen tab (styles: `.segx`). Arrow keys, Home and End move between tabs, as screen-reader users expect;
+ * Segmented tabs in the top bar's style: a pill track, the chosen tab a white pill in red (styles: `.segx`). Arrow keys, Home and End move between tabs, as screen-reader users expect;
  * the panel is labelled by the chosen tab (give it id `${id}-panel`).
  */
 export function Tabs<K extends string>({ id, label, items, value, onChange }: { id: string; label: string; items: Array<TabItem<K>>; value: K; onChange: (key: K) => void }) {
@@ -16,10 +16,8 @@ export function Tabs<K extends string>({ id, label, items, value, onChange }: { 
     onChange(key)
     document.getElementById(`${id}-${key}`)?.focus()
   }
-  const index = Math.max(0, items.findIndex((t) => t.key === value))
   return (
-    <div className="segx" role="tablist" aria-label={label} onKeyDown={onKey} style={{ '--n': items.length, '--i': index } as CSSProperties}>
-      <span className="segx-pill" aria-hidden />
+    <div className="segx" role="tablist" aria-label={label} onKeyDown={onKey}>
       {items.map((t) => {
         const on = t.key === value
         return (
