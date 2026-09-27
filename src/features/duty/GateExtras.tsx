@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CalendarClock, CalendarX, DoorOpen, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
-import { Button } from '../../ui/Button'
+import { Button, LuxButton } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
@@ -44,7 +44,7 @@ function WalkInSheet({ c, direction, onClose, onDone }: { c: SchoolChild; direct
         {error && <Notice tone="danger" className="mb-4">{error}</Notice>}
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Button variant="secondary" onClick={onClose}>Not yet</Button>
-          <Button variant="success" icon={<DoorOpen />} loading={busy} onClick={() => void go(null)}>Check in {c.first}</Button>
+          <LuxButton tone="success" icon={<DoorOpen />} loading={busy} onClick={() => void go(null)}>Check in {c.first}</LuxButton>
         </div>
       </Sheet>
     )
@@ -100,9 +100,9 @@ export function ExpectedLists({ children, onDone }: { children: SchoolChild[]; o
                     {c.day.changed[direction] ? 'Changed today' : c.regular ? 'Regular' : 'Window'} {WORD[direction]}, {c.day.next.at !== null ? formatTime(c.day.next.at) : 'time not set'}{c.className ? ` · ${c.className}` : ''}
                   </span>
                 </span>
-                <Button size="md" variant="secondary" icon={direction === 'dropoff' ? <DoorOpen /> : <UserCheck />} onClick={() => setWalkIn({ c, direction })}>
+                <LuxButton size="sm" icon={direction === 'dropoff' ? <DoorOpen /> : <UserCheck />} onClick={() => setWalkIn({ c, direction })}>
                   {direction === 'dropoff' ? 'Check in' : 'Hand over'}
-                </Button>
+                </LuxButton>
               </li>
             ))}
           </ul>

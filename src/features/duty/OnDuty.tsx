@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AudioLines, Bell, BellOff, PowerLine, Sun, TriangleAlert, Volume2, WifiOff } from '../../ui/icons'
-import { Button } from '../../ui/Button'
+import { Button, LuxButton } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
 import { Sheet } from '../../ui/Sheet'
@@ -38,13 +38,13 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
           </p>
           <div className="flex items-center gap-2">
             {mutedUntil ? (
-              <Button size="md" variant="sunshine" icon={<Bell />} onClick={duty.unmute}>
+              <LuxButton size="sm" tone="sun" icon={<Bell />} onClick={duty.unmute}>
                 Unmute
-              </Button>
+              </LuxButton>
             ) : (
-              <Button size="md" variant="secondary" icon={<BellOff />} onClick={duty.mute}>
+              <LuxButton size="sm" icon={<BellOff />} onClick={duty.mute}>
                 Mute 5 min
-              </Button>
+              </LuxButton>
             )}
             <button type="button" className="endduty" onClick={() => setEnding(true)}>
               <span aria-hidden><PowerLine /></span>
@@ -105,9 +105,9 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
       <main className="gutter pt-6">
         <GateQueue announcer={duty.announcer} />
         <section className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-line pt-5" aria-label="Sound">
-          <Button size="md" variant="secondary" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
+          <LuxButton size="sm" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
             Test the speaker
-          </Button>
+          </LuxButton>
           <p className="text-caption font-semibold text-ink-3">Sound plays through this device's speaker, or a Bluetooth speaker when one is connected.</p>
         </section>
       </main>

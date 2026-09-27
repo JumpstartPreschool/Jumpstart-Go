@@ -118,8 +118,8 @@ export function AdminPeople() {
 
   return (
     <AreaShell area="admin" title="People" subtitle="Children, families and staff."
-      actions={tab === 'staff' ? <Button icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</Button>
-        : tab === 'classes' ? <Button icon={<Plus />} onClick={() => setAdding('class')}>Add class</Button>
+      actions={tab === 'staff' ? <LuxButton primary icon={<UserPlus />} onClick={() => setAdding('staff')}>Add staff</LuxButton>
+        : tab === 'classes' ? <LuxButton primary icon={<Plus />} onClick={() => setAdding('class')}>Add class</LuxButton>
         : <><LuxButton icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</LuxButton><LuxButton primary icon={<Plus />} onClick={() => setAdding('child')}>Add child</LuxButton></>}>
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <Tabs id="people" label="People" value={tab} onChange={setTab} items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
