@@ -131,7 +131,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
         <span className="dutybtn-icon" aria-hidden>{duty.resumable ? <PlayLine /> : <PowerLine />}</span>
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[19px] font-extrabold leading-tight tracking-[-0.01em]">{duty.resumable ? 'Resume duty' : 'Start duty'}</span>
-          <span className="block truncate text-small font-semibold opacity-85">Announcements stay on until you tap End duty</span>
+          <span className="block text-small font-semibold opacity-85">Announcements stay on until you tap End duty</span>
         </span>
         <ArrowRight className="dutybtn-arrow" aria-hidden />
       </button>

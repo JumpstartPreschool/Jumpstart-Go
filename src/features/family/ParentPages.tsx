@@ -384,7 +384,7 @@ export function ParentAccount() {
             {kids.rows && kids.rows.length > 0 && (
               <ul className="flex flex-wrap gap-2" aria-label="Your children">
                 {kids.rows.map((k) => (
-                  <li key={k.id} className="flex items-center gap-2 rounded-full bg-surface/80 py-1 pl-1 pr-3.5 text-small font-bold shadow-[0_1px_2px_rgb(22_25_58/0.08)] backdrop-blur">
+                  <li key={k.id} className="flex items-center gap-2 rounded-full bg-surface/80 py-1 pl-1 pr-3.5 text-small font-bold shadow-[0_1px_2px_rgb(22_25_58/0.08)]">
                     <Avatar name={first(k)} color={childColor(k.id)} size="sm" />{first(k)}
                   </li>
                 ))}

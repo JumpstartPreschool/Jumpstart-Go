@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-const sizes = { sm: 'size-10 text-[14px]', md: 'size-12 text-[16px]', lg: 'size-14 text-[18px]' }
+const sizes = { xs: 'size-9 text-[13px]', sm: 'size-10 text-[14px]', md: 'size-12 text-[16px]', lg: 'size-14 text-[18px]' }
 
 /** "Aarav Kulkarni" → "AK", "Isha" → "I", "Priya Mehta (Test)" → "PM": the first letters of the first and last names. */
 export function initials(name: string): string {

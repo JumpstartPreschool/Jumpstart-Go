@@ -68,8 +68,8 @@ export function AccountButton({ area }: { area: Area }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Account: ${me.full_name}`}
-        className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-line bg-surface p-0.5 pr-2 text-small font-bold transition-colors duration-150 hover:bg-sunken sm:pr-3">
-        <Avatar name={me.full_name} color="var(--accent)" size="sm" />
+        className="account-pill flex h-11 shrink-0 items-center gap-2 rounded-full p-1 pr-2.5 text-small font-bold sm:pr-3.5">
+        <Avatar name={me.full_name} color="var(--accent)" size="xs" />
         <span className="hidden sm:inline">{me.full_name.split(' ')[0]}</span>
         <ChevronDown className="size-4 text-ink-3" aria-hidden />
       </button>

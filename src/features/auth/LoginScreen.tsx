@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowRight, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck } from '../../ui/icons'
+import { ArrowRight, KeyRound, LogIn, MailCheck, MailLine, MapPin, UserCheck, PencilLine, RotateCcw } from '../../ui/icons'
 import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
@@ -202,9 +202,14 @@ export function LoginScreen() {
                 <MailCheck className="size-8" strokeWidth={1.75} aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check your email</h1>
-              <p className="mt-1.5 text-body text-ink-2">
-                We sent a 6-digit code to <span className="font-bold text-ink">{email}</span>. It works for 5 minutes.
-              </p>
+              <p className="mt-1.5 text-body text-ink-2">We sent a 6-digit code to your email. It works for 5 minutes.</p>
+              {/* The address the code went to, with Change right on it: where people look when it's the wrong one. */}
+              <button type="button" className="email-chip mt-3" aria-label={`Change email, now ${email}`}
+                onClick={() => { setStep('email'); setCode(''); setError(null) }}>
+                <MailLine className="email-chip__mail" aria-hidden />
+                <span className="min-w-0 truncate">{email}</span>
+                <span className="email-chip__edit"><PencilLine aria-hidden />Change</span>
+              </button>
             </div>
             <label htmlFor="code" className="sr-only">6-digit code</label>
             {/* One real input (so phones can fill the code from the email), drawn as six boxes. */}
@@ -241,12 +246,9 @@ export function LoginScreen() {
             <Button type="submit" className="w-full" icon={<LogIn />} loading={busy} disabled={code.length !== CODE_LENGTH}>
               Sign in
             </Button>
-            <div className="flex flex-wrap items-center justify-between gap-x-2">
-              <button type="button" className="linkbtn" disabled={resendIn > 0 || busy} onClick={() => void sendCode(email)}>
-                {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
-              </button>
-              <button type="button" className="linkbtn" onClick={() => { setStep('email'); setCode(''); setError(null) }}>Change email</button>
-            </div>
+            <Button variant="quiet" size="md" className="mx-auto tabular-nums" icon={<RotateCcw />} disabled={resendIn > 0 || busy} onClick={() => void sendCode(email)}>
+              {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            </Button>
           </form>
         )}
       </div>

@@ -18,7 +18,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const { speaking, waiting, mutedUntil } = duty.ann
 
   return (
-    <div className="screen-h pb-[env(safe-area-inset-bottom)]">
+    <div className="screen-h">
       {/* Floating bar: duty status, clock and the controls a coordinator needs mid-shift. */}
       <header className="gutter sticky top-0 z-10 pt-[max(12px,env(safe-area-inset-top))]">
         <div className="glass flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl py-2.5 pl-4 pr-2.5 sm:pl-5">
@@ -102,7 +102,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
         </div>
       </header>
 
-      <main className="gutter pt-6">
+      <main className="gutter pt-6 pb-[max(32px,calc(env(safe-area-inset-bottom)+16px))]">
         <GateQueue announcer={duty.announcer} />
         <section className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-line pt-5" aria-label="Sound">
           <LuxButton size="sm" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
