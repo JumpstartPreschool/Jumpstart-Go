@@ -23,7 +23,7 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 |---|---|
 | **Parents** | Today's drop-off and pickup times, "I'm on my way", changing a time, absences for one day or several on a calendar, adding relatives who collect, and a one-time link for someone else to collect. Messages and announcements from the school. |
 | **Someone collecting** (a driver, a friend) | A web page from the link, no app needed. It opens after they confirm the last 4 digits of their mobile, shows their gate code, and can share their location on the way. |
-| **Center leaders** | A tablet queue of who is arriving and when, spoken announcements (a studio voice that says Indian names clearly, or the tablet's own), code checks and handovers. |
+| **Center leaders** | A tablet queue of who is arriving and when, spoken announcements in the school's own Indian voice, with each child's name approved by a person, code checks and handovers. |
 | **Head office** | The day's board, attendance, programme timings, each child's regular times, messages and announcements. |
 | **Front desk** | Calls and walk-ins, sent to the gate at once. |
 | **Admin** | Children, families and staff, classes and timings, bulk upload from Excel (rows with missing details still go in), invitations, announcements, settings, name pronunciation and the audit log. |
@@ -112,7 +112,7 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 | Icons | [Microsoft Fluent UI Color](https://github.com/microsoft/fluentui-system-icons) (MIT, notice in `public/iconsc`), with Lucide line icons for arrows and controls |
 | People | Initials on each person's colour |
 | Maps | MapLibre GL with OpenFreeMap's coloured Liberty style |
-| Voice | ElevenLabs studio voice (made once per announcement and cached), falling back to Kokoro on the device and then the device voice |
+| Voice | AI4Bharat Indic Parler-TTS ("Mary", Indian English), made once per sentence on the school's computer and kept; the tablet's own Indian English voice if a sentence isn't ready |
 
 ## Stack
 
@@ -121,7 +121,7 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 | App | React 19, TypeScript, Vite, Tailwind CSS 4, React Router 7, installable through `vite-plugin-pwa` |
 | Backend | Supabase: Postgres with row-level security, Auth (email codes), Realtime, Storage, Edge Functions (Deno) |
 | Email | Brevo: SMTP for sign-in codes, API for invitations (`invite-send`) |
-| Voice | ElevenLabs text-to-speech through the `voice-say` function; the key never reaches a browser |
+| Voice | Self-hosted Indic Parler-TTS in `tts-service/` (Python, FastAPI), reached only through the `pronounce` function; [voice-architecture.md](docs/architecture/voice-architecture.md) |
 | Hosting | Cloudflare Workers static assets |
 
 Every service, its cost, free-tier limits and alternatives are in [services.md](docs/infrastructure/services.md).
@@ -138,13 +138,13 @@ cp .env.example .env.local   # the Supabase URL and publishable key
 npm run dev
 ```
 
-Migrations live in `supabase/migrations` (0001 to 0028). Apply them with:
+Migrations live in `supabase/migrations` (0001 to 0030). Apply them with:
 
 ```bash
 npx supabase db push
 ```
 
-Secrets for the edge functions (Brevo, ElevenLabs, the app's address) and the email templates are set up as described in [environments.md](docs/infrastructure/environments.md).
+Secrets for the edge functions (Brevo, the gate voice, the app's address) and the email templates are set up as described in [environments.md](docs/infrastructure/environments.md).
 
 ## Scripts
 

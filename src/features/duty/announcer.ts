@@ -5,6 +5,9 @@
  * so the gate can tell a new request from one it has already heard.
  * Output is injected so the queue can be tested without a speaker.
  */
+import { NEW_LEAD, REPEAT_LEAD, URGENT_LEAD } from '../../../supabase/functions/_shared/announce.ts'
+
+export { NEW_LEAD, REPEAT_LEAD, URGENT_LEAD }
 
 export type ChimeKind = 'normal' | 'flagged'
 
@@ -24,17 +27,19 @@ export interface Announcement {
   text: string
   chime: ChimeKind
   priority: number
+  /** The child it's about: the voice says their name the way the school approved. */
+  childId?: string
   /** Said with "Urgent." first and shown in red: outside the usual time, or someone arriving within minutes. */
   urgent?: boolean
 }
 
 export interface AnnouncerOutput {
   chime(kind: ChimeKind): Promise<void>
-  speak(text: string): Promise<void>
+  speak(text: string, childId?: string): Promise<void>
   /** Cut the current speech short (someone has already handled it, or Mute). */
   stop?(): void
-  /** Get the words ready ahead of time (the natural voice takes a moment to make them). */
-  prepare?(text: string): void
+  /** Get the words' audio ready while the chime plays, so speech starts the moment it ends. */
+  prepare?(text: string, childId?: string): void
 }
 
 export interface AnnouncerState {
@@ -52,11 +57,8 @@ interface Item extends Announcement {
   heard: boolean
 }
 
-export const NEW_LEAD = 'New announcement. '
-export const URGENT_LEAD = 'Urgent. '
-export const REPEAT_LEAD = 'Reminder. '
 /** The words actually spoken for an item: urgent ones say so first, so the gate knows to act now. */
-const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'urgent'>) => (item.heard ? REPEAT_LEAD : item.urgent ? URGENT_LEAD : NEW_LEAD) + item.text
+const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'urgent'>): string => (item.heard ? REPEAT_LEAD : item.urgent ? URGENT_LEAD : NEW_LEAD) + item.text
 
 export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
   const items = new Map<string, Item>()
@@ -103,11 +105,11 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       await output.chime(next.chime)
       // Muted during the chime: say nothing now; it plays when the mute ends.
       if (items.get(next.id) === next && Date.now() >= mutedUntil) {
-        await output.speak(spokenFor(next))
+        await output.speak(spokenFor(next), next.childId)
         // Heard unless Mute or an acknowledgement cut it short.
         if (items.get(next.id) === next && Date.now() >= mutedUntil) {
           next.heard = true
-          output.prepare?.(spokenFor(next))
+          output.prepare?.(spokenFor(next), next.childId)
         }
       }
     } catch {
@@ -126,7 +128,7 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       // Announcing again (the trip changed) makes it new again: it's news the gate hasn't heard.
       const item = { ...a, seq: existing?.seq ?? seq++, dueAt: Date.now(), heard: false }
       items.set(a.id, item)
-      output.prepare?.(spokenFor(item))
+      output.prepare?.(spokenFor(item), item.childId)
       void pump()
     },
     /** Someone acknowledged it (on any iPad): stop repeating. */

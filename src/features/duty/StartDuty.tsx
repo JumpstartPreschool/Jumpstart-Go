@@ -1,6 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { ArrowRight, AudioLines, CircleCheck, Clock, MapPin, PlayLine, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
-import { useVoiceName, VoicePicker } from './VoicePicker'
+import type { ReactNode } from 'react'
+import { ArrowRight, CircleCheck, Clock, MapPin, PlayLine, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
@@ -84,15 +83,11 @@ function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }
 
 export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const installed = isInstalled()
-  const [voicesOpen, setVoicesOpen] = useState(false)
-  const voiceName = useVoiceName()
-  const picker = <VoicePicker open={voicesOpen} onClose={() => setVoicesOpen(false)} />
 
   if (duty.phase === 'check') {
     const struggling = duty.testsPlayed >= 2 && !duty.testing
     return (
       <Shell>
-        {picker}
         <div className="card page-in mx-auto w-full max-w-[580px] rounded-2xl p-7 text-center sm:p-10">
           <div className="relative mx-auto grid size-24 place-items-center">
             {duty.testing && <span className="absolute inset-0 animate-ping rounded-full bg-accent-soft" aria-hidden />}
@@ -117,9 +112,6 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
             </Button>
             <Button size="lg" variant="secondary" icon={<RotateCcw />} loading={duty.testing} onClick={() => void duty.playTest()}>
               Play again
-            </Button>
-            <Button size="md" variant="quiet" icon={<AudioLines />} disabled={duty.testing} onClick={() => setVoicesOpen(true)}>
-              Try a different voice
             </Button>
             <Button size="md" variant="quiet" onClick={duty.back}>
               Back
@@ -147,7 +139,6 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
 
   return (
     <Shell footer={start}>
-      {picker}
       {/* Portrait: welcome, today, checks. Landscape: welcome and today on the left, checks and Start on the right. */}
       <div className="page-in mx-auto grid w-full max-w-[760px] gap-10 short:gap-6 landscape:lg:max-w-none landscape:lg:grid-cols-[0.85fr_1.15fr] landscape:lg:grid-rows-[auto_auto] landscape:lg:content-center landscape:lg:gap-x-14">
         <section className="text-center landscape:lg:self-end landscape:lg:text-left">
@@ -181,11 +172,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
               <Tile tone="warn" icon={<TriangleAlert />} title="Keep the screen on">In the device's settings, set the screen to never turn off (on an iPad: Display &amp; Brightness → Auto-Lock → Never).</Tile>
             )}
             {duty.soundSupported ? (
-              <Tile tone="info" icon={<Volume2 />} title="Sound check"
-                extra={<div className="flex items-center justify-between gap-3 rounded-lg bg-sunken py-1.5 pl-3.5 pr-1.5">
-                  <span className="min-w-0 truncate text-small font-semibold text-ink-2">Voice: <b className="text-ink">{voiceName ?? 'the device voice'}</b></span>
-                  <Button size="md" variant="quiet" icon={<AudioLines />} aria-label="Change voice" onClick={() => setVoicesOpen(true)}>Change</Button>
-                </div>}>
+              <Tile tone="info" icon={<Volume2 />} title="Sound check">
                 A short test plays when you start. Turn the volume up.
               </Tile>
             ) : (

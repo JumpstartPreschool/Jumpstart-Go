@@ -17,6 +17,7 @@ import { GenderChoice } from '../../ui/GenderChoice'
 import { InviteSheet, invitedLine } from './InviteSheet'
 import { formatAge, levelOf } from './programmeCatalogue'
 import { levelIcon, ProgrammePicker } from './ProgrammePicker'
+import { PronunciationCard } from './PronunciationCard'
 
 const hm = (t?: string | null) => (t ? formatTime(toMinutes(t.slice(0, 5))) : '')
 
@@ -166,6 +167,8 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
             <p className={`mt-1 text-small font-bold ${coordinators.length ? '' : 'text-warning'}`}>{coordinators.length ? coordinators.map((c) => c.full_name).join(', ') : 'Nobody yet, so it is announced to everyone'}</p>
           </div>
         </section>
+
+        <PronunciationCard key={`${child.id}:${child.full_name}`} child={child} />
 
         <section className="card grid gap-2 rounded-2xl p-5" aria-labelledby="people-h">
           <div className="flex flex-wrap items-center justify-between gap-2">

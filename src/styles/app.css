@@ -721,11 +721,39 @@
   .maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }
   :root[data-theme='dark'] .maplibregl-ctrl-attrib-button { filter: invert(1); }
 
+  /* Play a name (src/ui/SpeakButton.tsx): a round, tactile button. Loading shows a spinner; playing turns solid with
+     three level bars. Only transform and opacity animate; reduced motion stills the bars (global rule below). */
+  .speakbtn {
+    --lip: var(--accent-lip);
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: 0 3px 0 color-mix(in oklab, var(--lip) 45%, transparent), inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 22%, transparent);
+    transition: transform var(--dur-press) var(--ease-standard), box-shadow var(--dur-press) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
+  }
+  .speakbtn svg { width: 22px; height: 22px; stroke-width: 2.4; }
+  @media (hover: hover) { .speakbtn:hover:not(:disabled) { background: color-mix(in oklab, var(--accent) 18%, var(--accent-soft)); } }
+  .speakbtn:active:not(:disabled) { transform: translateY(2px) scale(0.97); box-shadow: 0 1px 0 color-mix(in oklab, var(--lip) 45%, transparent), inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 22%, transparent); }
+  .speakbtn:focus-visible { outline: 3px solid var(--focus, var(--accent)); outline-offset: 3px; }
+  .speakbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .speakbtn[data-state='playing'] { color: #fff; background: var(--accent); box-shadow: 0 3px 0 var(--lip); }
+  .speakbtn-bars { display: flex; align-items: center; gap: 3px; height: 20px; }
+  .speakbtn-bars > span { width: 4px; height: 100%; border-radius: 2px; background: currentColor; transform-origin: center; animation: speak-level 900ms var(--ease-standard) infinite; }
+  .speakbtn-bars > span:nth-child(2) { animation-delay: -300ms; }
+  .speakbtn-bars > span:nth-child(3) { animation-delay: -600ms; }
+
   .float { animation: float 6s ease-in-out infinite; }
 }
 
 @keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes pop-in { from { transform: scale(0); } }
+@keyframes speak-level { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
 @keyframes shake { 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }

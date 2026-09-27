@@ -101,7 +101,7 @@ export function PrivacyPage() {
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>
           <li><b>OpenFreeMap</b> provides map images; <b>OpenRouteService</b> may be used for routes and arrival times.</li>
           <li>Apple, Google and Mozilla deliver notifications to devices that turn them on.</li>
-          <li><b>Microsoft Azure</b> (its Indian English voices) or <b>ElevenLabs</b>, whichever the school has chosen, makes the spoken announcements at the gate. It receives only the words of each announcement, which include the child's first and last name and the first name and relation of the person arriving. The school keeps each recording so the same announcement is never made twice. If it can't be reached, the gate's own device speaks instead, and nothing is sent.</li>
+          <li>Spoken announcements at the gate are made by an open-source voice (AI4Bharat's Indic Parler-TTS) running on the school's own computer, not by an outside service. It receives only the words of each announcement, which include the child's first and last name and the first name and relation of the person arriving, and keeps nothing. The recordings are kept in the school's Supabase storage so the same announcement is never made twice. If that computer can't be reached, the gate's own tablet speaks instead.</li>
         </ul>
       </Section>
       <Section title="How long we keep it">
@@ -116,7 +116,7 @@ export function PrivacyPage() {
         <p>Only people the school adds can sign in, with a one-time code sent to their email; there are no passwords to steal. Information is encrypted in transit, and every sensitive change is recorded. A link for someone collecting works on one phone, needs the last four digits of their mobile, and stops after the trip.</p>
       </Section>
       <Section title="On your device">
-        <p>The app keeps you signed in and remembers settings such as the announcement voice in your browser's storage. It uses no advertising or analytics cookies and does not track you across other sites.</p>
+        <p>The app keeps you signed in and remembers settings in your browser's storage, and on the gate's tablets keeps copies of announcement recordings so they play at once. It uses no advertising or analytics cookies and does not track you across other sites.</p>
       </Section>
       <Section title="Your choices">
         <p>You can ask the school at any time to see, correct or remove your family's information, or to turn off app access. Write to <a className="linkbtn px-0" href={`mailto:${EMAIL}`}>{EMAIL}</a> or speak to the office.</p>

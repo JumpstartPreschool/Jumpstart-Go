@@ -63,7 +63,16 @@ describe('announcer', () => {
     ann.announce(a('one', PRIORITY.newRequest))
     ann.announce(a('two', PRIORITY.newRequest))
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(out.speak).toHaveBeenCalledWith(NEW_LEAD + 'two')
+    expect(out.speak).toHaveBeenCalledWith(NEW_LEAD + 'two', undefined)
+  })
+
+  it("passes the child to the voice (for their approved pronunciation) and readies the audio before the chime ends", async () => {
+    const out = { ...fakeOutput(), prepare: vi.fn() }
+    const ann = createAnnouncer(out)
+    ann.announce({ ...a('Pickup for Aarav.', PRIORITY.newRequest), childId: 'child-1' })
+    expect(out.prepare).toHaveBeenCalledWith(NEW_LEAD + 'Pickup for Aarav.', 'child-1')
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(out.speak).toHaveBeenCalledWith(NEW_LEAD + 'Pickup for Aarav.', 'child-1')
   })
 
   it('reports what is speaking and how many are waiting', async () => {
