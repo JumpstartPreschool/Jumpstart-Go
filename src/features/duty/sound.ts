@@ -49,9 +49,28 @@ export function unlockSound(): void {
 
 /** The shared audio output, resumed (call from a tap, e.g. a pronunciation preview). */
 export function audioContext(): AudioContext {
-  ctx ??= new AudioContext()
+  if (!ctx) {
+    ctx = new AudioContext()
+    // iOS pauses Web Audio when the iPad locks or another app takes the sound; ask for it back on return.
+    globalThis.document?.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') void ctx.resume().catch(() => {})
+    })
+  }
   void ctx.resume()
   return ctx
+}
+
+const RESUME_WAIT_MS = 500
+
+/**
+ * Whether Web Audio can sound now, trying to resume it first. A paused context plays nothing and never ends its
+ * clips, so callers use the device voice instead of waiting on it.
+ */
+async function running(audio: AudioContext): Promise<boolean> {
+  if (audio.state === 'running') return true
+  await Promise.race([audio.resume().catch(() => {}), wait(RESUME_WAIT_MS)])
+  // Read again: resume() changes it, which TypeScript can't see.
+  return (audio.state as AudioContextState) === 'running'
 }
 
 function track(node: AudioScheduledSourceNode): void {
@@ -66,6 +85,7 @@ const NOTE_LENGTH = 0.55
 
 export function chime(kind: ChimeKind): Promise<void> {
   if (!ctx) return Promise.resolve()
+  if (ctx.state !== 'running') return running(ctx).then((ok) => (ok ? chime(kind) : undefined))
   const audio = ctx
   const start = audio.currentTime + 0.03
   NOTES[kind].forEach((freq, i) => {
@@ -92,7 +112,9 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
   src.buffer = buf
   src.connect(ctx.destination)
   return new Promise((resolve) => {
-    src.addEventListener('ended', () => resolve())
+    // If the audio is paused mid-clip, 'ended' never fires; without this the gate queue would stop for good.
+    const guard = setTimeout(resolve, buf.duration * 1000 + 1500)
+    src.addEventListener('ended', () => { clearTimeout(guard); resolve() })
     track(src)
     src.start()
   })
@@ -112,6 +134,8 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
     const all = Promise.all(lines.map((line) => clipAudio(audio, line)))
     // Still being made in the background when the budget runs out: the next repeat uses it.
     all.catch(() => {})
+    // Paused by iOS: clips would play silently, so the tablet's voice says it (the clips stay ready for later).
+    if (!(await running(audio))) return speakDevice(lines.join(' '), mine)
     const clips = await Promise.race([all, wait(budgetMs).then(() => null)]).catch(() => null)
     if (mine !== generation) return
     if (clips) {
@@ -162,14 +186,18 @@ export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'l
   }
   return voices.find((v) => !LAST.test(v.name)) ?? voices[0] ?? null
 }
-function indianVoice(): SpeechSynthesisVoice | null {
+// Safari fills the voice list a moment after the page loads: wait for it once rather than stay silent.
+async function indianVoice(): Promise<SpeechSynthesisVoice | null> {
+  if (!speechSynthesis.getVoices().length) {
+    await Promise.race([new Promise((r) => speechSynthesis.addEventListener('voiceschanged', r, { once: true })), wait(1000)])
+  }
   return pickIndianVoice(speechSynthesis.getVoices())
 }
 
-function speakDevice(text: string, mine: number): Promise<void> {
-  if (!speechSupported || mine !== generation) return Promise.resolve()
-  const voice = indianVoice()
-  if (!voice) return Promise.resolve()
+async function speakDevice(text: string, mine: number): Promise<void> {
+  if (!speechSupported || mine !== generation) return
+  const voice = await indianVoice()
+  if (!voice || mine !== generation) return
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text)
     u.voice = voice

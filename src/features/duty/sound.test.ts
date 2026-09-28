@@ -12,9 +12,12 @@ class FakeSource extends EventTarget {
   // stop(when) schedules the end (the chime's notes); stop() ends now.
   stop(when?: number) { if (when !== undefined) return; heard.push(`stop:${this.buffer?.label ?? 'note'}`); this.dispatchEvent(new Event('ended')) }
 }
+// `paused` stands for iOS pausing Web Audio (iPad locked, another app took the sound) where resume() can't bring it back.
+let paused = false
 class FakeAudioContext {
   currentTime = 0
   destination = {}
+  get state() { return paused ? 'interrupted' : 'running' }
   resume() { return Promise.resolve() }
   createBufferSource() { return new FakeSource() }
   createOscillator() { return new FakeSource() }
@@ -50,6 +53,7 @@ beforeEach(() => {
   pending.clear()
 })
 afterEach(() => {
+  paused = false
   sound.stopSound()
   vi.useRealTimers()
 })
@@ -120,6 +124,29 @@ describe('gate sound', () => {
     sound.stopSound()
     expect(heard).toEqual(expect.arrayContaining(['stop:note', 'stop:Arriving now.']))
     await said
+  })
+
+  it("uses the tablet's voice when iOS has paused the audio, instead of a silent chime and clip", async () => {
+    paused = true
+    const chimed = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(600)
+    await chimed
+    const said = sound.speak('Arriving now.')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(heard).toEqual(['device:Arriving now.'])
+    sound.stopSound()
+    await said
+  })
+
+  it('moves on when a clip never reports its end (audio paused mid-clip), so the gate queue never stops', async () => {
+    const said = sound.speak('Arriving now.')
+    pending.get('Arriving now.')!.resolve({ label: 'Arriving now.', duration: 1 } as { label: string })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(heard).toEqual(['start:Arriving now.'])
+    let done = false
+    void said.then(() => { done = true })
+    await vi.advanceTimersByTimeAsync(2600)
+    expect(done).toBe(true)
   })
 
   it("won't play a preview that was stopped while it was being made", async () => {
