@@ -65,7 +65,8 @@ export function Sheet({ open, onClose, title, description, children, wide = fals
             <X className="size-5" aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--sheet-px)] pb-[var(--sheet-pb)] pt-2 [--sheet-pb:max(20px,env(safe-area-inset-bottom),var(--sheet-bar,0px))] [--sheet-px:24px] sm:[--sheet-px:32px] md:[--sheet-pb:32px]">
+        {/* flex-auto, not flex-1: the sheet's height comes from its content, and Safari sizes a flex-1 body to nothing. */}
+        <div className="min-h-0 flex-auto overflow-y-auto overscroll-contain px-[var(--sheet-px)] pb-[var(--sheet-pb)] pt-2 [--sheet-pb:max(20px,env(safe-area-inset-bottom),var(--sheet-bar,0px))] [--sheet-px:24px] sm:[--sheet-px:32px] md:[--sheet-pb:32px]">
           {children}
         </div>
       </div>
