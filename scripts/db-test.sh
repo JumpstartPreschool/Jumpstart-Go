@@ -15,8 +15,11 @@ trap '"$PGBIN/pg_ctl" -D "$DIR/data" -m immediate stop >/dev/null 2>&1 || true; 
 psql_run() { "$PGBIN/psql" -h "$DIR" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1 -q -X "$@"; }
 
 psql_run -f supabase/tests/auth-shim.sql
-for f in supabase/migrations/*.sql; do psql_run -f "$f"; done
-for f in supabase/tests/*.test.sql; do
+# Byte order, whatever the terminal's locale: tests rely on it (zz_ prefixes, trips.test.sql before trips_tracking*),
+# and in en_US a glob sorts "_" before ".".
+in_order() { printf '%s\n' "$@" | LC_ALL=C sort; }
+for f in $(in_order supabase/migrations/*.sql); do psql_run -f "$f"; done
+for f in $(in_order supabase/tests/*.test.sql); do
   echo "▶ $f"
   psql_run -f "$f"
 done
