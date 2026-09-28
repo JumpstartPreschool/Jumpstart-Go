@@ -19,3 +19,20 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  database:
+    # Applies every migration to a throwaway Postgres and runs supabase/tests (row-level security, invite-only sign-in,
+    # rate limits, password sign-in). Postgres 18, the version the suite is developed against (scripts/db-test.sh).
+    name: Database migrations and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL 18
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-18
+      - run: npm run test:db
+        env:
+          PGBIN: /usr/lib/postgresql/18/bin

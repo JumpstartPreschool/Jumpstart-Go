@@ -42,5 +42,5 @@ export default defineConfig({
   ],
   // Lets a Cloudflare Quick Tunnel (https://….trycloudflare.com) reach `vite preview` for iPad testing.
   preview: { allowedHosts: ['.trycloudflare.com'] },
-  test: { include: ['src/**/*.test.ts', 'supabase/functions/**/*.test.ts'] },
+  test: { include: ['src/**/*.test.{ts,tsx}', 'supabase/functions/**/*.test.ts'] },
 })
