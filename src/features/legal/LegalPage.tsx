@@ -113,7 +113,7 @@ export function PrivacyPage() {
         </ul>
       </Section>
       <Section title="Keeping it safe">
-        <p>Only people the school adds can sign in, with a one-time code sent to their email; there are no passwords to steal. Information is encrypted in transit, and every sensitive change is recorded. A link for someone collecting works on one phone, needs the last four digits of their mobile, and stops after the trip.</p>
+        <p>Only people the school adds can sign in, with their email and a password they choose; a one-time code by email confirms it's them the first time and when a password is forgotten. Passwords are stored only in scrambled (hashed) form, never readable, even by the school. Information is encrypted in transit, and every sensitive change is recorded. A link for someone collecting works on one phone, needs the last four digits of their mobile, and stops after the trip.</p>
       </Section>
       <Section title="On your device">
         <p>The app keeps you signed in and remembers settings in your browser's storage, and on the gate's tablets keeps copies of announcement recordings so they play at once. It uses no advertising or analytics cookies and does not track you across other sites.</p>
@@ -137,11 +137,11 @@ export function TermsPage() {
         <p>Only people the school adds: parents and family of enrolled children, and school staff. Someone collecting a child can open the one-time link a parent sends them, on one phone, for that trip only.</p>
       </Section>
       <Section title="Signing in">
-        <p>You sign in with your email and a 6-digit code we email you. A code works once, for 5 minutes. For your safety a new code can be sent once a minute, and a few times an hour; if you ask again sooner, use the code you already have.</p>
+        <p>You sign in with your email and your password. The first time, and whenever you forget your password, we email you a 6-digit code instead; a code works once, for 5 minutes. For your safety a new code can be sent once a minute, and a few times an hour; if you ask again sooner, use the code you already have.</p>
       </Section>
       <Section title="Keep access to yourself">
         <ul>
-          <li>Don't share your sign-in code or let others use your account.</li>
+          <li>Don't share your password or sign-in code, or let others use your account.</li>
           <li>Send pickup links and gate codes only to the person collecting, and only for that trip.</li>
           <li>Tell the school straight away if a phone with the app is lost, so it can turn off access.</li>
         </ul>
