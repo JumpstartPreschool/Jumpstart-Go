@@ -5,7 +5,7 @@ Each requirement is testable. "Server" means it is enforced on the backend and d
 ## Functional
 
 ### Authentication and access (AUTH)
-- **AUTH-1** Login only with a one-time code sent to a registered email address (release 1; codes by phone are added once an SMS provider is approved, system-architecture A6). There is no public sign-up. *(Server)*
+- **AUTH-1** Everyday login with a registered email and a password (Supabase Auth, stored hashed; at least 8 characters, not a common password). A one-time code by email is used only for the first sign-in (then the person creates their password) and for a forgotten password (then they choose a new one, and their other devices are signed out). Normal login sends no email. Code requests answer the same whether or not the email is registered. There is no public sign-up (D49). *(Server)*
 - **AUTH-2** One-time codes expire after 5 minutes; requests are rate-limited per phone number or email and per IP address; accounts lock temporarily after repeated failures. *(Server)*
 - **AUTH-3** Sessions: parents 60 days, staff 7 days. Deactivating a user ends all their sessions immediately. *(Server)*
 - **AUTH-4** Every read and write is checked against the user's roles (the capability table in user-roles.md). A request for data outside the user's scope returns "not found" and is never exposed. *(Server)*

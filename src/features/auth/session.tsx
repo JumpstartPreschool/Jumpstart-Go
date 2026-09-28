@@ -13,6 +13,8 @@ export interface Me {
   consent_version: string | null
   roles: StaffRole[]
   children: number
+  /** Whether they've set a password (0033). Missing before that migration, null when the database can't tell. */
+  has_password?: boolean | null
 }
 
 const CHOOSE_KEY = 'jumpstart.chooseArea'
@@ -21,6 +23,22 @@ export const chooseArea = {
   ask() { try { sessionStorage.setItem(CHOOSE_KEY, '1') } catch { /* storage blocked: go straight to the first area */ } },
   pending() { try { return sessionStorage.getItem(CHOOSE_KEY) === '1' } catch { return false } },
   done() { try { sessionStorage.removeItem(CHOOSE_KEY) } catch { /* nothing to clear */ } },
+}
+
+const PASSWORD_KEY = 'jumpstart.passwordStep'
+/**
+ * Set just before an email code is checked: 'first' asks for a password when the account has none, 'reset' always
+ * asks for a new one. Per tab, so a refresh mid-step still asks, and nothing sensitive is stored.
+ */
+export const passwordStep = {
+  ask(intent: 'first' | 'reset') { try { sessionStorage.setItem(PASSWORD_KEY, intent) } catch { /* storage blocked: no prompt */ } },
+  pending(): 'first' | 'reset' | null {
+    try {
+      const v = sessionStorage.getItem(PASSWORD_KEY)
+      return v === 'first' || v === 'reset' ? v : null
+    } catch { return null }
+  },
+  done() { try { sessionStorage.removeItem(PASSWORD_KEY) } catch { /* nothing to clear */ } },
 }
 
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
@@ -126,6 +144,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [load])
 
   const signOut = useCallback(async () => {
+    passwordStep.done()
+    chooseArea.done()
     await supabase.auth.signOut()
     setState({ status: 'signed-out' })
   }, [])

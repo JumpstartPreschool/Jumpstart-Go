@@ -64,7 +64,7 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
   const already = invitedLine(person)
 
   return (
-    <Sheet open onClose={onClose} title={`Invite ${first}`} description="They sign in with their email and a 6-digit code.">
+    <Sheet open onClose={onClose} title={`Invite ${first}`} description="The first time, they confirm their email with a 6-digit code and create a password.">
       {load.state === 'loading' && <div className="h-40 animate-pulse rounded-xl bg-sunken" aria-label="Loading" />}
       {load.state === 'error' && (
         <Notice tone={load.setup ? 'warning' : 'danger'}>

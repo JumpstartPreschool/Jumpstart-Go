@@ -36,7 +36,7 @@ export function inviteText(d: InviteDetails, channel: 'whatsapp' | 'sms' = 'sms'
     b('To sign in:'),
     `1. Open ${d.app_url}`,
     `2. Enter ${d.email ?? 'your email address'}`,
-    '3. Type the 6-digit code we email you. No password needed.',
+    '3. Type the 6-digit code we email you, then create your password. After that, sign in with your email and password.',
     '',
     `${SCHOOL}, Karve Road, Pune`,
   ].join('\n')
@@ -63,7 +63,7 @@ export function inviteEmail(d: InviteDetails): { subject: string; html: string; 
     after: steps([
       `Open Jumpstart Go on your phone, tablet or computer. On a phone, choose ${b('Add to Home Screen')} from the browser's menu to keep it like an app.`,
       `Enter ${b(email)}.`,
-      `We email you a ${b('6-digit code')}. Type it into the app; there is no password to remember.`,
+      `We email you a ${b('6-digit code')}. Type it into the app, then create your password. After that you sign in with your email and password; no more codes.`,
     ]),
     note: 'Only people the school adds can sign in, and only with this email address. If you weren\'t expecting this, you can ignore it.',
     footerNote: "You're getting this because the school added this email to Jumpstart Go.",
@@ -76,7 +76,7 @@ export function inviteEmail(d: InviteDetails): { subject: string; html: string; 
     '',
     `1. Open ${d.app_url}`,
     `2. Enter ${d.email ?? 'your email address'}`,
-    '3. Type the 6-digit code we email you. There is no password.',
+    '3. Type the 6-digit code we email you, then create your password. After that, sign in with your email and password.',
     '',
     `${SCHOOL}, ${ADDRESS}`,
   ].join('\n')
