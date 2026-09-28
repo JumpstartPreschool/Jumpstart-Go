@@ -70,7 +70,7 @@ Child → **Report absence** → date(s) and reason → that day's expected trip
 - **Reports:** 30-day trends and export. **Settings:** reminder times, lead time, late threshold, wording, arrival radius, holidays. **Audit log.**
 
 ## J11. Anyone: first login
-Enter phone number or email → one-time code → parents only, first time: a consent screen (what we collect, why, how long it's kept) → role home. A phone number or email that isn't registered gets: "This number isn't registered with Jumpstart. Please contact the school."
+Everyday: email and password → role home (no email sent). First time (or "Forgot password?"): email → 6-digit code by email → create a password (or choose a new one) → parents only, first time: a consent screen (what we collect, why, how long it's kept) → role home. Asking for a code shows the same answer whether or not the email is registered ("If this email is registered with Jumpstart, a code is on its way"); a wrong email or password says "Email or password is incorrect." (D49)
 
 ## J12. Running late (D20)
 - **Parent says so:** Today card or live trip → **Running late** → +10 / +20 / +30 → today's time moves, and Priya hears "Aarav's mother is running 15 minutes late. New pickup 1:00." If the new time is after the pickup window closes (1:00 PM), it's flagged as off-schedule so staff know Aarav stays past the end of his class.
