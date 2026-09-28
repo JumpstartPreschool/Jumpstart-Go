@@ -92,4 +92,4 @@ The app knows only `POST /synthesize {text}` → MP3 with an `x-voice-version` h
 - Pronunciation is not always right. The approval step exists because of this.
 - A sentence nobody has said before (a free-text reason, a new collector) takes seconds to make, so the tablet's own voice says that announcement. Its 2-minute repeat uses the school voice.
 - If the school computer is off, new names wait. Clips already made keep playing from Storage and the tablets.
-- The computer must stay on and awake, with the tunnel running. It's a single machine.
+- The computer must stay on and awake, with the tunnel running. It's a single machine. A login item (`voice-deploy.sh install-watch`) checks every 5 minutes and after a restart, and brings the voice and tunnel back by itself; a quick tunnel takes about 4 minutes to answer at its new address, during which the gate uses the tablet's voice.

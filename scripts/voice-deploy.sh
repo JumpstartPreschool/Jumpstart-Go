@@ -8,9 +8,13 @@
 #   bash scripts/voice-deploy.sh publish      build and publish the app (with the Cloudflare browser login)
 #   bash scripts/voice-deploy.sh update       after a code change: restart the voice, redeploy pronounce, relink, run
 #   bash scripts/voice-deploy.sh remove-old   delete the old cloud voice (voice-say, its secrets); run after deploy works
+#   bash scripts/voice-deploy.sh watch        restart the voice or tunnel if either is down (what the login item runs)
+#   bash scripts/voice-deploy.sh install-watch    run `watch` at login and every 5 minutes (a macOS login item)
+#   bash scripts/voice-deploy.sh uninstall-watch  remove that login item
 # Reads SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD and the Cloudflare keys from .env.local. Creates TTS_SHARED_SECRET and
 # VOICE_CRON_SECRET there once (git-ignored). Never prints a secret. The tunnel is a Cloudflare quick tunnel, whose
-# address changes on every start (this script updates Supabase each time); a named tunnel is in environments.md.
+# address changes on every start (this script updates Supabase each time). With TTS_TUNNEL_TOKEN and TTS_SERVICE_URL in
+# .env.local it runs a named tunnel instead, whose address never changes (environments.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -73,13 +77,20 @@ start_voice() {
   if alive tunnel; then kill "$(cat "$RUN/tunnel.pid")" 2>/dev/null || true; sleep 1; fi
   say "Opening the tunnel"
   : > "$RUN/tunnel.log"
-  nohup cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$PORT" > "$RUN/tunnel.log" 2>&1 & echo $! > "$RUN/tunnel.pid"
   local url=""
-  for _ in $(seq 1 40); do
-    url=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$RUN/tunnel.log" | head -1 || true)
-    [ -n "$url" ] && break
-    sleep 1
-  done
+  if [ -n "${TTS_TUNNEL_TOKEN:-}" ] && [ -n "${TTS_SERVICE_URL:-}" ]; then
+    # Named tunnel, made in the Cloudflare dashboard: a fixed address. The token goes by environment, not argument,
+    # so it never shows in the process list.
+    TUNNEL_TOKEN="$TTS_TUNNEL_TOKEN" nohup cloudflared tunnel --no-autoupdate run > "$RUN/tunnel.log" 2>&1 & echo $! > "$RUN/tunnel.pid"
+    url=${TTS_SERVICE_URL%/}
+  else
+    nohup cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$PORT" > "$RUN/tunnel.log" 2>&1 & echo $! > "$RUN/tunnel.pid"
+    for _ in $(seq 1 40); do
+      url=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$RUN/tunnel.log" | head -1 || true)
+      [ -n "$url" ] && break
+      sleep 1
+    done
+  fi
   [ -n "$url" ] || { echo "No tunnel address; see $RUN/tunnel.log"; exit 1; }
   echo "$url" > "$RUN/tunnel.url"
   waited=0
@@ -149,6 +160,77 @@ SQL
   kick
 }
 
+# The voice answers here and through its public address. /health answers at once even mid-sentence (the model runs off
+# the event loop), so a slow answer means something is wrong, not busy.
+local_ok() { curl -fsS -m 10 -H "Authorization: Bearer $TTS_SHARED_SECRET" "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -q '"ready":true'; }
+public_ok() {
+  local url; url=$(cat "$RUN/tunnel.url" 2>/dev/null || true)
+  [ -n "$url" ] && curl -fsS -m 20 -H "Authorization: Bearer $TTS_SHARED_SECRET" "$url/health" 2>/dev/null | grep -q '"ready":true'
+}
+healthy() { alive voice && alive tunnel && local_ok && public_ok; }
+
+# One check, for the login item: after a restart or a dropped tunnel, bring both back and point Supabase at them.
+# Two failures 30 s apart before acting, so a network blip doesn't restart anything.
+watch_once() {
+  stamp() { date '+%Y-%m-%d %H:%M:%S'; }
+  # A check left behind by a crash stops blocking after 20 minutes.
+  find "$RUN/watch.lock" -maxdepth 0 -mmin +20 -exec rmdir {} \; 2>/dev/null || true
+  mkdir "$RUN/watch.lock" 2>/dev/null || { echo "$(stamp) previous check still running"; return 0; }
+  if healthy || { sleep 30; healthy; }; then
+    rmdir "$RUN/watch.lock"
+    return 0
+  fi
+  if local_ok; then
+    echo "$(stamp) tunnel down: reopening it"
+  else
+    echo "$(stamp) voice down: restarting it and the tunnel"
+    ( stop_all ) || true
+  fi
+  if ( start_voice ); then echo "$(stamp) back up at $(cat "$RUN/tunnel.url")"; else echo "$(stamp) restart failed; trying again in 5 minutes"; fi
+  rmdir "$RUN/watch.lock"
+  # Keep the log short: the last 2000 lines.
+  if [ -f "$RUN/watch.log" ] && [ "$(wc -l < "$RUN/watch.log")" -gt 4000 ]; then
+    tail -2000 "$RUN/watch.log" > "$RUN/watch.log.tmp" && mv "$RUN/watch.log.tmp" "$RUN/watch.log"
+  fi
+}
+
+WATCH_LABEL=in.jumpstartpreschool.voice-watch
+WATCH_PLIST="$HOME/Library/LaunchAgents/$WATCH_LABEL.plist"
+
+install_watch() {
+  # launchd starts with a bare PATH: give it where node/npx (for the Supabase CLI), uv and cloudflared live now.
+  local dirs="" tool
+  for tool in node npx uv cloudflared curl lsof; do
+    command -v "$tool" > /dev/null || { echo "$tool isn't installed; install it first."; exit 1; }
+    dirs="$dirs:$(dirname "$(command -v "$tool")")"
+  done
+  mkdir -p "$(dirname "$WATCH_PLIST")"
+  cat > "$WATCH_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$WATCH_LABEL</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>$ROOT/scripts/voice-deploy.sh</string><string>watch</string></array>
+  <key>WorkingDirectory</key><string>$ROOT</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>${dirs#:}:/usr/bin:/bin:/usr/sbin:/sbin</string><key>HOME</key><string>$HOME</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>300</integer>
+  <!-- The voice and tunnel it starts must outlive each check. -->
+  <key>AbandonProcessGroup</key><true/>
+  <key>StandardOutPath</key><string>$RUN/watch.log</string>
+  <key>StandardErrorPath</key><string>$RUN/watch.log</string>
+</dict>
+</plist>
+PLIST
+  plutil -lint "$WATCH_PLIST" > /dev/null
+  launchctl bootout "gui/$(id -u)/$WATCH_LABEL" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$WATCH_PLIST"
+  echo "Installed: checks the voice at login and every 5 minutes. Log: $RUN/watch.log"
+}
+
 kick() {
   say "Asking pronounce to make clips now"
   curl -s -X POST "$FN_URL" -H "Authorization: Bearer $VOICE_CRON_SECRET" -H 'Content-Type: application/json' -d '{"drain":true}'; echo
@@ -201,6 +283,13 @@ case "${1:-}" in
     kick
     ;;
   publish) publish ;;
+  watch) watch_once ;;
+  install-watch) install_watch ;;
+  uninstall-watch)
+    launchctl bootout "gui/$(id -u)/$WATCH_LABEL" 2>/dev/null || true
+    rm -f "$WATCH_PLIST"
+    echo "Removed the login item. The voice keeps running until this Mac restarts."
+    ;;
   stop) stop_all ;;
   status)
     alive voice && echo "Voice: running" || echo "Voice: stopped"
@@ -214,5 +303,5 @@ case "${1:-}" in
     $SB functions delete voice-say --project-ref "$SUPABASE_PROJECT_REF" || true
     echo "Now, in the Supabase dashboard → Storage, empty and delete the voice-cache bucket (old cloud recordings)."
     ;;
-  *) sed -n 2,14p "$0"; exit 1 ;;
+  *) sed -n 2,17p "$0"; exit 1 ;;
 esac
