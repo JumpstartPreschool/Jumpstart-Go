@@ -66,18 +66,12 @@ async function ensure(tts: TTSProvider, list: readonly string[], have: Set<strin
     const path = clipPath(await clipKey(tts.version, text))
     if (have.has(path)) continue
     if (Date.now() > deadline) throw new Stop()
-    const { data: counted, error } = await store.rpc('voice_count', { p_chars: text.length })
-    if (error) throw error
-    if (!counted) {
-      log('monthly_cap')
-      throw new Stop()
-    }
     const started = Date.now()
     let bytes: Uint8Array<ArrayBuffer>
     try {
       bytes = await tts.synthesize(text)
     } catch (e) {
-      log('generation_failed', { busy: e instanceof TtsBusy, ms: Date.now() - started })
+      log('generation_failed', { reason: (e as Error).message, busy: e instanceof TtsBusy, ms: Date.now() - started })
       if (e instanceof TtsBusy) throw new Stop()
       throw e
     }
@@ -85,6 +79,14 @@ async function ensure(tts: TTSProvider, list: readonly string[], have: Set<strin
     log('generation_succeeded', { chars: text.length, bytes: bytes.length, ms: Date.now() - started })
     have.add(path)
     made++
+    // Counted once made, so a refused request costs nothing. ponytail: the cap can be passed by one sentence (under
+    // 400 characters); the 50,000 margin below Azure's free 500,000 covers it.
+    const { data: counted, error } = await store.rpc('voice_count', { p_chars: text.length })
+    if (error) throw error
+    if (!counted) {
+      log('monthly_cap')
+      throw new Stop()
+    }
   }
   return made
 }
@@ -181,9 +183,11 @@ Deno.serve(async (req) => {
       if (!provider) return json({ skipped: 'not_configured' })
       try {
         return json(await drain(provider))
-      } catch {
-        log('drain_failed')
-        return json({ error: 'drain failed' }, 500)
+      } catch (e) {
+        // Azure's status ("azure 401": wrong key or region; "azure 400": the voice name) is safe to show the caller.
+        const reason = /^azure \d{3}$/.test((e as Error).message) ? (e as Error).message : 'drain failed'
+        log('drain_failed', { reason })
+        return json({ error: reason }, 500)
       }
     }
     req = new Request(req.url, { method: req.method, headers: req.headers, body: raw })
