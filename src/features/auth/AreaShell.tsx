@@ -73,7 +73,7 @@ export function AccountButton({ area }: { area: Area }) {
         <span className="hidden sm:inline">{me.full_name.split(' ')[0]}</span>
         <ChevronDown className="size-4 text-ink-3" aria-hidden />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={me.full_name} description={`Signed in as ${AREA_LABEL[area]}`}>
+      <Sheet fade open={open} onClose={() => setOpen(false)} title={me.full_name} description={`Signed in as ${AREA_LABEL[area]}`}>
         {areas.length > 1 && (
           <>
             <p className="kicker">Switch area</p>
