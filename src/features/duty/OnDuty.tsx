@@ -23,7 +23,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
     <div className="screen-h">
       {/* Floating bar: duty status, clock and the controls a coordinator needs mid-shift. */}
       <header className="gutter sticky top-0 z-10 pt-[max(12px,env(safe-area-inset-top))]">
-        <div className="glass flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl py-2.5 pl-4 pr-2.5 sm:pl-5">
+        <div className="glass flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl p-3 sm:gap-y-2 sm:py-2.5 sm:pl-5 sm:pr-2.5">
           <Logo className="hidden h-9 md:block" />
           <span className="flex items-center gap-2.5 rounded-full bg-live-soft py-2 pl-3 pr-4 text-live">
             <span className="relative flex size-3" aria-hidden>
@@ -38,7 +38,8 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
           <p className="ml-auto text-[32px] font-extrabold leading-none tracking-[-0.03em] tabular-nums" aria-label={`Time ${clock(now)}`}>
             {clock(now)}
           </p>
-          <div className="flex items-center gap-2">
+          {/* Phones: an even row of three below the status (duty-actions in app.css); wider screens: inline at the right. */}
+          <div className="duty-actions flex items-center gap-2">
             <LuxButton size="sm" icon={<Volume2 />} onClick={() => setSpeaker(true)} aria-haspopup="dialog">
               Speaker
             </LuxButton>
