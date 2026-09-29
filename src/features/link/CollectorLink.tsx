@@ -12,7 +12,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import { explainTripError } from '../trips/api'
 import { clockTime } from '../trips/rules'
 import { distanceM, formatDistance, SCHOOL, type Point } from '../trips/geo'
-import { linkConfirm, linkHome, linkLate, linkOpen, linkShare, linkStatus, locationHelp, useSendLocation, type LinkSummary } from '../trips/tracking'
+import { linkArrive, linkConfirm, linkHome, linkLate, linkOpen, linkShare, linkStatus, locationHelp, useSendLocation, type LinkSummary } from '../trips/tracking'
 
 const TripMap = lazy(() => import('../../ui/TripMap'))
 
@@ -349,7 +349,12 @@ export default function CollectorLink() {
         <div className="text-right"><p className="kicker">Your code</p><p className="mt-1 text-h2 tracking-[0.14em] tabular-nums">{code}</p></div>
       </div>
       {l.ready_at && <Notice tone="success">{l.child} is ready at the gate.</Notice>}
-      <Button size="xl" className="w-full" icon={<Hand />} onClick={() => setLocal({ atGate: true })}>I'm at the gate</Button>
+      {/* The code shows at once; the gate is told in the background, and hears "…has arrived for pickup". */}
+      <Button size="xl" className="w-full" icon={<Hand />} onClick={() => {
+        setLocal({ atGate: true })
+        void linkArrive(token).then((next) => setState({ kind: 'open', link: next, mine: true }),
+          () => toast("Couldn't tell the gate you're here. Please tell the center leader.", { tone: 'danger' }))
+      }}>I'm at the gate</Button>
       <div className="grid grid-cols-2 gap-2.5">
         <Button variant="sunshine" icon={<Timer />} onClick={() => setLate(true)}>Running late</Button>
         {local.loc ? <Button variant="secondary" onClick={() => setLocal({ loc: false })}>Stop sharing</Button>

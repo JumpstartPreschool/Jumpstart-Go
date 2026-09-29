@@ -157,9 +157,12 @@ set role authenticated;
 do $$
 declare m constant date := date_trunc('month', (now() at time zone 'utc')::date);
 begin
+  -- 0036: 0 is a check only (a clip already made): allowed, and nothing is counted.
+  assert public.voice_spend(0), 'a check only is allowed';
+  assert (select count(*) from public.voice_usage) = 0 or (select chars from public.voice_usage where month = m) = 40, 'a check only counts nothing';
   begin
-    perform public.voice_spend(0);
-    raise exception 'FAIL: an empty sentence counted';
+    perform public.voice_spend(-1);
+    raise exception 'FAIL: a negative length counted';
   exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
     assert sqlerrm like 'bad_length%', sqlerrm;

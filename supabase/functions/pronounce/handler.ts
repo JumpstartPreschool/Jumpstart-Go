@@ -56,7 +56,8 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const ready = await deps.stored?.(key).catch(() => null)
 
   // One database call: the staff check, the hourly limit and the monthly count, all before the provider.
-  const { data: counted, error } = await deps.spend(authorization, ready ? 1 : text.length)
+  // 0 for a clip already made: the staff check and hourly limit still apply, but nothing is counted (0036).
+  const { data: counted, error } = await deps.spend(authorization, ready ? 0 : text.length)
   if (error) {
     if (error.code === '42501') return reply({ error: 'Only school staff can make announcements.' }, 403)
     if (error.message.startsWith('rate_limited')) return reply({ error: 'Too many announcements. Try again in a while.', reason: 'rate' }, 429)
