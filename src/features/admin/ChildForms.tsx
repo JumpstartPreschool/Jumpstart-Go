@@ -148,7 +148,6 @@ function linkable(dir: Directory, exclude: Set<string>) {
  */
 export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (childId: string, name: string) => void }) {
   const [name, setName] = useState('')
-  const [called, setCalled] = useState('')
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'boy' | 'girl' | null>(null)
   const [programmeId, setProgrammeId] = useState<string | null>(null)
@@ -159,7 +158,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const today = new Date().toISOString().slice(0, 10)
-  const who = (called.trim() || name.trim().split(/\s+/)[0] || '').trim()
+  const who = (name.trim().split(/\s+/)[0] || '').trim()
   const programme = dir.programmes.find((p) => p.id === programmeId)
   const suggested = suggestedLevel(dob)
   const emails = new Set(dir.profiles.map((p) => p.email).filter(Boolean) as string[])
@@ -190,7 +189,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     setBusy(true)
     setFormError(null)
     try {
-      const id = await saveChild({ full_name: words.join(' '), preferred_name: called.trim(), date_of_birth: dob, programme_id: programmeId!, gender }, people.map(toInput))
+      const id = await saveChild({ full_name: words.join(' '), preferred_name: '', date_of_birth: dob, programme_id: programmeId!, gender }, people.map(toInput))
       onSaved(id, who)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
@@ -210,13 +209,24 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     <Sheet open={open} onClose={onClose} title="Add a child" description="The child, parents and family are saved together, or not at all." wide>
       <div className="grid gap-4">
         <h3 className="kicker">The child</h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First and last name" autoComplete="off" error={errors.name} autoFocus />
-          <TextField label="Called at school" value={called} onChange={(e) => setCalled(e.target.value)} placeholder="Usually the first name" />
-        </div>
-        <TextField label="Date of birth" type="date" min="2017-01-01" max={today} value={dob} onChange={(e) => setDob(e.target.value)} error={errors.dob}
-          hint={dob && dob <= today ? `${formatAge(dob)} today${suggested ? `, ${suggested.replace(' Program', '')} age` : ''}` : undefined} />
-        <GenderChoice value={gender} onChange={setGender} />
+        {/* The child as the school will see them, filling in as the admin types: name, age and class at a glance. */}
+        <section aria-label="The child" className="grid gap-4 rounded-2xl bg-sunken p-4 sm:p-5">
+          <div className="flex items-center gap-3.5" aria-live="polite">
+            <Avatar name={name.trim() || 'New child'} color={childColor(name.trim() || 'new child')} icon={name.trim() ? undefined : <UserRound />} size="lg" />
+            <div className="min-w-0">
+              <p className={`truncate text-h3 ${name.trim() ? '' : 'text-ink-3'}`}>{name.trim() || 'New child'}</p>
+              <p className="truncate text-small font-semibold text-ink-2">
+                {[dob && dob <= today ? formatAge(dob) : 'Age shows here', programme?.name ?? (suggested ? `${suggested.replace(' Program', '')} age` : null)].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+          </div>
+          <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First and last name, e.g. Aaradhya Sharma" autoComplete="off" error={errors.name} autoFocus />
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <TextField label="Date of birth" type="date" min="2017-01-01" max={today} value={dob} onChange={(e) => setDob(e.target.value)} error={errors.dob}
+              hint={dob && dob <= today ? `${formatAge(dob)} today${suggested ? `, ${suggested.replace(' Program', '')} age` : ''}` : undefined} />
+            <GenderChoice value={gender} onChange={setGender} />
+          </div>
+        </section>
 
         <h3 className="kicker mt-2">Class and programme</h3>
         <button type="button" onClick={() => setPicker('programme')} className={`choice flex w-full items-center gap-3.5 p-3.5 text-left ${errors.programme ? '[--edge:var(--danger)]' : ''}`} aria-describedby={errors.programme ? 'programme-msg' : undefined}>
