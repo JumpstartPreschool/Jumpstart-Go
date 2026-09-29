@@ -17,16 +17,16 @@ Parents say they're on the way, the gate knows who is coming, and every handover
 
 ## What it does
 
-Jumpstart is an installable web app for one school. Everyone signs in with their email and a 6-digit code: no passwords, and only people the school adds can get in.
+Jumpstart is an installable web app for one school. Only people the school adds can get in. The first time, they sign in with a 6-digit code sent to their email and create a password before anything else; after that they sign in with their email and password, and a code is sent only for Forgot password.
 
 | Who | What they get |
 |---|---|
-| **Parents** | Today's drop-off and pickup times, "I'm on my way", changing a time, absences for one day or several on a calendar, adding relatives who collect, and a one-time link for someone else to collect. Messages and announcements from the school. |
-| **Someone collecting** (a driver, a friend) | A web page from the link, no app needed. It opens after they confirm the last 4 digits of their mobile, shows their gate code, and can share their location on the way. |
-| **Center leaders** | A tablet queue of who is arriving and when, spoken announcements in a clear Indian English voice, with each child's name approved by a person, code checks and handovers. |
+| **Parents** | Today's drop-off and pickup times, "I'm on my way" and "I've arrived", changing a time, absences for one day or several on a calendar, adding relatives who collect, and a one-time link for someone else to collect. Messages and announcements from the school. |
+| **Someone collecting** (a driver, a friend) | A web page from the link, no app needed. It opens after they confirm the last 4 digits of their mobile, shows their gate code, can share their location on the way, and "I'm at the gate" tells the gate they've arrived. |
+| **Center leaders** | A tablet queue of who is arriving and when, and spoken announcements in an Indian English woman's voice that follow the trip ("Vihaan Kulkarni's father will arrive for pickup in about ten minutes", then five, then "has arrived"), with each child's name approved by a person. A Speaker button for a Bluetooth speaker, code checks and handovers. |
 | **Head office** | The day's board, attendance, programme timings, each child's regular times, messages and announcements. |
 | **Front desk** | Calls and walk-ins, sent to the gate at once. |
-| **Admin** | Children, families and staff, classes and timings, bulk upload from Excel (rows with missing details still go in), invitations, announcements, settings, name pronunciation and the audit log. |
+| **Admin** | Children, families and staff, center leaders (someone new or someone already here), classes and timings, bulk upload from Excel (rows with missing details still go in), invitations, announcements, settings, name pronunciation and the audit log. |
 
 <table>
   <tr>
@@ -100,8 +100,9 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 - **Nothing is faked.** Times, attendance, location and notifications come from real phones and the database.
 - **The database is the security boundary.** Every table uses Postgres row-level security, and every change goes through a function that checks the caller's role, validates the input and writes the audit log.
 - **Location stays private.** Parents, family and staff never share or see location. Only someone collecting with a one-time link may share theirs, and only the parent who sent the link sees it.
-- **Names are said properly.** Announcements keep names exactly as written on screen; the admin can set how a name is spoken.
-- **Built for real phones and tablets.** Large touch targets, clear live, recent and stale states, and no page that scrolls sideways.
+- **Names are said properly.** Announcements keep names exactly as written on screen; the admin or head office listens to each name and can set how it's spoken.
+- **Voice never slows the gate.** Every announcement is made ahead of time and kept on the tablet, so a parent's tap plays at once; if a clip isn't ready, the tablet's own voice speaks.
+- **Built for real phones and tablets.** Large touch targets, the app's own date and option pickers (never the browser's), clear live, recent and stale states, and no page that scrolls sideways.
 
 ## Design
 
@@ -119,7 +120,7 @@ Jumpstart is an installable web app for one school. Everyone signs in with their
 | Part | What it uses |
 |---|---|
 | App | React 19, TypeScript, Vite, Tailwind CSS 4, React Router 7, installable through `vite-plugin-pwa` |
-| Backend | Supabase: Postgres with row-level security, Auth (email codes), Realtime, Storage, Edge Functions (Deno) |
+| Backend | Supabase: Postgres with row-level security, Auth (password, with an email code for a first sign-in or a reset), Realtime, Storage, Edge Functions (Deno) |
 | Email | Brevo: SMTP for sign-in codes, API for invitations (`invite-send`) |
 | Voice | Azure AI Speech behind a `TTSProvider` interface, through the `pronounce` Edge Function (the key never reaches the browser); [voice-architecture.md](docs/architecture/voice-architecture.md) |
 | Hosting | Cloudflare Workers static assets |
@@ -138,13 +139,13 @@ cp .env.example .env.local   # the Supabase URL and publishable key
 npm run dev
 ```
 
-Migrations live in `supabase/migrations` (0001 to 0031). Apply them with:
+Migrations live in `supabase/migrations` (0001 to 0036). Apply them with:
 
 ```bash
 npx supabase db push
 ```
 
-Secrets for the edge functions (Brevo, the gate voice, the app's address) and the email templates are set up as described in [environments.md](docs/infrastructure/environments.md).
+Secrets for the edge functions (Brevo; Azure AI Speech for the gate voice: `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`; the app's address) and the email templates are set up as described in [environments.md](docs/infrastructure/environments.md). Keys are function secrets only, never in the app.
 
 ## Scripts
 
@@ -157,9 +158,11 @@ Secrets for the edge functions (Brevo, the gate voice, the app's address) and th
 | `npm run deploy` | Builds and publishes to Cloudflare |
 | `node scripts/email-templates.ts` | Writes the sign-in email templates in `supabase/templates` |
 | `node scripts/qa/width.cjs` | Checks no page is wider than a phone, with animations running |
+| `/scripts/qa/voice-lag/` (on `npm run dev`) | Plays real gate announcements and reports how soon the voice starts after the chime (p50, p95) |
 
 ## Documentation
 
 - Product: [PRD and decisions](docs/product/prd.md), [what's left](docs/planning/current-task.md)
-- Architecture: [system](docs/architecture/system-architecture.md), [tracking](docs/architecture/tracking-architecture.md), [notifications](docs/architecture/notification-architecture.md)
+- Architecture: [system](docs/architecture/system-architecture.md), [tracking](docs/architecture/tracking-architecture.md), [notifications](docs/architecture/notification-architecture.md), [gate voice](docs/architecture/voice-architecture.md)
+- Security: [data protection](docs/security/data-protection.md)
 - Infrastructure: [services](docs/infrastructure/services.md), [environments](docs/infrastructure/environments.md)

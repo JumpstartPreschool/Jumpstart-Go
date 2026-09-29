@@ -25,7 +25,7 @@ Every announcement is an opening, then one message (templates in `_shared/announ
 | Parent taps "On my way" | "Vihaan Kulkarni's father is on the way for pickup. Please get Vihaan ready." |
 | About 12 to 7 minutes before the chosen time | "Vihaan Kulkarni's father will arrive for pickup in about ten minutes. Please get Vihaan ready." |
 | 7 minutes or less | "… will arrive for pickup in about five minutes. …" |
-| Parent taps "I've arrived" | "Vihaan Kulkarni's father has arrived for pickup. Please get Vihaan ready." |
+| Parent taps "I've arrived", or the collector taps "I'm at the gate" on their link (0036) | "Vihaan Kulkarni's father has arrived for pickup. Please get Vihaan ready." (a collector is "pickup person") |
 | Cancelled | "Pickup for Vihaan Kulkarni is cancelled." |
 
 Openings: "New announcement." / "Urgent new announcement." (outside the child's window, within five minutes, or arrived) / "This is a reminder." (every 2 minutes until someone taps Seen). The relation comes from the trip ("mother", "grandmother"); someone with a one-time link, or with no relation on record, is "pickup person". The class, the time and any reason stay on screen and are never spoken, so every message can be made ahead. The phase is worked out from the parent's chosen time each time the gate looks (`phaseOf`), so after a reconnect the gate says where the trip is now, never a backlog. Programme windows and times are unchanged.

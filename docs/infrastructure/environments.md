@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Singapore (ap-southeast-1); database pooler aws-0-ap-southeast-1.pooler.supabase.com |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0032` live, `0033` (password sign-in), `0034` (first-sign-in codes only without a password) and `0035` (Azure voice, I've arrived) to push (pushed from the owner's terminal with `npx supabase db push`; the push needs the database password) |
+| Migrations applied | `0001`–`0035` live; `0036` (the collector's "I'm at the gate", the voice minute job skipping inactive children) to push with `npx supabase db push` before deploying `pronounce` and the app |
 | App hosting | Cloudflare Workers static assets, `jumpstart-go` at https://jumpstart-go.singhankit91624.workers.dev (production; the old `jumpstart-preschool` address redirects there, see `scripts/old-link-redirect/`) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
