@@ -89,6 +89,12 @@ const REQUEST_COPY: Record<Intent, { title: string; text: string }> = {
   reset: { title: 'Reset your password', text: "Enter your email. We'll send you a 6-digit code, then you'll choose a new password." },
 }
 
+/** What the code step says. A first-sign-in code only goes to accounts without a password, so it says so. */
+const CODE_SENT: Record<Intent, string> = {
+  first: "If this email is registered and has no password yet, we've sent it a 6-digit code. It works for 5 minutes.",
+  reset: "If this email is registered with Jumpstart, we've sent it a 6-digit code. It works for 5 minutes.",
+}
+
 function FormError({ id, children }: { id: string; children: ReactNode }) {
   return <p id={id} className="text-center text-small font-bold text-danger" role="alert">{children}</p>
 }
@@ -174,8 +180,13 @@ export function LoginScreen() {
 
   async function sendCode(address: string, intent: Intent) {
     await run(async () => {
-      // Registered, active and under 10 codes an hour (0023). Not registered: no email, but the same answer on screen.
-      const { data: allowed, error: checkError } = await supabase.rpc('login_allowed', { p_email: address })
+      // Registered, active, under 10 codes an hour, and for a first sign-in no password yet (0034). Refused: no email is
+      // sent, but the screen reads the same, so nobody learns who has an account.
+      let check = await supabase.rpc('login_allowed', { p_email: address, p_purpose: intent })
+      // ponytail: a database without 0034 has only the one-argument check (any code allowed), so the app works whichever
+      // ships first. Delete this line once 0034 is live.
+      if (check.error?.code === 'PGRST202') check = await supabase.rpc('login_allowed', { p_email: address })
+      const { data: allowed, error: checkError } = check
       if (checkError) return setError(authMessage(checkError))
       if (allowed) {
         // shouldCreateUser: someone's first code creates their account, which the database links to the invite (0002).
@@ -304,7 +315,7 @@ export function LoginScreen() {
                 <MailCheck className="size-8" strokeWidth={1.75} aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check your email</h1>
-              <p className="mt-1.5 text-body text-ink-2">If this email is registered with Jumpstart, we've sent it a 6-digit code. It works for 5 minutes.</p>
+              <p className="mt-1.5 text-body text-ink-2">{CODE_SENT[step.intent]}</p>
               {/* The address the code went to, with Change right on it: where people look when it's the wrong one. */}
               <button type="button" className="email-chip mt-3" aria-label={`Change email, now ${email}`}
                 onClick={() => go({ name: 'request', intent: step.intent })}>
@@ -342,6 +353,12 @@ export function LoginScreen() {
             <Button variant="quiet" size="md" className="mx-auto tabular-nums" icon={<RotateCcw />} disabled={resendIn > 0 || busy} onClick={() => void sendCode(email, step.intent)}>
               {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
             </Button>
+            {step.intent === 'first' && (
+              <p className="flex flex-wrap items-center justify-center gap-x-1 text-center text-small font-semibold text-ink-2">
+                Already created a password?
+                <button type="button" className="linkbtn" onClick={() => go({ name: 'request', intent: 'reset' })}>Forgot password?</button>
+              </p>
+            )}
             <div className="justify-self-center"><BackToSignIn onClick={() => go({ name: 'password' })} /></div>
           </form>
         )}
