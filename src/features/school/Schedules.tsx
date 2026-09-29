@@ -54,10 +54,10 @@ function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: Progra
   return (
     <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${p.name} runs.`}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label={`Drop-off, ${formatRange(windowFor(programme, 'dropoff'))}`} value={drop} onChange={(e) => setDrop(Number(e.target.value))}>
+        <SelectField label={`Drop-off, ${formatRange(windowFor(programme, 'dropoff'))}`} value={drop} onValue={(v) => setDrop(Number(v))}>
           {withCurrent(opts('dropoff'), drop).map((t) => <option key={t} value={t}>{formatTime(t)}{opts('dropoff').includes(t) ? '' : ' (outside the window)'}</option>)}
         </SelectField>
-        <SelectField label={`Pickup, ${formatRange(windowFor(programme, 'pickup'))}`} value={pick} onChange={(e) => setPick(Number(e.target.value))}>
+        <SelectField label={`Pickup, ${formatRange(windowFor(programme, 'pickup'))}`} value={pick} onValue={(v) => setPick(Number(v))}>
           {withCurrent(opts('pickup'), pick).map((t) => <option key={t} value={t}>{formatTime(t)}{opts('pickup').includes(t) ? '' : ' (outside the window)'}</option>)}
         </SelectField>
       </div>

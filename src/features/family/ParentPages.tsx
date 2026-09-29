@@ -208,7 +208,7 @@ function PersonSheet({ me, onClose, onSaved }: { me: string; onClose: () => void
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Mobile" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone} />
-          <SelectField label="Relation" value={relation} onChange={(e) => setRelation(e.target.value)}>{PERSON_RELATIONS.map((r) => <option key={r}>{r}</option>)}</SelectField>
+          <SelectField label="Relation" value={relation} onValue={(v) => setRelation(v)}>{PERSON_RELATIONS.map((r) => <option key={r}>{r}</option>)}</SelectField>
         </div>
         {errors.form && <Notice tone="danger">{errors.form}</Notice>}
       </div>
@@ -307,11 +307,11 @@ function RelativeSheet({ kids, onClose, onSaved }: { kids: Kid[]; onClose: () =>
     <Sheet open onClose={onClose} title="Add a relative" description="They can collect from the gate, like you.">
       <div className="grid gap-4">
         {kids.length > 1 && (
-          <SelectField label="Child" value={child} onChange={(e) => setChild(e.target.value)}>{kids.map((k) => <option key={k.id} value={k.id}>{first(k)}</option>)}</SelectField>
+          <SelectField label="Child" value={child} onValue={(v) => setChild(v)}>{kids.map((k) => <option key={k.id} value={k.id}>{first(k)}</option>)}</SelectField>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
-          <SelectField label="Relation" value={relation} onChange={(e) => setRelation(e.target.value)}>{RELATIONS.map((r) => <option key={r}>{r}</option>)}</SelectField>
+          <SelectField label="Relation" value={relation} onValue={(v) => setRelation(v)}>{RELATIONS.map((r) => <option key={r}>{r}</option>)}</SelectField>
         </div>
         <TextField label="Mobile" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone} />
         <TextField label="Email (optional)" type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email}

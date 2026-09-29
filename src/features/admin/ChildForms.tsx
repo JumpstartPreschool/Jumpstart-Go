@@ -3,6 +3,7 @@ import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Lin
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
+import { DateField } from '../../ui/DateField'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { Switch } from '../../ui/Switch'
@@ -222,7 +223,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
           </div>
           <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First and last name, e.g. Aaradhya Sharma" autoComplete="off" error={errors.name} autoFocus />
           <div className="grid items-start gap-4 sm:grid-cols-2">
-            <TextField label="Date of birth" type="date" min="2017-01-01" max={today} value={dob} onChange={(e) => setDob(e.target.value)} error={errors.dob}
+            <DateField label="Date of birth" max={today} value={dob} onChange={setDob} error={errors.dob} placeholder="Choose the date of birth" startWith="years"
               hint={dob && dob <= today ? `${formatAge(dob)} today${suggested ? `, ${suggested.replace(' Program', '')} age` : ''}` : undefined} />
             <GenderChoice value={gender} onChange={setGender} />
           </div>

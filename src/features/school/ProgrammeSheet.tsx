@@ -107,7 +107,7 @@ export function ProgrammeSheet({ programme, cls, dir, admin, onClose, onSaved }:
   }
 
   const timeSelect = (label: string, value: Minutes, list: Minutes[], onChange: (v: Minutes) => void, err?: string) => (
-    <SelectField label={label} value={value} error={err ?? null} onChange={(e) => onChange(Number(e.target.value))}>
+    <SelectField label={label} value={value} error={err ?? null} onValue={(v) => onChange(Number(v))}>
       {withCurrent(list, value).map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
     </SelectField>
   )
@@ -119,7 +119,7 @@ export function ProgrammeSheet({ programme, cls, dir, admin, onClose, onSaved }:
           <TextField label="Programme name" value={plan} maxLength={40} onChange={(e) => setPlan(e.target.value)}
             placeholder="Half day, 360°…" error={plan.includes('·') ? 'Leave out "·".' : null}
             hint={plan.trim() ? `Shown as ${cls.name} · ${plan.trim()}` : `Shown as ${cls.name}. Leave empty if it's the class's only programme.`} />
-          <SelectField label="Days" value={days} onChange={(e) => setDays(e.target.value as DaysKey)}>
+          <SelectField label="Days" value={days} onValue={(v) => setDays(v as DaysKey)}>
             {days === 'current' && <option value="current">As they are now</option>}
             {(Object.keys(DAYS) as Array<keyof typeof DAYS>).map((k) => <option key={k} value={k}>{DAYS[k].label}</option>)}
           </SelectField>

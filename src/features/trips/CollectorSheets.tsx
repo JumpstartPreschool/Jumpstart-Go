@@ -159,7 +159,7 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example, Ramesh Kulkarni" autoComplete="off" maxLength={80} error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Mobile" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" autoComplete="off" error={errors.phone} />
-          <SelectField label="Relation" value={relation} onChange={(e) => setRelation(e.target.value)} error={relation === 'Other' ? undefined : errors.rel}>
+          <SelectField label="Relation" value={relation} onValue={(v) => setRelation(v)} error={relation === 'Other' ? undefined : errors.rel}>
             {RELATIONS.map((r) => <option key={r}>{r}</option>)}
           </SelectField>
         </div>
