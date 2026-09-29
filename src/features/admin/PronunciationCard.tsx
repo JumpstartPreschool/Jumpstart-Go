@@ -16,7 +16,7 @@ const nameSentence = (child: Child, spoken: string | null) =>
   voiceSentence(`${child.full_name}.`, { fullName: child.full_name, name: child.preferred_name ?? child.full_name.split(' ')[0]!, spoken })
 
 /**
- * How the gate says this child's name (D48). A person listens and approves it; if it sounds wrong they write it the way
+ * How the gate says this child's name (D50). A person listens and approves it; if it sounds wrong they write it the way
  * it sounds ("Aa-raadh-ya"), preview, and save. The name on screen never changes. Admin and head office only.
  */
 export function PronunciationCard({ child }: { child: Child }) {
@@ -44,8 +44,8 @@ export function PronunciationCard({ child }: { child: Child }) {
       await playSentence(nameSentence(child, words || null), () => setPlaying({ what, state: 'playing' }))
     } catch {
       setError(what === 'draft'
-        ? "Couldn't make a preview. The school's voice computer may be off; try again in a minute."
-        : "Couldn't play the name. The school's voice computer may be off; try again in a minute.")
+        ? "Couldn't make a preview. Check the connection and try again in a minute."
+        : "Couldn't play the name. Check the connection and try again in a minute.")
     } finally {
       setPlaying(null)
     }
@@ -118,7 +118,7 @@ export function PronunciationCard({ child }: { child: Child }) {
         <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>
           <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="flex-1 basis-[200px]">The announcements couldn't be made. The gate still announces this child with the tablet's own voice.</span>
-            <Button size="md" variant="secondary" icon={<RotateCcw />} loading={busy} onClick={() => void retry()}>Try again</Button>
+            <Button size="md" variant="secondary" icon={<RotateCcw />} loading={busy} onClick={() => void retry()}>Regenerate</Button>
           </span>
         </Notice>
       )}

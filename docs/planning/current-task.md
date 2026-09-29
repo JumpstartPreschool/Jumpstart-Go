@@ -24,7 +24,7 @@
 
 ## Done on 2026-09-25 (branch `claude/jumpstart-app-html-updates-64d27a`, not yet pushed after `cfd1569`)
 - **App is light only for now** (owner). The dark palette waits in `src/styles/tokens.css` under `:root[data-theme='dark']`.
-- **Sign-in:** invite only; email and password every day; a 6-digit email code only for the first sign-in (then create a password) and a forgotten password (D49, `0033`); the email filled in from an invitation link; every account confirms which area it signs in as.
+- **Sign-in:** invite only; email and password every day; a 6-digit email code only for the first sign-in (then create a password) and a forgotten password (D49, `0033`, `0034`: first-sign-in codes only for accounts without a password; the password step can't be skipped); the email filled in from an invitation link; every account confirms which area it signs in as.
 - **Announcement voice:** woman's voice by default, human-sounding voices ranked first, robotic ones hidden, a voice picker with samples in Start duty, the check screen and On duty (`sound.ts`, `VoicePicker.tsx`). Sound goes to whatever the iPad is connected to (its speaker or a Bluetooth speaker); web apps can't choose the output.
 - **Trips end to end (on 0006, already live):** parent Today with "I'm on my way", window check and reason, Running late, Change time, Cancel, and live steps (`family/ParentToday.tsx`, `trips/TripSheets.tsx`); coordinator live gate queue with announcements, Acknowledge, Ready, Hand over to a registered guardian, Check in (`duty/GateQueue.tsx`). The demo backend (`demo/demo.ts`) follows the same rules, so it all works on localhost.
 - **Migration 0007** (the owner's 15-minute rule, D24: new windows for all 17 programmes, gate day 08:45–19:15) and **0008** (location points, one-trip links for someone else with a device-bound token and a 4-digit code, handover by code with 3 tries, staff see location only until handover, 30-day purge). Both pass `LC_ALL=C TMPDIR=/tmp npm run test:db` (the long session temp path breaks the Postgres socket otherwise). **Neither is applied to the live database yet.**
@@ -55,20 +55,19 @@
 
 - **Icons and people** (D39, `0025`): `src/ui/icons.tsx` (76 Fluent Color SVG files in `public/iconsc`), `Avatar` with initials on each person's colour, Boy or girl on children (forms, bulk upload).
 
-## Done on 2026-09-27: the school's own gate voice (D48, [voice-architecture.md](../architecture/voice-architecture.md))
-- Removed the cloud and on-device voices: `voice-say` (Azure, ElevenLabs), Kokoro (`kokoro-js`, its worker and caches), the voice picker, the device-voice ranking and the school-wide word list (folded into each child in `0030`).
-- `tts-service/`: Indic Parler-TTS ("Mary"), model loaded once, one sentence at a time, shared secret, silence trimmed, loudness evened, runaway takes rejected, MP3 at 64 kbit/s; `qa_names.py` for listening checks.
-- `pronounce` function and `0030`: per-child pronunciation with approval, background making with three tries then Try again, clips by hash in the private `voice-audio` bucket (staff read directly), a minute job.
-- Gate: every sentence cached on the tablet at duty start; clips requested as the chime starts; the tablet's own Indian English voice if a sentence isn't ready 1.2 s after the chime; End duty, Mute and leaving the screen silence everything at once, including audio still arriving.
-- Admin: pronunciation card on each child (play, "Sounds right", write it the way it sounds, preview, save and approve, Try again) and Settings → Name pronunciation (everything still to listen to).
-- Checks: `npm test` (107), `npm run test:db`, `uv run pytest` in `tts-service/` (15), `npm run build`.
+## Done on 2026-09-29: Azure gate voice and "I've arrived" (D50, [voice-architecture.md](../architecture/voice-architecture.md))
+- Templates in one place (`_shared/announce.ts`); every child's announcements made ahead by `pronounce` (Azure, behind `TTSProvider`) into `voice-audio`; iPads copy them on duty.
+- `0035`: monthly cap (`voice_count`, 450,000), `voice_version()`, `trips.arrived_at` + `arrive_trip` + gate notification; school-computer registration removed.
+- Parent: "I've arrived". Gate: announces on the way, about ten, about five, arrived; "At the gate" pill; Speaker button (Bluetooth or iPad).
+- Removed `tts-service/` and its deploy script. Privacy text and consent version updated.
+- Checks: `npm test`, `npm run test:db`, `npm run build`, `deno check`. **Not done:** Azure account (owner), choosing the voice by ear, real-iPad timings.
 
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
 2. **Aditya Tapadia's email** (D27): invite him as the second admin in the database (the app refuses Admin by design).
 3. **Push notifications on:** follow "Turning on push notifications" in [environments.md](../infrastructure/environments.md) (VAPID keys, secrets, deploy `push-send`, `app.push_config`, pg_net and pg_cron). `push-send` hasn't been type-checked with Deno here (not installed); the CLI checks it on deploy.
-4. **Real email codes, a real iPad test (including the gate voice from the school computer, Home Screen notifications), and publishing** (below).
+4. **Real email codes, a real iPad test (including the Azure gate voice, I've arrived, and Home Screen notifications), and publishing** (below).
 5. **Security review done (2026-09-25):** no critical or high findings; the medium and low ones are fixed in `0017` (a collector confirms with the last 4 digits of their mobile; one phone per link even under a race; staff location cut-off by the server clock; admin lock on updates; push devices and hosts; past absences).  Rate limits on trips and time changes, logged calls and link location batches are in `0018`. Codex isn't available on this account, so there was no cross-model review.
 6. Push the branch and merge to `main`.
 

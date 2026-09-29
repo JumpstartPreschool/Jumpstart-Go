@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       // 'prompt': src/app/UpdatePrompt.tsx decides when a new version loads (by itself when safe, never mid-duty).
       registerType: 'prompt',
-      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'brand/*.webp'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'brand/*.webp', 'sounds/*.mp3'],
       // Precache only the app shell and its assets. School data always comes live from the server, never from a cache.
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,webp,svg}', '**/*latin*.woff2'],

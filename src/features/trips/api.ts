@@ -27,6 +27,8 @@ export interface Trip {
   ready_at: string | null
   closed_at: string | null
   handed_to: string | null
+  /** 0035: the parent tapped "I've arrived" (absent before that migration is applied). */
+  arrived_at?: string | null
   // 0008: someone else collecting, and location sharing (absent before that migration is applied)
   traveller_kind?: 'guardian' | 'third_person'
   traveller_phone?: string | null
@@ -49,6 +51,13 @@ export async function startTrip(childId: string, direction: Direction, minutes: 
 
 export async function cancelTrip(tripId: string): Promise<Trip> {
   const { data, error } = await supabase.rpc('cancel_trip', { p_trip: tripId })
+  if (error) throw error
+  return data as Trip
+}
+
+/** "I've arrived": the gate announces it at once. Only the child's family (or the school); once per trip. */
+export async function arriveTrip(tripId: string): Promise<Trip> {
+  const { data, error } = await supabase.rpc('arrive_trip', { p_trip: tripId })
   if (error) throw error
   return data as Trip
 }

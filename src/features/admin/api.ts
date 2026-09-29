@@ -169,7 +169,7 @@ export async function importChild(child: { full_name: string; preferred_name: st
   return data as string
 }
 
-/** How the gate voice says a child's name (0030, D48), and whether the child's announcement audio is made. */
+/** How the gate voice says a child's name (0030, D50), and whether the child's announcements are made ahead. */
 export type VoiceAudio = 'pending' | 'generating' | 'ready' | 'failed'
 export interface ChildPronunciation { child_id: string; spoken_name: string | null; approved: boolean; audio_status: VoiceAudio }
 export async function listChildPronunciations(): Promise<ChildPronunciation[]> {
@@ -187,7 +187,7 @@ export async function setChildPronunciation(childId: string, spoken: string, app
   const { error } = await supabase.rpc('set_child_pronunciation', { p_child: childId, p_spoken: spoken, p_approve: approve })
   if (error) throw error
 }
-/** Tries making the child's announcement audio again after it failed. */
+/** Makes the child's announcements again (Regenerate): after a failure, or to refresh them. */
 export async function retryChildVoice(childId: string): Promise<void> {
   const { error } = await supabase.rpc('retry_child_voice', { p_child: childId })
   if (error) throw error

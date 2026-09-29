@@ -125,7 +125,7 @@ it('answers a code request the same way for an unregistered email, and sends it 
   await user.click(screen.getByRole('button', { name: /Email me a code/ }))
   expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument()
   expect(screen.getByText(/If this email is registered with Jumpstart/)).toBeInTheDocument()
-  expect(auth.rpc).toHaveBeenCalledWith('login_allowed', { p_email: 'stranger@example.com' })
+  expect(auth.rpc).toHaveBeenCalledWith('login_allowed', { p_email: 'stranger@example.com', p_purpose: 'reset' })
   expect(auth.signInWithOtp).not.toHaveBeenCalled()
 })
 
@@ -138,6 +138,31 @@ it('sends a registered email its code, on the same screen as everyone else', asy
   expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument()
   expect(auth.signInWithOtp).toHaveBeenCalledWith({ email: 'priya@example.com', options: { shouldCreateUser: true } })
   expect(screen.getByRole('button', { name: /Send a new code in \d+s/ })).toBeDisabled()
+})
+
+it('asks for a first-sign-in code only for accounts without a password, and points everyone else to a reset', async () => {
+  auth.rpc.mockResolvedValue({ data: false, error: null })
+  const user = await open()
+  await user.click(screen.getByRole('button', { name: 'Get a sign-in code by email' }))
+  await user.type(screen.getByLabelText('Email'), 'priya@example.com')
+  await user.click(screen.getByRole('button', { name: /Email me a code/ }))
+  expect(await screen.findByText(/registered and has no password yet/)).toBeInTheDocument()
+  expect(auth.rpc).toHaveBeenCalledWith('login_allowed', { p_email: 'priya@example.com', p_purpose: 'first' })
+  expect(auth.signInWithOtp).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Forgot password?' }))
+  expect(screen.getByRole('heading', { name: 'Reset your password' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Email')).toHaveValue('priya@example.com')
+})
+
+it('still sends a code when the database has only the older check', async () => {
+  auth.rpc.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } }).mockResolvedValueOnce({ data: true, error: null })
+  const user = await open()
+  await user.click(screen.getByRole('button', { name: 'Forgot password?' }))
+  await user.type(screen.getByLabelText('Email'), 'priya@example.com')
+  await user.click(screen.getByRole('button', { name: /Email me a code/ }))
+  expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument()
+  expect(auth.rpc).toHaveBeenLastCalledWith('login_allowed', { p_email: 'priya@example.com' })
+  expect(auth.signInWithOtp).toHaveBeenCalledTimes(1)
 })
 
 it('goes on to the code already sent when asked again within the minute', async () => {

@@ -1,6 +1,5 @@
 import type { Trip } from '../trips/api'
-import { clockTime } from '../trips/rules'
-import { ARRIVING_NOW, arrivingAbout, cancelled, getReady, kindFor, onTheWay, TIME_CHANGED } from '../../../supabase/functions/_shared/announce.ts'
+import { cancelled, message, PICKUP_PERSON, type Phase } from '../../../supabase/functions/_shared/announce.ts'
 
 /** Nobody answered on the class's iPads in this time: every coordinator on duty hears it (PRD D11). */
 export const FALLBACK_MS = 120_000
@@ -18,25 +17,33 @@ export interface GateChild {
 /** Arriving within this long counts as now: the child should be at the gate already. */
 export const SOON_MS = 5 * 60_000
 
-/** Outside the usual time, or arriving within five minutes: said with "Urgent." first, shown in red, played first. */
+/** Up to this long before the chosen time counts as "about five minutes"; up to TEN_MS as "about ten minutes". */
+const FIVE_MS = 7 * 60_000
+const TEN_MS = 12 * 60_000
+
+/**
+ * How far the trip has got: at the gate once the parent taps "I've arrived"; otherwise from the time they chose. A trip
+ * past its time without an arrival is still on the way. Worked out afresh each time, so after a reconnect the gate
+ * hears where the trip is now, never a backlog.
+ */
+export function phaseOf(trip: Trip, nowMs: number): Phase {
+  if (trip.arrived_at) return 'arrived'
+  const left = Date.parse(trip.arrive_at) - nowMs
+  return left > 0 && left <= FIVE_MS ? 'five' : left > 0 && left <= TEN_MS ? 'ten' : 'onway'
+}
+
+/** Outside the usual time, arriving within five minutes, or at the gate: "Urgent new announcement.", red, played first. */
 export function isUrgent(trip: Trip, nowMs: number): boolean {
-  return trip.off_schedule || Date.parse(trip.arrive_at) - nowMs <= SOON_MS
+  return trip.off_schedule || !!trip.arrived_at || Date.parse(trip.arrive_at) - nowMs <= SOON_MS
 }
 
 /**
- * What the iPad says, most important first: pickup or drop-off and the child, who is coming, when, then any reason.
- * It names the arrival time rather than "in 20 minutes", so a repeat two minutes later is still true.
- * Short sentences on purpose: each is one voice clip, and the child's, the collector's and the time's sentences repeat
- * day after day, so they're made ahead of time (supabase/functions/_shared/announce.ts) and play at once.
+ * What the iPad says (the templates in _shared/announce.ts): the child, who is coming and how soon, and for a pickup
+ * "Please get … ready." The class, the time and any reason are on screen, not spoken, so every message is made ahead.
  */
 export function spokenText(trip: Trip, child: GateChild, nowMs = Date.now()): string {
-  const changed = Date.parse(trip.updated_at) - Date.parse(trip.created_at) > 5_000 ? TIME_CHANGED : ''
-  // Said to the nearest 5 minutes ("about"): those sentences are made ahead in the school's voice, an exact 3:17 isn't.
-  const at = new Date(Math.round(Date.parse(trip.arrive_at) / 300_000) * 300_000).toISOString()
-  const when = Date.parse(trip.arrive_at) - nowMs <= SOON_MS ? ARRIVING_NOW : arrivingAbout(clockTime(at))
-  const reason = trip.off_schedule && trip.reason ? ` Reason: ${trip.reason}.` : ''
-  const ready = trip.direction === 'pickup' ? ` ${getReady(child.name)}` : ''
-  return `${changed}${kindFor(trip.direction, child.fullName, child.className)} ${onTheWay(child.name, trip.traveller_relation, trip.traveller_name)} ${when}${reason}${ready}`
+  const who = trip.traveller_kind === 'third_person' ? PICKUP_PERSON : trip.traveller_relation
+  return message(trip.direction, phaseOf(trip, nowMs), child, who)
 }
 
 export function cancelledText(trip: Trip, child: GateChild): string {

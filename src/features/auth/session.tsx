@@ -43,9 +43,9 @@ export const passwordStep = {
 
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
 // Raised when what parents agree to changes, so everyone is asked again: gate announcements, names included, are now
-// made on the school's own computer instead of a cloud voice service (D48).
+// made by Microsoft Azure AI Speech (D50).
 // Must be a plain YYYY-MM-DD date: public.accept_consent rejects anything else, and parents would be stuck here.
-export const CONSENT_VERSION = '2026-09-28'
+export const CONSENT_VERSION = '2026-09-29'
 
 /** The areas a person may open, most senior first (their home is the first one). */
 export function areasFor(me: Me): Area[] {

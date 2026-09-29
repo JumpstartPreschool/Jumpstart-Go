@@ -148,7 +148,9 @@ describe('when AreaRoute asks for a password', () => {
     ['first sign-in, before migration 0033', 'first', undefined, true],
     ['code sign-in, password already set', 'first', true, false],
     ['forgotten password', 'reset', true, true],
-    ['already signed in, no code just used', null, false, false],
+    ['signed in earlier with a code, never set a password', null, false, true],
+    ['already signed in with a password', null, true, false],
+    ['database cannot tell, no code just used', null, null, false],
   ] as const)('%s', (_, step, has, asks) => {
     if (step) passwordStep.ask(step)
     signedIn(me(has))
