@@ -71,6 +71,8 @@ describe('announcer', () => {
     const ann = createAnnouncer(out)
     ann.announce({ ...a('Pickup for Aarav.', PRIORITY.newRequest), childId: 'child-1' })
     expect(out.prepare).toHaveBeenCalledWith(NEW_LEAD + 'Pickup for Aarav.', 'child-1')
+    // Asked for before the chime starts, so the clips are ready when it ends.
+    expect(out.prepare.mock.invocationCallOrder[0]).toBeLessThan(out.chime.mock.invocationCallOrder[0]!)
     await vi.advanceTimersByTimeAsync(5_000)
     expect(out.speak).toHaveBeenCalledWith(NEW_LEAD + 'Pickup for Aarav.', 'child-1')
   })

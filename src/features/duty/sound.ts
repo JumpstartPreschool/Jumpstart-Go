@@ -1,11 +1,11 @@
-import { voiceLines } from '../../../supabase/functions/_shared/announce.ts'
+import { voiceParts } from '../../../supabase/functions/_shared/announce.ts'
 import type { AnnouncerOutput, ChimeKind } from './announcer'
-import { clearRetiredVoiceCaches, clipAudio, voiceChild } from './voiceClips'
+import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, voiceChild } from './voiceClips'
 
 /**
- * Chime and voice for announcements on the coordinator's iPad (PRD D7, D48). The voice is the school's own Indian
- * voice, made ahead of time on the school's computer (voiceClips.ts). When a sentence isn't ready in time, the iPad's own
- * Indian English voice says that announcement instead; without one, the chime and the screen still carry it.
+ * Chime and voice for announcements on the coordinator's iPad (PRD D7, D50). The voice is the school's Indian English
+ * voice (Azure), made ahead of time for every child and kept on the iPad (voiceClips.ts). When a clip isn't ready soon
+ * after the chime, the iPad's own Indian English voice says it instead; without one, the chime and the screen carry it.
  * iPadOS only allows sound after a tap, so `unlockSound()` must run inside the Start duty tap.
  */
 
@@ -23,14 +23,19 @@ let utterance: SpeechSynthesisUtterance | null = null
 export const soundSupported = typeof window !== 'undefined' && 'AudioContext' in window
 const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-/** How long speech may wait for its clips after the chime before the iPad's own voice says it instead. */
-export const CLIP_BUDGET_MS = 1200
 /**
- * The sound check after Start duty waits longer: on that first tap the clip still has to download to the iPad, which
- * takes more than 1.2 s, and the check should sound like the real gate, not the tablet's voice.
+ * How long each part may keep the gate waiting before the iPad's own voice says it instead: the opening, after the
+ * chime; the message, after the opening. Both were asked for when the chime started (prepare), so the opening has had
+ * the chime (0.9 s) plus this, and the message the chime, the opening (~1 s) and this.
+ */
+export const CLIP_BUDGET_MS = 300
+/**
+ * The sound check after Start duty waits longer: it is the day's first request, so the pronounce function may be
+ * starting up, and the check should sound like the real gate, not the tablet's voice.
  */
 export const SOUND_CHECK_BUDGET_MS = 8000
-const SENTENCE_GAP_MS = 120
+// The natural pause after "New announcement." before the message.
+const PART_GAP_MS = 150
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -44,7 +49,8 @@ export function unlockSound(): void {
     speechSynthesis.cancel()
     speechSynthesis.speak(new SpeechSynthesisUtterance(' '))
   }
-  void clearRetiredVoiceCaches()
+  // Which voice the school's clips are in, then free the space older versions used on this iPad.
+  void loadVoiceVersion().then(clearRetiredVoiceCaches)
 }
 
 /** The shared audio output, resumed (call from a tap, e.g. a pronunciation preview). */
@@ -122,48 +128,56 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
 
 /**
  * Says an announcement (the words shown on screen; the child's approved pronunciation is applied only for the voice).
- * The school's voice when every sentence's clip is ready within CLIP_BUDGET_MS, else the iPad's Indian English voice,
- * so one announcement is never said in two voices and the gate never waits. Never rejects.
+ * The opening ("New announcement.") plays as soon as it's ready, and the message, one continuous recording, follows
+ * while the gate listens; whichever part isn't ready within CLIP_BUDGET_MS is said by the iPad's Indian English voice,
+ * so the gate never waits. Never rejects.
  */
 export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<void> {
-  const lines = voiceLines(text, voiceChild(childId))
-  if (!lines.length) return
+  const parts = voiceParts(text, voiceChild(childId))
+  if (!parts.length) return
   const mine = generation
+  markVoice(text, 'chime-end')
   if (ctx) {
     const audio = ctx
-    const all = Promise.all(lines.map((line) => clipAudio(audio, line)))
-    // Still being made in the background when the budget runs out: the next repeat uses it.
-    all.catch(() => {})
+    const clips = parts.map((part) => clipAudio(audio, part))
+    // Still being made when the time runs out: kept for the 2-minute repeat.
+    for (const clip of clips) clip.catch(() => {})
     // Paused by iOS: clips would play silently, so the tablet's voice says it (the clips stay ready for later).
-    if (!(await running(audio))) return speakDevice(lines.join(' '), mine)
-    const clips = await Promise.race([all, wait(budgetMs).then(() => null)]).catch(() => null)
-    if (mine !== generation) return
-    if (clips) {
-      for (const [i, clip] of clips.entries()) {
-        if (mine !== generation) return
-        if (i > 0) await wait(SENTENCE_GAP_MS)
-        await play(clip, mine)
+    if (!(await running(audio))) return speakDevice(parts.join(' '), mine)
+    for (const [i, clip] of clips.entries()) {
+      if (i > 0) await wait(PART_GAP_MS)
+      if (mine !== generation) return
+      const buf = await Promise.race([clip, wait(budgetMs).then(() => null)]).catch(() => null)
+      if (mine !== generation) return
+      if (!buf) {
+        markVoice(text, 'device-voice')
+        return speakDevice(parts.slice(i).join(' '), mine)
       }
-      return
+      markVoice(text, i === 0 ? 'speech-start' : 'message-start')
+      await play(buf, mine)
+      if (i === 0) markVoice(text, 'opening-end')
     }
+    return
   }
-  await speakDevice(lines.join(' '), mine)
+  markVoice(text, 'device-voice')
+  await speakDevice(parts.join(' '), mine)
 }
 
-/** Starts getting an announcement's clips (from this iPad, the school, or made now) so speech starts without a pause. */
+/** Starts getting an announcement's clips (from this iPad or the school's store) so speech starts without a pause. */
 export function prepare(text: string, childId?: string): void {
   if (!ctx) return
-  for (const line of voiceLines(text, voiceChild(childId))) void clipAudio(ctx, line).catch(() => {})
+  markVoice(text, 'prepare')
+  for (const part of voiceParts(text, voiceChild(childId))) void clipAudio(ctx, part).catch(() => {})
 }
 
 /**
- * Plays one sentence in the school's voice, waiting for it to be made if needed (a pronunciation preview, not the
- * gate). `onStart` runs the moment sound begins. Rejects when it can't be made, so the preview can say so.
+ * Plays one sentence in the school's voice, waiting for it to be made if needed (a pronunciation preview, not the gate).
+ * `onStart` runs the moment sound begins. Rejects when it can't be made, so the preview can say so.
  */
 export async function playSentence(sentence: string, onStart?: () => void): Promise<void> {
   stopSound()
   const mine = generation
-  const [line] = voiceLines(sentence)
+  const [line] = voiceParts(sentence)
   if (!line) return
   const clip = await clipAudio(audioContext(), line)
   if (mine !== generation) return
@@ -171,12 +185,18 @@ export async function playSentence(sentence: string, onStart?: () => void): Prom
   await play(clip, mine)
 }
 
-// The iPad's own Indian English voice, used only when the school's clip isn't ready. Never another accent: a wrong
-// accent says Indian names worse than silence plus the name on screen.
-// Clearest first, measured by recording each voice and transcribing it (2026-09-27): Apple's Tara, the Siri voice,
-// garbled "Urgent. Reminder. Pickup for…" into nonsense; Rishi and Aman said every word. Natural voices (Edge's Neerja,
-// "Enhanced"/"Premium" downloads) beat all of them.
-const PREFERRED = [/natural|online|enhanced|premium/i, /\brishi\b/i, /\baman\b/i, /\b(neerja|isha|heera|lekha)\b/i]
+// The iPad's own Indian English voice, used only when the school's clip isn't ready: a woman's voice, like the gate voice.
+// Never another accent: a wrong accent says Indian names worse than silence plus the name on screen.
+// Measured by recording each voice and transcribing it (2026-09-27): Apple's Tara, the Siri voice, garbled
+// "Urgent. Reminder. Pickup for…" into nonsense, so it comes last; Rishi and Aman (men's voices) said every word, so
+// they are used only when no clear woman's voice is installed. Isha (Settings → Accessibility → Spoken Content) is best.
+const FEMALE = /\b(isha|neerja|heera|lekha)\b/i
+const PREFERRED = [
+  new RegExp(`(${FEMALE.source}.*(natural|online|enhanced|premium))|((natural|online|enhanced|premium).*${FEMALE.source})`, 'i'),
+  FEMALE,
+  /\brishi\b/i,
+  /\baman\b/i,
+]
 const LAST = /\b(tara|siri|veena)\b/i
 export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {
   const voices = all.filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')

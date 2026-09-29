@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarX, Check, ChevronRight, CircleCheck, Clock, House, KeyRound, Megaphone, MessageSquare, Navigation, Phone, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
+import { CalendarX, Check, ChevronRight, CircleCheck, Clock, House, KeyRound, MapPin, Megaphone, MessageSquare, Navigation, Phone, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -12,7 +12,7 @@ import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { useSession } from '../auth/session'
 import type { ProgrammeRow } from '../admin/api'
-import { useTodayTrips, type Trip } from '../trips/api'
+import { arriveTrip, explainTripError, useTodayTrips, type Trip } from '../trips/api'
 import { clockTime, formatRange, programmeOf } from '../trips/rules'
 import { CancelSheet, LateSheet, OnMyWaySheet } from '../trips/TripSheets'
 import { ResendSheet, SomeoneElseSheet } from '../trips/CollectorSheets'
@@ -99,13 +99,29 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
   const who = trip.traveller_name.split(' ')[0]!
   const mine = !third && trip.created_by === meId
   const code = useCollectorCode(trip)
+  const toast = useToast()
+  const [arriving, setArriving] = useState(false)
+  // "I've arrived": the gate announces it at once. For the family's own trips; a collector with a link shows the code.
+  async function arrived() {
+    setArriving(true)
+    try {
+      await arriveTrip(trip.id)
+      toast("The gate knows you're here.")
+    } catch (e) {
+      toast(explainTripError(e as { code?: string; message?: string }), { tone: 'danger' })
+    } finally {
+      setArriving(false)
+    }
+  }
   const steps = pickup
     ? [{ label: third ? `Link sent to ${who}` : 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: `${first} is ready at the gate`, at: trip.ready_at }, { label: third ? `Collected by ${who}` : 'Collected', at: trip.closed_at }]
     : [{ label: 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: `${first} checked in`, at: trip.closed_at }]
   return (
     <div className="mt-4 rounded-xl border border-line bg-canvas p-4" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
-        {trip.ready_at ? <Pill tone="live" icon={<CircleCheck />}>Ready</Pill> : <Pill tone="accent" icon={<Navigation />}>On the way</Pill>}
+        {trip.ready_at ? <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>
+          : trip.arrived_at ? <Pill tone="live" icon={<MapPin />}>At the gate</Pill>
+          : <Pill tone="accent" icon={<Navigation />}>On the way</Pill>}
         <span className="kicker">{pickup ? 'Pickup' : 'Drop-off'}</span>
       </div>
       <p className="mt-3 text-h2 tabular-nums">{mine ? 'Arriving' : `${who} arrives`} about {clockTime(trip.arrive_at)}</p>
@@ -123,6 +139,9 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
       {third && trip.created_by === meId && <CollectorTracker trip={trip} child={first} />}
       {third && trip.created_by !== meId && <p className="mt-3 text-small font-semibold text-ink-2">Only the parent who sent {who} the link can see where they are.</p>}
       <Steps items={steps} />
+      {!third && !trip.arrived_at && (
+        <Button size="lg" className="mt-4 w-full" icon={<MapPin />} loading={arriving} onClick={() => void arrived()}>I've arrived</Button>
+      )}
       <div className="mt-4 flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
         <Button size="md" variant="sunshine" icon={<Timer />} onClick={onLate}>Running late</Button>
         {third ? <Button size="md" variant="secondary" icon={<Send />} onClick={onResend}>Resend link</Button>

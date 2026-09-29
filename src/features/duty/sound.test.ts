@@ -30,6 +30,8 @@ const pending = new Map<string, { resolve: (b: { label: string }) => void; rejec
 vi.mock('./voiceClips', () => ({
   clearRetiredVoiceCaches: async () => {},
   voiceChild: () => null,
+  markVoice: () => {},
+  loadVoiceVersion: async () => null,
   clipAudio: (_ctx: unknown, line: string) => new Promise((resolve, reject) => pending.set(line, { resolve, reject })),
 }))
 
@@ -63,18 +65,29 @@ const arrive = (line: string) => pending.get(line)!.resolve({ label: line })
 const finish = () => clips.at(-1)!.dispatchEvent(new Event('ended'))
 
 describe('gate sound', () => {
-  it('plays the school voice the moment its clips are ready, sentence by sentence', async () => {
-    const said = sound.speak('Pickup for Aarav, Nursery. Arriving now.')
-    arrive('Pickup for Aarav, Nursery.')
-    arrive('Arriving now.')
+  it('plays the opening at once, then the rest as one recording that arrived while the opening played', async () => {
+    const said = sound.speak('New announcement. Vihaan Kulkarni. Pickup by his father, Rohan, arriving now.')
+    arrive('New announcement.')
     await vi.advanceTimersByTimeAsync(0)
-    expect(heard).toEqual(['start:Pickup for Aarav, Nursery.'])
+    expect(heard).toEqual(['start:New announcement.'])
+    arrive('Vihaan Kulkarni. Pickup by his father, Rohan, arriving now.')
     finish()
-    await vi.advanceTimersByTimeAsync(150)
-    expect(heard).toEqual(['start:Pickup for Aarav, Nursery.', 'start:Arriving now.'])
+    await vi.advanceTimersByTimeAsync(200)
+    expect(heard).toEqual(['start:New announcement.', 'start:Vihaan Kulkarni. Pickup by his father, Rohan, arriving now.'])
     finish()
     await said
     expect(deviceVoice.speak).not.toHaveBeenCalled()
+  })
+
+  it("says only the message in the tablet's voice when it isn't ready after the opening", async () => {
+    const said = sound.speak('New announcement. Vihaan Kulkarni. Pickup by his father, Rohan, arriving now.')
+    arrive('New announcement.')
+    await vi.advanceTimersByTimeAsync(0)
+    finish()
+    await vi.advanceTimersByTimeAsync(150 + sound.CLIP_BUDGET_MS)
+    expect(heard).toEqual(['start:New announcement.', 'device:Vihaan Kulkarni. Pickup by his father, Rohan, arriving now.'])
+    sound.stopSound()
+    await said
   })
 
   it("uses the tablet's own Indian voice when a clip isn't ready in time, so the gate never waits", async () => {
@@ -85,7 +98,7 @@ describe('gate sound', () => {
     await said
   })
 
-  it('gives the sound check time to fetch the school voice, instead of the tablet voice after 1.2 s', async () => {
+  it('gives the sound check time to fetch the school voice, instead of the tablet voice after the usual budget', async () => {
     const said = sound.speak('Sound check.', undefined, sound.SOUND_CHECK_BUDGET_MS)
     await vi.advanceTimersByTimeAsync(3000)
     arrive('Sound check.')
@@ -94,6 +107,22 @@ describe('gate sound', () => {
     finish()
     await said
     expect(heard.some((h) => h.startsWith('device'))).toBe(false)
+  })
+
+  it("uses the tablet's voice at once when the school voice is refused (monthly cap) or the network fails, without waiting the budget", async () => {
+    for (const reason of ['pronounce 429', 'Failed to fetch']) {
+      heard.length = 0
+      const said = sound.speak('Reason: dentist.')
+      pending.get('Reason: dentist.')!.reject(new Error(reason))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(heard).toEqual(['device:Reason: dentist.'])
+      sound.stopSound()
+      await said
+    }
+  })
+
+  it('waits no more than 300 ms after the chime for the school voice', () => {
+    expect(sound.CLIP_BUDGET_MS).toBeLessThanOrEqual(300)
   })
 
   it('says nothing after Stop (End duty or Mute), even when a clip arrives later', async () => {
@@ -162,12 +191,14 @@ describe('gate sound', () => {
 
 describe("the tablet's own voice", () => {
   const v = (name: string, lang = 'en-IN') => ({ name, lang })
-  it('picks the clearest Indian English voice, and Tara (which garbles announcements) only if nothing else exists', async () => {
+  it('picks a clear Indian English woman’s voice first, a clear man’s voice next, and Tara (which garbles announcements) last', async () => {
     const { pickIndianVoice } = await import('./sound')
     expect(pickIndianVoice([v('Tara (English (India))'), v('Aman'), v('Rishi'), v('Samantha', 'en-US')])?.name).toBe('Rishi')
     expect(pickIndianVoice([v('Tara (English (India))'), v('Aman')])?.name).toBe('Aman')
     expect(pickIndianVoice([v('Rishi'), v('Microsoft Neerja Online (Natural) - English (India)', 'en_IN')])?.name).toContain('Neerja')
     expect(pickIndianVoice([v('Tara (English (India))')])?.name).toContain('Tara')
+    expect(pickIndianVoice([v('Rishi'), v('Aman'), v('Isha')])?.name).toBe('Isha')
+    expect(pickIndianVoice([v('Isha'), v('Isha (Enhanced)')])?.name).toBe('Isha (Enhanced)')
     expect(pickIndianVoice([v('Samantha', 'en-US')])).toBeNull()
   })
 })

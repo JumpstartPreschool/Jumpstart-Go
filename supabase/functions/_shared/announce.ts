@@ -1,22 +1,19 @@
 /**
- * The gate voice's words, shared by the coordinator's iPad (src/features/duty) and the pronounce function, so both
- * build exactly the same sentences and the same clip keys. The iPad plays a sentence only if the school already has its
- * clip, or can make one in time; the pronounce function makes each child's everyday sentences ahead of time.
+ * The gate voice's words, in one place (D50), shared by the coordinator's iPad (src/features/duty) and the pronounce
+ * function. The pronounce function makes every child's announcements ahead of time from these templates and keeps them;
+ * the iPad builds the same words when a parent taps, so it finds the clip already made and plays it at once.
  *
  * Names on screen never change: a child's approved pronunciation ("Aa-raadh-ya") is applied only to the words a voice
  * is given, and only within that child's own announcement.
  */
 
 /**
- * Part of every clip key. Change it whenever the model, its revision, the speaker, the description, the seed or the
- * audio format changes: every clip is then made again instead of mixing two voices.
+ * Bump when the templates below or sayable() change: every clip is then made again, and iPads drop the old ones. The
+ * voice itself is set on the server (AZURE_SPEECH_VOICE), and is part of the version too.
  */
-export const VOICE_VERSION = 'indic-parler-tts@7b527af5|mary|calm-v1|seed-20260927|mp3-64k'
-/**
- * Bump when the words a voice is given change (sayable(), the building blocks below) but the voice doesn't. The
- * pronounce function then makes the shared phrases again and requeues every child's sentences.
- */
-export const WORDING_VERSION = 'words-3'
+export const WORDING_VERSION = 'templates-1'
+/** The clips' version: the provider, the voice, the audio format and the wording. iPads read it with voice_version(). */
+export const voiceVersion = (voice: string) => `azure|${voice}|mp3-24k|${WORDING_VERSION}`
 export const MAX_CHARS = 400
 
 // Letters and marks in any script, digits, and the punctuation a voice uses for pauses and initials.
@@ -39,7 +36,7 @@ export function tidy(text: string | null | undefined, max = MAX_CHARS): string {
     .trim()
 }
 
-/** "Please get Aarav ready. Sneha is on the way." → one entry per sentence. Each sentence is one clip. */
+/** "Please get Aarav ready. Sneha is on the way." → one entry per sentence. */
 export const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean)
 
 /** The text if a voice may be given it, else null: 1–400 characters of letters, marks, digits, spaces and pauses. */
@@ -51,8 +48,8 @@ export function checkSpeech(input: unknown): string | null {
 }
 
 /** The clip's file name: the voice version and the exact words, hashed. Paths never contain a name. */
-export async function clipKey(sentence: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${VOICE_VERSION}\n${sentence}`))
+export async function clipKey(version: string, sentence: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${version}\n${sentence}`))
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 export const clipPath = (key: string) => `sentences/${key}.mp3`
@@ -142,59 +139,79 @@ function named(tidied: string, child?: VoiceChild | null): string {
   })
 }
 
-/** The announcement's sentences as the voice is given them. */
-export const voiceLines = (text: string, child?: VoiceChild | null) => sentences(tidy(text)).map((s) => voiceSentence(s, child)).filter(Boolean)
+/**
+ * An announcement as the voice is given it, in at most two recordings: the opening ("New announcement."), which is
+ * always the same words and so kept on each iPad, then everything else as one recording, so it flows like one person
+ * speaking instead of sentences stitched together.
+ */
+export function voiceParts(text: string, child?: VoiceChild | null): string[] {
+  const all = sentences(tidy(text))
+  const opening = all[0] && LEADS.includes(all[0]) ? voiceSentence(all.shift()!) : ''
+  return [opening, voiceSentence(all.join(' '), child)].filter(Boolean)
+}
 
-// The announcement's building blocks. gate.ts composes them; warmSentences() below makes the everyday ones ahead of time.
-// Checked with the school voice (2026-09-27): it garbles one-word or plural sentences ("Reminder." → "Remindo",
-// "Announcements are on." → "Unmentsments are on", "Time changed." rambles on), so these are short full sentences.
+// The announcement's words. Every announcement starts with one of the leads (kept on each iPad), then one message.
 export const NEW_LEAD = 'New announcement. '
-export const URGENT_LEAD = 'Urgent. '
+export const URGENT_LEAD = 'Urgent new announcement. '
 export const REPEAT_LEAD = 'This is a reminder. '
-export const TIME_CHANGED = 'The time has changed. '
-export const ARRIVING_NOW = 'Arriving now.'
+const LEADS = [NEW_LEAD, URGENT_LEAD, REPEAT_LEAD].map((l) => l.trim())
 export const SOUND_CHECK = 'This is a sound check. Gate announcements are working.'
+
 export type Kind = 'pickup' | 'dropoff'
-const kindWord = (k: Kind) => (k === 'pickup' ? 'Pickup' : 'Drop-off')
-export const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? name
-export const kindFor = (k: Kind, fullName: string, className: string) => `${kindWord(k)} for ${fullName}, ${className}.`
-/** "Aarav's mother, Sneha, is on the way." or "Sneha is on the way." */
-export const onTheWay = (childName: string, relation: string | null, traveller: string) =>
-  relation ? `${childName}'s ${relation.toLowerCase()}, ${firstWord(traveller)}, is on the way.` : `${firstWord(traveller)} is on the way.`
-export const arrivingAbout = (clock: string) => `Arriving about ${clock}.`
+/** How far the trip has got: set off, about ten minutes away, about five minutes away, or at the gate. */
+export type Phase = 'onway' | 'ten' | 'five' | 'arrived'
+export const PHASES: readonly Phase[] = ['onway', 'ten', 'five', 'arrived']
+/** Anyone who isn't on the child's record, such as a driver with a one-time link. */
+export const PICKUP_PERSON = 'pickup person'
+
+/**
+ * The templates (owner's wording, 2026-09-29). {child} is the child's full name, {who} the relation of the person
+ * coming ("father", "grandmother", or "pickup person"). Short, calm, and said the same way every time.
+ */
+const TEMPLATES: Record<Kind, Record<Phase, (child: string, who: string) => string>> = {
+  pickup: {
+    onway: (c, who) => `${c}'s ${who} is on the way for pickup.`,
+    ten: (c, who) => `${c}'s ${who} will arrive for pickup in about ten minutes.`,
+    five: (c, who) => `${c}'s ${who} will arrive for pickup in about five minutes.`,
+    arrived: (c, who) => `${c}'s ${who} has arrived for pickup.`,
+  },
+  dropoff: {
+    onway: (c) => `${c} is on the way for drop-off.`,
+    ten: (c) => `${c} will arrive for drop-off in about ten minutes.`,
+    five: (c) => `${c} will arrive for drop-off in about five minutes.`,
+    arrived: (c) => `${c} has arrived for drop-off.`,
+  },
+}
+
+/** "father" from "Father"; anyone without a relation on record is the pickup person. */
+export const whoFor = (relation: string | null | undefined) => tidy(relation, 30).toLowerCase() || PICKUP_PERSON
+
 export const getReady = (childName: string) => `Please get ${childName} ready.`
-export const cancelled = (k: Kind, fullName: string) => `${kindWord(k)} for ${fullName} is cancelled.`
 
-/** Minutes after midnight → "3:15 PM", exactly as the app shows times (src/domain/time.ts formatTime). */
-export function clockText(min: number): string {
-  const h = Math.floor(min / 60)
-  return `${h % 12 === 0 ? 12 : h % 12}:${String(min % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+/**
+ * One announcement's message: the template, and for a pickup "Please get … ready." so the gate knows what to do.
+ * "Vihaan Kulkarni's father will arrive for pickup in about ten minutes. Please get Vihaan ready."
+ */
+export function message(kind: Kind, phase: Phase, child: { fullName: string; name: string }, relation: string | null | undefined): string {
+  const said = TEMPLATES[kind][phase](child.fullName, whoFor(relation))
+  return kind === 'pickup' ? `${said} ${getReady(child.name)}` : said
 }
 
-/** The few sentences almost every announcement starts or ends with: made first. */
-export const leadPhrases = () =>
-  sentences(NEW_LEAD + URGENT_LEAD + REPEAT_LEAD + TIME_CHANGED + ARRIVING_NOW + ' ' + SOUND_CHECK).map((s) => voiceSentence(s))
+export const cancelled = (k: Kind, fullName: string) => `${k === 'pickup' ? 'Pickup' : 'Drop-off'} for ${fullName} is cancelled.`
 
-/** "Arriving about …" for every 5-minute time from 7 AM to 8 PM (gate.ts rounds arrivals to 5 minutes). */
-export function timePhrases(): string[] {
-  const times: string[] = []
-  for (let m = 7 * 60; m < 20 * 60; m += 5) times.push(voiceSentence(arrivingAbout(clockText(m))))
-  return times
-}
+/** The shared openings and the sound check: kept on every iPad. */
+export const commonPhrases = () => [NEW_LEAD, URGENT_LEAD, REPEAT_LEAD, SOUND_CHECK].map((s) => voiceSentence(s.trim()))
 
-/** Sentences every announcement shares: the leads and the times. */
-export const commonPhrases = () => [...leadPhrases(), ...timePhrases()]
-
-/** A child's everyday sentences, as the voice is given them: made ahead so the gate never waits for them. */
-export function warmSentences(child: VoiceChild, className: string, guardians: ReadonlyArray<{ name: string; relation: string | null }>): string[] {
-  const out = [
-    `${child.fullName}.`,
-    kindFor('pickup', child.fullName, className),
-    kindFor('dropoff', child.fullName, className),
-    getReady(child.name),
-    cancelled('pickup', child.fullName),
-    cancelled('dropoff', child.fullName),
-    ...guardians.map((g) => onTheWay(child.name, g.relation, g.name)),
-  ]
-  return [...new Set(out.map((s) => voiceSentence(s, child)).filter((s) => checkSpeech(s)))]
+/**
+ * Every recording one child's announcements can need, as the voice is given them: each phase of pickup for each
+ * relation on their record and for a pickup person, each phase of drop-off, and both cancellations. Made ahead.
+ */
+export function childMessages(child: VoiceChild, relations: ReadonlyArray<string | null>): string[] {
+  const out: string[] = []
+  for (const who of new Set([...relations.map(whoFor), PICKUP_PERSON])) {
+    for (const phase of PHASES) out.push(message('pickup', phase, child, who))
+  }
+  for (const phase of PHASES) out.push(message('dropoff', phase, child, null))
+  out.push(cancelled('pickup', child.fullName), cancelled('dropoff', child.fullName))
+  return [...new Set(out.map((m) => voiceSentence(m, child)).filter((m) => checkSpeech(m)))]
 }

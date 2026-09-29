@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { formatTime } from '../../../src/domain/time'
 import { cancelledText, spokenText } from '../../../src/features/duty/gate'
 import type { Trip } from '../../../src/features/trips/api'
-import { checkSpeech, clipKey, clockText, commonPhrases, NEW_LEAD, REPEAT_LEAD, sayable, sentences, tidy, VOICE_VERSION, voiceLines, voiceSentence, warmSentences, type VoiceChild } from './announce'
+import { checkSpeech, childMessages, clipKey, commonPhrases, NEW_LEAD, REPEAT_LEAD, sayable, sentences, SOUND_CHECK, tidy, URGENT_LEAD, voiceParts, voiceSentence, voiceVersion, type VoiceChild } from './announce'
 
 const aaradhya: VoiceChild = { fullName: 'Aaradhya Sharma', name: 'Aaradhya', spoken: null }
 const trip = (over: Partial<Trip> = {}) => ({
@@ -13,23 +12,38 @@ const trip = (over: Partial<Trip> = {}) => ({
 const gateChild = { id: 'c', name: 'Aaradhya', fullName: 'Aaradhya Sharma', classId: 'k', className: 'Nursery A', programmeName: 'Nursery' }
 
 describe('the gate voice words', () => {
-  it('makes every sentence of an everyday announcement ahead of time, so it plays at once', () => {
-    const made = new Set([...commonPhrases(), ...warmSentences(aaradhya, 'Nursery A', [{ name: 'Priya Sharma', relation: 'Mother' }])])
-    for (const text of [
-      NEW_LEAD + spokenText(trip(), gateChild, Date.parse('2026-09-28T09:00:00Z')),
-      NEW_LEAD + spokenText(trip({ direction: 'dropoff' }), gateChild, Date.parse('2026-09-28T09:43:00Z')),
-      REPEAT_LEAD + spokenText(trip({ updated_at: '2026-09-28T09:10:00Z' }), gateChild, Date.parse('2026-09-28T09:15:00Z')),
-      cancelledText(trip(), gateChild),
-    ]) {
-      for (const line of voiceLines(text, aaradhya)) expect(made, line).toContain(line)
+  it('makes every announcement the gate can say ahead of time, so a parent\'s tap never waits for a voice', () => {
+    const child = { ...aaradhya, spoken: 'Aa-raadh-ya Sharma' }
+    const made = new Set([...commonPhrases(), ...childMessages(child, ['Mother', 'Father'])])
+    const trips = [
+      trip(), trip({ traveller_relation: 'Father' }), trip({ traveller_kind: 'third_person', traveller_relation: 'Driver' }),
+      trip({ arrived_at: '2026-09-28T09:44:00Z' }), trip({ direction: 'dropoff' }), trip({ direction: 'dropoff', arrived_at: '2026-09-28T09:44:00Z' }),
+    ]
+    for (const t of trips) {
+      for (const now of ['2026-09-28T09:00:00Z', '2026-09-28T09:34:00Z', '2026-09-28T09:40:00Z']) {
+        for (const lead of [NEW_LEAD, URGENT_LEAD, REPEAT_LEAD]) {
+          for (const part of voiceParts(lead + spokenText(t, gateChild, Date.parse(now)), child)) expect(made, part).toContain(part)
+        }
+      }
+      for (const part of voiceParts(NEW_LEAD + cancelledText(t, gateChild), child)) expect(made, part).toContain(part)
     }
+    for (const part of voiceParts(SOUND_CHECK)) expect(made).toContain(part)
+  })
+
+  it('speaks an opening, kept on the iPad, then the message as one recording; a repeat reuses the recording', () => {
+    const now = Date.parse('2026-09-28T09:00:00Z')
+    const first = voiceParts(NEW_LEAD + spokenText(trip(), gateChild, now), aaradhya)
+    const repeat = voiceParts(REPEAT_LEAD + spokenText(trip(), gateChild, now + 120_000), aaradhya)
+    expect(first).toEqual(['New announcement.', "Aaradhya Sharma's mother is on the way for pickup. Please get Aaradhya ready."])
+    expect(voiceParts(URGENT_LEAD + 'x.')[0]).toBe('Urgent new announcement.')
+    expect(repeat).toEqual(['This is a reminder.', first[1]])
   })
 
   it('applies the approved pronunciation within that child only, and never to other words', () => {
     const child = { ...aaradhya, spoken: 'Aa-raadh-ya Sharma' }
     expect(voiceSentence('Pickup for Aaradhya Sharma, Nursery A.', child)).toBe('Pickup for Aa-raadh-ya Sharma, Nursery A.')
     expect(voiceSentence('Please get Aaradhya ready.', child)).toBe('Please get Aa-raadh-ya ready.')
-    expect(voiceSentence("Aaradhya's mother, Priya, is on the way.", child)).toBe("Aa-raadh-ya's mother, Priya, is on the way.")
+    expect(voiceSentence("Aaradhya Sharma's mother has arrived for pickup.", child)).toBe("Aa-raadh-ya Sharma's mother has arrived for pickup.")
     expect(voiceSentence('Please get Aaradhya ready.', null)).toBe('Please get Aaradhya ready.')
   })
 
@@ -59,20 +73,13 @@ describe('the gate voice words', () => {
   })
 
   it('keys a clip by the voice version and the exact words, as a hash (no name in the path)', async () => {
-    const one = await clipKey('Aaradhya Sharma.')
+    const v = voiceVersion('en-IN-NeerjaNeural')
+    const one = await clipKey(v, 'Aaradhya Sharma.')
     expect(one).toMatch(/^[0-9a-f]{64}$/)
-    expect(await clipKey('Aaradhya Sharma.')).toBe(one)
-    expect(await clipKey('Aaradhya Sharma')).not.toBe(one)
-    expect(VOICE_VERSION).toContain('7b527af5')
-  })
-
-  it('says times exactly as the app shows them, every 5 minutes of the school day', () => {
-    for (const m of [0, 7 * 60, 12 * 60 + 45, 15 * 60 + 5, 19 * 60 + 55]) expect(clockText(m)).toBe(formatTime(m))
-    const phrases = commonPhrases()
-    expect(phrases).toContain("Arriving about seven o'clock in the morning.")
-    expect(phrases).toContain('Arriving about seven fifty five in the evening.')
-    expect(phrases).toContain('New announcement.')
-    expect(new Set(phrases).size).toBe(phrases.length)
+    expect(await clipKey(v, 'Aaradhya Sharma.')).toBe(one)
+    expect(await clipKey(v, 'Aaradhya Sharma')).not.toBe(one)
+    expect(await clipKey(voiceVersion('en-IN-AartiNeural'), 'Aaradhya Sharma.')).not.toBe(one)
+    expect(v).toContain('en-IN-NeerjaNeural')
   })
 
   it('writes out times, numbers and class abbreviations for the voice, which reads text literally', () => {
@@ -86,7 +93,6 @@ describe('the gate voice words', () => {
     expect(sayable('Sr KG, room 360, 2 bags, 1015.')).toBe('Senior K G, room three hundred and sixty, two bags, one thousand and fifteen.')
     expect(sayable('Call 9876543210.')).toBe('Call nine eight seven six five four three two one zero.')
     expect(sayable('Aarav Kulkarni.')).toBe('Aarav Kulkarni.')
-    for (const s of commonPhrases()) expect(s).not.toMatch(/\d/)
   })
 
   it('splits announcements into one clip per sentence', () => {

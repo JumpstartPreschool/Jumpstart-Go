@@ -8,6 +8,7 @@ import { useNow } from '../../ui/hooks'
 import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
 import { GateQueue } from './GateQueue'
+import { SpeakerSheet } from './SpeakerSheet'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
 const hours = (ms: number) => { const m = Math.max(1, Math.round(ms / 60_000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min` }
@@ -15,6 +16,7 @@ const hours = (ms: number) => { const m = Math.max(1, Math.round(ms / 60_000)); 
 export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const now = useNow(1000)
   const [ending, setEnding] = useState(false)
+  const [speaker, setSpeaker] = useState(false)
   const { speaking, waiting, mutedUntil } = duty.ann
 
   return (
@@ -37,6 +39,9 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             {clock(now)}
           </p>
           <div className="flex items-center gap-2">
+            <LuxButton size="sm" icon={<Volume2 />} onClick={() => setSpeaker(true)} aria-haspopup="dialog">
+              Speaker
+            </LuxButton>
             {mutedUntil ? (
               <LuxButton size="sm" tone="sun" icon={<Bell />} onClick={duty.unmute}>
                 Unmute
@@ -112,6 +117,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
         </section>
       </main>
 
+      <SpeakerSheet open={speaker} onClose={() => setSpeaker(false)} onTest={() => void duty.playTest()} testing={duty.testing} />
       <Sheet open={ending} onClose={() => setEnding(false)} title="End your duty?" description="Announcements stop on this tablet. Other tablets on duty keep going.">
         <div className="mb-5 flex items-center gap-3.5 rounded-xl bg-sunken p-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-live-soft text-live [&_svg]:size-5" aria-hidden><Sun /></span>

@@ -8,7 +8,7 @@ import { Logo } from '../../ui/Logo'
  * public/_headers). They describe what the app actually does: keep them in step with the consent notice
  * (src/features/auth/ConsentScreen.tsx), PRD D9 (retention) and docs/infrastructure/services.md.
  */
-const UPDATED = '26 September 2026'
+const UPDATED = '29 September 2026'
 const SCHOOL = 'Jumpstart Preschool & Learning Center'
 const ADDRESS = '11/7 Matoshri, Kishor B Tapadia Path, Karve Road, Erandwane, Pune 411004'
 const EMAIL = 'ai@jumpstartpreschool.in'
@@ -101,7 +101,7 @@ export function PrivacyPage() {
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>
           <li><b>OpenFreeMap</b> provides map images; <b>OpenRouteService</b> may be used for routes and arrival times.</li>
           <li>Apple, Google and Mozilla deliver notifications to devices that turn them on.</li>
-          <li>Spoken announcements at the gate are made by an open-source voice (AI4Bharat's Indic Parler-TTS) running on the school's own computer, not by an outside service. It receives only the words of each announcement, which include the child's first and last name and the first name and relation of the person arriving, and keeps nothing. The recordings are kept in the school's Supabase storage so the same announcement is never made twice. If that computer can't be reached, the gate's own tablet speaks instead.</li>
+          <li><b>Microsoft Azure AI Speech</b> makes the announcements spoken at the gate, in India. It receives only the words of each announcement, which include the child's first and last name and the relation of the person coming (such as "mother"). Microsoft states that it does not keep this text or the audio. The recordings are kept in the school's private storage and on the gate's tablets, so each is made once. If a recording isn't ready, the tablet's own voice speaks instead.</li>
         </ul>
       </Section>
       <Section title="How long we keep it">

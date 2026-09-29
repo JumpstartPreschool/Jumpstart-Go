@@ -1,86 +1,161 @@
-// The gate voice (D48): the only way into the school's own text-to-speech computer (tts-service/). It keeps every clip
-// once in the private voice-audio bucket, named by the voice version and the exact words (_shared/announce.ts), so the
-// same sentence is never made twice. iPads read ready clips straight from the bucket; they come here only for words
-// never said before.
-//   POST { text }        a staff member's iPad or a pronunciation preview: the sentence's clip (audio/mpeg), made now
-//                        if needed. The database checks they're staff and under the hourly limit (voice_allowed).
-//   POST { drain: true } the database (pg_net, and a minute job) with VOICE_CRON_SECRET: makes the shared phrases once
-//                        per voice version, then each pending child's everyday sentences (voice_claim / voice_finish).
-//   POST { register }    the school's voice computer, with TTS_SHARED_SECRET, each time it starts: its current tunnel
-//                        address. Checked (it must answer as the school voice), saved (0032), and waiting work starts.
+// The gate voice (D50): Microsoft Azure AI Speech, Indian English, made ahead of time and kept in the private
+// voice-audio bucket, so a parent's tap plays a clip that already exists.
+//   POST { drain: true } the database's minute job (pg_net, with VOICE_CRON_SECRET): makes the shared openings once per
+//                        voice version, then each queued child's messages (voice_claim / voice_finish), within the cap.
+//   POST { text }        a staff member (a pronunciation preview, or a sentence nobody made ahead): handler.ts.
 // Deploy: npx supabase functions deploy pronounce --no-verify-jwt
-// Secrets: TTS_SHARED_SECRET (as tts-service), VOICE_CRON_SECRET (as app.voice_config.secret), TTS_ALLOWED_HOSTS
-// (optional: host suffixes the voice may register, default .trycloudflare.com), TTS_SERVICE_URL (optional: a fixed
-// address used until the computer first registers), APP_ORIGIN (optional, as for invite-send).
+// Secrets: AZURE_SPEECH_KEY, AZURE_SPEECH_REGION (e.g. centralindia), AZURE_SPEECH_VOICE (an en-IN female neural voice,
+// default en-IN-NeerjaNeural), VOICE_CRON_SECRET (as app.voice_config.secret), APP_ORIGIN (optional, as for invite-send).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { checkSpeech, clipKey, clipPath, leadPhrases, timePhrases, VOICE_VERSION, warmSentences, WORDING_VERSION } from '../_shared/announce.ts'
+import { childMessages, clipKey, clipPath, commonPhrases } from '../_shared/announce.ts'
+import { azureSpeech, TtsBusy, type TTSProvider } from '../_shared/tts.ts'
+import { handle } from './handler.ts'
 
-const FIXED_TTS_URL = (Deno.env.get('TTS_SERVICE_URL') ?? '').replace(/\/+$/, '')
-const ALLOWED_HOSTS = (Deno.env.get('TTS_ALLOWED_HOSTS') ?? '.trycloudflare.com').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
-const TTS_SECRET = Deno.env.get('TTS_SHARED_SECRET') ?? ''
-const CRON_SECRET = Deno.env.get('VOICE_CRON_SECRET') ?? ''
 const BUCKET = 'voice-audio'
-// Sentences from a tablet are one sentence of an announcement; the longest everyday one is well under this.
-const STAFF_MAX_CHARS = 200
-// A long sentence on a CPU can take several seconds; past this the school computer is treated as unavailable.
-const MAKE_TIMEOUT_MS = 60_000
-// Supabase stops a function at 150 s. A drain starts no new sentence after 80 s (one sentence may take up to 60 s on a
-// CPU), hands back whatever it didn't finish, and the minute job continues from there.
+const CRON_SECRET = Deno.env.get('VOICE_CRON_SECRET') ?? ''
+// Supabase stops a function at 150 s. A run starts no new clip after 80 s and hands back what it didn't finish.
 const DRAIN_BUDGET_MS = 80_000
 
-const cors = {
-  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') ?? '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Expose-Headers': 'x-voice-cache',
-  Vary: 'Origin',
-}
-const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
-const audio = (bytes: Uint8Array<ArrayBuffer>, cache: 'hit' | 'miss') =>
-  new Response(bytes, { headers: { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=31536000, immutable', 'x-voice-cache': cache } })
 // Counts, sizes and timings only, never the words or who asked.
-const log = (event: string, extra: Record<string, unknown> = {}) => console.log(JSON.stringify({ voice: event, version: VOICE_VERSION, ...extra }))
+const log = (event: string, extra: Record<string, unknown> = {}) => console.log(JSON.stringify({ voice: event, ...extra }))
 
-const store = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
-
-// The voice computer's address: the one it last registered (0032), read at most every 15 s per worker.
-let known: { url: string; at: number } | null = null
-async function ttsUrl(): Promise<string> {
-  if (known && Date.now() - known.at < 15_000) return known.url
-  const { data } = await store.rpc('voice_tts_url')
-  known = { url: (typeof data === 'string' && data) || FIXED_TTS_URL, at: Date.now() }
-  return known.url
-}
-
-/** A plain https address on an allowed host (the tunnel), or null. */
-function allowedUrl(input: unknown): string | null {
-  if (typeof input !== 'string' || input.length > 200) return null
+/** The configured provider, or null (with the reason logged) when a secret is missing or malformed. */
+function makeProvider(): TTSProvider | null {
   try {
-    const u = new URL(input)
-    const host = u.hostname.toLowerCase()
-    const allowed = ALLOWED_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) && host.length > h.length : host === h))
-    return u.protocol === 'https:' && allowed && !u.username && !u.password && (u.pathname === '/' || u.pathname === '') && !u.search && !u.hash
-      ? `https://${u.host}` : null
-  } catch {
+    return azureSpeech({
+      key: Deno.env.get('AZURE_SPEECH_KEY') ?? '',
+      region: (Deno.env.get('AZURE_SPEECH_REGION') ?? '').trim().toLowerCase(),
+      voice: (Deno.env.get('AZURE_SPEECH_VOICE') ?? 'en-IN-NeerjaNeural').trim(),
+    })
+  } catch (e) {
+    log('not_configured', { reason: (e as Error).message })
     return null
   }
 }
+const provider = makeProvider()
 
-async function healthy(url?: string): Promise<boolean> {
-  const base = url ?? (await ttsUrl())
-  if (!base || !TTS_SECRET) return false
-  try {
-    const res = await fetch(`${base}/health`, { headers: { Authorization: `Bearer ${TTS_SECRET}` }, signal: AbortSignal.timeout(5_000) })
-    const body = res.ok ? ((await res.json()) as { ready?: boolean; version?: string }) : null
-    if (body?.ready && body.version !== VOICE_VERSION) log('version_mismatch', { service: body.version })
-    return !!body?.ready && body.version === VOICE_VERSION
-  } catch {
-    return false
+const store = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
+
+async function stored(key: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const { data } = await store.storage.from(BUCKET).download(clipPath(key))
+  return data ? new Uint8Array(await data.arrayBuffer()) : null
+}
+async function keep(key: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+  const { error } = await store.storage.from(BUCKET).upload(clipPath(key), bytes, { contentType: 'audio/mpeg', upsert: true })
+  if (error) throw error
+}
+
+/** The file names already in the bucket (one listing per run, instead of one check per sentence). */
+async function madeAlready(): Promise<Set<string>> {
+  const names = new Set<string>()
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await store.storage.from(BUCKET).list('sentences', { limit: 1000, offset })
+    if (error) throw error
+    for (const f of data ?? []) names.add(`sentences/${f.name}`)
+    if (!data || data.length < 1000) return names
   }
 }
 
-/** The school computer is busy (its short queue is full) or too slow right now: try later, it's not a failure. */
-class Busy extends Error {}
+/** Out of time, the cap reached, or Azure asking us to slow down: stop, and the next run carries on. */
+class Stop extends Error {}
+
+/** Makes each sentence not yet in the bucket, until the deadline. Returns how many were made. */
+async function ensure(tts: TTSProvider, list: readonly string[], have: Set<string>, deadline: number): Promise<number> {
+  let made = 0
+  for (const text of list) {
+    const path = clipPath(await clipKey(tts.version, text))
+    if (have.has(path)) continue
+    if (Date.now() > deadline) throw new Stop()
+    const { data: counted, error } = await store.rpc('voice_count', { p_chars: text.length })
+    if (error) throw error
+    if (!counted) {
+      log('monthly_cap')
+      throw new Stop()
+    }
+    const started = Date.now()
+    let bytes: Uint8Array<ArrayBuffer>
+    try {
+      bytes = await tts.synthesize(text)
+    } catch (e) {
+      log('generation_failed', { busy: e instanceof TtsBusy, ms: Date.now() - started })
+      if (e instanceof TtsBusy) throw new Stop()
+      throw e
+    }
+    await store.storage.from(BUCKET).upload(path, bytes, { contentType: 'audio/mpeg', upsert: true })
+    log('generation_succeeded', { chars: text.length, bytes: bytes.length, ms: Date.now() - started })
+    have.add(path)
+    made++
+  }
+  return made
+}
+
+type ChildRow = {
+  full_name: string
+  preferred_name: string | null
+  guardianships: Array<{ relation: string | null; profiles: { active: boolean } | null }>
+  child_pronunciations: { spoken_name: string | null } | null
+}
+
+/** A child's announcements, built exactly as the gate builds them. */
+async function childSentences(childId: string): Promise<string[]> {
+  const { data, error } = await store.from('children')
+    .select('full_name, preferred_name, guardianships(relation, profiles(active)), child_pronunciations(spoken_name)')
+    .eq('id', childId).single()
+  if (error) throw error
+  const c = data as unknown as ChildRow
+  const child = { fullName: c.full_name, name: c.preferred_name ?? c.full_name.split(' ')[0]!, spoken: c.child_pronunciations?.spoken_name ?? null }
+  return childMessages(child, c.guardianships.filter((g) => g.profiles?.active).map((g) => g.relation))
+}
+
+async function drain(tts: TTSProvider): Promise<Record<string, unknown>> {
+  const started = Date.now()
+  const deadline = started + DRAIN_BUDGET_MS
+  const have = await madeAlready()
+  const now = () => new Date().toISOString()
+  const { data: metaRows } = await store.from('voice_meta').select('key, value').in('key', ['voice', 'queued'])
+  const meta = new Map((metaRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
+  // A new voice or wording: every child's clips are made again, once.
+  if (meta.get('queued') !== tts.version) {
+    if (meta.size) await store.rpc('voice_requeue_all')
+    await store.from('voice_meta').upsert({ key: 'queued', value: tts.version, updated_at: now() })
+  }
+  let phrases = 0
+  try {
+    phrases = await ensure(tts, commonPhrases(), have, deadline)
+  } catch (e) {
+    if (!(e instanceof Stop)) throw e
+    log('drain', { phrases: 'partial', ms: Date.now() - started })
+    return { phrases: 'partial' }
+  }
+  // iPads switch to this voice once its openings exist; a child's clips not yet made are made live (capped) meanwhile.
+  if (meta.get('voice') !== tts.version) await store.from('voice_meta').upsert({ key: 'voice', value: tts.version, updated_at: now() })
+  let children = 0
+  let clips = 0
+  let failed = 0
+  let stopped = false
+  while (!stopped && Date.now() < deadline) {
+    const { data, error } = await store.rpc('voice_claim', { p_limit: 1 })
+    if (error) throw error
+    const rows = (data ?? []) as Array<{ child_id: string; revision: number }>
+    if (!rows.length) break
+    for (const row of rows) {
+      let ok: boolean | null = false
+      try {
+        clips += await ensure(tts, await childSentences(row.child_id), have, deadline)
+        ok = true
+        children++
+      } catch (e) {
+        // Out of time, the cap, or Azure busy: back in the queue with no try used up.
+        if (e instanceof Stop) { ok = null; stopped = true }
+        else { failed++; log('child_failed') }
+      }
+      await store.rpc('voice_finish', { p_child: row.child_id, p_revision: row.revision, p_ok: ok })
+    }
+  }
+  const result = { phrases, children, clips, failed, ms: Date.now() - started }
+  log('drain', result)
+  return result
+}
 
 /** Compares secrets in constant time (as digests, so their lengths don't matter either). */
 async function sameSecret(given: string, expected: string): Promise<boolean> {
@@ -92,241 +167,39 @@ async function sameSecret(given: string, expected: string): Promise<boolean> {
   return diff === 0
 }
 
-async function synthesize(text: string): Promise<Uint8Array<ArrayBuffer>> {
-  const started = Date.now()
-  let res: Response
-  try {
-    res = await fetch(`${await ttsUrl()}/synthesize`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${TTS_SECRET}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(MAKE_TIMEOUT_MS),
-    })
-  } catch (e) {
-    log('generation_failed', { reason: (e as Error).name === 'TimeoutError' ? 'timeout' : 'unreachable', ms: Date.now() - started })
-    throw new Busy()
-  }
-  if (res.status === 503) {
-    log('tts_busy')
-    throw new Busy()
-  }
-  if (!res.ok) {
-    log('generation_failed', { status: res.status, ms: Date.now() - started })
-    throw new Error(`tts ${res.status}`)
-  }
-  // Never keep a clip made by a different voice under this version's name.
-  const version = res.headers.get('x-voice-version')
-  if (version !== VOICE_VERSION) {
-    log('version_mismatch', { service: version })
-    throw new Error('voice version mismatch')
-  }
-  const bytes = new Uint8Array(await res.arrayBuffer())
-  log('generation_completed', { ms: Date.now() - started, bytes: bytes.length, chars: text.length })
-  return bytes
-}
-
-// Two requests for the same new sentence at once share one generation.
-const making = new Map<string, Promise<Uint8Array<ArrayBuffer>>>()
-function make(key: string, text: string): Promise<Uint8Array<ArrayBuffer>> {
-  let job = making.get(key)
-  if (!job) {
-    log('generation_started', { chars: text.length })
-    job = synthesize(text).then(async (bytes) => {
-      const { error } = await store.storage.from(BUCKET).upload(clipPath(key), bytes, { contentType: 'audio/mpeg', upsert: true })
-      if (error) log('cache_write_failed')
-      return bytes
-    }).finally(() => making.delete(key))
-    making.set(key, job)
-  }
-  return job
-}
-
-/** The file names already in the bucket (one listing per drain, instead of one check per sentence). */
-async function madeAlready(): Promise<Set<string>> {
-  const names = new Set<string>()
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await store.storage.from(BUCKET).list('sentences', { limit: 1000, offset })
-    if (error) throw error
-    for (const f of data ?? []) names.add(`sentences/${f.name}`)
-    if (!data || data.length < 1000) return names
-  }
-}
-
-class OutOfTime extends Error {}
-
-/**
- * Makes each sentence not yet in the bucket, until the deadline. Returns how many were made. The school computer being
- * busy or slow ends the run early (OutOfTime: the next run continues). `skipUnusable` (the shared phrases) logs a
- * sentence the voice can't read clearly and goes on; for a child it fails the child, so a person can look at it.
- */
-async function ensure(list: readonly string[], have: Set<string>, deadline: number, skipUnusable = false): Promise<number> {
-  let made = 0
-  for (const text of list) {
-    const key = await clipKey(text)
-    const path = clipPath(key)
-    if (have.has(path)) continue
-    if (Date.now() > deadline) throw new OutOfTime()
-    try {
-      await make(key, text)
-    } catch (e) {
-      if (e instanceof Busy) throw new OutOfTime()
-      if (!skipUnusable) throw e
-      log('phrase_skipped', { chars: text.length })
-      continue
-    }
-    have.add(path)
-    made++
-  }
-  return made
-}
-
-type ChildRow = {
-  full_name: string
-  preferred_name: string | null
-  classes: { name: string } | null
-  guardianships: Array<{ relation: string | null; profiles: { full_name: string; active: boolean } | null }>
-  child_pronunciations: { spoken_name: string | null } | null
-}
-
-/** A child's everyday sentences, built exactly as the gate builds them. */
-async function childSentences(childId: string): Promise<string[]> {
-  const { data, error } = await store.from('children')
-    .select('full_name, preferred_name, classes(name), guardianships(relation, profiles(full_name, active)), child_pronunciations(spoken_name)')
-    .eq('id', childId).single()
-  if (error) throw error
-  const c = data as unknown as ChildRow
-  const child = { fullName: c.full_name, name: c.preferred_name ?? c.full_name.split(' ')[0]!, spoken: c.child_pronunciations?.spoken_name ?? null }
-  const guardians = c.guardianships.filter((g) => g.profiles?.active).map((g) => ({ name: g.profiles!.full_name, relation: g.relation }))
-  return warmSentences(child, c.classes?.name ?? '', guardians)
-}
-
-async function drain(): Promise<Record<string, unknown>> {
-  const started = Date.now()
-  const deadline = started + DRAIN_BUDGET_MS
-  // The school computer is off or asleep: leave the work waiting, without using up anyone's tries.
-  if (!(await healthy())) {
-    log('tts_unavailable')
-    return { skipped: 'tts_unavailable' }
-  }
-  const have = await madeAlready()
-  let phrases = 0
-  // The voice and the words together: a change to either makes every clip again.
-  const phrasesVersion = `${VOICE_VERSION}|${WORDING_VERSION}`
-  const { data: metaRows } = await store.from('voice_meta').select('key, value').in('key', ['phrases', 'queued'])
-  const meta = new Map((metaRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
-  const now = () => new Date().toISOString()
-  // A different voice or wording than before: every child's sentences are made again, once (not on a fresh install,
-  // where every child is already waiting).
-  if (meta.get('queued') !== phrasesVersion) {
-    if (meta.size) await store.rpc('voice_requeue_all')
-    await store.from('voice_meta').upsert({ key: 'queued', value: phrasesVersion, updated_at: now() })
-  }
-  // Order matters on a slow computer (~20 s a sentence): the few leads, then each child's sentences, then the ~150
-  // times. The gate uses the school's voice only when every sentence of an announcement is ready.
-  try {
-    phrases += await ensure(leadPhrases(), have, deadline, true)
-  } catch (e) {
-    if (!(e instanceof OutOfTime)) throw e
-    log('drain', { phrases: 'partial', ms: Date.now() - started })
-    return { phrases: 'partial' }
-  }
-  let children = 0
-  let clips = 0
-  let failed = 0
-  while (Date.now() < deadline) {
-    const { data, error } = await store.rpc('voice_claim', { p_limit: 1 })
-    if (error) throw error
-    const rows = (data ?? []) as Array<{ child_id: string; revision: number }>
-    if (!rows.length) break
-    for (const row of rows) {
-      let ok: boolean | null = false
-      try {
-        clips += await ensure(await childSentences(row.child_id), have, deadline)
-        ok = true
-        children++
-      } catch (e) {
-        // Out of time, or the computer busy or slow: back in the queue with no try used up; the next run carries on
-        // from the clips already made (and the school computer hands back a clip it finished after we stopped waiting).
-        if (e instanceof OutOfTime) ok = null
-        else {
-          failed++
-          log('child_failed')
-        }
-      }
-      await store.rpc('voice_finish', { p_child: row.child_id, p_revision: row.revision, p_ok: ok })
-    }
-  }
-  if (meta.get('phrases') !== phrasesVersion && Date.now() < deadline) {
-    try {
-      phrases += await ensure(timePhrases(), have, deadline, true)
-      await store.from('voice_meta').upsert({ key: 'phrases', value: phrasesVersion, updated_at: now() })
-    } catch (e) {
-      if (!(e instanceof OutOfTime)) throw e
-    }
-  }
-  const result = { phrases, children, clips, failed, ms: Date.now() - started }
-  log('drain', result)
-  return result
-}
+const origin = Deno.env.get('APP_ORIGIN') ?? '*'
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
-  if (req.method !== 'POST') return reply({ error: 'Use POST.' }, 405)
-
-  let body: { text?: unknown; drain?: unknown; register?: unknown } = {}
-  try { body = await req.json() } catch { /* checked below */ }
-
-  if (body.register !== undefined) {
-    if (!TTS_SECRET || !(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${TTS_SECRET}`))) return reply({ error: 'unauthorized' }, 401)
-    const url = allowedUrl(body.register)
-    if (!url) return reply({ error: 'That address is not allowed.' }, 400)
-    // Only an address that answers as this voice (same secret, same version) is saved.
-    if (!(await healthy(url))) return reply({ error: 'That address does not answer as the school voice.' }, 400)
-    const { error: saveError } = await store.rpc('voice_register', { p_url: url })
-    if (saveError) {
-      log('register_failed')
-      return reply({ error: saveError.message.replace(/^[a-z_]+: /, '') }, 409)
+  // The minute job: read the body once, then hand anything else to the staff handler with the same body.
+  if (req.method === 'POST' && req.headers.get('content-type')?.includes('application/json')) {
+    const raw = await req.text()
+    let body: { drain?: unknown } = {}
+    try { body = JSON.parse(raw) } catch { /* the handler answers */ }
+    if (body.drain === true) {
+      const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } })
+      if (!(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${CRON_SECRET}`))) return json({ error: 'unauthorized' }, 401)
+      if (!provider) return json({ skipped: 'not_configured' })
+      try {
+        return json(await drain(provider))
+      } catch {
+        log('drain_failed')
+        return json({ error: 'drain failed' }, 500)
+      }
     }
-    known = { url, at: Date.now() }
-    log('registered')
-    return reply({ registered: true })
+    req = new Request(req.url, { method: req.method, headers: req.headers, body: raw })
   }
-
-  if (body.drain === true) {
-    if (!(await sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${CRON_SECRET}`)) || !CRON_SECRET) return reply({ error: 'unauthorized' }, 401)
-    try {
-      return reply(await drain())
-    } catch {
-      log('drain_failed')
-      return reply({ error: 'drain failed' }, 500)
-    }
-  }
-
-  // As the caller, so the staff check and the limit apply to them.
-  const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false }, global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+  return handle(req, {
+    origin,
+    provider,
+    stored,
+    keep,
+    // As the caller, so the staff check and the limits apply to them.
+    spend: async (authorization, chars) => {
+      const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        auth: { persistSession: false }, global: { headers: { Authorization: authorization } },
+      })
+      return await db.rpc('voice_spend', { p_chars: chars })
+    },
+    log,
   })
-  const { data: allowed, error } = await db.rpc('voice_allowed')
-  if (error) return reply({ error: error.message.startsWith('rate_limited') ? 'Too many requests. Try again in a while.' : 'Sign in again.' }, error.message.startsWith('rate_limited') ? 429 : 401)
-  if (!allowed) return reply({ error: 'Only school staff can make announcements.' }, 403)
-
-  const text = checkSpeech(body.text)
-  if (!text || text.length > STAFF_MAX_CHARS) return reply({ error: 'That can’t be spoken.' }, 400)
-  const key = await clipKey(text)
-  log('tts_requested', { chars: text.length })
-  const cached = await store.storage.from(BUCKET).download(clipPath(key))
-  if (cached.data) {
-    log('cache_hit')
-    return audio(new Uint8Array(await cached.data.arrayBuffer()), 'hit')
-  }
-  log('cache_miss')
-  if (!(await ttsUrl()) || !TTS_SECRET) return reply({ error: 'The school voice is not set up.' }, 503)
-  // A new sentence ties up the school's computer, so each person has a smaller hourly allowance for those.
-  const { data: mayMake, error: makeError } = await db.rpc('voice_make_allowed')
-  if (makeError || !mayMake) return reply({ error: 'Too many new announcements. Try again in a while.' }, 429)
-  try {
-    return audio(await make(key, text), 'miss')
-  } catch (e) {
-    return reply({ error: 'The school voice is unavailable right now.' }, e instanceof Busy ? 503 : 502)
-  }
 })

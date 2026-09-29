@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gate voice lag test</title>
+  <style>
+    body { font: 16px/1.45 system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #16193a; }
+    main { max-width: 720px; margin: 0 auto; display: grid; gap: 14px; }
+    fieldset { border: 1px solid #d6d8e6; border-radius: 12px; display: grid; gap: 10px; padding: 12px 14px; }
+    label { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+    input[type=number] { width: 90px; min-height: 40px; font: inherit; }
+    button { min-height: 48px; font: inherit; font-weight: 700; border: 0; border-radius: 12px; background: #c8262c; color: #fff; }
+    button:disabled { opacity: 0.5; }
+    pre { background: #f3f4f9; padding: 12px; border-radius: 12px; overflow-x: auto; font-size: 13px; }
+    .big { font-size: 20px; font-weight: 800; }
+    @media (prefers-color-scheme: dark) { body { background: #0f1124; color: #eef0ff; } pre { background: #1c1f3a; } fieldset { border-color: #2e3358; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Gate voice lag test</h1>
+    <p>Runs real gate announcements (chime, then voice) through the app's own announcer and measures how long after the chime the voice starts. Keep the sound on.</p>
+    <fieldset>
+      <legend>The school voice</legend>
+      <label><input type="radio" name="mode" value="sim" checked> Simulated (a real MP3 after the delay below; nothing leaves this device)</label>
+      <label><input type="radio" name="mode" value="live"> Live: the deployed <code>pronounce</code> function (sign in to the app first, as staff; uses Azure characters)</label>
+      <label>Simulated delay (ms) <input id="delay" type="number" value="900" min="0" step="50"></label>
+      <label>Announcements <input id="count" type="number" value="20" min="1" max="50"></label>
+    </fieldset>
+    <button id="run" type="button">Start (tap: unlocks sound)</button>
+    <p id="status" class="big" aria-live="polite"></p>
+    <pre id="out"></pre>
+  </main>
+  <script type="module" src="./voice-lag.ts"></script>
+</body>
+</html>

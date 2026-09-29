@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from '../../ui/icons'
+import { preconnect } from 'react-dom'
+import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button, LuxButton } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -19,11 +20,10 @@ import { ExpectedLists } from './GateExtras'
 import { Tabs } from '../../ui/Tabs'
 import { CallSheet } from '../school/CallSheet'
 import { useSchoolDay } from '../school/useSchoolDay'
-import { NEW_LEAD, PRIORITY, URGENT_LEAD, type Announcer } from './announcer'
-import { deviceOutput } from './sound'
-import { setVoiceChildren, warmClips } from './voiceClips'
-import { commonPhrases, warmSentences, type VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
-import { cancelledText, isUrgent, shouldAnnounce, spokenText, type GateChild } from './gate'
+import { PRIORITY, type Announcer } from './announcer'
+import { loadVoiceVersion, setVoiceChildren, warmClips } from './voiceClips'
+import { childMessages, commonPhrases, type VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
+import { cancelledText, isUrgent, phaseOf, shouldAnnounce, spokenText, type GateChild } from './gate'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
 interface GateData { children: Map<string, GateChild & { guardians: Guardian[]; spoken: string | null }>; myClasses: Set<string>; covered: Set<string> }
@@ -52,7 +52,7 @@ function useGateData() {
       className: c.classes?.name ?? '', programmeName: c.programmes?.name ?? '', spoken: spoken.get(c.id) ?? null,
       guardians: c.guardianships.map((g) => ({ id: g.guardian_id, name: names.get(g.guardian_id)?.full_name ?? 'Guardian', relation: g.relation, active: names.get(g.guardian_id)?.active ?? false, kind: g.kind ?? 'parent', abroad: names.get(g.guardian_id)?.abroad ?? false })),
     }]))
-    // The voice says each child's name the way the school approved (D48); the screen always shows it as registered.
+    // The voice says each child's name the way the school approved (D50); the screen always shows it as registered.
     setVoiceChildren(new Map([...children.values()].map((c) => [c.id, { fullName: c.fullName, name: c.name, spoken: c.spoken } satisfies VoiceChild])))
     const rows = (assigned.data ?? []) as Array<{ profile_id: string; class_id: string }>
     setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), covered: new Set(rows.map((r) => r.class_id)) })
@@ -82,6 +82,8 @@ const relationName = (t: Trip) => [t.traveller_relation, t.traveller_name.split(
  * announced aloud, with the steps at the gate. Handover goes only to a registered guardian (D4), checked by the server.
  */
 export function GateQueue({ announcer }: { announcer: Announcer }) {
+  // The gate voice's requests go to the functions on this origin: open the connection before the first announcement.
+  if (import.meta.env.VITE_SUPABASE_URL) preconnect(import.meta.env.VITE_SUPABASE_URL)
   const toast = useToast()
   const trips = useTodayTrips()
   const gate = useGateData()
@@ -115,42 +117,26 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
 
   // The gate never sees anyone's location (D38): only the expected time, and the steps at the gate.
 
-  // On duty, this iPad copies the school's clips for every child's everyday sentences (and the shared phrases), so
-  // announcements play from the iPad itself the moment they're needed, even without Wi-Fi. Once a day it's a few
-  // megabytes; after that almost everything is already here. Again whenever a name, class or collector changes.
+  // On duty, this iPad copies every child's announcements (made ahead by the school) so a parent's tap plays from the
+  // iPad itself, even without Wi-Fi. A few megabytes once; after that almost everything is already here. Again whenever
+  // a child, a relation or a pronunciation changes. Copying never makes a clip or spends characters.
   const warmFor = useMemo(() => {
     if (!gate.data) return []
     const list = commonPhrases()
     for (const c of gate.data.children.values()) {
-      const guardians = c.guardians.filter((g) => g.active).map((g) => ({ name: g.name, relation: g.relation }))
-      list.push(...warmSentences({ fullName: c.fullName, name: c.name, spoken: c.spoken }, c.className, guardians))
+      list.push(...childMessages({ fullName: c.fullName, name: c.name, spoken: c.spoken }, c.guardians.filter((g) => g.active).map((g) => g.relation)))
     }
     return list
   }, [gate.data])
   useEffect(() => {
     if (!warmFor.length) return
     const stop = new AbortController()
-    void warmClips(warmFor, stop.signal)
+    void loadVoiceVersion().then(() => { if (!stop.signal.aborted) void warmClips(warmFor, stop.signal) })
     return () => stop.abort()
   }, [warmFor])
 
-  // Trips this tablet may still have to announce (another class's, said here if nobody answers in 2 minutes) get their
-  // clips ready now. Its own classes are announced at once, and the announcer readies queued ones itself.
-  useEffect(() => {
-    if (!trips.trips || !gate.data) return
-    const upcoming = trips.trips
-      .filter((t) => t.status === 'en_route' && !t.acknowledged_at && !announced.current.has(t.id))
-      .sort((a, b) => Date.parse(a.arrive_at) - Date.parse(b.arrive_at))
-    let prepared = 0
-    for (const t of upcoming) {
-      const child = gate.data.children.get(t.child_id)
-      if (!child) continue
-      deviceOutput.prepare?.((isUrgent(t, nowMs) ? URGENT_LEAD : NEW_LEAD) + spokenText(t, child, nowMs), t.child_id)
-      if (++prepared === 3) break
-    }
-  }, [trips.trips, gate.data])
-
-  // Announcements follow the trips: new or changed ones play (the class's own coordinators first); seen ones stop repeating.
+  // Announcements follow the trips: new ones play (the class's own coordinators first), and again as the trip gets
+  // closer (about ten minutes, about five, arrived); seen ones stop repeating.
   useEffect(() => {
     if (!trips.trips || !gate.data) return
     for (const t of trips.trips) {
@@ -159,8 +145,9 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       const id = `trip:${t.id}`
       if (t.status === 'en_route' && shouldAnnounce(t, child.classId, gate.data.myClasses, gate.data.covered, nowMs)) {
         // Once per version of the trip; the announcer itself repeats it every 2 minutes until someone acknowledges.
-        if (announced.current.get(t.id) !== t.updated_at) {
-          announced.current.set(t.id, t.updated_at)
+        const version = `${t.updated_at}|${phaseOf(t, nowMs)}`
+        if (announced.current.get(t.id) !== version) {
+          announced.current.set(t.id, version)
           const urgent = isUrgent(t, nowMs)
           announcer.announce({ id, childId: t.child_id, text: spokenText(t, child, nowMs), urgent, chime: urgent ? 'flagged' : 'normal', priority: t.off_schedule ? PRIORITY.flagged : urgent ? PRIORITY.runningLate : PRIORITY.newRequest })
         }
@@ -232,6 +219,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {t.status === 'checked_in' && <Pill tone="live" icon={<School />}>Checked in</Pill>}
                 {t.status === 'cancelled' && <Pill tone="stale">Cancelled</Pill>}
                 {!done && t.off_schedule && <Pill tone="warning" icon={<TriangleAlert />}>{t.reason ?? 'Outside the usual time'}</Pill>}
+                {!done && t.arrived_at && <Pill tone="danger" icon={<MapPin />}>At the gate</Pill>}
                 {!done && t.ready_at && <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>}
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
                 {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}

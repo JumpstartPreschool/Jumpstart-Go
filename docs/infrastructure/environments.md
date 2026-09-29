@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Singapore (ap-southeast-1); database pooler aws-0-ap-southeast-1.pooler.supabase.com |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0032` live, `0033` (password sign-in) to push (pushed from the owner's terminal with `bash scripts/voice-deploy.sh update`; the push needs the database password) |
+| Migrations applied | `0001`–`0032` live, `0033` (password sign-in), `0034` (first-sign-in codes only without a password) and `0035` (Azure voice, I've arrived) to push (pushed from the owner's terminal with `npx supabase db push`; the push needs the database password) |
 | App hosting | Cloudflare Workers static assets, `jumpstart-go` at https://jumpstart-go.singhankit91624.workers.dev (production; the old `jumpstart-preschool` address redirects there, see `scripts/old-link-redirect/`) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
@@ -31,7 +31,7 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 |---|---|---|
 | `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
 | `push-send` | Delivers queued push notifications (0016) and forgets dead devices; called by the database | `PUSH_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
-| `pronounce` | The gate voice (0030, D48): a sentence's clip for staff (made on the school computer if new), and the background making of each child's clips; the only caller of the school's voice computer | `TTS_SERVICE_URL`, `TTS_SHARED_SECRET`, `VOICE_CRON_SECRET` |
+| `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional) |
 
 Deploying needs a Supabase login on this machine (`npx supabase login`, once):
 ```
@@ -48,21 +48,15 @@ npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
    `insert into app.push_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/push-send', '<the same PUSH_SECRET>');`
    and re-run the `cron.schedule` blocks from `0016` and `0021` (push delivery, morning reminders and the daily clean-up of old records; they only schedule when `pg_cron` exists at migration time). `npm run check:routing` tests the key and the ETA maths from this machine.
 
-### Turning on the gate voice (0030, D48)
-The voice runs on the school's always-on computer; [voice-architecture.md](../architecture/voice-architecture.md) has the design and resource needs.
-1. On the school computer (macOS or Linux, 8 GB RAM minimum, 16 GB recommended, about 10 GB free disk): install [uv](https://docs.astral.sh/uv/) and `cloudflared`. Accept the model's terms at https://huggingface.co/ai4bharat/indic-parler-tts, create a Hugging Face read token, and run `hf auth login`.
-2. In `tts-service/`: `GIT_LFS_SKIP_SMUDGE=1 uv sync` (the codec library's repository stores test files in Git LFS; they aren't needed), then `uv run pytest -q` (15 checks, no model needed).
-3. Make one secret for the voice and one for the database: `openssl rand -hex 32` twice.
-4. Start the voice: `TTS_SHARED_SECRET=<first secret> uv run uvicorn app:app --host 127.0.0.1 --port 8790`. The first start downloads the model (3.75 GB) and a small tokenizer; later starts load from disk in about 25 seconds. Keep it running (a login item on macOS, or a systemd service on Linux).
-5. Give it a stable address with a named Cloudflare Tunnel (`cloudflared tunnel login`, `cloudflared tunnel create jumpstart-voice`, route a hostname such as `voice.jumpstartpreschool.in` to `http://127.0.0.1:8790`, `cloudflared tunnel run jumpstart-voice`). For a quick test, `cloudflared tunnel --url http://127.0.0.1:8790` prints a temporary `trycloudflare.com` address.
-6. `npx supabase secrets set --project-ref <ref> TTS_SERVICE_URL=https://voice.jumpstartpreschool.in TTS_SHARED_SECRET=<first secret> VOICE_CRON_SECRET=<second secret>`, then `npx supabase functions deploy pronounce --project-ref <ref> --no-verify-jwt`.
-7. In the SQL editor: `insert into app.voice_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/pronounce', '<second secret>');` and re-run the `cron.schedule` block at the end of `0030` (it only schedules when `pg_cron` exists at migration time).
-8. Within a few minutes Admin → Settings → Name pronunciation fills with names to listen to. Play each one; approve it, or open the child and write it the way it sounds.
-
-### Keeping the voice running
-- **Login item:** `bash scripts/voice-deploy.sh install-watch` once on the school computer. It checks at login and every 5 minutes; if the voice or its tunnel is down (a restart, sleep, or a dropped quick tunnel), it restarts them and points Supabase at the address. Log: `~/.jumpstart-voice/watch.log`. Remove with `uninstall-watch`. While the voice is down the gate uses the tablet's own voice, and the minute job's replies read `{"skipped":"tts_unavailable"}` (`bash scripts/voice-deploy.sh check`).
-- **Fixed address (optional):** the quick tunnel's `trycloudflare.com` address changes on every start. A named tunnel keeps one address, but its hostname must be on a domain whose DNS Cloudflare manages (`jumpstartpreschool.in` is on GoDaddy today). In Cloudflare → Zero Trust → Networks → Tunnels, create a tunnel, add a public hostname (for example `voice.jumpstartpreschool.in` → `http://127.0.0.1:8790`), and put its token in `.env.local` as `TTS_TUNNEL_TOKEN`, with `TTS_SERVICE_URL=https://voice.jumpstartpreschool.in`. Then `bash scripts/voice-deploy.sh start`; the script and the login item use the named tunnel from then on.
-9. Remove the old voice: `npx supabase secrets unset --project-ref <ref> ELEVENLABS_API_KEY ELEVENLABS_VOICE_ID AZURE_SPEECH_KEY AZURE_SPEECH_REGION AZURE_VOICE`, `npx supabase functions delete voice-say --project-ref <ref>`, and in Storage empty and delete the `voice-cache` bucket.
+### Turning on the gate voice (0035, D50)
+Azure AI Speech, made ahead by `pronounce`; [voice-architecture.md](../architecture/voice-architecture.md) has the design and cost.
+1. portal.azure.com (the school's Microsoft account; Microsoft verifies a card even for free use): Create a resource → **Speech** → Region **Central India** → Pricing tier **Free F0** → Create.
+2. The resource → **Keys and Endpoint**: copy Key 1 and the region name (`centralindia`). Never paste the key into chat, the app, or git.
+3. `npx supabase secrets set --project-ref <ref> AZURE_SPEECH_KEY=<key 1> AZURE_SPEECH_REGION=centralindia AZURE_SPEECH_VOICE=en-IN-NeerjaNeural VOICE_CRON_SECRET=<openssl rand -hex 32>`
+4. `npx supabase db push` (0033–0035), then `npx supabase functions deploy pronounce --project-ref <ref> --no-verify-jwt`.
+5. SQL editor, once: `insert into app.voice_config (url, secret) values ('https://<ref>.supabase.co/functions/v1/pronounce', '<the same VOICE_CRON_SECRET>') on conflict (id) do update set url = excluded.url, secret = excluded.secret;` With pg_cron on, the minute job from 0030 makes every child's clips over the next few minutes (Admin → a child shows Ready).
+6. Remove the school computer's secrets: `npx supabase secrets unset --project-ref <ref> TTS_SERVICE_URL TTS_SHARED_SECRET TTS_ALLOWED_HOSTS`. Then stop the voice on the school Mac (`launchctl bootout gui/$(id -u)/in.jumpstartpreschool.voice-watch`, and quit the uvicorn and cloudflared processes).
+7. On a coordinator's iPad: Start duty; the sound check should be in the new voice. Speaker → Play a test.
 
 ## Auth settings (Supabase dashboard)
 Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):

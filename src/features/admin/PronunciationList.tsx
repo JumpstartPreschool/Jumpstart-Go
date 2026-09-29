@@ -48,7 +48,7 @@ export function PronunciationList() {
       const sentence = voiceSentence(`${r.full_name}.`, { fullName: r.full_name, name: r.preferred_name ?? r.full_name.split(' ')[0]!, spoken: r.spoken_name })
       await playSentence(sentence, () => setPlaying({ id: r.child_id, started: true }))
     } catch {
-      toast("Couldn't play the name. The school's voice computer may be off; try again in a minute.", { tone: 'danger' })
+      toast("Couldn't play the name. Check the connection and try again in a minute.", { tone: 'danger' })
     } finally {
       setPlaying(null)
     }
