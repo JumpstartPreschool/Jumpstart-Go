@@ -860,6 +860,21 @@
     appearance: none;
   }
   .input :is(input, select):focus-visible { outline: 0; }
+  /* DateField and SelectField: the field's value as a button that opens the app's own picker (src/ui). */
+  .input__value {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    font-size: 17px;
+    font-weight: 600;
+    color: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .input__value:focus-visible { outline: 0; }
   .input input::placeholder { color: var(--ink-3); font-weight: 500; }
   .input--sm { height: 44px; }
   /* Show/Hide inside a password field (PasswordField): a 44 pt target flush with the field's right edge. */

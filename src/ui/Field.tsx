@@ -1,5 +1,6 @@
-import { useId, useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
-import { ChevronDown, CircleAlert, EyeLine, EyeOffLine, Search } from './icons'
+import { Children, isValidElement, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Check, ChevronDown, CircleAlert, EyeLine, EyeOffLine, Search } from './icons'
+import { Sheet } from './Sheet'
 
 type Extra = { label: string; hint?: ReactNode; error?: string | null; icon?: ReactNode }
 
@@ -62,17 +63,63 @@ export function PasswordField({ label, hint, error, icon, className = '', ...inp
   )
 }
 
-export function SelectField({ label, hint, error, icon, children, className = '', ...select }: SelectHTMLAttributes<HTMLSelectElement> & Extra) {
+interface Choice { value: string; label: string; disabled: boolean }
+type OptionProps = { value?: string | number; children?: ReactNode; disabled?: boolean }
+const textOf = (n: ReactNode): string => Children.toArray(n).map((c) => (typeof c === 'string' || typeof c === 'number' ? String(c) : '')).join('')
+/** The <option> children as choices: an option without a value uses its text, as a native select does. */
+function choicesOf(children: ReactNode): Choice[] {
+  return Children.toArray(children).flatMap((c) => {
+    if (!isValidElement<OptionProps>(c) || c.type !== 'option') return []
+    const label = textOf(c.props.children)
+    return [{ value: String(c.props.value ?? label), label, disabled: !!c.props.disabled }]
+  })
+}
+
+/**
+ * A choice from a list, written with <option> children like a native select, but shown as the app's own field and a
+ * sheet of large options (never the browser's dropdown), so it looks and works the same everywhere. Many short
+ * choices (times) are a grid of chips; others are rows with a check on the chosen one.
+ */
+export function SelectField({ label, hint, error, icon, children, value, onValue, className = '' }: Extra & {
+  children: ReactNode; value: string | number; onValue: (value: string) => void; className?: string
+}) {
   const id = useId()
+  const [open, setOpen] = useState(false)
+  const choices = choicesOf(children)
+  const current = choices.find((c) => c.value === String(value))
+  const chips = choices.length > 8 && choices.every((c) => c.label.length <= 12)
+  const pick = (v: string) => { onValue(v); setOpen(false) }
   return (
     <Wrapper id={id} label={label} hint={hint} error={error}>
       <div className={`input ${className}`}>
         {icon}
-        <select id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-msg` : undefined} {...select}>
-          {children}
-        </select>
+        <button id={id} type="button" className="input__value" aria-haspopup="dialog" aria-invalid={!!error || undefined}
+          aria-describedby={error || hint ? `${id}-msg` : undefined} onClick={() => setOpen(true)}>
+          {current ? current.label : <span className="text-ink-3">Choose</span>}
+        </button>
         <ChevronDown aria-hidden />
       </div>
+      {open && (
+        <Sheet open onClose={() => setOpen(false)} title={label}>
+          <div role="listbox" aria-label={label} className={chips ? 'grid grid-cols-3 gap-2 sm:grid-cols-4' : 'grid gap-2'}>
+            {choices.map((c) => {
+              const chosen = c.value === String(value)
+              return chips ? (
+                <button key={c.value} type="button" role="option" aria-selected={chosen} disabled={c.disabled} onClick={() => pick(c.value)}
+                  className={`h-12 rounded-full text-small font-bold tabular-nums transition-[background-color,transform] duration-150 active:scale-95 disabled:opacity-30 ${chosen ? 'bg-accent text-white shadow-[0_2px_0_var(--accent-lip)]' : 'bg-sunken hover:bg-accent-soft'}`}>
+                  {c.label}
+                </button>
+              ) : (
+                <button key={c.value} type="button" role="option" aria-selected={chosen} disabled={c.disabled} onClick={() => pick(c.value)}
+                  className="choice flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left disabled:opacity-40">
+                  <span className="min-w-0 flex-1 text-h4">{c.label}</span>
+                  {chosen && <Check className="size-6 shrink-0" aria-hidden />}
+                </button>
+              )
+            })}
+          </div>
+        </Sheet>
+      )}
     </Wrapper>
   )
 }

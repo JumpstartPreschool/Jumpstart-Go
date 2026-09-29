@@ -3,6 +3,7 @@ import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, PencilLine, Send, Tras
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
+import { DateField } from '../../ui/DateField'
 import { Pill } from '../../ui/Pill'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
@@ -201,7 +202,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
             <TextField label="Full name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} error={editErrors.name} />
             <TextField label="Called at school" value={edit.called} onChange={(e) => setEdit({ ...edit, called: e.target.value })} />
           </div>
-          <TextField label="Date of birth" type="date" value={edit.dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setEdit({ ...edit, dob: e.target.value })} error={editErrors.dob}
+          <DateField label="Date of birth" value={edit.dob} max={new Date().toISOString().slice(0, 10)} onChange={(dob) => setEdit({ ...edit, dob })} error={editErrors.dob} startWith="years"
             hint={edit.dob ? formatAge(edit.dob) : undefined} />
           <div className="mt-4"><GenderChoice value={edit.gender} onChange={(g) => setEdit({ ...edit, gender: g })} /></div>
           {error && <Notice tone="danger">{error}</Notice>}
