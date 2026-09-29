@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useState } from 'react'
 import { Check, Lock, Mail, Smartphone, UserPlus } from '../../ui/icons'
 import { Button } from '../../ui/Button'
@@ -16,11 +17,11 @@ const GIVEN: StaffRole[] = ['core', 'pro', 'coordinator']
  * Add a staff member: name, email for the sign-in code, roles and (for coordinators) their classes. Admin is shown
  * locked: only Ankit Singh and Aditya Tapadia hold it (D27), and the database refuses it from the app.
  */
-export function StaffSheet({ dir, open, onClose, onSaved }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (message: string) => void }) {
+export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (message: string) => void; initialRoles?: StaffRole[] }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [roles, setRoles] = useState<StaffRole[]>([])
+  const [roles, setRoles] = useState<StaffRole[]>(initialRoles)
   const [classes, setClasses] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -132,7 +133,7 @@ export function EditStaffSheet({ dir, person, onClose, onSaved }: { dir: Directo
     }
   }
   return (
-    <Sheet open onClose={onClose} title={`Edit ${first}`} description="Roles and classes are changed in Center leaders; the details are here.">
+    <Sheet open onClose={onClose} title={`Edit ${first}`} description={<>Their details are here. <Link to="/admin/coordinators" className="font-extrabold text-accent-ink underline underline-offset-2">Change roles and classes in Center leaders</Link>.</>}>
       <div className="grid gap-4">
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">

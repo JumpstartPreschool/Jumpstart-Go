@@ -46,6 +46,8 @@ export interface LinkSummary {
   confirmed: boolean
   locked: boolean
   school_phone: string | null
+  /** 0036: when the collector (or the family) said they're at the gate. */
+  arrived_at?: string | null
   code: string | null
   /** Before confirming: how many tries are left for the last 4 digits of the mobile (0017). */
   confirm_tries_left?: number
@@ -78,6 +80,8 @@ export const linkStatus = (token: string) => call<LinkSummary>('link_status', { 
 export const linkShare = (token: string, points: Point[]) => call<number>('link_share', { p_token: token, p_device: deviceKey(), p_points: points })
 export const linkHome = (token: string) => call<null>('link_home', { p_token: token, p_device: deviceKey() })
 export const linkLate = (token: string, extra: 10 | 20 | 30) => call<LinkSummary>('link_late', { p_token: token, p_device: deviceKey(), p_extra: extra })
+/** "I'm at the gate": the gate announces the arrival. Once per trip; this phone only. */
+export const linkArrive = (token: string) => call<LinkSummary>('link_arrive', { p_token: token, p_device: deviceKey() })
 
 // ---- Live points ------------------------------------------------------------------------------------------
 

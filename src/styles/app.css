@@ -978,6 +978,10 @@
     dialog.sheet:not([open]) .sheet-panel { transform: translateY(16px) scale(0.98); opacity: 0; }
     @starting-style { dialog.sheet[open] .sheet-panel { transform: translateY(16px) scale(0.98); opacity: 0; } }
   }
+  /* Opened from the top bar (the account menu): no slide, just a quick fade, on every screen size. */
+  dialog.sheet.sheet--fade .sheet-panel { transition: opacity 150ms ease-out; transform: none; }
+  dialog.sheet.sheet--fade:not([open]) .sheet-panel { transform: none; opacity: 0; }
+  @starting-style { dialog.sheet.sheet--fade[open] .sheet-panel { transform: none; opacity: 0; } }
   .sheet-foot {
     position: sticky;
     /* Sticky offsets count from inside the body's bottom padding; pull back by it so the bar sits on the edge. */

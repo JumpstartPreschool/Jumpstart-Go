@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BellRing, Check, Plus, School, TriangleAlert, UserMinus, UsersRound } from '../../ui/icons'
+import { Link } from 'react-router'
+import { BellRing, Check, ChevronRight, Plus, School, TriangleAlert, UserMinus, UserPlus, UsersRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SearchField } from '../../ui/Field'
@@ -13,7 +14,8 @@ import { formatMobile } from '../../domain/contact'
 import { AREA_ICON, AreaShell } from '../auth/AreaShell'
 import { ROLE } from '../admin/roles'
 import { useSession, type Area } from '../auth/session'
-import { explainDbError, type ClassRow, type Profile } from '../admin/api'
+import { explainDbError, loadDirectory, type ClassRow, type Directory, type Profile } from '../admin/api'
+import { StaffSheet } from '../admin/StaffSheet'
 import { loadCoordinators, removeCoordinator, setCoordinator, type CoordinatorData } from './api'
 
 const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'
@@ -66,6 +68,12 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
   const coordinatorsOf = (classId: string) => coordinators.filter((p) => p.active && data?.assignments.get(p.id)?.includes(classId))
   // Refresh first, so the list already shows the change when the sheet closes and the toast confirms it.
   const done = async (message: string) => { await reload(); setEditing(null); setAdding(false); toast(message) }
+  // Someone not at the school yet: the admin's staff form, with Center leader already chosen (only the admin adds people).
+  const [newLeader, setNewLeader] = useState<Directory | null>(null)
+  // Opens over the Add sheet (Cancel goes back to the list; saving closes both), so two sheets never pass each other.
+  async function addNew() {
+    try { setNewLeader(await loadDirectory()) } catch (e) { toast(explainDbError(e as { code?: string; message?: string }), { tone: 'danger' }) }
+  }
 
   return (
     <AreaShell area={area} title="Center leaders"
@@ -80,7 +88,10 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
           <section className="mt-8" aria-labelledby="classes-title">
             <h2 id="classes-title" className="kicker px-0.5">Classes</h2>
             {data.classes.length === 0 ? (
-              <Notice className="mt-3">No class groups yet. The admin adds them in People, then Classes.</Notice>
+              <Notice className="mt-3">
+                No classes yet.{' '}
+                {area === 'admin' ? <Link to="/admin" className="font-extrabold text-accent-ink underline underline-offset-2">Add them in People → Classes</Link> : 'The admin adds them in People → Classes.'}
+              </Notice>
             ) : (
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {data.classes.map((c) => {
@@ -139,8 +150,12 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
         )}
       </Sheet>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add a center leader">
-        {adding && data && <AddCoordinator data={data} area={area} onDone={done} />}
+        {adding && data && <AddCoordinator data={data} area={area} onDone={done} onNew={area === 'admin' ? () => void addNew() : undefined} />}
       </Sheet>
+      {newLeader && (
+        <StaffSheet open dir={newLeader} initialRoles={['coordinator']} onClose={() => setNewLeader(null)}
+          onSaved={(m) => void reload().then(() => { setNewLeader(null); setAdding(false); toast(m) })} />
+      )}
     </AreaShell>
   )
 }
@@ -196,7 +211,7 @@ function EditCoordinator({ person, classes, initial, onDone }: { person: Profile
   )
 }
 
-function AddCoordinator({ data, area, onDone }: { data: CoordinatorData; area: 'admin' | 'core'; onDone: (message: string) => void | Promise<void> }) {
+function AddCoordinator({ data, area, onDone, onNew }: { data: CoordinatorData; area: 'admin' | 'core'; onDone: (message: string) => void | Promise<void>; onNew?: () => void }) {
   const [query, setQuery] = useState('')
   const [person, setPerson] = useState<Profile | null>(null)
   const [picked, setPicked] = useState<string[]>([])
@@ -238,12 +253,22 @@ function AddCoordinator({ data, area, onDone }: { data: CoordinatorData; area: '
 
   return (
     <>
-      <p className="text-body text-ink-2">
-        Choose someone the admin has already added. {area === 'core' && 'The head office can give the Center leader role; only the admin gives Admin or Head office.'}
+      {onNew && (
+        <button type="button" onClick={onNew} className="choice flex w-full items-center gap-3.5 p-3.5 text-left">
+          <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden><UserPlus /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-h4">Add someone new</span>
+            <span className="block text-small font-semibold text-ink-2">Their name, email and classes. They get an invitation.</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
+        </button>
+      )}
+      <p className={`text-body text-ink-2 ${onNew ? 'mt-5' : ''}`}>
+        {onNew ? 'Or choose someone already at the school.' : 'Choose someone the admin has already added.'} {area === 'core' && 'The head office can give the Center leader role; only the admin gives Admin or Head office.'}
       </p>
       <SearchField label="Search people" className="mt-4" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, email or phone" autoFocus />
       {candidates.length === 0 ? (
-        <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : 'Everyone registered is already a center leader. The admin adds new staff in People.'}</p>
+        <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : (onNew ? 'Everyone here is already a center leader. Use Add someone new above.' : 'Everyone registered is already a center leader. The admin adds new staff in People.')}</p>
       ) : (
         <ul className="mt-4 grid gap-2">
           {candidates.map((p) => (

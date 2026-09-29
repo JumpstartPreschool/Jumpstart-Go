@@ -9,7 +9,7 @@ const IPHONE = /iPhone|iPod/.test(navigator.userAgent)
  * focus trapping, Escape to close and the backdrop; tapping the backdrop closes it too. The header stays put while
  * the body scrolls; put the main action in <SheetFooter> so it stays in reach.
  */
-export function Sheet({ open, onClose, title, description, children, wide = false }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children: ReactNode; wide?: boolean }) {
+export function Sheet({ open, onClose, title, description, children, wide = false, fade = false }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children: ReactNode; wide?: boolean; /** Appear with a quick fade instead of sliding (menus opened from the top bar). */ fade?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function Sheet({ open, onClose, title, description, children, wide = fals
   return (
     <dialog
       ref={ref}
-      className="sheet"
+      className={fade ? 'sheet sheet--fade' : 'sheet'}
       style={wide ? ({ '--sheet-w': '760px' } as CSSProperties) : undefined}
       aria-label={title}
       // React passes a nested sheet's close up to this one; only this dialog's own close should close it.

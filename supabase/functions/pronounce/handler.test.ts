@@ -39,6 +39,8 @@ describe('the pronounce function (a live request)', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('x-voice-cache')).toBe('hit')
     expect(d.provider.synthesize).not.toHaveBeenCalled()
+    // Checked (staff, hourly limit) but not counted: nothing went to Azure.
+    expect(d.spend).toHaveBeenCalledWith('Bearer staff-token', 0)
   })
 
   it('needs a sign-in', async () => {

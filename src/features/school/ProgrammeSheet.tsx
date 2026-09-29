@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useState } from 'react'
 import { Check, RotateCcw } from '../../ui/icons'
 import { Button } from '../../ui/Button'
@@ -164,7 +165,14 @@ export function ProgrammeSheet({ programme, cls, dir, admin, onClose, onSaved }:
         </div>
       )}
       {outside.length > 0 && (
-        <Notice tone="warning" className="mt-4">{outside.map((c) => c.preferred_name ?? c.full_name.split(' ')[0]).join(', ')} {outside.length === 1 ? 'has' : 'have'} regular times outside the new windows. Update them in Schedules after saving.</Notice>
+        <Notice tone="warning" className="mt-4">
+          {outside.map((c, i) => (
+            <span key={c.id}>{i > 0 && ', '}{admin
+              ? <Link to={`/admin/child/${c.id}`} className="font-extrabold underline underline-offset-2">{c.preferred_name ?? c.full_name.split(' ')[0]}</Link>
+              : c.preferred_name ?? c.full_name.split(' ')[0]}</span>
+          ))}{' '}
+          {outside.length === 1 ? 'has' : 'have'} regular times outside the new windows. {admin ? 'Tap a name to update their times after saving.' : 'Update them in the list below after saving.'}
+        </Notice>
       )}
       {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
       <SheetFooter>

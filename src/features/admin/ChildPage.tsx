@@ -198,13 +198,13 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       {sheet === 'add' && <AddGuardianSheet open dir={dir} child={child} onClose={() => setSheet(null)} onSaved={(m) => void onChanged().then(() => { setSheet(null); toast(m) })} />}
       <Sheet open={sheet === 'edit'} onClose={() => setSheet(null)} title="Edit details" description="Changes show everywhere at once.">
         <div className="grid gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label="Full name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} error={editErrors.name} />
-            <TextField label="Called at school" value={edit.called} onChange={(e) => setEdit({ ...edit, called: e.target.value })} />
+          {/* Same layout as Add a child. A name the child was called before (preferred_name) is kept as it is. */}
+          <TextField label="Full name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} error={editErrors.name} />
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <DateField label="Date of birth" value={edit.dob} max={new Date().toISOString().slice(0, 10)} onChange={(dob) => setEdit({ ...edit, dob })} error={editErrors.dob} startWith="years"
+              hint={edit.dob ? formatAge(edit.dob) : undefined} />
+            <GenderChoice value={edit.gender} onChange={(g) => setEdit({ ...edit, gender: g })} />
           </div>
-          <DateField label="Date of birth" value={edit.dob} max={new Date().toISOString().slice(0, 10)} onChange={(dob) => setEdit({ ...edit, dob })} error={editErrors.dob} startWith="years"
-            hint={edit.dob ? formatAge(edit.dob) : undefined} />
-          <div className="mt-4"><GenderChoice value={edit.gender} onChange={(g) => setEdit({ ...edit, gender: g })} /></div>
           {error && <Notice tone="danger">{error}</Notice>}
         </div>
         <SheetFooter><Button size="xl" className="w-full" loading={busy} onClick={saveEdit}>Save</Button></SheetFooter>
