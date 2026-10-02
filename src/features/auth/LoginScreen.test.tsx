@@ -205,3 +205,21 @@ it('supports quick sign-in for coordinator with on-screen code', async () => {
   expect(screen.getByLabelText('6-digit code')).toHaveValue('710912')
 })
 
+it('supports quick sign-in for center leader with on-screen code', async () => {
+  auth.rpc.mockImplementation((fn: string) => {
+    if (fn === 'request_screen_otp') {
+      return Promise.resolve({ data: { ok: true, code: '102900', phone: '+919876543213', full_name: 'Lata Demo' }, error: null })
+    }
+    if (fn === 'verify_screen_otp') {
+      return Promise.resolve({ data: { ok: true, email: 'demo.leader@example.com', key: 'JumpstartGo2026!' }, error: null })
+    }
+    return Promise.resolve({ data: true, error: null })
+  })
+  const user = await open()
+  const leaderBtn = screen.getByRole('button', { name: /Leader \(Lata\)/ })
+  await user.click(leaderBtn)
+  expect(await screen.findByRole('heading', { name: 'Check WhatsApp' })).toBeInTheDocument()
+  expect(screen.getByText('102900')).toBeInTheDocument()
+  expect(screen.getByLabelText('6-digit code')).toHaveValue('102900')
+})
+

@@ -264,6 +264,13 @@ export function LoginScreen() {
                 >
                   Coordinator (Kiran)
                 </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-surface-2 px-3 py-1 text-caption font-bold text-ink-2 shadow-xs hover:bg-surface-3 transition-colors"
+                  onClick={() => { setPhone('98765 43213'); void sendCode('+919876543213') }}
+                >
+                  Leader (Lata)
+                </button>
               </div>
             </div>
           </form>
