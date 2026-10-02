@@ -5,8 +5,8 @@ Each requirement is testable. "Server" means it is enforced on the backend and d
 ## Functional
 
 ### Authentication and access (AUTH)
-- **AUTH-1** Everyday login with a registered email and a password (Supabase Auth, stored hashed; at least 8 characters, not a common password). A one-time code by email is used only for the first sign-in (then the person creates their password) and for a forgotten password (then they choose a new one, and their other devices are signed out). Normal login sends no email. Anyone signed in without a password must create one before using the app. A first-sign-in code is sent only to accounts without a password; others use Forgot password (`0034`). Code requests answer the same whether or not the email is registered. There is no public sign-up (D49). *(Server)*
-- **AUTH-2** One-time codes expire after 5 minutes; requests are rate-limited per phone number or email and per IP address; accounts lock temporarily after repeated failures. *(Server)*
+- **AUTH-1** Login is a registered mobile number and a 6-digit one-time code sent on WhatsApp (Supabase Auth makes and checks the code; a Send SMS hook delivers it through WATI). There is no email and no password. People stay signed in until they tap Sign out. Only active profiles with app access and a mobile number can sign in, and the answer to a code request is the same whether or not the number is registered (no spend on unknown numbers). There is no public sign-up (D51). *(Server)*
+- **AUTH-2** One-time codes expire after 5 minutes; requests are rate-limited per phone number and per IP address; accounts lock temporarily after repeated failures. *(Server)*
 - **AUTH-3** Sessions: parents 60 days, staff 7 days. Deactivating a user ends all their sessions immediately. *(Server)*
 - **AUTH-4** Every read and write is checked against the user's roles (the capability table in user-roles.md). A request for data outside the user's scope returns "not found" and is never exposed. *(Server)*
 - **AUTH-5** Changes to people or roles, and exports, require a login within the last 15 minutes. *(Server)*
@@ -16,7 +16,7 @@ Each requirement is testable. "Server" means it is enforced on the backend and d
 ### People and profiles (PRO)
 - **PRO-1** Only the admin adds, edits or removes parents and children, one at a time or by CSV → preview → errors per row → confirm. Uploading again updates matching records and never duplicates them. Each child has exactly one programme and one class. *(Server)*
 - **PRO-2** A child can have several guardians; a guardian can have several children.
-- **PRO-3** Parents manage saved people: name, phone, relation, and optionally a WhatsApp number (when it differs from the phone) and an email address. Phone and WhatsApp numbers are validated as Indian mobile numbers; emails are validated. No photos of third persons anywhere.
+- **PRO-3** Parents manage saved people: name, phone, relation, and optionally a WhatsApp number (when it differs from the phone). Phone and WhatsApp numbers are validated as mobile numbers (international numbers work). No photos of third persons anywhere.
 - **PRO-4** The admin assigns and removes roles; the core team can give and remove only the Coordinator role (D23). One person can hold several roles. Every change is recorded in the audit log. *(Server)*
 - **PRO-5** The core team or the admin assigns coordinators to classes; only people with the Coordinator role can have classes, and removing the role removes them; a class can have several coordinators and a coordinator several classes (D11). *(Server)*
 
@@ -35,7 +35,7 @@ Each requirement is testable. "Server" means it is enforced on the backend and d
 - **TRIP-1** Only one open trip per child per direction per day. *(Server; enforced by the database)*
 - **TRIP-2** No requests or time changes outside 08:45–19:15 India time (D6, D24); times outside the child's programme window require a reason (D19). *(Server)*
 - **TRIP-3** Trip changes follow the defined trip-state rules; any move not allowed by those rules is rejected. Every change records who, which role, when and where from. *(Server)*
-- **TRIP-4** Third-person links: at least 128 bits of randomness, stored hashed, one trip only, and can be cancelled or replaced by the parent. Opening the link changes nothing; it **locks to the phone that taps Confirm** (so WhatsApp link previews and email scanners can't lock it). It expires at 19:00 if the trip hasn't started, otherwise when the trip closes or 60 minutes after handover. *(Server)*
+- **TRIP-4** Third-person links: at least 128 bits of randomness, stored hashed, one trip only, and can be cancelled or replaced by the parent. Opening the link changes nothing; it **locks to the phone that taps Confirm** (so WhatsApp link previews can't lock it). It expires at 19:00 if the trip hasn't started, otherwise when the trip closes or 60 minutes after handover. *(Server)*
 - **TRIP-5** Handover to a third person requires the correct 4-digit code; 3 wrong attempts block the handover and alert the parent and admin. *(Server)*
 - **TRIP-6** Flagged requests that aren't acknowledged within 5 minutes are announced again and the admin is notified.
 - **TRIP-7** Alerts when something doesn't happen: third person hasn't confirmed in 10 minutes; tracking stale for 5 minutes; not closed within 30 minutes of the expected arrival; drop-off not checked in by the late threshold after the expected time (the parent is asked: running late / absent today); drop-offs still open at 14:30 and pickups still open at 19:30 (the admin is alerted). *(Server, scheduled)*
@@ -43,7 +43,7 @@ Each requirement is testable. "Server" means it is enforced on the backend and d
 - **TRIP-9** Staff can create a request on a parent's behalf; it's recorded as "entered by {staff}". Walk-in handover to a registered guardian is recorded as a walk-in.
 - **TRIP-10** Doing the same request twice (double tap, retry) never creates two trips or two changes. *(Server)*
 - **TRIP-11** Running late (D20): announced when the lower end of the live ETA range is at least the late threshold (default 10 minutes) past the scheduled time, and again for every further 10 minutes; or when the scheduled time passes by the threshold with no arrival and no live location, in which case the parent is also asked "Are you on the way?" with +10 / +20 / +30, Change and Cancel. A parent's **Running late** choice moves today's time and is announced at once. A new time that falls outside the programme window is off-schedule. *(Server, scheduled)*
-- **TRIP-12** Link delivery (D5): **Send on WhatsApp** opens WhatsApp on the parent's phone in a chat with the third person's WhatsApp number, with the message pre-filled; if an email is given, the server emails the link. The parent sees whether the email was sent or failed, and can resend or copy the link. *(Server for email)*
+- **TRIP-12** Link delivery (D5): **Send on WhatsApp** opens WhatsApp on the parent's phone in a chat with the third person's WhatsApp number, with the message pre-filled, or the parent copies the link.
 
 ### Tracking (TRK) — full detail in `docs/architecture/tracking-architecture.md`
 - **TRK-1** Location is only collected during an active trip, from the adult's phone, after they give permission.

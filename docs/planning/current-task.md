@@ -1,6 +1,6 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-09-25 (evening)
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-02
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
@@ -12,11 +12,11 @@
 
 
 ## Done in M1
-- Invite-only login enforced by the database (`0002`): profiles exist before sign-in; the first email code links the account; anyone else is refused, verified against the live Supabase project. Deactivation ends access and saved sessions.
+- Invite-only login enforced by the database (`0002`): profiles exist before sign-in; the first code links the account; anyone else is refused, verified against the live Supabase project. Deactivation ends access and saved sessions.
 - Karve Road programmes loaded (`0003`, 17 programmes from PRD §5).
 - Admin functions that save a person with roles, or a child with guardians, all-or-nothing (`0004`).
 - The core team chooses the coordinators (`0005`, D23): Core team → Coordinators and Admin → Coordinators show each class's coverage, add a coordinator with their classes, edit classes, or remove the role. The database lets the core team give only the Coordinator role. Applied to the live project.
-- App: 6-digit email-code login, consent notice for parents, a home area per role with an area switcher, admin People (children, parents, staff, classes, access on/off), the three-step programme picker (level → plan → class, suggesting the level from the age), and read-only Today pages for parents and the core team.
+- App: 6-digit code login, consent notice for parents, a home area per role with an area switcher, admin People (children, parents, staff, classes, access on/off), the three-step programme picker (level → plan → class, suggesting the level from the age), and read-only Today pages for parents and the core team.
 - Routing and ETA server function with the OpenRouteService key (`supabase/functions/route`, not yet deployed).
 - ~~Rainbow-glass design system~~ replaced (2026-09-24) by the Screen Book v3 design system across the whole app ([design-system.md](../design/design-system.md)): semantic light and dark tokens, Plus Jakarta Sans type scale, solid buttons with a lip, icons for roles and levels, shared components (tabs, fields, choices, pills, sheets with a pinned action, toasts, empty, loading and error states), an offline notice, a skip link, and safe app updates that wait for the person to tap Update. Each staff area now loads on first use. Checked on every page and sheet at 23 screen sizes in light and dark, plus the main admin, coordinator, duty and parent flows in demo mode.
 - Owner-facing explainer: https://claude.ai/artifact/AmiKrGQCV21UHzgL8jGcbu
@@ -24,7 +24,7 @@
 
 ## Done on 2026-09-25 (branch `claude/jumpstart-app-html-updates-64d27a`, not yet pushed after `cfd1569`)
 - **App is light only for now** (owner). The dark palette waits in `src/styles/tokens.css` under `:root[data-theme='dark']`.
-- **Sign-in:** invite only; email and password every day; a 6-digit email code only for the first sign-in (then create a password) and a forgotten password (D49, `0033`, `0034`: first-sign-in codes only for accounts without a password; the password step can't be skipped); the email filled in from an invitation link; every account confirms which area it signs in as.
+- **Sign-in:** invite only; a mobile number and a 6-digit code on WhatsApp, signed in until Sign out (D51, `0039`); the number filled in from an invitation link; every account confirms which area it signs in as.
 - **Announcement voice:** woman's voice by default, human-sounding voices ranked first, robotic ones hidden, a voice picker with samples in Start duty, the check screen and On duty (`sound.ts`, `VoicePicker.tsx`). Sound goes to whatever the iPad is connected to (its speaker or a Bluetooth speaker); web apps can't choose the output.
 - **Trips end to end (on 0006, already live):** parent Today with "I'm on my way", window check and reason, Running late, Change time, Cancel, and live steps (`family/ParentToday.tsx`, `trips/TripSheets.tsx`); coordinator live gate queue with announcements, Acknowledge, Ready, Hand over to a registered guardian, Check in (`duty/GateQueue.tsx`). The demo backend (`demo/demo.ts`) follows the same rules, so it all works on localhost.
 - **Migration 0007** (the owner's 15-minute rule, D24: new windows for all 17 programmes, gate day 08:45–19:15) and **0008** (location points, one-trip links for someone else with a device-bound token and a 4-digit code, handover by code with 3 tries, staff see location only until handover, 30-day purge). Both pass `LC_ALL=C TMPDIR=/tmp npm run test:db` (the long session temp path breaks the Postgres socket otherwise). **Neither is applied to the live database yet.**
@@ -44,8 +44,7 @@
 - **Layout fixes found by the sweep:** tab counts spilling out of their tab on phones, button icons pushed out of narrow buttons (parent trip card at every iPad size, pickup-link sheet, programme picker), side-by-side fields sliding out of line next to a hint or error, and time pickers cut off on the smallest phones. `scripts/qa/qa.cjs` now checks for all four: spill, off-centre icons, misaligned fields and cut-off dropdowns.
 - **Checks:** `npm test` (79), `npm run test:db` (with `zz_timings.test.sql`), `scripts/qa/classes.cjs` (18), the other browser suites (103) and `qa.cjs` (0 issues at 23 sizes).
 
-- **Invitations** (`0020`, D36): Invite on every person who hasn't signed in (People and the child page). The email always goes (`invite-send` through Brevo); WhatsApp and SMS from the admin's phone when there's a number. The app's web address is a setting. Pickup links now go by WhatsApp or SMS too. Found and fixed on the way: Settings could lose what the admin was typing when a late load arrived, and a web address without https was blocked by the browser without a message. `scripts/qa/invite.cjs` (10), `supabase/tests/zz_zz_invites.test.sql`.
-- **Sign-in and invitation emails** in the Jumpstart design with the logo: `supabase/templates/` (see environments.md).
+- **Invitations** (`0020`, D36): Invite on every person who hasn't signed in (People and the child page). The invitation goes on WhatsApp through WATI (`whatsapp-invite`), with a text message from the admin's own phone as the fallback (D51). The app's web address is a setting. Pickup links now go by WhatsApp or SMS too. Found and fixed on the way: Settings could lose what the admin was typing when a late load arrived, and a web address without https was blocked by the browser without a message. `scripts/qa/invite.cjs` (10), `supabase/tests/zz_zz_invites.test.sql`.
 
 - **Production audit** (four parallel reviews: security, location, invitations, UI): `0021` removes the core team's direct writes to programmes, attendance, regular times and holidays (they skipped the function checks), makes the collector-link rate limit actually fire, limits sign-in codes to 5 an hour per email, and adds the daily clean-up promised in the consent notice (trips 30 days, attendance this and last academic year, audit log 1 year). The map shows a clear message when it can't load; sharing stops and says so when a trip ends; a crash shows a Reload screen; faint instructional text is darker; the app is kept out of search (`robots.txt`, `X-Robots-Tag`) except the new Privacy Policy and Terms (`/privacy`, `/terms`); the security policy now lets the natural voice download (it was blocked in production); `invite-send` no longer logs Brevo's error text.
 - **Coordinator start screen** redesigned to fill iPads in both orientations, with today's numbers at the gate. **Announcements** start "New announcement." and repeats "Reminder."; an Indian English woman's voice on the iPad is preferred (names said properly), with how to download Isha when there isn't one.
@@ -62,21 +61,29 @@
 - Removed `tts-service/` and its deploy script. Privacy text and consent version updated.
 - Checks: `npm test`, `npm run test:db`, `npm run build`, `deno check`. **Not done:** Azure account (owner), choosing the voice by ear, real-iPad timings.
 
+## Done on 2026-10-02: phone and WhatsApp sign-in (D51)
+- Sign-in is a mobile number and a 6-digit code on WhatsApp, with no email and no password anywhere. Supabase Auth makes and checks the code; its Send SMS hook (`send-sms`) delivers it through WATI. People stay signed in until they tap Sign out.
+- Database `0039`: `phone_login_allowed`, phone-keyed invite-only guard, app access needs a mobile, `otp_recipient`, `app.whatsapp_log` (never a code, purged after 90 days) and `whatsapp_recent`.
+- Edge functions: `send-sms`, `whatsapp-invite`, `wati-webhook`, shared `wati.ts`. Brevo, `invite-send`, the email templates and their script are removed.
+- Plan and the owner's steps: [wati-phone-login-plan.md](wati-phone-login-plan.md). Setup: [environments.md](../infrastructure/environments.md).
+
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
 2. **Aditya Tapadia's email** (D27): invite him as the second admin in the database (the app refuses Admin by design).
 3. **Push notifications on:** follow "Turning on push notifications" in [environments.md](../infrastructure/environments.md) (VAPID keys, secrets, deploy `push-send`, `app.push_config`, pg_net and pg_cron). `push-send` hasn't been type-checked with Deno here (not installed); the CLI checks it on deploy.
-4. **Real email codes, a real iPad test (including the Azure gate voice, I've arrived, and Home Screen notifications), and publishing** (below).
+4. **WhatsApp sign-in codes (owner steps below), a real iPad test (including the Azure gate voice, I've arrived, and Home Screen notifications), and publishing** (below).
 5. **Security review done (2026-09-25):** no critical or high findings; the medium and low ones are fixed in `0017` (a collector confirms with the last 4 digits of their mobile; one phone per link even under a race; staff location cut-off by the server clock; admin lock on updates; push devices and hosts; past absences).  Rate limits on trips and time changes, logged calls and link location batches are in `0018`. Codex isn't available on this account, so there was no cross-model review.
 6. Push the branch and merge to `main`.
 
 ## Next
 1. **Owner reviews the live app** and sends changes.
-2. **Real email codes:** in Supabase, add `{{ .Token }}` to the Magic Link email, turn off public sign-ups, and connect a free SMTP sender (Brevo). The built-in sender only mails the Supabase team.
+2. **Real WhatsApp codes:** the owner's steps under "Waiting on the owner" (WATI templates, secrets, Phone provider, Send SMS hook, webhook). Sign-ups stay on; the database refuses anyone not invited.
 3. **Test on a real iPad:** Home Screen install, Start duty, the screen staying on for a full shift, and the sound check with Silent Mode on and off.
 4. **Publishing:** give the Cloudflare token Workers Scripts: Edit, then `npm run deploy:design`.
 
 ## Waiting on the owner
+- **WhatsApp sign-in setup** (paid, approved 2026-10-02): create the three WATI templates and wait for Meta to approve them; set the secrets; turn on the Phone provider and the Send SMS hook; deploy `send-sms`, `whatsapp-invite` and `wati-webhook`; add the WATI webhook. Exact steps: "Turning on WhatsApp through WATI" in [environments.md](../infrastructure/environments.md).
+- A mobile number for every staff member who needs the app (the gate tablet's account and anyone without one can't sign in until it's added).
 - What the existing "Jumpstart app" (website FAQ) is, and whether this platform replaces it.
 - A vector version of the logo (SVG, AI or PDF) if one exists. Not needed for the app; better for print later.

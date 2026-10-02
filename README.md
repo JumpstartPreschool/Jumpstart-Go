@@ -17,7 +17,7 @@ Parents say they're on the way, the gate knows who is coming, and every handover
 
 ## What it does
 
-Jumpstart is an installable web app for one school. Only people the school adds can get in. The first time, they sign in with a 6-digit code sent to their email and create a password before anything else; after that they sign in with their email and password, and a code is sent only for Forgot password.
+Jumpstart is an installable web app for one school. Only people the school adds can get in. They sign in with their mobile number and a 6-digit code sent on WhatsApp, and stay signed in until they tap Sign out.
 
 | Who | What they get |
 |---|---|
@@ -74,7 +74,7 @@ Jumpstart is an installable web app for one school. Only people the school adds 
   </tr>
   <tr>
     <td><img src="docs/images/admin-child.png" alt="A child's record with family and access"></td>
-    <td><img src="docs/images/admin-invite.png" alt="Inviting a parent by email, WhatsApp or SMS"></td>
+    <td><img src="docs/images/admin-invite.png" alt="Inviting a parent by WhatsApp or text message"></td>
   </tr>
   <tr>
     <td align="center">A child's record</td>
@@ -89,11 +89,6 @@ Jumpstart is an installable web app for one school. Only people the school adds 
     <td align="center">Front desk</td>
   </tr>
 </table>
-
-<p align="center">
-  <img src="docs/images/email-invite.png" alt="The invitation email with the logo and an Accept invitation button" width="420"><br>
-  <sub>The invitation email. Its button opens sign-in with the parent's email already filled in.</sub>
-</p>
 
 ## Principles
 
@@ -120,8 +115,8 @@ Jumpstart is an installable web app for one school. Only people the school adds 
 | Part | What it uses |
 |---|---|
 | App | React 19, TypeScript, Vite, Tailwind CSS 4, React Router 7, installable through `vite-plugin-pwa` |
-| Backend | Supabase: Postgres with row-level security, Auth (password, with an email code for a first sign-in or a reset), Realtime, Storage, Edge Functions (Deno) |
-| Email | Brevo: SMTP for sign-in codes, API for invitations (`invite-send`) |
+| Backend | Supabase: Postgres with row-level security, Auth (mobile number and a one-time code), Realtime, Storage, Edge Functions (Deno) |
+| WhatsApp | WATI: sign-in codes (through Supabase's Send SMS hook, `send-sms`) and invitations (`whatsapp-invite`); delivery status comes back through `wati-webhook` |
 | Voice | Azure AI Speech behind a `TTSProvider` interface, through the `pronounce` Edge Function (the key never reaches the browser); [voice-architecture.md](docs/architecture/voice-architecture.md) |
 | Hosting | Cloudflare Workers static assets |
 
@@ -139,13 +134,13 @@ cp .env.example .env.local   # the Supabase URL and publishable key
 npm run dev
 ```
 
-Migrations live in `supabase/migrations` (0001 to 0036). Apply them with:
+Migrations live in `supabase/migrations` (0001 to 0039). Apply them with:
 
 ```bash
 npx supabase db push
 ```
 
-Secrets for the edge functions (Brevo; Azure AI Speech for the gate voice: `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`; the app's address) and the email templates are set up as described in [environments.md](docs/infrastructure/environments.md). Keys are function secrets only, never in the app.
+Secrets for the edge functions (WATI: `WATI_API_TOKEN`, the template names, `SEND_SMS_HOOK_SECRET`, `WATI_WEBHOOK_SECRET`; Azure AI Speech for the gate voice: `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`; the app's address), the Phone sign-in setting and the Send SMS hook are set up as described in [environments.md](docs/infrastructure/environments.md). Keys are function secrets only, never in the app.
 
 ## Scripts
 
@@ -156,7 +151,6 @@ Secrets for the edge functions (Brevo; Azure AI Speech for the gate voice: `AZUR
 | `npm test` | Runs the unit tests (Vitest) |
 | `npm run test:db` | Runs the SQL tests against a throwaway local Postgres |
 | `npm run deploy` | Builds and publishes to Cloudflare |
-| `node scripts/email-templates.ts` | Writes the sign-in email templates in `supabase/templates` |
 | `node scripts/qa/width.cjs` | Checks no page is wider than a phone, with animations running |
 | `/scripts/qa/voice-lag/` (on `npm run dev`) | Plays real gate announcements and reports how soon the voice starts after the chime (p50, p95) |
 

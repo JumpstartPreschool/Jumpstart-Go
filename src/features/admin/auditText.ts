@@ -65,10 +65,10 @@ export function describe(r: AuditRow, n: Names): { what: string; detail?: string
       if (changed(r, 'programme_id')) return { what: `Moved ${row.full_name} to ${n.programme(row.programme_id)}` }
       return { what: `Edited ${row.full_name}'s details` }
     case 'profiles':
-      if (r.action === 'insert') return { what: `Added ${row.full_name}`, detail: row.app_access === false ? 'Contact only, without the app' : row.email ? `Invitation to ${row.email}` : undefined }
+      if (r.action === 'insert') return { what: `Added ${row.full_name}`, detail: row.app_access === false ? 'Contact only, without the app' : 'Signs in with their mobile' }
       if (changed(r, 'app_access')) return { what: `Turned ${row.app_access ? 'on' : 'off'} app access for ${row.full_name}`, detail: row.app_access ? undefined : 'Signed out everywhere' }
       if (changed(r, 'active')) return { what: `Turned ${row.active ? 'on' : 'off'} access for ${row.full_name}`, detail: row.active ? undefined : 'Signed out everywhere' }
-      if (changed(r, 'invited_at')) return { what: `Invited ${row.full_name} by ${row.invited_via === 'sms' ? 'text message' : row.invited_via === 'whatsapp' ? 'WhatsApp' : 'email'}` }
+      if (changed(r, 'invited_at')) return { what: `Invited ${row.full_name} ${row.invited_via === 'sms' ? 'by text message' : 'on WhatsApp'}` }
       if (changed(r, 'consent_version')) return { what: `${row.full_name} agreed to the privacy notice` }
       if (changed(r, 'user_id')) return null // first sign-in links the account: not a change anyone made
       return { what: `Edited ${row.full_name}'s details` }

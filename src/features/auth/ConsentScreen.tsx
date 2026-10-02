@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, Clock, Eye, Lock, MapPin, ShieldCheck, Users } from '../../ui/icons'
+import { ChevronDown, Clock, Eye, Globe, Lock, MapPin, ShieldCheck, Users } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
 import { Notice } from '../../ui/States'
@@ -60,7 +60,10 @@ export function ConsentScreen() {
             You, your family and the school never share or see your location. If you send someone else to collect with a one-time link, they can choose to share where they are on the way, and only you see it. A child's location is never tracked.
           </Point>
           <Point icon={<Eye />} title="Who can see it" gist="You see your children; staff see what the gate needs.">
-            You see your own children. School staff see what they need to run the gate and keep records, but never anyone's location. Gate announcements, names included, are made on the school's own computer; no outside voice service hears them.
+            You see your own children. School staff see what they need to run the gate and keep records, but never anyone's location. Gate announcements are covered under "Who helps us" below.
+          </Point>
+          <Point icon={<Globe />} title="Who helps us" gist="WhatsApp for sign-in codes, Microsoft for the gate voice.">
+            Sign-in codes are sent to your mobile number on WhatsApp through WATI, which receives your number and the code. Gate announcements are spoken by Microsoft Azure AI Speech, which receives only the words of each announcement: the child's name and who is coming. Neither is given anything else.
           </Point>
           <Point icon={<Clock />} title="How long we keep it" gist="Trips 30 days, attendance two years.">
             Trip records and routes for 30 days; attendance for this and last academic year; a log of sensitive actions for one year.

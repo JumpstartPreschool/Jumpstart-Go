@@ -18,7 +18,7 @@ import { explainDbError, loadDirectory, type ClassRow, type Directory, type Prof
 import { StaffSheet } from '../admin/StaffSheet'
 import { GATE_ROLES, gateRolesOf, loadCoordinators, removeCoordinator, setCoordinator, type CoordinatorData, type GateRole } from './api'
 
-const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'
+const contact = (p: Profile) => p.phone ? formatMobile(p.phone) : 'No contact details'
 const firstName = (p: Profile) => p.full_name.split(' ')[0]
 const roleNames = (roles: readonly GateRole[]) => roles.map((r) => ROLE[r].name.toLowerCase()).join(' and ')
 
@@ -268,7 +268,7 @@ function AddMember({ data, area, onDone, onNew }: { data: CoordinatorData; area:
   const q = query.trim().toLowerCase()
   const candidates = data.people
     .filter((p) => p.active && gateRolesOf(data.roles.get(p.id)).length === 0)
-    .filter((p) => !q || [p.full_name, p.email, p.phone].some((v) => v?.toLowerCase().includes(q)))
+    .filter((p) => !q || [p.full_name, p.phone].some((v) => v?.toLowerCase().includes(q)))
     // Staff first: they are the usual choice; parents are listed after them.
     .sort((a, b) => Number(!data.roles.get(a.id)?.length) - Number(!data.roles.get(b.id)?.length))
 
@@ -309,7 +309,7 @@ function AddMember({ data, area, onDone, onNew }: { data: CoordinatorData; area:
           <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden><UserPlus /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-h4">Add someone new</span>
-            <span className="block text-small font-semibold text-ink-2">Their name, email, role and classes. They get an invitation.</span>
+            <span className="block text-small font-semibold text-ink-2">Their name, mobile, role and classes. They get an invitation.</span>
           </span>
           <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
         </button>
@@ -317,7 +317,7 @@ function AddMember({ data, area, onDone, onNew }: { data: CoordinatorData; area:
       <p className={`text-body text-ink-2 ${onNew ? 'mt-5' : ''}`}>
         {onNew ? 'Or choose someone already at the school.' : 'Choose someone the admin has already added.'} {area === 'core' && 'The head office can give the two gate roles; only the admin gives Admin or Head office.'}
       </p>
-      <SearchField label="Search people" className="mt-4" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, email or phone" autoFocus />
+      <SearchField label="Search people" className="mt-4" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone" autoFocus />
       {candidates.length === 0 ? (
         <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : (onNew ? 'Everyone here is already on the gate team. Use Add someone new above.' : 'Everyone registered is already on the gate team. The admin adds new staff in People.')}</p>
       ) : (

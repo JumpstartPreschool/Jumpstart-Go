@@ -3,7 +3,7 @@ import type { InviteDetails } from '../../../supabase/functions/_shared/invite.t
 import type { StaffRole } from '../auth/session'
 
 /** A person on the school's records. `active`: on the record; `app_access`: can sign in (0012). */
-export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'email' | 'sms' | 'whatsapp' | null }
+export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'sms' | 'whatsapp' | null }
 export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string | null; class_id: string; programme_id: string; active: boolean; gender?: 'boy' | 'girl' | null }
 export type GuardianKind = 'parent' | 'family'
 export interface Guardianship { child_id: string; guardian_id: string; relation: string; kind: GuardianKind }
@@ -41,7 +41,7 @@ export interface Directory {
 /** Friendly text for the errors people can actually cause; everything else is a connection problem. */
 export function explainDbError(e: { code?: string; message?: string } | null): string {
   if (!e) return ''
-  if (e.code === '23505') return 'Someone with this email or phone number is already registered. Use Link someone already here.'
+  if (e.code === '23505') return 'Someone with this mobile number is already registered. Use Link someone already here.'
   if (e.code === '42501' && e.message?.startsWith('admin_locked')) return e.message.replace(/^[a-z_]+: /, '')
   if (e.code === '42501') return "You don't have permission to do that."
   if (e.code === '23514' || e.code === 'P0001') return e.message?.replace(/^[a-z_]+: /, '') ?? 'Please check the details.'
@@ -78,8 +78,8 @@ export async function loadDirectory(): Promise<Directory> {
 }
 
 /** A staff member with their roles (never Admin: D27). Returns their profile id. */
-export async function addPerson(input: { fullName: string; email: string | null; phone: string | null; roles: StaffRole[] }): Promise<string> {
-  const { data, error } = await supabase.rpc('admin_add_person', { p_full_name: input.fullName, p_email: input.email, p_phone: input.phone, p_roles: input.roles })
+export async function addPerson(input: { fullName: string; phone: string; roles: StaffRole[] }): Promise<string> {
+  const { data, error } = await supabase.rpc('admin_add_person', { p_full_name: input.fullName, p_email: null, p_phone: input.phone, p_roles: input.roles })
   if (error) throw error
   return data as string
 }
@@ -87,7 +87,7 @@ export async function addPerson(input: { fullName: string; email: string | null;
 /** Someone new on a child's record, or someone already here ({ id }). */
 export type PersonInput =
   | { id: string; relation: string; kind: GuardianKind }
-  | { full_name: string; email: string | null; phone: string | null; abroad: boolean; app_access: boolean; relation: string; kind: GuardianKind }
+  | { full_name: string; phone: string | null; abroad: boolean; app_access: boolean; relation: string; kind: GuardianKind }
 
 /** A child with everyone on their record, saved together or not at all (0012). Returns the child's id. */
 export async function saveChild(child: { full_name: string; preferred_name: string; date_of_birth: string; programme_id: string; gender?: 'boy' | 'girl' | null }, people: PersonInput[]): Promise<string> {
@@ -102,8 +102,8 @@ export async function addGuardian(childId: string, person: PersonInput): Promise
 }
 
 /** The last parent or relative can't be removed (the database refuses). */
-/** The admin changes someone's details (0029); with a child, also how they're related. A new email moves their sign-in. */
-export async function updatePerson(profileId: string, childId: string | null, person: { full_name: string; email: string | null; phone: string | null; abroad?: boolean; app_access: boolean; relation?: string; kind?: 'parent' | 'family' }): Promise<void> {
+/** The admin changes someone's details (0029); with a child, also how they're related. A new mobile moves their sign-in. */
+export async function updatePerson(profileId: string, childId: string | null, person: { full_name: string; email?: string | null; phone: string | null; abroad?: boolean; app_access: boolean; relation?: string; kind?: 'parent' | 'family' }): Promise<void> {
   const { error } = await supabase.rpc('admin_update_person', { p_profile: profileId, p_child: childId, p_person: person })
   if (error) throw error
 }
@@ -134,35 +134,46 @@ export async function setPersonActive(profileId: string, active: boolean) {
   if (error) throw error
 }
 
-/** Invitations (0020, D36): what to say, the email (invite-send), and a record of a text or WhatsApp sent from the admin's phone. */
+/** Invitations (0020, D36): what to say, the WhatsApp message (whatsapp-invite), and a record of a text sent from the admin's phone. */
 export async function inviteDetails(profile: string): Promise<InviteDetails> {
   const { data, error } = await supabase.rpc('invite_details', { p_profile: profile })
   if (error) throw error
   return data as InviteDetails
 }
-export async function sendInviteEmail(profile: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('invite-send', { body: { profile } })
-  if (!error) return
-  // The function answers with a sentence for the admin; a network failure has none.
+/** The function answers with a sentence for the admin; a network failure has none. */
+async function functionError(error: unknown): Promise<{ status?: number; message?: string }> {
   const res = (error as { context?: Response }).context
   const body = await res?.json?.().catch(() => null)
-  const fallback = res?.status === 404 ? "Email invitations aren't set up yet. Send it by WhatsApp or SMS for now." : "The email couldn't be sent. Check your connection and try again."
-  throw { code: 'P0001', message: body?.error ?? fallback }
+  return { status: res?.status, message: typeof body?.error === 'string' ? body.error : undefined }
 }
-/** Settings → Check email setup: whether Brevo accepts the key and the sender, without sending anything. */
-export interface EmailSetup { key?: 'ok' | 'missing' | 'refused'; sender?: 'verified' | 'not_verified' | 'missing'; emailsLeft?: number | null; message?: string; detail?: string; error?: string }
-export async function checkEmailSetup(): Promise<EmailSetup> {
-  const { data, error } = await supabase.functions.invoke('invite-send', { body: { check: true } })
-  if (!error) return data as EmailSetup
-  const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
-  return { error: (body as EmailSetup | null)?.error ?? "Couldn't reach the email service. Check your connection and try again." }
+/** Sends the invitation on WhatsApp from the school's number. Resolves with the number it went to. */
+export async function sendInviteWhatsApp(profile: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-invite', { body: { profile_id: profile } })
+  if (!error) return (data as { phone: string }).phone
+  const { status, message } = await functionError(error)
+  const fallback = status === 404 ? "WhatsApp invitations aren't set up yet. Send it by text message for now." : "The WhatsApp message couldn't be sent. Check your connection and try again."
+  throw { code: 'P0001', message: message ?? fallback }
+}
+/** Settings → Check WhatsApp setup: whether WATI accepts the token and each template is approved, without sending anything. */
+export type TemplateStatus = 'APPROVED' | 'PENDING' | 'REJECTED' | 'missing'
+export interface WhatsAppSetup {
+  token?: 'ok' | 'missing' | 'rejected' | 'unreachable'
+  templates?: Array<{ key: string; name: string; status: TemplateStatus }>
+  recent?: { sent_7d: number; delivered_7d: number; failed_7d: number; last_failure_at: string | null; last_failure_kind: string | null }
+  message?: string
+  error?: string
+}
+export async function checkWhatsAppSetup(): Promise<WhatsAppSetup> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-invite', { body: { check: true } })
+  if (!error) return data as WhatsAppSetup
+  return { error: (await functionError(error)).message ?? "Couldn't reach the WhatsApp service. Check your connection and try again." }
 }
 export async function markInvited(profile: string, via: 'sms' | 'whatsapp'): Promise<void> {
   const { error } = await supabase.rpc('mark_invited', { p_profile: profile, p_via: via })
   if (error) throw error
 }
 
-/** Bulk upload (0022): one child and their family; people already on record are matched by email or mobile. */
+/** Bulk upload (0022): one child and their family; people already on record are matched by mobile. */
 export async function importChild(child: { full_name: string; preferred_name: string | null; date_of_birth: string | null; programme_id: string; gender: 'boy' | 'girl' | null }, people: unknown[]): Promise<string> {
   const { data, error } = await supabase.rpc('import_child', { p_child: child, p_people: people })
   if (error) throw error

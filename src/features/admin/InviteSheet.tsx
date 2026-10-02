@@ -1,26 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { CircleCheck, Mail, MessageCircle, MessageSquareText, Settings } from '../../ui/icons'
+import { CircleCheck, MessageCircle, MessageSquareText, Settings } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Sheet } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { formatMobile, smsUrl, whatsappUrl } from '../../domain/contact'
+import { formatMobile, smsUrl } from '../../domain/contact'
 import { firstName, inviteText, type InviteDetails } from '../../../supabase/functions/_shared/invite.ts'
-import { explainDbError, inviteDetails, markInvited, sendInviteEmail, type Profile } from './api'
+import { explainDbError, inviteDetails, markInvited, sendInviteWhatsApp, type Profile } from './api'
 
 type Load = { state: 'loading' } | { state: 'ready'; d: InviteDetails } | { state: 'error'; message: string; setup: boolean }
 
-/** "Invited 25 Sep by email", or nothing when they haven't been. */
+/** "Invited 25 Sep on WhatsApp", or nothing when they haven't been. */
 export function invitedLine(p: Profile): string | null {
   if (!p.invited_at) return null
   const when = new Date(p.invited_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })
-  return `Invited ${when} by ${p.invited_via === 'sms' ? 'text' : p.invited_via === 'whatsapp' ? 'WhatsApp' : 'email'}`
+  return `Invited ${when} ${p.invited_via === 'sms' ? 'by text' : 'on WhatsApp'}`
 }
 
 /**
- * Invites someone the school added (D36). The email always goes: everyone with app access has one, and it's the channel
- * the app can confirm. With a mobile number, the admin can also send it by WhatsApp or text from their own phone (free).
+ * Invites someone the school added (D36). The invitation goes on WhatsApp from the school's number, to the mobile they
+ * sign in with. If WhatsApp can't deliver it, the admin can send the same words by text from their own phone.
  */
 export function InviteSheet({ person, onClose, onDone }: { person: Profile; onClose: () => void; onDone: () => void }) {
   const toast = useToast()
@@ -37,14 +37,13 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
     )
   }, [person.id])
 
-  async function email() {
+  async function whatsapp() {
     setSending(true)
     setError(null)
     try {
-      await sendInviteEmail(person.id)
-      const to = load.state === 'ready' ? load.d.email : person.email
+      const to = await sendInviteWhatsApp(person.id)
       setSent(to)
-      toast(`Invitation emailed to ${to}.`)
+      toast(`Invitation sent to ${formatMobile(to.startsWith('+') ? to : `+${to}`)} on WhatsApp.`)
       onDone()
     } catch (e) {
       setError(explainDbError(e as { code?: string; message?: string }))
@@ -56,15 +55,15 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
   // Opening the phone's app is all the web can do; the admin presses send there, so it's recorded as handed over.
   // A second tap within a few seconds opens the app again but isn't recorded twice.
   const lastPhoneTap = useRef(0)
-  function phone(via: 'sms' | 'whatsapp') {
+  function phone() {
     if (Date.now() - lastPhoneTap.current < 5000) return
     lastPhoneTap.current = Date.now()
-    markInvited(person.id, via).then(onDone, (e: { code?: string; message?: string }) => toast(explainDbError(e)))
+    markInvited(person.id, 'sms').then(onDone, (e: { code?: string; message?: string }) => toast(explainDbError(e)))
   }
   const already = invitedLine(person)
 
   return (
-    <Sheet open onClose={onClose} title={`Invite ${first}`} description="The first time, they confirm their email with a 6-digit code and create a password.">
+    <Sheet open onClose={onClose} title={`Invite ${first}`} description="They sign in with their mobile number and a 6-digit code we send on WhatsApp.">
       {load.state === 'loading' && <div className="h-40 animate-pulse rounded-xl bg-sunken" aria-label="Loading" />}
       {load.state === 'error' && (
         <Notice tone={load.setup ? 'warning' : 'danger'}>
@@ -75,7 +74,6 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
       {load.state === 'ready' && (() => {
         const d = load.d
         const text = inviteText(d)
-        const whatsapp = inviteText(d, 'whatsapp')
         return (
           <div className="grid gap-4">
             {already && !sent && <Notice>{already}. {first} hasn't signed in yet, so you can send it again.</Notice>}
@@ -84,32 +82,25 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
               <p className="whitespace-pre-line text-small font-semibold text-ink">{text}</p>
             </div>
             {sent
-              ? <Notice tone="success" icon={<CircleCheck aria-hidden />}>{`Emailed to ${sent}. It can take a minute to arrive; ask ${first} to check their spam folder if it doesn't.`}</Notice>
+              ? <Notice tone="success" icon={<CircleCheck aria-hidden />}>{`Sent on WhatsApp to ${formatMobile(d.phone ?? '')}. ${first} can open the link and sign in with the code that arrives.`}</Notice>
               : (
                 <div className="grid gap-2.5">
                   <p className="flex min-w-0 items-center gap-2 px-0.5 text-small font-semibold text-ink-2">
                     <span className="shrink-0">Sends to</span>
-                    <b className="min-w-0 truncate text-ink" title={d.email ?? undefined}>{d.email}</b>
+                    <b className="min-w-0 truncate text-ink">{formatMobile(d.phone ?? '')}</b>
                   </p>
-                  <Button size="xl" className="w-full" icon={<Mail />} loading={sending} onClick={() => void email()}>Email the invitation</Button>
+                  <Button size="xl" className="w-full" icon={<MessageCircle />} loading={sending} onClick={() => void whatsapp()}>Send on WhatsApp</Button>
                 </div>
               )}
             {error && <Notice tone="danger">{error}</Notice>}
-            {d.phone ? (
+            {d.phone && (
               <div className="grid gap-2.5">
-                <p className="kicker">Also send it from your phone, free</p>
-                <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-44">
-                  <a className="btn btn--secondary btn--lg" href={whatsappUrl(d.phone, whatsapp)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(d.phone)}`} onClick={() => phone('whatsapp')}>
-                    <MessageCircle aria-hidden />WhatsApp
-                  </a>
-                  <a className="btn btn--secondary btn--lg" href={smsUrl(d.phone, text)} aria-label={`Send by text message to ${formatMobile(d.phone)}`} onClick={() => phone('sms')}>
-                    <MessageSquareText aria-hidden />SMS
-                  </a>
-                </div>
+                <p className="kicker">Also send it by SMS from your phone</p>
+                <a className="btn btn--secondary btn--lg w-full" href={smsUrl(d.phone, text)} aria-label={`Send by text message to ${formatMobile(d.phone)}`} onClick={phone}>
+                  <MessageSquareText aria-hidden />SMS
+                </a>
                 <p className="text-caption font-semibold text-ink-2">Opens a message to {formatMobile(d.phone)}, ready to send.</p>
               </div>
-            ) : (
-              <p className="text-small font-semibold text-ink-2">There's no mobile number on {first}'s record, so the invitation goes by email.</p>
             )}
           </div>
         )

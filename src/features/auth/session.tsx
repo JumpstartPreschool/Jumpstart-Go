@@ -14,8 +14,8 @@ export interface Me {
   consent_version: string | null
   roles: StaffRole[]
   children: number
-  /** Whether they've set a password (0033). Missing before that migration, null when the database can't tell. */
-  has_password?: boolean | null
+  /** The mobile number they sign in with, as stored (+ and the country code). */
+  phone?: string | null
 }
 
 const CHOOSE_KEY = 'jumpstart.chooseArea'
@@ -26,27 +26,9 @@ export const chooseArea = {
   done() { try { sessionStorage.removeItem(CHOOSE_KEY) } catch { /* nothing to clear */ } },
 }
 
-const PASSWORD_KEY = 'jumpstart.passwordStep'
-/**
- * Set just before an email code is checked: 'first' asks for a password when the account has none, 'reset' always
- * asks for a new one. Per tab, so a refresh mid-step still asks, and nothing sensitive is stored.
- */
-export const passwordStep = {
-  ask(intent: 'first' | 'reset') { try { sessionStorage.setItem(PASSWORD_KEY, intent) } catch { /* storage blocked: no prompt */ } },
-  pending(): 'first' | 'reset' | null {
-    try {
-      const v = sessionStorage.getItem(PASSWORD_KEY)
-      return v === 'first' || v === 'reset' ? v : null
-    } catch { return null }
-  },
-  done() { try { sessionStorage.removeItem(PASSWORD_KEY) } catch { /* nothing to clear */ } },
-}
-
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
-// Raised when what parents agree to changes, so everyone is asked again: gate announcements, names included, are now
-// made by Microsoft Azure AI Speech (D50).
 // Must be a plain YYYY-MM-DD date: public.accept_consent rejects anything else, and parents would be stuck here.
-export const CONSENT_VERSION = '2026-09-29'
+export const CONSENT_VERSION = '2026-10-02'
 
 /** The areas a person may open, most senior first (their home is the first one). */
 export function areasFor(me: Me): Area[] {
@@ -73,9 +55,12 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null)
 
-/** The database refused the sign-in pass (expired or not valid), as opposed to the network failing. */
+/**
+ * The database refused the sign-in pass (expired or not valid), as opposed to the network failing or some other error.
+ * The words must be about the pass itself: an unrelated message that merely mentions a "token" must not end a session.
+ */
 export const isAuthError = (e: { code?: string; message?: string; status?: number } | null | undefined) =>
-  !!e && (e.code === 'PGRST301' || e.code === 'PGRST303' || e.status === 401 || /jwt|token/i.test(e.message ?? ''))
+  !!e && (e.code === 'PGRST301' || e.code === 'PGRST303' || e.status === 401 || /\bjwt\b|refresh[ _]token/i.test(e.message ?? ''))
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 // A phone waking up needs a moment for Wi-Fi or data; three tries over about 3 s ride out that gap.
@@ -83,7 +68,8 @@ const RETRY_MS = [0, 800, 2500]
 
 /**
  * Who is signed in, sturdily. An expired pass (a phone or iPad reopened after an hour) is renewed and asked again; a
- * network blip is retried; a pass that can't be renewed any more (signed out elsewhere) means signed out, not an error.
+ * network blip is retried. The person stays signed in until they tap Sign out, or the server refuses to renew the pass
+ * (signed out elsewhere), which means signed out, not an error.
  */
 async function whoami(): Promise<{ me: Me | null; error: string | null; ended: boolean }> {
   let error: string | null = null
@@ -146,7 +132,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [load])
 
   const signOut = useCallback(async () => {
-    passwordStep.done()
     chooseArea.done()
     await supabase.auth.signOut()
     setState({ status: 'signed-out' })

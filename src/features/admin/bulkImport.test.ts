@@ -66,7 +66,7 @@ describe('bulk upload: understanding rows', () => {
     const row = (over: Partial<Record<string, string>>) => header.map((h) => over[h] ?? '')
     const { rows, missing } = checkRows([
       header,
-      row({ 'Child full name': 'Aarav  Kulkarni', 'Date of birth': '04/03/2022', 'Boy or girl': 'M', Programme: 'nursery 360', 'Parent 1 name': 'Priya Kulkarni', 'Parent 1 relation': 'Mother', 'Parent 1 mobile': '98765 43210', 'Parent 1 email': 'Priya@Example.com', 'Family member name': 'Suresh Kulkarni', 'Family member mobile': '98765 43212' }),
+      row({ 'Child full name': 'Aarav  Kulkarni', 'Date of birth': '04/03/2022', 'Boy or girl': 'M', Programme: 'nursery 360', 'Parent 1 name': 'Priya Kulkarni', 'Parent 1 relation': 'Mother', 'Parent 1 mobile': '98765 43210', 'Family member name': 'Suresh Kulkarni', 'Family member mobile': '98765 43212' }),
       row({ 'Child full name': 'Aarav Kulkarni', 'Date of birth': '04/03/2022', Programme: 'nursery 360', 'Parent 1 name': 'P K', 'Parent 1 mobile': '12345' }),
       row({}),
       row({ 'Child full name': 'Zoya', 'Boy or girl': 'maybe', 'Date of birth': '01/01/2030', Programme: 'Sr KG', 'Child contact number': '98765 00000', 'Parent 1 name': 'Sana Khan' }),
@@ -77,8 +77,8 @@ describe('bulk upload: understanding rows', () => {
     expect(ok.problems).toEqual([])
     expect(ok.child).toEqual({ full_name: 'Aarav Kulkarni', preferred_name: null, date_of_birth: '2022-03-04', programme_id: 'n360', gender: 'boy' })
     expect(ok.people).toEqual([
-      { full_name: 'Priya Kulkarni', relation: 'Mother', kind: 'parent', email: 'priya@example.com', phone: '+919876543210', app_access: true },
-      { full_name: 'Suresh Kulkarni', relation: 'Family', kind: 'family', email: null, phone: '+919876543212', app_access: false },
+      { full_name: 'Priya Kulkarni', relation: 'Mother', kind: 'parent', phone: '+919876543210', app_access: true },
+      { full_name: 'Suresh Kulkarni', relation: 'Family', kind: 'family', phone: '+919876543212', app_access: true },
     ])
     expect(dup.line).toBe(3)
     expect(dup.problems).toContain('The same child is on row 2.')
@@ -109,7 +109,7 @@ describe('bulk upload: understanding rows', () => {
     expect(row!.child).toMatchObject({ full_name: 'Ira Joshi', date_of_birth: null, programme_id: 'n360' })
     expect(row!.warnings).toEqual(["No date of birth. Add it later on the child's page."])
     // Nobody the school can reach: that row waits.
-    expect(noContact!.problems).toEqual(['A parent with a mobile or email is needed, so the school can reach the family.'])
+    expect(noContact!.problems).toEqual(['A parent with a mobile is needed, so the school can reach the family.'])
   })
 
   it('offers a template that reads back cleanly', () => {

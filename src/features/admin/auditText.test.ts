@@ -15,7 +15,8 @@ group('the audit log in words', () => {
   it('says who changed access, and skips the first sign-in link', () => {
     expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', app_access: true }, { full_name: 'Neha Shah', app_access: false }), names)).toEqual({ what: 'Turned off app access for Neha Shah', detail: 'Signed out everywhere' })
     expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', user_id: null }, { full_name: 'Neha Shah', user_id: 'u' }), names)).toBeNull()
-    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'whatsapp' }), names)?.what).toBe('Invited Neha Shah by WhatsApp')
+    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'whatsapp' }), names)?.what).toBe('Invited Neha Shah on WhatsApp')
+    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'sms' }), names)?.what).toBe('Invited Neha Shah by text message')
   })
   it('names roles and classes the school way', () => {
     expect(describe(row('staff_roles', 'insert', null, { profile_id: 'p1', role: 'pro' }), names)?.what).toBe('Sunita Pawar is now Front desk')

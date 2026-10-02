@@ -679,8 +679,8 @@
     .duty-actions .lux__icon svg, .duty-actions .endduty svg { width: 18px; height: 18px; }
   }
 
-  /* The sign-in code step: the address the code went to, as a pill with Change built in (src/features/auth/LoginScreen.tsx). */
-  .email-chip {
+  /* The sign-in code step: the number the code went to, as a pill with Change built in (src/features/auth/LoginScreen.tsx). */
+  .phone-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -695,8 +695,8 @@
     color: var(--ink);
     transition: background-color var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
   }
-  .email-chip__mail { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
-  .email-chip__edit {
+  .phone-chip__icon { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
+  .phone-chip__edit {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -710,10 +710,10 @@
     font-weight: 750;
     box-shadow: 0 4px 10px -6px rgb(22 25 58 / 0.3), inset 0 0 0 1px var(--line-2);
   }
-  .email-chip__edit svg { width: 15px; height: 15px; }
-  @media (hover: hover) { .email-chip:hover { background: var(--sunken-hover); } }
-  .email-chip:active { transform: scale(0.98); }
-  .email-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .phone-chip__edit svg { width: 15px; height: 15px; }
+  @media (hover: hover) { .phone-chip:hover { background: var(--sunken-hover); } }
+  .phone-chip:active { transform: scale(0.98); }
+  .phone-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
   /* The signed-in person's button in the top bar: the same frosted glass as the buttons, the initials inset inside it. */
   .account-pill {
     background: rgb(255 255 255 / 0.9);
@@ -723,7 +723,7 @@
   @media (hover: hover) { .account-pill:hover { background: #fff; } }
   .account-pill:active { transform: scale(0.97); }
   :root[data-theme='dark'] .account-pill { background: rgb(32 37 74 / 0.62); box-shadow: 0 8px 18px -10px rgb(0 0 0 / 0.6), inset 0 0 0 1px var(--line-2); }
-  /* A text-only action inside a card ("Change email"). */
+  /* A text-only action inside a card ("Change number"). */
   .linkbtn {
     min-height: 44px;
     padding-inline: 8px;
@@ -900,23 +900,7 @@
   .input__value:focus-visible { outline: 0; }
   .input input::placeholder { color: var(--ink-3); font-weight: 500; }
   .input--sm { height: 44px; }
-  /* Show/Hide inside a password field (PasswordField): a 44 pt target flush with the field's right edge. */
-  .input--reveal { padding-right: 4px; }
-  .input__reveal {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-sm);
-    color: var(--ink-2);
-    transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
-  }
-  .input__reveal svg { width: 20px; height: 20px; }
-  @media (hover: hover) { .input__reveal:hover { background: var(--sunken); color: var(--ink); } }
-  .input__reveal:active { background: color-mix(in oklab, var(--ink) 10%, transparent); }
-  .input__reveal:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -2px; }
-  /* The emailed 6-digit code: one real input, large spaced digits, so it can be typed, pasted, selected and filled. */
+  /* The 6-digit code from WhatsApp: one real input, large spaced digits, so it can be typed, pasted, selected and filled. */
   .code-input {
     width: 100%;
     height: 68px;

@@ -46,7 +46,7 @@ export async function startImport(file: string, header: string[], rows: ImportRo
     } catch (e) {
       const err = e as { code?: string; message?: string }
       failed.set(r.line, err.code === '23505'
-        ? 'An email or mobile on this row belongs to someone whose access is turned off. Turn them back on in People, or use another number.'
+        ? 'A mobile on this row belongs to someone whose access is turned off. Turn them back on in People, or use another number.'
         : explainDbError(err))
     }
     set({ ...job!, done: job!.done + 1, added, failed })

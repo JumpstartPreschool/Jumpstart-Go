@@ -23,7 +23,7 @@ function icon(file: string, name: string) {
 }
 
 // Controls, not pictures: arrows, chevrons, close, backspace, sign out and the search glass stay thin line glyphs, like system UI.
-export { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Delete, Eye as EyeLine, EyeOff as EyeOffLine, LoaderCircle, LockKeyhole as LockLine, LogOut, Mail as MailLine, MailCheck, PencilLine, Play as PlayLine, Power as PowerLine, Search, X } from 'lucide-react'
+export { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Delete, LoaderCircle, LogOut, PencilLine, Play as PlayLine, Power as PowerLine, Search, X } from 'lucide-react'
 
 export const AudioLines = icon('mic', 'AudioLines')
 export const Baby = icon('person-heart', 'Baby')

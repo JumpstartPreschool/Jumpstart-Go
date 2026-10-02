@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
+import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -8,7 +8,7 @@ import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { Switch } from '../../ui/Switch'
 import { childColor } from '../../ui/childColor'
-import { normalizeEmail } from '../../domain/contact'
+import { formatMobile, normalizeMobile } from '../../domain/contact'
 import { addGuardian, explainDbError, saveChild, updatePerson, type Child, type Directory, type Profile } from './api'
 import { blankPerson, kindOf, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
 import { formatAge, levelOf, suggestedLevel } from './programmeCatalogue'
@@ -86,7 +86,9 @@ export function RelationPicker({ open, onClose, childName, initial, onUse }: { o
 
 type Errors = Record<string, string>
 
-/** One parent or relative: name, email, mobile, app access, and "lives outside India" for parents. */
+const phoneOf = (typed: string) => (typed.trim() ? normalizeMobile(typed) : null)
+
+/** One parent or relative: name, mobile, app access, and "lives outside India" for parents. */
 function PersonCard({ p, i, errors, onChange, onRemove, onRelation }: {
   p: PersonDraft; i: number; errors: Errors; onChange: (p: PersonDraft) => void; onRemove?: () => void; onRelation: () => void
 }) {
@@ -112,15 +114,13 @@ function PersonCard({ p, i, errors, onChange, onRemove, onRelation }: {
       {!p.linkedId && (
         <>
           <TextField label="Full name" value={p.name} onChange={(e) => onChange({ ...p, name: e.target.value })} placeholder={parent ? 'For example, Sneha Kulkarni' : 'For example, Asha Kulkarni'} error={err('name')} autoComplete="off" />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label={p.appAccess ? 'Email, for the sign-in code' : 'Email (optional)'} type="email" inputMode="email" autoCapitalize="none" spellCheck={false} icon={<Mail aria-hidden />}
-              value={p.email} onChange={(e) => onChange({ ...p, email: e.target.value })} placeholder="name@example.com" error={err('email')} />
-            <TextField label={p.abroad ? 'Mobile, with country code' : 'Mobile'} type="tel" inputMode="tel" icon={<Smartphone aria-hidden />}
+          <div className="grid gap-4">
+            <TextField label={p.abroad ? 'Mobile, with country code' : p.appAccess ? 'Mobile, for the sign-in code' : 'Mobile'} type="tel" inputMode="tel" icon={<Smartphone aria-hidden />}
               value={p.phone} onChange={(e) => onChange({ ...p, phone: e.target.value })} placeholder={p.abroad ? '+971 50 123 4567' : '98765 43210'} error={err('phone')} />
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-sunken py-1 pl-1 pr-3.5">
             <Switch on={p.appAccess} label={`App access for ${who}`} onChange={(v) => onChange({ ...p, appAccess: v })} />
-            <p className="text-small font-semibold text-ink-2"><b className="text-ink">App access</b>, {p.appAccess ? `an invitation code goes to ${p.email.trim() || 'their email'}` : 'kept as a contact without the app'}</p>
+            <p className="text-small font-semibold text-ink-2"><b className="text-ink">App access</b>, {p.appAccess ? `the sign-in code goes to their mobile on WhatsApp` : 'kept as a contact without the app'}</p>
           </div>
           {parent && (
             <div className="flex items-center gap-2 rounded-lg bg-sunken py-1 pl-1 pr-3.5">
@@ -134,7 +134,7 @@ function PersonCard({ p, i, errors, onChange, onRemove, onRelation }: {
   )
 }
 
-/** Everyone at the school with an email, to link instead of adding twice ("Already here for Aarav"). */
+/** Everyone at the school on a child's record, to link instead of adding twice ("Already here for Aarav"). */
 function linkable(dir: Directory, exclude: Set<string>) {
   return dir.profiles.filter((p) => p.active && !exclude.has(p.id) && dir.guardianships.some((g) => g.guardian_id === p.id)).map((p) => {
     const kids = dir.guardianships.filter((g) => g.guardian_id === p.id).map((g) => dir.children.find((c) => c.id === g.child_id)).filter((c): c is Child => !!c?.active)
@@ -145,7 +145,7 @@ function linkable(dir: Directory, exclude: Set<string>) {
 
 /**
  * Add a child (Screen Book v3): the child, their class and programme, then parents and family, saved together or not at
- * all. Everyone with app access gets an invitation code by email when they first sign in.
+ * all. Everyone with app access signs in with their mobile and a code sent on WhatsApp.
  */
 export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (childId: string, name: string) => void }) {
   const [name, setName] = useState('')
@@ -162,7 +162,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
   const who = (name.trim().split(/\s+/)[0] || '').trim()
   const programme = dir.programmes.find((p) => p.id === programmeId)
   const suggested = suggestedLevel(dob)
-  const emails = new Set(dir.profiles.map((p) => p.email).filter(Boolean) as string[])
+  const phones = new Set(dir.profiles.map((p) => p.phone).filter(Boolean) as string[])
   const parents = people.map((p, i) => [p, i] as const).filter(([p]) => kindOf(p.relation) === 'parent')
   const family = people.map((p, i) => [p, i] as const).filter(([p]) => kindOf(p.relation) === 'family')
   const others = linkable(dir, new Set(people.map((p) => p.linkedId).filter(Boolean) as string[]))
@@ -179,9 +179,9 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     if (!programmeId) e.programme = 'Choose the class and programme.'
     const seen = new Set<string>()
     people.forEach((p, i) => {
-      const pe = personErrors(p, (em) => emails.has(em) || seen.has(em))
-      const em = p.email.trim() ? normalizeEmail(p.email) : null
-      if (em) seen.add(em)
+      const pe = personErrors(p, (n) => phones.has(n) || seen.has(n))
+      const n = p.linkedId ? null : phoneOf(p.phone)
+      if (n) seen.add(n)
       for (const [k, v] of Object.entries(pe)) e[`${k}.${i}`] = v
     })
     if (!someoneHere(people)) e.people = 'Add at least one parent or relative who lives in India, to collect from the gate.'
@@ -257,7 +257,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
               {others.map(({ p, rel, note }) => (
                 <li key={p.id}>
                   <button type="button" className="choice flex w-full items-center gap-3 p-3 text-left"
-                    onClick={() => { setPeople((list) => [...list.filter((x) => x.linkedId || x.name || x.email || x.phone), { ...blankPerson(rel), name: p.full_name, linkedId: p.id, linkedNote: note }]); setLinking(false) }}>
+                    onClick={() => { setPeople((list) => [...list.filter((x) => x.linkedId || x.name || x.phone), { ...blankPerson(rel), name: p.full_name, linkedId: p.id, linkedNote: note }]); setLinking(false) }}>
                     <Avatar name={p.full_name} color={childColor(p.id)} size="sm" />
                     <span className="min-w-0"><span className="block truncate text-h4">{p.full_name}</span><span className="block truncate text-caption font-semibold text-ink-2">{rel}. {note}</span></span>
                   </button>
@@ -270,7 +270,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
       {formError && <Notice tone="danger" className="mt-5">{formError}</Notice>}
       <SheetFooter>
         <Button size="xl" className="w-full" icon={<Plus />} loading={busy} onClick={() => void save()}>Add {who || 'child'}</Button>
-        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">Everyone with app access gets an invitation code by email.</p>
+        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">Everyone with app access signs in with a code sent on WhatsApp.</p>
       </SheetFooter>
 
       {picker === 'programme' && (
@@ -298,13 +298,13 @@ export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: 
   const [formError, setFormError] = useState<string | null>(null)
   const [relationOpen, setRelationOpen] = useState(false)
   const listed = new Set(dir.guardianships.filter((g) => g.child_id === child.id).map((g) => g.guardian_id))
-  const emails = new Set(dir.profiles.map((x) => x.email).filter(Boolean) as string[])
+  const phones = new Set(dir.profiles.map((x) => x.phone).filter(Boolean) as string[])
 
   if (!p) return <RelationPicker open={open} onClose={onClose} childName={first} onUse={(relation) => setP(blankPerson(relation))} />
   const parent = kindOf(p.relation) === 'parent'
 
   async function save() {
-    const pe = personErrors(p!, (em) => emails.has(em))
+    const pe = personErrors(p!, (n) => phones.has(n))
     const e: Errors = Object.fromEntries(Object.entries(pe).map(([k, v]) => [`${k}.0`, v]))
     setErrors(e)
     if (Object.keys(e).length) return
@@ -312,7 +312,7 @@ export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: 
     setFormError(null)
     try {
       await addGuardian(child.id, toInput(p!))
-      onSaved(p!.appAccess ? `${p!.name.trim().split(' ')[0]} added. Their invitation code goes to ${normalizeEmail(p!.email)}.` : `${p!.name.trim().split(' ')[0]} added. They can collect ${first} from the gate.`)
+      onSaved(p!.appAccess ? `${p!.name.trim().split(' ')[0]} added. Tap Invite to send them the link.` : `${p!.name.trim().split(' ')[0]} added. They can collect ${first} from the gate.`)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {
@@ -352,25 +352,25 @@ export function EditGuardianSheet({ dir, child, person, relation, onClose, onSav
   dir: Directory; child: Child; person: Profile; relation: string; onClose: () => void; onSaved: (message: string) => void
 }) {
   const first = child.preferred_name ?? child.full_name.split(' ')[0]!
-  const [p, setP] = useState<PersonDraft>({ key: person.id, name: person.full_name, email: person.email ?? '', phone: person.phone ?? '', abroad: person.abroad, appAccess: person.app_access, relation })
+  const [p, setP] = useState<PersonDraft>({ key: person.id, name: person.full_name, phone: person.phone ?? '', abroad: person.abroad, appAccess: person.app_access, relation })
   const [errors, setErrors] = useState<Errors>({})
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [relationOpen, setRelationOpen] = useState(false)
-  const emails = new Set(dir.profiles.filter((x) => x.id !== person.id).map((x) => x.email).filter(Boolean) as string[])
+  const phones = new Set(dir.profiles.filter((x) => x.id !== person.id).map((x) => x.phone).filter(Boolean) as string[])
   const signedIn = !!person.user_id
 
   async function save() {
-    const pe = personErrors(p, (em) => emails.has(em))
-    const e: Errors = Object.fromEntries(Object.entries(pe).map(([k, v]) => [`${k}.0`, v === 'Already here. Use Link someone already here.' ? 'Someone else here already uses this email.' : v]))
+    const pe = personErrors(p, (n) => phones.has(n))
+    const e: Errors = Object.fromEntries(Object.entries(pe).map(([k, v]) => [`${k}.0`, v === 'Already here. Use Link someone already here.' ? 'Someone else here already uses this mobile.' : v]))
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     setFormError(null)
     try {
-      await updatePerson(person.id, child.id, toInput(p) as Parameters<typeof updatePerson>[2])
-      const newEmail = normalizeEmail(p.email)
-      onSaved(signedIn && newEmail && newEmail !== person.email ? `Saved. ${p.name.trim().split(' ')[0]}'s sign-in code now goes to ${newEmail}.` : 'Saved.')
+      await updatePerson(person.id, child.id, { ...toInput(p), email: person.email } as Parameters<typeof updatePerson>[2])
+      const changed = phoneOf(p.phone)
+      onSaved(signedIn && changed && changed !== person.phone ? `Saved. ${p.name.trim().split(' ')[0]}'s sign-in code now goes to ${formatMobile(changed)}.` : 'Saved.')
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {
@@ -381,8 +381,8 @@ export function EditGuardianSheet({ dir, child, person, relation, onClose, onSav
   return (
     <Sheet open onClose={onClose} title={`Edit ${person.full_name.split(' ')[0]}`} description={`${relation} of ${first}. Changes show everywhere at once.`}>
       <PersonCard p={p} i={0} errors={errors} onChange={setP} onRelation={() => setRelationOpen(true)} />
-      {signedIn && normalizeEmail(p.email) && normalizeEmail(p.email) !== person.email && (
-        <Notice className="mt-4">{person.full_name.split(' ')[0]} has signed in before. From now on their sign-in code goes to the new email.</Notice>
+      {signedIn && phoneOf(p.phone) && phoneOf(p.phone) !== person.phone && (
+        <Notice className="mt-4">{person.full_name.split(' ')[0]} has signed in before. From now on they sign in with the new mobile.</Notice>
       )}
       {formError && <Notice tone="danger" className="mt-4">{formError}</Notice>}
       <SheetFooter><Button size="xl" className="w-full" icon={<Check />} loading={busy} onClick={() => void save()}>Save changes</Button></SheetFooter>

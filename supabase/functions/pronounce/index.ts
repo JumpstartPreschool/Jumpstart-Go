@@ -5,7 +5,7 @@
 //   POST { text }        a staff member (a pronunciation preview, or a sentence nobody made ahead): handler.ts.
 // Deploy: npx supabase functions deploy pronounce --no-verify-jwt
 // Secrets: AZURE_SPEECH_KEY, AZURE_SPEECH_REGION (e.g. centralindia), AZURE_SPEECH_VOICE (an en-IN female neural voice,
-// default en-IN-NeerjaNeural), VOICE_CRON_SECRET (as app.voice_config.secret), APP_ORIGIN (optional, as for invite-send).
+// default en-IN-NeerjaNeural), VOICE_CRON_SECRET (as app.voice_config.secret), APP_ORIGIN (optional, as for whatsapp-invite).
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { childMessages, clipKey, clipPath, commonPhrases } from '../_shared/announce.ts'
 import { azureSpeech, TtsBusy, type TTSProvider } from '../_shared/tts.ts'

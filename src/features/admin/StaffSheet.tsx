@@ -1,11 +1,11 @@
 import { Link } from 'react-router'
 import { useState } from 'react'
-import { Check, Lock, Mail, Smartphone, UserPlus } from '../../ui/icons'
+import { Check, Lock, Smartphone, UserPlus } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
-import { normalizeEmail, normalizeMobile } from '../../domain/contact'
+import { formatMobile, normalizeMobile } from '../../domain/contact'
 import type { StaffRole } from '../auth/session'
 import { gateRolesOf, setCoordinator } from '../coordinators/api'
 import { addPerson, explainDbError, updatePerson, type Directory, type Profile } from './api'
@@ -14,12 +14,11 @@ import { ROLE } from './roles'
 const GIVEN: StaffRole[] = ['core', 'pro', 'coordinator', 'leader']
 
 /**
- * Add a staff member: name, email for the sign-in code, roles and (for coordinators) their classes. Admin is shown
+ * Add a staff member: name, mobile for the sign-in code, roles and (for coordinators) their classes. Admin is shown
  * locked: only Ankit Singh and Aditya Tapadia hold it (D27), and the database refuses it from the app.
  */
 export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (message: string) => void; initialRoles?: StaffRole[] }) {
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [roles, setRoles] = useState<StaffRole[]>(initialRoles)
   const [classes, setClasses] = useState<string[]>([])
@@ -30,19 +29,17 @@ export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: {
 
   async function save() {
     const e: Record<string, string> = {}
-    const cleanEmail = normalizeEmail(email)
     const cleanPhone = phone.trim() ? normalizeMobile(phone) : null
     if (name.trim().split(/\s+/).length < 2) e.name = 'Enter the first and last name.'
-    if (!cleanEmail) e.email = 'Enter a full email address.'
-    else if (dir.profiles.some((p) => p.email === cleanEmail)) e.email = 'Someone at the school already has this email.'
-    if (phone.trim() && !cleanPhone) e.phone = '10-digit mobile, or + and a country code.'
+    if (!cleanPhone) e.phone = phone.trim() ? '10-digit mobile, or + and a country code.' : 'A mobile is needed: the sign-in code goes there.'
+    else if (dir.profiles.some((p) => p.phone === cleanPhone)) e.phone = 'Someone at the school already has this mobile.'
     if (!roles.length) e.roles = 'Choose at least one role.'
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     setFormError(null)
     try {
-      const id = await addPerson({ fullName: name.trim().replace(/\s+/g, ' '), email: cleanEmail, phone: cleanPhone, roles })
+      const id = await addPerson({ fullName: name.trim().replace(/\s+/g, ' '), phone: cleanPhone!, roles })
       const gate = gateRolesOf(roles)[0]
       if (gate && classes.length) {
         try {
@@ -51,7 +48,7 @@ export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: {
           return onSaved(`${name.trim().split(' ')[0]} added, but their classes weren't saved. Choose them in Gate team.`)
         }
       }
-      onSaved(`${name.trim().split(' ')[0]} added. They sign in with a code sent to ${cleanEmail}.`)
+      onSaved(`${name.trim().split(' ')[0]} added. They sign in with a code sent on WhatsApp to ${formatMobile(cleanPhone!)}.`)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {
@@ -60,13 +57,10 @@ export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Add a staff member" description="They sign in with a code sent to this email. Nobody else can sign up.">
+    <Sheet open={open} onClose={onClose} title="Add a staff member" description="They sign in with a code sent on WhatsApp to this mobile. Nobody else can sign up.">
       <div className="grid gap-4">
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First and last name" autoComplete="off" error={errors.name} autoFocus />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Email, for the sign-in code" type="email" inputMode="email" autoCapitalize="none" spellCheck={false} icon={<Mail aria-hidden />} value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
-          <TextField label="Mobile (optional)" type="tel" inputMode="tel" icon={<Smartphone aria-hidden />} value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
-        </div>
+        <TextField label="Mobile, for the sign-in code" type="tel" inputMode="tel" icon={<Smartphone aria-hidden />} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" hint="With a country code if they are abroad, for example +971 50 123 4567." error={errors.phone} />
         <fieldset>
           <legend className="mb-2 px-0.5 text-small font-bold text-ink-2">Roles, one or more</legend>
           <div className="grid gap-2.5 sm:grid-cols-2">
@@ -105,28 +99,25 @@ export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: {
   )
 }
 
-/** Edit a staff member's name, email and mobile. A new email moves their sign-in, so their next code goes there. */
+/** Edit a staff member's name and mobile. A new mobile moves their sign-in, so their next code goes there. */
 export function EditStaffSheet({ dir, person, onClose, onSaved }: { dir: Directory; person: Profile; onClose: () => void; onSaved: (message: string) => void }) {
   const [name, setName] = useState(person.full_name)
-  const [email, setEmail] = useState(person.email ?? '')
   const [phone, setPhone] = useState(person.phone ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const first = person.full_name.split(' ')[0]
   async function save() {
     const e: Record<string, string> = {}
-    const mail = normalizeEmail(email)
     const mobile = phone.trim() ? normalizeMobile(phone) : null
     if (name.trim().split(/\s+/).length < 2) e.name = 'First and last name.'
-    if (!mail) e.email = 'An email is needed: the sign-in code goes there.'
-    else if (dir.profiles.some((x) => x.id !== person.id && x.email === mail)) e.email = 'Someone else here already uses this email.'
-    if (phone.trim() && !mobile) e.phone = '10-digit mobile, or + and a country code.'
+    if (!mobile) e.phone = phone.trim() ? '10-digit mobile, or + and a country code.' : 'A mobile is needed: the sign-in code goes there.'
+    else if (dir.profiles.some((x) => x.id !== person.id && x.phone === mobile)) e.phone = 'Someone else here already uses this mobile.'
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     try {
-      await updatePerson(person.id, null, { full_name: name.trim(), email: mail, phone: mobile, app_access: true })
-      onSaved(person.user_id && mail !== person.email ? `Saved. ${first}'s sign-in code now goes to ${mail}.` : 'Saved.')
+      await updatePerson(person.id, null, { full_name: name.trim(), email: person.email, phone: mobile!, app_access: true })
+      onSaved(person.user_id && mobile !== person.phone ? `Saved. ${first}'s sign-in code now goes to ${formatMobile(mobile!)}.` : 'Saved.')
     } catch (err) {
       setErrors({ form: explainDbError(err as { code?: string; message?: string }) })
     } finally {
@@ -137,11 +128,8 @@ export function EditStaffSheet({ dir, person, onClose, onSaved }: { dir: Directo
     <Sheet open onClose={onClose} title={`Edit ${first}`} description={<>Their details are here. <Link to="/admin/coordinators" className="font-extrabold text-accent-ink underline underline-offset-2">Change gate roles and classes in Gate team</Link>.</>}>
       <div className="grid gap-4">
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Email, for the sign-in code" type="email" inputMode="email" autoCapitalize="none" spellCheck={false} icon={<Mail aria-hidden />} value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
-          <TextField label="Mobile (optional)" type="tel" inputMode="tel" icon={<Smartphone aria-hidden />} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone} />
-        </div>
-        {person.user_id && normalizeEmail(email) && normalizeEmail(email) !== person.email && <Notice>{first} has signed in before. From now on their sign-in code goes to the new email.</Notice>}
+        <TextField label="Mobile, for the sign-in code" type="tel" inputMode="tel" icon={<Smartphone aria-hidden />} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone} />
+        {person.user_id && phone.trim() && normalizeMobile(phone) && normalizeMobile(phone) !== person.phone && <Notice>{first} has signed in before. From now on they sign in with the new mobile.</Notice>}
         {errors.form && <Notice tone="danger">{errors.form}</Notice>}
       </div>
       <SheetFooter><Button size="xl" className="w-full" icon={<Check />} loading={busy} onClick={() => void save()}>Save changes</Button></SheetFooter>

@@ -1,5 +1,5 @@
-import { Children, isValidElement, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react'
-import { Check, ChevronDown, CircleAlert, EyeLine, EyeOffLine, Search } from './icons'
+import { Children, isValidElement, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Check, ChevronDown, CircleAlert, Search } from './icons'
 import { Sheet } from './Sheet'
 
 type Extra = { label: string; hint?: ReactNode; error?: string | null; icon?: ReactNode }
@@ -29,35 +29,6 @@ export function TextField({ label, hint, error, icon, className = '', ...input }
       <div className={`input ${className}`}>
         {icon}
         <input id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-msg` : undefined} {...input} />
-      </div>
-    </Wrapper>
-  )
-}
-
-/**
- * A real password input with Show/Hide beside it. The button never takes focus from the field on a press (so the
- * phone keyboard stays up) and puts the caret back where it was, since switching the type can move it.
- */
-export function PasswordField({ label, hint, error, icon, className = '', ...input }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & Extra) {
-  const id = useId()
-  const ref = useRef<HTMLInputElement>(null)
-  const [shown, setShown] = useState(false)
-  function toggle() {
-    const el = ref.current
-    const [start, end] = [el?.selectionStart ?? null, el?.selectionEnd ?? null]
-    setShown((s) => !s)
-    if (el && document.activeElement === el && start !== null && end !== null) requestAnimationFrame(() => el.setSelectionRange(start, end))
-  }
-  return (
-    <Wrapper id={id} label={label} hint={hint} error={error}>
-      <div className={`input input--reveal ${className}`}>
-        {icon}
-        <input ref={ref} id={id} type={shown ? 'text' : 'password'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-msg` : undefined} {...input} />
-        <button type="button" className="input__reveal" aria-controls={id} aria-pressed={shown}
-          aria-label={shown ? 'Hide password' : 'Show password'} onMouseDown={(e) => e.preventDefault()} onClick={toggle}>
-          {shown ? <EyeOffLine aria-hidden /> : <EyeLine aria-hidden />}
-        </button>
       </div>
     </Wrapper>
   )

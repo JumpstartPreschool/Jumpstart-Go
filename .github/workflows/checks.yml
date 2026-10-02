@@ -22,7 +22,7 @@ jobs:
 
   database:
     # Applies every migration to a throwaway Postgres and runs supabase/tests (row-level security, invite-only sign-in,
-    # rate limits, password sign-in). Postgres 18, the version the suite is developed against (scripts/db-test.sh).
+    # rate limits, phone sign-in). Postgres 18, the version the suite is developed against (scripts/db-test.sh).
     name: Database migrations and tests
     runs-on: ubuntu-latest
     steps:

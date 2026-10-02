@@ -14,8 +14,8 @@ At 00:05 the system creates each child's **expected drop-off and pickup** for th
 4. **Needs a time outside the window** (e.g. 11:00 for a doctor's visit): the parent taps **Other time**, picks 11:00 and gives a reason. The request goes through and is announced immediately, flagged as off-schedule; Priya taps **Acknowledge** (D19).
 
 ## J2. Parent: sends a third person (the main safety journey)
-1. **Today** card → **Who's picking up?** → a saved person, or **New person** (name, phone, relation; optionally a different WhatsApp number and an email).
-2. Confirmation: "Ramesh (Grandfather) · 1:00 PM", with the **handoff code** and two ways to send the link: **Send on WhatsApp** (opens the parent's WhatsApp in a chat with Ramesh, message already written) and, if an email was given, "Link emailed to ramesh@… ✓".
+1. **Today** card → **Who's picking up?** → a saved person, or **New person** (name, phone, relation; optionally a different WhatsApp number).
+2. Confirmation: "Ramesh (Grandfather) · 1:00 PM", with the **handoff code** and two ways to send the link: **Send on WhatsApp** (opens the parent's WhatsApp in a chat with Ramesh, message already written) or **Copy link**.
 3. Ramesh opens the link → **Confirm** (the link now works only on his phone) → allows location → **Start trip**. The parent sees him **LIVE** on the map, updating every few seconds, with an ETA range.
 4. **"Get ready"** on Priya's iPad at 12:50, or earlier if the ETA drops below 10 minutes (D14). Priya taps **Ready**; the parent is notified: "Aarav is ready at the gate."
 5. About 200 m from school: **Arriving**, and Priya hears "Aarav's pickup is arriving."
@@ -27,7 +27,6 @@ At 00:05 the system creates each child's **expected drop-off and pickup** for th
 - The parent cancels (before handover) → announced.
 - The code is wrong 3 times → handover blocked; the parent and admin are alerted.
 - The link isn't confirmed within 10 minutes → the parent is notified, with **Resend**.
-- The email bounces → the parent sees "Email not delivered" and uses WhatsApp or copies the link.
 - Location denied → the trip goes ahead marked UNAVAILABLE.
 - Updates stop → shown as RECENT, then STALE; after 5 minutes the parent and Priya are alerted.
 - Not closed within 30 minutes of the expected arrival → the parent is alerted.
@@ -59,7 +58,7 @@ The expected drop-off is created from the regular times (J0). The parent can cha
 6. **Messages** with parents.
 
 ## J8. Third person: the link page
-WhatsApp or email link → opens instantly, no install or login → "You've been asked to pick up **Aarav K.** from Jumpstart Preschool, Karve Road at **1:00 PM**" → **Confirm** → a screen explaining why location is needed → the phone's permission prompt → **Start trip** → a map to the school, the handoff code, a **Running late** button and a "keep this page open" banner → show the code at the gate → the trip home → **Reached home** → "Thank you", and the link stops working.
+WhatsApp link → opens instantly, no install or login → "You've been asked to pick up **Aarav K.** from Jumpstart Preschool, Karve Road at **1:00 PM**" → **Confirm** → a screen explaining why location is needed → the phone's permission prompt → **Start trip** → a map to the school, the handoff code, a **Running late** button and a "keep this page open" banner → show the code at the gate → the trip home → **Reached home** → "Thank you", and the link stops working.
 
 ## J9. Parent: reports an absence
 Child → **Report absence** → date(s) and reason → that day's expected trips are removed, and the core team sees "On leave (reported by parent)".
@@ -70,7 +69,7 @@ Child → **Report absence** → date(s) and reason → that day's expected trip
 - **Reports:** 30-day trends and export. **Settings:** reminder times, lead time, late threshold, wording, arrival radius, holidays. **Audit log.**
 
 ## J11. Anyone: first login
-Everyday: email and password → role home (no email sent). First time (or "Forgot password?"): email → 6-digit code by email → create a password (or choose a new one) → parents only, first time: a consent screen (what we collect, why, how long it's kept) → role home. Asking for a code shows the same answer whether or not the email is registered ("If this email is registered with Jumpstart, a code is on its way"); a first-sign-in code goes only to accounts without a password, and the code screen points everyone else to "Forgot password?"; anyone signed in without a password sees "Create your password" before anything else; a wrong email or password says "Email or password is incorrect." (D49)
+Mobile number → 6-digit code on WhatsApp → parents only, first time: a consent screen (what we collect, why, how long it's kept) → role home. After that the person stays signed in until they tap Sign out. Asking for a code always shows the same answer, whether or not the number is registered ("If this number is registered with Jumpstart, a code is on its way on WhatsApp."). An invitation link opens sign-in with the number already filled in (D51).
 
 ## J12. Running late (D20)
 - **Parent says so:** Today card or live trip → **Running late** → +10 / +20 / +30 → today's time moves, and Priya hears "Aarav's mother is running 15 minutes late. New pickup 1:00." If the new time is after the pickup window closes (1:00 PM), it's flagged as off-schedule so staff know Aarav stays past the end of his class.

@@ -80,9 +80,9 @@ export function AdminPeople() {
   const kidsOf = (pid: string) => dir!.guardianships.filter((g) => g.guardian_id === pid).map((g) => ({ g, k: kids.find((k) => k.id === g.child_id) })).filter((x) => x.k)
   const lists = dir && {
     children: kids.filter((c) => hit(c.full_name, c.preferred_name, dir.programmes.find((p) => p.id === c.programme_id)?.name,
-      ...dir.guardianships.filter((g) => g.child_id === c.id).flatMap((g) => { const p = dir.profiles.find((x) => x.id === g.guardian_id); return [p?.full_name, p?.email, p?.phone] }))),
-    family: guardianRows.filter((p) => hit(p.full_name, p.email, p.phone, ...kidsOf(p.id).map((x) => x.k!.full_name))),
-    staff: staffRows.filter((p) => hit(p.full_name, p.email, p.phone, ...(dir.roles.get(p.id) ?? []).map((r) => ROLE[r].name))),
+      ...dir.guardianships.filter((g) => g.child_id === c.id).flatMap((g) => { const p = dir.profiles.find((x) => x.id === g.guardian_id); return [p?.full_name, p?.phone] }))),
+    family: guardianRows.filter((p) => hit(p.full_name, p.phone, ...kidsOf(p.id).map((x) => x.k!.full_name))),
+    staff: staffRows.filter((p) => hit(p.full_name, p.phone, ...(dir.roles.get(p.id) ?? []).map((r) => ROLE[r].name))),
     classes: dir.classes.filter((c) => c.active && hit(c.name)),
   }
 
@@ -103,12 +103,12 @@ export function AdminPeople() {
 
   function accessSwitch(p: Profile) {
     if (p.app_access) return setConfirm({ person: p, what: 'access' })
-    if (!p.email) return toast(`${p.full_name.split(' ')[0]} has no email yet. Add it from the child's page to give app access.`)
-    void act(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent to ${p.email}. Tap Invite to tell them.`)
+    if (!p.phone) return toast(`${p.full_name.split(' ')[0]} has no mobile yet. Add one from the child's page to give app access.`)
+    void act(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent on WhatsApp to ${formatMobile(p.phone)}. Tap Invite to tell them.`)
   }
 
-  const none = <EmptyState title={`No one matches "${query.trim()}"`}>Try a first name, an email or part of a phone number.</EmptyState>
-  const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(', ') || 'No contact details'
+  const none = <EmptyState title={`No one matches "${query.trim()}"`}>Try a first name or part of a phone number.</EmptyState>
+  const contact = (p: Profile) => p.phone ? formatMobile(p.phone) : 'No contact details'
   const TABS: Array<{ key: Tab; label: string; short?: string; icon: ReactNode }> = [
     { key: 'children', label: 'Children', icon: <Baby /> },
     { key: 'family', label: 'Parents and family', short: 'Families', icon: <Users /> },
@@ -123,7 +123,7 @@ export function AdminPeople() {
         : <><LuxButton icon={<FileSpreadsheet />} onClick={() => setBulk(true)}>Bulk upload</LuxButton><LuxButton primary icon={<Plus />} onClick={() => setAdding('child')}>Add child</LuxButton></>}>
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <Tabs id="people" label="People" value={tab} onChange={setTab} items={TABS.map((t) => ({ ...t, count: lists ? lists[t.key].length : null }))} />
-        <SearchField label="Search people" className="min-w-0 lg:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, emails or phones" />
+        <SearchField label="Search people" className="min-w-0 lg:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names or phones" />
       </div>
       {actionError && !confirm && <Notice tone="danger" className="mt-4">{actionError}</Notice>}
 

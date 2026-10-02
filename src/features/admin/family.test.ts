@@ -12,22 +12,22 @@ describe('who is on a child record', () => {
     expect(relationLabel('Cousin', "father's side")).toBe('Cousin')
     expect(relationLabel('Other relative', '', ' Great-aunt ')).toBe('Great-aunt')
   })
-  it('needs a full name, and an email for app access', () => {
+  it('needs a full name, and a mobile for app access', () => {
     expect(personErrors(person({ name: 'Sneha' }), none).name).toBeTruthy()
-    expect(personErrors(person({ name: 'Sneha Kulkarni' }), none).email).toBe('An email is needed for app access.')
-    expect(personErrors(person({ name: 'Sneha Kulkarni', email: 'sneha@example.com' }), none)).toEqual({})
+    expect(personErrors(person({ name: 'Sneha Kulkarni' }), none).phone).toBe('A mobile is needed for app access.')
+    expect(personErrors(person({ name: 'Sneha Kulkarni', phone: '98765 43210' }), none)).toEqual({})
   })
   it('keeps someone without the app as a contact with a mobile', () => {
     expect(personErrors(person({ name: 'Asha Kulkarni', appAccess: false }), none).phone).toBe('Add a mobile, or turn on app access.')
     expect(personErrors(person({ name: 'Asha Kulkarni', appAccess: false, phone: '98765 43210' }), none)).toEqual({})
   })
-  it('points to linking when the email is already here', () => {
-    expect(personErrors(person({ name: 'Sneha Kulkarni', email: 'SNEHA@example.com' }), (e) => e === 'sneha@example.com').email).toMatch(/Link someone already here/)
+  it('points to linking when the mobile is already here, however it is typed', () => {
+    expect(personErrors(person({ name: 'Sneha Kulkarni', phone: '098765-43210' }), (n) => n === '+919876543210').phone).toMatch(/Link someone already here/)
   })
   it('asks for the country code from abroad', () => {
-    expect(personErrors(person({ name: 'Nisha Rao', email: 'n@example.com', abroad: true, phone: '5550123' }), none).phone).toBe('Start with + and the country code.')
-    expect(toInput(person({ name: ' Nisha  Rao ', email: 'N@Example.com', abroad: true, phone: '+1 415 555 0123' }))).toEqual({
-      full_name: 'Nisha Rao', email: 'n@example.com', phone: '+14155550123', abroad: true, app_access: true, relation: 'Mother', kind: 'parent',
+    expect(personErrors(person({ name: 'Nisha Rao', abroad: true, phone: '5550123' }), none).phone).toBe('Start with + and the country code.')
+    expect(toInput(person({ name: ' Nisha  Rao ', abroad: true, phone: '+1 415 555 0123' }))).toEqual({
+      full_name: 'Nisha Rao', phone: '+14155550123', abroad: true, app_access: true, relation: 'Mother', kind: 'parent',
     })
   })
   it('needs someone here to collect: a parent abroad alone is not enough', () => {

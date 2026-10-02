@@ -125,7 +125,7 @@ describe('contact details', async () => {
     expect(normalizeEmail('a@b')).toBeNull()
   })
   it('accepts Indian mobiles in any common format', () => {
-    for (const v of ['98765 43210', '+91 98765 43210', '+91-98765-43210', '09876543210', '919876543210', '0091 9876543210']) {
+    for (const v of ['98765 43210', '+91 98765 43210', '+91-98765-43210', '09876543210', '919876543210', '0091 9876543210', '091 9876543210']) {
       expect(normalizeMobile(v)).toBe('+919876543210')
     }
   })
@@ -133,12 +133,14 @@ describe('contact details', async () => {
   it('accepts other countries with their code', () => {
     expect(normalizeMobile('+1 415 555 0100')).toBe('+14155550100')
     expect(normalizeMobile('00971 50 123 4567')).toBe('+971501234567')
+    expect(normalizeMobile('+971 50 123 4567')).toBe('+971501234567')
   })
   it('rejects landlines, short numbers, and foreign numbers without a code', () => {
     expect(normalizeMobile('020 2545 1234')).toBeNull()
     expect(normalizeMobile('98765')).toBeNull()
     expect(normalizeMobile('+91 20 2545 1234')).toBeNull()
     expect(normalizeMobile('5876543210')).toBeNull()
+    expect(normalizeMobile('0')).toBeNull()
   })
   it('formats for display, and links to WhatsApp', () => {
     expect(formatMobile('+919876543210')).toBe('+91 98765 43210')

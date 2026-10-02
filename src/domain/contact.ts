@@ -6,7 +6,7 @@ export function normalizeEmail(input: string): string | null {
 }
 
 /**
- * A mobile number as "+<country><number>": "98765 43210", "098765-43210", "+91 98765 43210" or "0091 9876543210" →
+ * A mobile number as "+<country><number>": "98765 43210", "098765-43210", "091 98765 43210", "+91 98765 43210" or "0091 9876543210" →
  * "+919876543210"; "+971 50 123 4567" → "+971501234567" (families abroad, D26). Without + or 00 it must be an Indian
  * mobile. Null for landlines, short numbers and anything else.
  */
@@ -19,7 +19,8 @@ export function normalizeMobile(input: string): string | null {
     if (d.startsWith('91')) return /^91[6-9][0-9]{9}$/.test(d) ? `+${d}` : null
     return /^[1-9][0-9]{7,14}$/.test(d) ? `+${d}` : null
   }
-  if (d.length === 11 && d.startsWith('0')) d = d.slice(1)
+  // A leading 0 is the dialling prefix for a national call ("09876543210", "091 98765 43210").
+  d = d.replace(/^0+/, '')
   if (d.length === 12 && d.startsWith('91')) d = d.slice(2)
   return /^[6-9][0-9]{9}$/.test(d) ? `+91${d}` : null
 }

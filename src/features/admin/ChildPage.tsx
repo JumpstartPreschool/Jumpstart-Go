@@ -93,8 +93,8 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
 
   function toggleAccess(p: Profile) {
     if (p.app_access) return setPending({ kind: 'access', person: p })
-    if (!p.email) return toast(`${p.full_name.split(' ')[0]} has no email yet. Add them again with an email to give app access.`)
-    void run(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent to ${p.email}.`)
+    if (!p.phone) return toast(`${p.full_name.split(' ')[0]} has no mobile yet. Edit them and add one to give app access.`)
+    void run(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent on WhatsApp to ${formatMobile(p.phone)}.`)
   }
 
   function saveEdit() {
@@ -112,7 +112,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       <div className="min-w-0 flex-1 basis-[160px]">
         <p className="truncate text-h4">{p.full_name}</p>
         <p className="truncate text-small font-semibold text-ink-2">
-          {g.relation}{p.abroad ? ', lives outside India' : ''}{p.email || p.phone ? `, ${[p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(', ')}` : ''}
+          {g.relation}{p.abroad ? ', lives outside India' : ''}{p.phone ? `, ${formatMobile(p.phone)}` : ''}
         </p>
       </div>
       <AccessState person={p} onInvite={setInviting} />

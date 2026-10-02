@@ -3,7 +3,7 @@
  * each one for public.import_child (0022). Pure functions, no dependencies: .xlsx is a zip of XML files, which the
  * browser's own DecompressionStream can open.
  */
-import { normalizeEmail, normalizeMobile } from '../../domain/contact'
+import { normalizeMobile } from '../../domain/contact'
 import type { ProgrammeRow } from './api'
 
 // ---- Reading the file --------------------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ export async function readXlsx(b: Uint8Array): Promise<string[][]> {
 // ---- Understanding the rows ----------------------------------------------------------------------------------------
 
 type Field = 'child' | 'called' | 'dob' | 'gender' | 'programme' | 'childPhone'
-  | 'p1Name' | 'p1Relation' | 'p1Mobile' | 'p1Email' | 'p2Name' | 'p2Relation' | 'p2Mobile' | 'p2Email'
+  | 'p1Name' | 'p1Relation' | 'p1Mobile' | 'p2Name' | 'p2Relation' | 'p2Mobile'
   | 'fName' | 'fRelation' | 'fMobile'
 
 /** The template's columns, in order, with the other names people commonly give them. */
@@ -135,11 +135,9 @@ export const COLUMNS: Array<{ field: Field; header: string; aliases?: string[]; 
   { field: 'p1Name', header: 'Parent 1 name', aliases: ['parent1fullname', 'parentname'], required: true },
   { field: 'p1Relation', header: 'Parent 1 relation', aliases: ['parent1relationship'] },
   { field: 'p1Mobile', header: 'Parent 1 mobile', aliases: ['parent1phone', 'parent1contactnumber', 'parent1number', 'parentmobile'] },
-  { field: 'p1Email', header: 'Parent 1 email', aliases: ['parentemail'] },
   { field: 'p2Name', header: 'Parent 2 name', aliases: ['parent2fullname'] },
   { field: 'p2Relation', header: 'Parent 2 relation', aliases: ['parent2relationship'] },
   { field: 'p2Mobile', header: 'Parent 2 mobile', aliases: ['parent2phone', 'parent2contactnumber', 'parent2number'] },
-  { field: 'p2Email', header: 'Parent 2 email' },
   { field: 'fName', header: 'Family member name', aliases: ['familyname', 'othercollectorname', 'collectorname'] },
   { field: 'fRelation', header: 'Family member relation', aliases: ['familyrelation', 'familyrelationship'] },
   { field: 'fMobile', header: 'Family member mobile', aliases: ['familymobile', 'familyphone', 'familycontactnumber'] },
@@ -187,7 +185,7 @@ export function matchProgramme(input: string, programmes: ProgrammeRow[]): Progr
   return k ? programmes.find((p) => key(p.name) === k) ?? null : null
 }
 
-export interface Person { full_name: string; relation: string; kind: 'parent' | 'family'; email: string | null; phone: string | null; app_access: boolean }
+export interface Person { full_name: string; relation: string; kind: 'parent' | 'family'; phone: string; app_access: boolean }
 export interface ImportRow {
   /** The row number in the sheet (1 = the header). */
   line: number
@@ -249,24 +247,21 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
     }
 
     const people: Person[] = []
-    const person = (label: string, n: string, rel: string, mobile: string, email: string, kind: 'parent' | 'family', fallbackRel: string) => {
-      if (!n && !mobile && !email) return
-      if (n.replace(/\s+/g, ' ').length < 2) { warnings.push(`${label} has contact details but no name, so they're left out.`); return }
+    const person = (label: string, n: string, rel: string, mobile: string, kind: 'parent' | 'family', fallbackRel: string) => {
+      if (!n && !mobile) return
+      if (n.replace(/\s+/g, ' ').length < 2) { warnings.push(`${label} has a mobile but no name, so they're left out.`); return }
       const phone = mobile ? normalizeMobile(mobile) : null
       if (mobile && !phone) warnings.push(`${label}'s mobile "${mobile}" isn't a mobile number, so it's left out.`)
-      const mail = email ? normalizeEmail(email) : null
-      if (email && !mail) warnings.push(`${label}'s email "${email}" isn't an email address, so it's left out.`)
-      if (!phone && !mail) { warnings.push(`${label} has no mobile or email, so they're left out. Add them on the child's page.`); return }
-      people.push({ full_name: n.replace(/\s+/g, ' '), relation: rel || fallbackRel, kind, email: mail, phone, app_access: !!mail })
+      if (!phone) { warnings.push(`${label} has no mobile, so they're left out. Add them on the child's page.`); return }
+      // The mobile is how they sign in, so everyone listed gets app access.
+      people.push({ full_name: n.replace(/\s+/g, ' '), relation: rel || fallbackRel, kind, phone, app_access: true })
     }
     // "Child contact number" (the family's number) stands in for Parent 1's mobile when that's empty.
-    person('Parent 1', get(r, 'p1Name'), get(r, 'p1Relation'), get(r, 'p1Mobile') || get(r, 'childPhone'), get(r, 'p1Email'), 'parent', 'Parent')
-    person('Parent 2', get(r, 'p2Name'), get(r, 'p2Relation'), get(r, 'p2Mobile'), get(r, 'p2Email'), 'parent', 'Parent')
-    person('The family member', get(r, 'fName'), get(r, 'fRelation'), get(r, 'fMobile'), '', 'family', 'Family')
-    if (!people.length) problems.push('A parent with a mobile or email is needed, so the school can reach the family.')
-    const emails = people.map((p) => p.email).filter(Boolean)
-    if (new Set(emails).size < emails.length) problems.push('Two people on this row have the same email.')
-    const phones = people.map((p) => p.phone).filter(Boolean)
+    person('Parent 1', get(r, 'p1Name'), get(r, 'p1Relation'), get(r, 'p1Mobile') || get(r, 'childPhone'), 'parent', 'Parent')
+    person('Parent 2', get(r, 'p2Name'), get(r, 'p2Relation'), get(r, 'p2Mobile'), 'parent', 'Parent')
+    person('The family member', get(r, 'fName'), get(r, 'fRelation'), get(r, 'fMobile'), 'family', 'Family')
+    if (!people.length) problems.push('A parent with a mobile is needed, so the school can reach the family.')
+    const phones = people.map((p) => p.phone)
     if (new Set(phones).size < phones.length) problems.push('Two people on this row have the same mobile.')
 
     out.push({
@@ -286,6 +281,6 @@ export const toCsv = (rows: string[][]) => '﻿' + rows.map((r) => r.map(csvCell
 export function templateCsv(example: string): string {
   return toCsv([
     COLUMNS.map((c) => c.header),
-    ['Aarav Kulkarni', 'Aarav', '04/03/2022', 'Boy', example, '', 'Priya Kulkarni', 'Mother', '98765 43210', 'priya@example.com', 'Rahul Kulkarni', 'Father', '98765 43211', '', 'Suresh Kulkarni', 'Grandfather', '98765 43212'],
+    ['Aarav Kulkarni', 'Aarav', '04/03/2022', 'Boy', example, '', 'Priya Kulkarni', 'Mother', '98765 43210', 'Rahul Kulkarni', 'Father', '98765 43211', 'Suresh Kulkarni', 'Grandfather', '98765 43212'],
   ])
 }

@@ -47,7 +47,7 @@ export const gateLoad = (direction: Direction) => call<Array<{ at: string; child
 export interface FamilyMember { child_id: string; guardian_id: string; full_name: string; relation: string; kind: 'parent' | 'family'; abroad: boolean; has_app: boolean }
 export const myFamily = () => call<FamilyMember[]>('my_family', {})
 /** A parent adds a relative to their child's record (0028). The school sees them straight away. */
-export const addRelative = (child: string, p: { full_name: string; relation: string; phone: string; email: string | null }) => call<string>('parent_add_relative', { p_child: child, p_person: p })
+export const addRelative = (child: string, p: { full_name: string; relation: string; phone: string }) => call<string>('parent_add_relative', { p_child: child, p_person: p })
 export const removeRelative = (child: string, person: string) => call<null>('parent_remove_relative', { p_child: child, p_person: person })
 export const setMyNotifications = (morning: boolean, family: boolean) => call<null>('set_my_notifications', { p_morning: morning, p_family: family })
 

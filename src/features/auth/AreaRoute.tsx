@@ -6,9 +6,8 @@ import { Logo, Mascot } from '../../ui/Logo'
 import { SignOutButton } from '../../ui/SignOutButton'
 import { ConsentScreen } from './ConsentScreen'
 import { LoginScreen, SignInFrame } from './LoginScreen'
-import { SetPasswordScreen } from './SetPasswordScreen'
 import { AREA_ICON, areaDoes, areaLabel } from './AreaShell'
-import { areasFor, chooseArea, CONSENT_VERSION, passwordStep, useSession, type Area, type Me } from './session'
+import { areasFor, chooseArea, CONSENT_VERSION, useSession, type Area, type Me } from './session'
 
 /** While the account or a screen is loading: the star on the canvas, never a blank page. */
 export function Splash() {
@@ -78,12 +77,6 @@ export function AreaRoute({ area, children }: { area: Area | null; children: Rea
   const { me } = state
   if (!me) return <Problem title="Account not found">Your sign-in isn't linked to anyone at the school. Please contact the school.</Problem>
   if (!me.active) return <Problem title="Access turned off">The school has turned off access for this account. Please contact the school if this is a mistake.</Problem>
-  // Signed in with an email code: choose a new password (forgotten), or create one. No password yet always means the
-  // password step, even after a refresh or a reopened app, so the email code is needed only once (0034).
-  const setting = passwordStep.pending()
-  if (setting === 'reset' || me.has_password === false || (setting === 'first' && me.has_password !== true)) {
-    return <SetPasswordScreen intent={setting ?? 'first'} email={state.session.user.email ?? ''} />
-  }
   const areas = areasFor(me)
   if (areas.length === 0) return <Problem title="Nothing to show yet">The school hasn't linked you to a child or given you a role yet. Please contact the school.</Problem>
   if (choosing) {

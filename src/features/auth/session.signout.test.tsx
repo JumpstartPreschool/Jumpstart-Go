@@ -11,7 +11,7 @@ const auth = vi.hoisted(() => ({
 }))
 vi.mock('../../lib/supabase', () => ({ supabase: { auth, rpc: vi.fn() } }))
 
-import { chooseArea, passwordStep, SessionProvider, useSession } from './session'
+import { chooseArea, SessionProvider, useSession } from './session'
 
 afterEach(cleanup)
 
@@ -20,14 +20,12 @@ function SignOut() {
   return <button type="button" onClick={() => void signOut()}>{state.status}</button>
 }
 
-// A shared iPad: whoever signs in next must not land on the previous person's password step or area chooser.
-it('signing out clears the pending password step and area chooser', async () => {
-  passwordStep.ask('reset')
+// A shared iPad: whoever signs in next must not land on the previous person's area chooser.
+it('signing out clears the pending area chooser', async () => {
   chooseArea.ask()
   const user = userEvent.setup()
   render(<SessionProvider><SignOut /></SessionProvider>)
   await user.click(await screen.findByRole('button', { name: 'signed-out' }))
   expect(auth.signOut).toHaveBeenCalledTimes(1)
-  expect(passwordStep.pending()).toBeNull()
   expect(chooseArea.pending()).toBe(false)
 })
