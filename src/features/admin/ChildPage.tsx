@@ -164,7 +164,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
             </div>
           )}
           <div>
-            <p className="kicker">Center leaders for {klass?.name ?? 'this class'}</p>
+            <p className="kicker">Gate team for {klass?.name ?? 'this class'}</p>
             <p className={`mt-1 text-small font-bold ${coordinators.length ? '' : 'text-warning'}`}>{coordinators.length ? coordinators.map((c) => c.full_name).join(', ') : 'Nobody yet, so it is announced to everyone'}</p>
           </div>
         </section>

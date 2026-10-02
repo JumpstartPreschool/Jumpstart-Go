@@ -30,6 +30,7 @@ export function createWakeLock(onChange: (held: boolean) => void) {
     async start() {
       wanted = true
       document.addEventListener('visibilitychange', onVisibility)
+      window.addEventListener('pageshow', onVisibility)
       await acquire()
     },
     /** From a tap on the "screen may turn off" banner. */
@@ -37,6 +38,7 @@ export function createWakeLock(onChange: (held: boolean) => void) {
     async stop() {
       wanted = false
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pageshow', onVisibility)
       const lock = sentinel
       sentinel = null
       await lock?.release()

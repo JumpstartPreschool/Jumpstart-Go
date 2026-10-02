@@ -21,7 +21,7 @@ export interface Names {
   programme: (programmeId: unknown) => string
 }
 
-const ROLE_NAME: Record<string, string> = { admin: 'Admin', core: 'Head office', coordinator: 'Center leader', pro: 'Front desk' }
+const ROLE_NAME: Record<string, string> = { admin: 'Admin', core: 'Head office', coordinator: 'Center coordinator', leader: 'Center leader', pro: 'Front desk' }
 const WORD: Record<string, string> = { pickup: 'pickup', dropoff: 'drop-off' }
 const time = (iso: unknown) => clockTime(String(iso))
 const changed = (r: AuditRow, k: string) => JSON.stringify(r.old_row?.[k]) !== JSON.stringify(r.new_row?.[k])

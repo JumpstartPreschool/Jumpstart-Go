@@ -78,7 +78,7 @@ function WalkInSheet({ c, direction, onClose, onDone }: { c: SchoolChild; direct
  * Who else the gate expects today (Screen Book v3: "Coming up") at their regular or changed times, with Check in or
  * Hand over for someone who arrives without the app; then who isn't in today.
  */
-export function ExpectedLists({ children, onDone }: { children: SchoolChild[]; onDone: () => void }) {
+export function ExpectedLists({ children, canClose, onDone }: { children: SchoolChild[]; canClose: boolean; onDone: () => void }) {
   const [walkIn, setWalkIn] = useState<{ c: SchoolChild; direction: Direction } | null>(null)
   const coming = children
     .filter((c) => (c.day.state === 'expected' || c.day.state === 'here') && !c.day.trip)
@@ -100,9 +100,11 @@ export function ExpectedLists({ children, onDone }: { children: SchoolChild[]; o
                     {c.day.changed[direction] ? 'Changed today' : c.regular ? 'Regular' : 'Window'} {WORD[direction]}, {c.day.next.at !== null ? formatTime(c.day.next.at) : 'time not set'}{c.className ? ` · ${c.className}` : ''}
                   </span>
                 </span>
-                <LuxButton size="sm" icon={direction === 'dropoff' ? <DoorOpen /> : <UserCheck />} onClick={() => setWalkIn({ c, direction })}>
-                  {direction === 'dropoff' ? 'Check in' : 'Hand over'}
-                </LuxButton>
+                {canClose && (
+                  <LuxButton size="sm" icon={direction === 'dropoff' ? <DoorOpen /> : <UserCheck />} onClick={() => setWalkIn({ c, direction })}>
+                    {direction === 'dropoff' ? 'Check in' : 'Hand over'}
+                  </LuxButton>
+                )}
               </li>
             ))}
           </ul>

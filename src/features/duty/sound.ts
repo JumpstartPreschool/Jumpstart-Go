@@ -39,18 +39,59 @@ const PART_GAP_MS = 150
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-/** Call from a tap. Unlocks the chime and the voice for the rest of the session. */
+// iPhone and iPad before iOS 17 have no Audio Session API, and their Web Audio is muted by the ring/silent switch. A
+// playing media element moves the page into the "playback" audio category, which the switch doesn't mute, so on those
+// devices a silent loop plays for the whole duty. It is pure silence; nothing is ever heard from it.
+let keepAlive: HTMLAudioElement | null = null
+const isApple = () => typeof navigator !== 'undefined' && (/iPhone|iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
+function silentWav(seconds = 1, rate = 8000): string {
+  const n = seconds * rate
+  const b = new DataView(new ArrayBuffer(44 + n))
+  const text = (o: number, s: string) => [...s].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)))
+  text(0, 'RIFF'); b.setUint32(4, 36 + n, true); text(8, 'WAVEfmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true)
+  b.setUint32(24, rate, true); b.setUint32(28, rate, true); b.setUint16(32, 1, true); b.setUint16(34, 8, true); text(36, 'data'); b.setUint32(40, n, true)
+  for (let i = 0; i < n; i++) b.setUint8(44 + i, 128) // 8-bit PCM silence is 128
+  return URL.createObjectURL(new Blob([b.buffer], { type: 'audio/wav' }))
+}
+
+/** Call from a tap (Start duty, Resume, or "turn sound back on"). Unlocks the chime and both voices for the session. */
 export function unlockSound(): void {
-  // Play through the speaker even when the iPad is in Silent Mode (WebKit Audio Session API, Safari 16.4+).
+  // Play through the speaker even when the ring/silent switch is on (WebKit Audio Session API, iOS 17+).
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
   if (session) session.type = 'playback'
-  audioContext()
+  else if (isApple() && typeof Audio !== 'undefined') {
+    keepAlive ??= Object.assign(new Audio(silentWav()), { loop: true })
+    keepAlive.setAttribute('playsinline', '')
+    void keepAlive.play().catch(() => {})
+  }
+  const audio = audioContext()
+  // Some iOS versions only count Web Audio as started by the tap once a buffer has actually played inside it.
+  try {
+    const src = audio.createBufferSource()
+    src.buffer = audio.createBuffer(1, 1, 22050)
+    src.connect(audio.destination)
+    src.start(0)
+  } catch { /* nothing to warm up */ }
   if (speechSupported) {
+    // iOS unlocks the device voice only for a real sentence spoken inside a tap; an empty one is dropped. Said silently.
     speechSynthesis.cancel()
-    speechSynthesis.speak(new SpeechSynthesisUtterance(' '))
+    const u = new SpeechSynthesisUtterance('Ready.')
+    u.volume = 0
+    speechSynthesis.speak(u)
   }
   // Which voice the school's clips are in, then free the space older versions used on this iPad.
   void loadVoiceVersion().then(clearRetiredVoiceCaches)
+}
+
+/** Ends the duty's audio session: the silent keep-alive stops, so the device's own sound rules apply again. */
+export function releaseSound(): void {
+  keepAlive?.pause()
+}
+
+/** Whether the gate can make sound right now without another tap: Web Audio running (resumed if iOS paused it). */
+export async function soundReady(): Promise<boolean> {
+  if (!ctx) return false
+  return running(ctx)
 }
 
 /** The shared audio output, resumed (call from a tap, e.g. a pronunciation preview). */
@@ -58,9 +99,13 @@ export function audioContext(): AudioContext {
   if (!ctx) {
     ctx = new AudioContext()
     // iOS pauses Web Audio when the iPad locks or another app takes the sound; ask for it back on return.
-    globalThis.document?.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') void ctx.resume().catch(() => {})
-    })
+    // pageshow: an installed app restored from memory may skip visibilitychange; focus: back from another app.
+    const back = () => { if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') void ctx.resume().catch(() => {}) }
+    globalThis.document?.addEventListener('visibilitychange', back)
+    globalThis.addEventListener?.('pageshow', back)
+    globalThis.addEventListener?.('focus', back)
+    // The silent keep-alive is paused by iOS with the rest of the page's media; start it again on return.
+    globalThis.document?.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && keepAlive && keepAlive.paused) void keepAlive.play().catch(() => {}) })
   }
   void ctx.resume()
   return ctx
@@ -89,9 +134,10 @@ const NOTES: Record<ChimeKind, number[]> = { normal: [659.3, 987.8], flagged: [7
 const NOTE_GAP = 0.2
 const NOTE_LENGTH = 0.55
 
-export function chime(kind: ChimeKind): Promise<void> {
-  if (!ctx) return Promise.resolve()
-  if (ctx.state !== 'running') return running(ctx).then((ok) => (ok ? chime(kind) : undefined))
+/** Plays the chime. Resolves true once it has sounded, false when the audio couldn't play (not unlocked, or paused). */
+export function chime(kind: ChimeKind): Promise<boolean> {
+  if (!ctx) return Promise.resolve(false)
+  if (ctx.state !== 'running') return running(ctx).then((ok) => (ok ? chime(kind) : false))
   const audio = ctx
   const start = audio.currentTime + 0.03
   NOTES[kind].forEach((freq, i) => {
@@ -108,7 +154,7 @@ export function chime(kind: ChimeKind): Promise<void> {
     osc.start(t)
     osc.stop(t + NOTE_LENGTH + 0.05)
   })
-  return wait(((NOTES[kind].length - 1) * NOTE_GAP + NOTE_LENGTH + 0.15) * 1000)
+  return wait(((NOTES[kind].length - 1) * NOTE_GAP + NOTE_LENGTH + 0.15) * 1000).then(() => true)
 }
 
 /** Plays one clip, unless a Stop came first. Resolves when it ends or is stopped. */
@@ -132,9 +178,12 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
  * while the gate listens; whichever part isn't ready within CLIP_BUDGET_MS is said by the iPad's Indian English voice,
  * so the gate never waits. Never rejects.
  */
-export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<void> {
+/** Which voice said it: the school's clips, the device's own voice (all or part), or nothing at all. */
+export type Spoken = 'school' | 'device' | 'silent'
+
+export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<Spoken> {
   const parts = voiceParts(text, voiceChild(childId))
-  if (!parts.length) return
+  if (!parts.length) return 'silent'
   const mine = generation
   markVoice(text, 'chime-end')
   if (ctx) {
@@ -146,21 +195,23 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
     if (!(await running(audio))) return speakDevice(parts.join(' '), mine)
     for (const [i, clip] of clips.entries()) {
       if (i > 0) await wait(PART_GAP_MS)
-      if (mine !== generation) return
+      if (mine !== generation) return 'silent'
       const buf = await Promise.race([clip, wait(budgetMs).then(() => null)]).catch(() => null)
-      if (mine !== generation) return
+      if (mine !== generation) return 'silent'
       if (!buf) {
         markVoice(text, 'device-voice')
-        return speakDevice(parts.slice(i).join(' '), mine)
+        // One owner per announcement: the late clip is never played once the device voice has taken over.
+        const rest = await speakDevice(parts.slice(i).join(' '), mine)
+        return i > 0 && rest === 'silent' ? 'school' : rest
       }
       markVoice(text, i === 0 ? 'speech-start' : 'message-start')
       await play(buf, mine)
       if (i === 0) markVoice(text, 'opening-end')
     }
-    return
+    return mine === generation ? 'school' : 'silent'
   }
   markVoice(text, 'device-voice')
-  await speakDevice(parts.join(' '), mine)
+  return speakDevice(parts.join(' '), mine)
 }
 
 /** Starts getting an announcement's clips (from this iPad or the school's store) so speech starts without a pause. */
@@ -214,11 +265,12 @@ async function indianVoice(): Promise<SpeechSynthesisVoice | null> {
   return pickIndianVoice(speechSynthesis.getVoices())
 }
 
-async function speakDevice(text: string, mine: number): Promise<void> {
-  if (!speechSupported || mine !== generation) return
+async function speakDevice(text: string, mine: number): Promise<Spoken> {
+  if (!speechSupported || mine !== generation) return 'silent'
   const voice = await indianVoice()
-  if (!voice || mine !== generation) return
+  if (!voice || mine !== generation) return 'silent'
   return new Promise((resolve) => {
+    let started = false
     const u = new SpeechSynthesisUtterance(text)
     u.voice = voice
     u.lang = voice.lang
@@ -231,10 +283,12 @@ async function speakDevice(text: string, mine: number): Promise<void> {
       clearTimeout(fallback)
       if (utterance === u) utterance = null
       if (endDevice === finish) endDevice = null
-      resolve()
+      resolve(started ? 'device' : 'silent')
     }
     // ponytail: Safari occasionally never fires onend; a length-based timeout keeps the queue moving.
     const fallback = setTimeout(finish, 4000 + text.length * 90)
+    // onstart is the proof the voice really spoke: a blocked voice can end at once without a sound.
+    u.onstart = () => { started = true }
     u.onend = finish
     u.onerror = finish
     utterance = u

@@ -14,25 +14,48 @@ const apple = () => /iPhone|iPad/.test(navigator.userAgent) || (/Macintosh/.test
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
 
 /** Where this device stands for notifications, said as one of the states above. */
-export async function pushState(): Promise<PushState> {
+/** What can be told without waiting: unsupported, not installed, not set up, or blocked. Null when push could work. */
+function basicState(): PushState | null {
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return apple() && !standalone() ? 'needs-install' : 'unsupported'
   if (apple() && !standalone()) return 'needs-install'
   if (!KEY) return 'not-configured'
   if (Notification.permission === 'denied') return 'denied'
+  return null
+}
+
+export async function pushState(): Promise<PushState> {
+  const basic = basicState()
+  if (basic) return basic
   const reg = await navigator.serviceWorker.getRegistration()
   const sub = await reg?.pushManager.getSubscription()
-  return sub && Notification.permission === 'granted' ? 'on' : 'off'
+  if (!sub || Notification.permission !== 'granted') return 'off'
+  // On only if the school will actually send here: this device's subscription saved for the person signed in. The server
+  // forgets a subscription the push service rejects, and a shared tablet may have been someone else's.
+  const { data, error } = await supabase.from('push_subscriptions').select('endpoint').eq('endpoint', sub.endpoint).maybeSingle()
+  if (data) return 'on'
+  if (error) return 'off'
+  return (await saveSubscription(sub)) ? 'on' : 'off'
+}
+
+async function saveSubscription(sub: PushSubscription): Promise<boolean> {
+  const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
+  const { error } = await supabase.rpc('save_push_subscription', { p_endpoint: json.endpoint, p_p256dh: json.keys.p256dh, p_auth: json.keys.auth, p_user_agent: navigator.userAgent })
+  return !error
 }
 
 const key = (b64: string) => Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4)), (c) => c.charCodeAt(0))
 
 /** Asks the browser (call from a tap), subscribes this device and saves it for the signed-in person. */
 export async function turnOnPush(): Promise<PushState> {
-  const state = await pushState()
-  if (state !== 'off' && state !== 'on') return state
+  // Only quick checks before the question: iOS shows the permission prompt only while the tap is fresh, so nothing that
+  // waits on the network may come first.
+  const state = basicState()
+  if (state) return state
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'off'
-  const reg = await navigator.serviceWorker.ready
+  // No service worker means no push, ever: say so instead of waiting forever on `ready`.
+  const reg = await Promise.race([navigator.serviceWorker.ready, new Promise<null>((r) => setTimeout(() => r(null), 10_000))])
+  if (!reg) return 'unsupported'
   const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key(KEY!) }))
   const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
   const { error } = await supabase.rpc('save_push_subscription', { p_endpoint: json.endpoint, p_p256dh: json.keys.p256dh, p_auth: json.keys.auth, p_user_agent: navigator.userAgent })

@@ -186,7 +186,7 @@ export function AdminPeople() {
                 <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-5" aria-hidden><ShieldCheck /></span>
                 <div><p className="text-h4">Admin: Ankit Singh and Aditya Tapadia only</p><p className="text-small font-semibold text-ink-2">Nobody else can be given Admin, and admins can't be switched off here.</p></div>
               </div>
-              {lists.staff.length === 0 ? (q ? none : <EmptyState title="No staff yet">Add the head office, the front desk and the center leaders.</EmptyState>) : (
+              {lists.staff.length === 0 ? (q ? none : <EmptyState title="No staff yet">Add the head office, the front desk and the gate team.</EmptyState>) : (
                 <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {lists.staff.map((p) => {
                     const roles = dir.roles.get(p.id) ?? []
@@ -228,7 +228,7 @@ export function AdminPeople() {
                       <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{level ? levelIcon(levelOf(level).level) : <GraduationCap />}</span>
                       <span className="min-w-0">
                         <span className="block text-h4">{c.name}</span>
-                        <span className={`block text-small font-semibold ${who.length ? 'text-ink-2' : 'text-warning'}`}>{n} {n === 1 ? 'child' : 'children'}, {who.length ? who.map((p) => p!.full_name.split(' ')[0]).join(' and ') : 'no center leader'}</span>
+                        <span className={`block text-small font-semibold ${who.length ? 'text-ink-2' : 'text-warning'}`}>{n} {n === 1 ? 'child' : 'children'}, {who.length ? who.map((p) => p!.full_name.split(' ')[0]).join(' and ') : 'nobody on the gate'}</span>
                         <span className="block text-small font-semibold text-ink-3">{progs === 0 ? 'No programmes yet' : `${progs} ${progs === 1 ? 'programme' : 'programmes'}`}</span>
                       </span>
                       <ChevronRight className="ml-auto size-5 shrink-0 text-ink-3" aria-hidden />

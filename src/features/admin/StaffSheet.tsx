@@ -7,11 +7,11 @@ import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { normalizeEmail, normalizeMobile } from '../../domain/contact'
 import type { StaffRole } from '../auth/session'
-import { setCoordinator } from '../coordinators/api'
+import { gateRolesOf, setCoordinator } from '../coordinators/api'
 import { addPerson, explainDbError, updatePerson, type Directory, type Profile } from './api'
 import { ROLE } from './roles'
 
-const GIVEN: StaffRole[] = ['core', 'pro', 'coordinator']
+const GIVEN: StaffRole[] = ['core', 'pro', 'coordinator', 'leader']
 
 /**
  * Add a staff member: name, email for the sign-in code, roles and (for coordinators) their classes. Admin is shown
@@ -43,11 +43,12 @@ export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: {
     setFormError(null)
     try {
       const id = await addPerson({ fullName: name.trim().replace(/\s+/g, ' '), email: cleanEmail, phone: cleanPhone, roles })
-      if (roles.includes('coordinator') && classes.length) {
+      const gate = gateRolesOf(roles)[0]
+      if (gate && classes.length) {
         try {
-          await setCoordinator(id, classes)
+          await setCoordinator(id, classes, gate)
         } catch {
-          return onSaved(`${name.trim().split(' ')[0]} added, but their classes weren't saved. Choose them in Center leaders.`)
+          return onSaved(`${name.trim().split(' ')[0]} added, but their classes weren't saved. Choose them in Gate team.`)
         }
       }
       onSaved(`${name.trim().split(' ')[0]} added. They sign in with a code sent to ${cleanEmail}.`)
@@ -85,9 +86,9 @@ export function StaffSheet({ dir, open, onClose, onSaved, initialRoles = [] }: {
           </div>
           {errors.roles && <p className="mt-2 px-0.5 text-small font-bold text-danger" role="alert">{errors.roles}</p>}
         </fieldset>
-        {roles.includes('coordinator') && (
+        {gateRolesOf(roles).length > 0 && (
           <fieldset>
-            <legend className="mb-2 px-0.5 text-small font-bold text-ink-2">Center leader classes</legend>
+            <legend className="mb-2 px-0.5 text-small font-bold text-ink-2">Gate classes</legend>
             <div className="flex flex-wrap gap-2.5">
               {dir.classes.filter((c) => c.active).map((c) => (
                 <button key={c.id} type="button" role="checkbox" aria-checked={classes.includes(c.id)} onClick={() => setClasses(toggle(classes, c.id))} className="choice h-12 px-4 text-h4">{c.name}</button>
@@ -133,7 +134,7 @@ export function EditStaffSheet({ dir, person, onClose, onSaved }: { dir: Directo
     }
   }
   return (
-    <Sheet open onClose={onClose} title={`Edit ${first}`} description={<>Their details are here. <Link to="/admin/coordinators" className="font-extrabold text-accent-ink underline underline-offset-2">Change roles and classes in Center leaders</Link>.</>}>
+    <Sheet open onClose={onClose} title={`Edit ${first}`} description={<>Their details are here. <Link to="/admin/coordinators" className="font-extrabold text-accent-ink underline underline-offset-2">Change gate roles and classes in Gate team</Link>.</>}>
       <div className="grid gap-4">
         <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
         <div className="grid gap-4 sm:grid-cols-2">

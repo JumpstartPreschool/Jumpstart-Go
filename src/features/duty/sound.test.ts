@@ -23,7 +23,7 @@ class FakeAudioContext {
   createOscillator() { return new FakeSource() }
   createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (n: unknown) => n } }
 }
-const deviceVoice = { speak: vi.fn((u: { text: string }) => heard.push(`device:${u.text}`)), cancel: vi.fn(), getVoices: () => [{ name: 'Isha', lang: 'en-IN' }] }
+const deviceVoice = { speak: vi.fn((u: { text: string; onstart?: () => void; onend?: () => void }): unknown => heard.push(`device:${u.text}`)), cancel: vi.fn(), getVoices: () => [{ name: 'Isha', lang: 'en-IN' }] }
 
 // The clips: each test decides when (and whether) a sentence's audio arrives.
 const pending = new Map<string, { resolve: (b: { label: string }) => void; reject: (e: Error) => void }>()
@@ -186,6 +186,56 @@ describe('gate sound', () => {
     await preview
     expect(onStart).not.toHaveBeenCalled()
     expect(heard).toEqual([])
+  })
+})
+
+describe('what the sound check can report (it uses the same path as real announcements)', () => {
+  const speaksAloud = (on: boolean) => deviceVoice.speak.mockImplementation((u: { text: string; onstart?: () => void; onend?: () => void }) => {
+    heard.push(`device:${u.text}`)
+    if (on) { u.onstart?.(); setTimeout(() => u.onend?.(), 10) }
+  })
+  afterEach(() => speaksAloud(false))
+
+  it('unlocked the device voice with a real (silent) sentence: iOS drops an empty one', () => {
+    sound.unlockSound()
+    const first = deviceVoice.speak.mock.calls.at(-1)![0] as { text: string; volume?: number }
+    expect(first.text.trim().length).toBeGreaterThan(0)
+    expect(first.volume).toBe(0)
+  })
+
+  it("reports the school's voice when the clips played", async () => {
+    const said = sound.speak('Sound check.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    arrive('Sound check.')
+    await vi.advanceTimersByTimeAsync(0)
+    finish()
+    expect(await said).toBe('school')
+  })
+
+  it("reports the device voice only when it actually started speaking, and never plays the late clip after it", async () => {
+    speaksAloud(true)
+    const said = sound.speak('Reason: dentist.')
+    await vi.advanceTimersByTimeAsync(sound.CLIP_BUDGET_MS + 20)
+    arrive('Reason: dentist.') // the school's clip turns up after the device voice took over
+    await vi.advanceTimersByTimeAsync(50)
+    expect(await said).toBe('device')
+    expect(heard).toEqual(['device:Reason: dentist.'])
+  })
+
+  it('reports silence when the device voice never started (blocked), so a silent tablet is never called working', async () => {
+    const said = sound.speak('Reason: dentist.')
+    await vi.advanceTimersByTimeAsync(sound.CLIP_BUDGET_MS + 10_000)
+    expect(await said).toBe('silent')
+  })
+
+  it("reports a chime that couldn't sound because iOS paused the audio", async () => {
+    paused = true
+    const chimed = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(600)
+    expect(await chimed).toBe(false)
+    paused = false
+    const again = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(await again).toBe(true)
   })
 })
 

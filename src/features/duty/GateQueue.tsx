@@ -28,21 +28,29 @@ import { cancelledText, isUrgent, phaseOf, shouldAnnounce, spokenText, type Gate
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
 interface GateData { children: Map<string, GateChild & { guardians: Guardian[]; spoken: string | null }>; myClasses: Set<string>; covered: Set<string> }
 
+/** Center Coordinators check in and hand over; Center Leaders hear, acknowledge and mark Ready (0038, enforced by the database). */
+function useCanClose(): boolean {
+  const { state } = useSession()
+  return state.status === 'signed-in' && !!state.me?.roles.includes('coordinator')
+}
+
 /** The children, their guardians and who covers which class: everything the gate needs besides the trips. */
 function useGateData() {
   const { state } = useSession()
   const myId = state.status === 'signed-in' ? state.me?.profile_id : undefined
+  const canClose = useCanClose()
   const [data, setData] = useState<GateData | null>(null)
   const [error, setError] = useState(false)
   const load = useCallback(async () => {
-    const [kids, people, assigned, voices] = await Promise.all([
+    const [kids, people, assigned, voices, gateRoles] = await Promise.all([
       supabase.from('children').select('id, full_name, preferred_name, gender, class_id, classes(name), programmes(name), guardianships(guardian_id, relation, kind)').eq('active', true),
       supabase.from('profiles').select('id, full_name, active, abroad'),
       supabase.from('coordinator_classes').select('profile_id, class_id'),
       // Separate, and its failure ignored: the gate works without pronunciations (names are then said as registered).
       supabase.from('child_pronunciations').select('child_id, spoken_name'),
+      supabase.from('staff_roles').select('profile_id, role').in('role', ['coordinator', 'leader']),
     ])
-    if (kids.error || people.error || assigned.error) return setError(true)
+    if (kids.error || people.error || assigned.error || gateRoles.error) return setError(true)
     setError(false)
     const spoken = new Map(((voices.data ?? []) as Array<{ child_id: string; spoken_name: string | null }>).map((v) => [v.child_id, v.spoken_name]))
     const names = new Map((people.data ?? []).map((p) => [p.id as string, p as { id: string; full_name: string; active: boolean; abroad: boolean }]))
@@ -55,21 +63,30 @@ function useGateData() {
     // The voice says each child's name the way the school approved (D50); the screen always shows it as registered.
     setVoiceChildren(new Map([...children.values()].map((c) => [c.id, { fullName: c.fullName, name: c.name, spoken: c.spoken } satisfies VoiceChild])))
     const rows = (assigned.data ?? []) as Array<{ profile_id: string; class_id: string }>
-    setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), covered: new Set(rows.map((r) => r.class_id)) })
-  }, [myId])
+    // A class counts as covered for this tablet when someone who can do what it does is assigned: for a Center
+    // Coordinator, another coordinator; for a Center Leader, anyone on the gate team. Same rule as push (0038).
+    const coordinators = new Set(((gateRoles.data ?? []) as Array<{ profile_id: string; role: string }>).filter((r) => r.role === 'coordinator').map((r) => r.profile_id))
+    const covered = new Set(rows.filter((r) => !canClose || coordinators.has(r.profile_id)).map((r) => r.class_id))
+    setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), covered })
+  }, [myId, canClose])
   useEffect(() => {
     void load()
-    const stops = ['children', 'guardianships', 'coordinator_classes', 'child_pronunciations'].map((t) => onTableChange(t, () => void load()))
-    return () => stops.forEach((s) => s())
+    const stops = ['children', 'guardianships', 'coordinator_classes', 'child_pronunciations', 'staff_roles'].map((t) => onTableChange(t, () => void load()))
+    // Changes missed while the live connection was down (iOS suspends it in the background) are fetched on return.
+    const onVisible = () => document.visibilityState === 'visible' && void load()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onVisible)
+    return () => { stops.forEach((s) => s()); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('online', onVisible) }
   }, [load])
   return { data, error, reload: load }
 }
 
-/** What the gate does next with a trip. */
-function nextStep(t: Trip): { step: GateStep | 'handover'; label: string; icon: ReactNode } {
+/** What this person does next with a trip, or null when the rest is a Center Coordinator's (check in, hand over). */
+function nextStep(t: Trip, canClose: boolean): { step: GateStep | 'handover'; label: string; icon: ReactNode } | null {
   if (t.off_schedule && !t.acknowledged_at) return { step: 'acknowledge', label: 'Acknowledge', icon: <Eye /> }
-  if (t.direction === 'dropoff') return { step: 'close', label: 'Check in', icon: <DoorOpen /> }
+  if (t.direction === 'dropoff') return canClose ? { step: 'close', label: 'Check in', icon: <DoorOpen /> } : t.acknowledged_at ? null : { step: 'acknowledge', label: 'Acknowledge', icon: <Eye /> }
   if (!t.ready_at) return { step: 'ready', label: 'Ready', icon: <CircleCheck /> }
+  if (!canClose) return null
   return t.traveller_kind === 'third_person' ? { step: 'handover', label: 'Enter code', icon: <KeyRound /> } : { step: 'handover', label: 'Hand over', icon: <UserCheck /> }
 }
 
@@ -85,6 +102,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   // The gate voice's requests go to the functions on this origin: open the connection before the first announcement.
   if (import.meta.env.VITE_SUPABASE_URL) preconnect(import.meta.env.VITE_SUPABASE_URL)
   const toast = useToast()
+  const canClose = useCanClose()
   const trips = useTodayTrips()
   const gate = useGateData()
   const nowMs = useNow(5_000)
@@ -185,7 +203,8 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
 
   const openHandover = (t: Trip) => (t.traveller_kind === 'third_person' ? setCodeFor(t) : setHandover(t))
   const doNext = (t: Trip) => {
-    const n = nextStep(t)
+    const n = nextStep(t, canClose)
+    if (!n) return
     if (n.step === 'handover') return openHandover(t)
     void act(t, n.step)
   }
@@ -201,7 +220,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const Row = ({ t }: { t: Trip }) => {
     const c = children.get(t.child_id)
     const done = t.status !== 'en_route'
-    const n = done ? null : nextStep(t)
+    const n = done ? null : nextStep(t, canClose)
     const mine = c ? gate.data!.myClasses.has(c.classId) : false
     return (
       <li>
@@ -224,11 +243,12 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
                 {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
                 {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
-                {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>No center leader</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
+                {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>Nobody assigned</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
               </span>
             </span>
           </button>
-          {n && <Button size="md" variant={n.step === 'acknowledge' ? 'sunshine' : 'primary'} icon={n.icon} loading={busy === t.id} onClick={() => doNext(t)}>{n.label}</Button>}
+          {n ? <Button size="md" variant={n.step === 'acknowledge' ? 'sunshine' : 'primary'} icon={n.icon} loading={busy === t.id} onClick={() => doNext(t)}>{n.label}</Button>
+            : !done && <Pill icon={<UserCheck />}>{t.direction === 'pickup' ? 'Coordinator hands over' : 'Coordinator checks in'}</Pill>}
         </div>
       </li>
     )
@@ -250,19 +270,19 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
         <div className="flex flex-wrap items-center gap-3">
           <Tabs id="scope" label="Whose children" value={scope} onChange={setScope}
             items={[{ key: 'mine', label: gate.data.myClasses.size ? 'Your classes' : 'Uncovered classes', icon: <BellRing /> }, { key: 'all', label: 'Whole school', icon: <School /> }]} />
-          <LuxButton size="sm" icon={<Phone />} className="ml-auto" disabled={!school.children} onClick={() => setCalling(true)}>Log a call</LuxButton>
+          {canClose && <LuxButton size="sm" icon={<Phone />} className="ml-auto" disabled={!school.children} onClick={() => setCalling(true)}>Log a call</LuxButton>}
         </div>
         {error && <Notice tone="danger">{error}</Notice>}
         {sections.attention.length > 0 && <Section title="Needs attention" icon={<TriangleAlert />} list={sections.attention} />}
         <Section title="Coming" icon={<Navigation />} list={sections.coming} empty="Nobody is on the way right now. New drop-offs and pickups appear here and are announced." />
-        {school.children && <ExpectedLists children={school.children.filter((c) => inScope(c.id))} onDone={() => { school.reload(); void trips.reload() }} />}
+        {school.children && <ExpectedLists canClose={canClose} children={school.children.filter((c) => inScope(c.id))} onDone={() => { school.reload(); void trips.reload() }} />}
         {sections.done.length > 0 && <Section title="Done today" icon={<CircleCheck />} list={sections.done} />}
       </div>
 
       {/* The chosen trip, side by side on iPad landscape and desktop. */}
       <aside className="card sticky top-[calc(env(safe-area-inset-top)+180px)] hidden rounded-2xl p-6 lg:block" aria-label="Details">
         {selected && detailChild ? (
-          <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} locked={locked.has(selected.id)} onStep={(s) => (s === 'handover' ? openHandover(selected) : void act(selected, s))} />
+          <TripDetail canClose={canClose} trip={selected} child={detailChild} busy={busy === selected.id} locked={locked.has(selected.id)} onStep={(s) => (s === 'handover' ? openHandover(selected) : void act(selected, s))} />
         ) : (
           <div className="grid justify-items-center gap-2 py-8 text-center text-body text-ink-2">
             <School className="size-10 text-ink-3" aria-hidden />
@@ -300,7 +320,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       </Sheet>
       <div className="lg:hidden">
         <Sheet open={!!picked && !!selected && !!detailChild} onClose={() => setPicked(null)} title={detailChild?.fullName ?? 'Details'}>
-          {selected && detailChild && <TripDetail trip={selected} child={detailChild} busy={busy === selected.id} locked={locked.has(selected.id)} onStep={(s) => { if (s === 'handover') { setPicked(null); openHandover(selected) } else void act(selected, s) }} />}
+          {selected && detailChild && <TripDetail canClose={canClose} trip={selected} child={detailChild} busy={busy === selected.id} locked={locked.has(selected.id)} onStep={(s) => { if (s === 'handover') { setPicked(null); openHandover(selected) } else void act(selected, s) }} />}
         </Sheet>
       </div>
       {calling && school.children && <CallSheet open onClose={() => setCalling(false)} children={school.children} nowMs={nowMs} onLogged={() => { school.reload(); void trips.reload() }} />}
@@ -318,7 +338,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   )
 }
 
-function TripDetail({ trip, child, busy, locked, onStep }: { trip: Trip; child: GateChild & { guardians: Guardian[] }; busy: boolean; locked: boolean; onStep: (s: GateStep | 'handover') => void }) {
+function TripDetail({ trip, child, busy, locked, canClose, onStep }: { trip: Trip; child: GateChild & { guardians: Guardian[] }; busy: boolean; locked: boolean; canClose: boolean; onStep: (s: GateStep | 'handover') => void }) {
   const third = trip.traveller_kind === 'third_person'
   const who = trip.traveller_name.split(' ')[0]!
   const done = trip.status !== 'en_route'
@@ -354,6 +374,7 @@ function TripDetail({ trip, child, busy, locked, onStep }: { trip: Trip; child: 
           {!trip.acknowledged_at && <Button variant={trip.off_schedule ? 'sunshine' : 'secondary'} icon={<Eye />} loading={busy} onClick={() => onStep('acknowledge')}>Acknowledge</Button>}
           {pickup && !trip.ready_at && <Button variant="secondary" icon={<CircleCheck />} loading={busy} onClick={() => onStep('ready')}>{child.name} is ready</Button>}
           {locked ? <Notice tone="danger" icon={<Lock aria-hidden />}>Locked after three wrong codes. Call the parent before releasing {child.name}.</Notice>
+            : !canClose ? <Notice icon={<UserCheck aria-hidden />}>A center coordinator {pickup ? `hands ${child.name} over` : `checks ${child.name} in`} at the gate.</Notice>
             : pickup
             ? <LuxButton primary size="xl" icon={third ? <KeyRound /> : <UserCheck />} loading={busy} onClick={() => onStep('handover')}>{third ? `Enter ${who}'s code` : 'Hand over'}</LuxButton>
             : <LuxButton primary size="xl" icon={<DoorOpen />} loading={busy} onClick={() => onStep('close')}>Check in {child.name}</LuxButton>}

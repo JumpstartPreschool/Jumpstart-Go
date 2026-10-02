@@ -6,7 +6,7 @@ import { Logo, Mascot } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
 import { isInstalled } from '../../ui/hooks'
 import { formatTime, indiaClock } from '../../domain/time'
-import type { Duty } from './useDuty'
+import type { Duty, SoundResult } from './useDuty'
 import { useTodayTrips } from '../trips/api'
 import { now } from '../../lib/clock'
 import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
@@ -82,6 +82,19 @@ function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }
   )
 }
 
+/** Nothing could play at all: the chime didn't sound and neither voice spoke. Duty can't start on a silent device. */
+const nothingPlayed = (r: SoundResult | null) => !!r && !r.chime && r.voice === 'silent'
+
+/** What the sound check really played, said plainly, so a silent device is never reported as working. */
+export function SoundResultLine({ result }: { result: SoundResult }) {
+  const [tone, text] = nothingPlayed(result)
+    ? ['bg-danger-soft text-danger', "No sound could play. Tap Play again; if it stays silent, turn the volume up, switch off silent mode, and reopen Jumpstart Go from the Home Screen."]
+    : result.voice === 'school' ? ['bg-live-soft text-live', `Played: ${result.chime ? 'the chime and ' : ''}the school's voice.`]
+    : result.voice === 'device' ? ['bg-warning-soft text-warning', `Played: ${result.chime ? 'the chime and ' : ''}this tablet's own voice. The school's voice wasn't ready; announcements still play.`]
+    : ['bg-warning-soft text-warning', 'Played: the chime only. No voice is available on this tablet, so names show on screen.']
+  return <p className={`mt-4 rounded-lg px-4 py-3 text-left text-small font-bold ${tone}`} role="status">{text}</p>
+}
+
 export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const installed = isInstalled()
 
@@ -100,6 +113,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           <p className="mt-2 text-lead text-ink-2" aria-live="polite">
             {duty.testing ? `Playing a chime and "${SOUND_CHECK}"` : `You should have heard a chime, then "${SOUND_CHECK}"`}
           </p>
+          {!duty.testing && duty.result && <SoundResultLine result={duty.result} />}
           {struggling && (
             <ul className="mt-6 grid list-disc gap-1.5 rounded-lg bg-warning-soft p-5 pl-9 text-left text-body text-ink marker:text-warning">
               <li>Turn the volume up with the device's volume buttons.</li>
@@ -108,7 +122,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
             </ul>
           )}
           <div className="mt-8 grid gap-3">
-            <Button size="xl" variant="success" icon={<CircleCheck />} onClick={duty.confirmHeard} disabled={duty.testing}>
+            <Button size="xl" variant="success" icon={<CircleCheck />} onClick={duty.confirmHeard} disabled={duty.testing || nothingPlayed(duty.result)}>
               Yes, I heard it
             </Button>
             <Button size="lg" variant="secondary" icon={<RotateCcw />} loading={duty.testing} onClick={() => void duty.playTest()}>

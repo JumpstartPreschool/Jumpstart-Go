@@ -34,14 +34,19 @@ export async function loadCoordinators(): Promise<CoordinatorData> {
   }
 }
 
-/** Gives the Coordinator role if needed and sets exactly these classes, in one step (0005). */
-export async function setCoordinator(profileId: string, classIds: string[]) {
-  const { error } = await supabase.rpc('set_coordinator', { p_profile: profileId, p_classes: classIds })
+/** The two gate roles (0038): Center Coordinator runs the gate; Center Leader hears, acknowledges and marks Ready. */
+export type GateRole = Extract<StaffRole, 'coordinator' | 'leader'>
+export const GATE_ROLES: readonly GateRole[] = ['coordinator', 'leader']
+export const gateRolesOf = (roles: readonly StaffRole[] | undefined): GateRole[] => GATE_ROLES.filter((r) => roles?.includes(r))
+
+/** Gives a gate role if needed and sets exactly these classes, in one step (0005, 0038). Classes are per person. */
+export async function setCoordinator(profileId: string, classIds: string[], role: GateRole = 'coordinator') {
+  const { error } = await supabase.rpc('set_coordinator', { p_profile: profileId, p_classes: classIds, p_role: role })
   if (error) throw error
 }
 
-/** Removes the Coordinator role; the database removes their classes with it. */
-export async function removeCoordinator(profileId: string) {
-  const { error } = await supabase.from('staff_roles').delete().eq('profile_id', profileId).eq('role', 'coordinator')
+/** Removes one gate role, or both; the database removes their classes once neither is left. */
+export async function removeCoordinator(profileId: string, roles: readonly GateRole[] = GATE_ROLES) {
+  const { error } = await supabase.from('staff_roles').delete().eq('profile_id', profileId).in('role', [...roles])
   if (error) throw error
 }

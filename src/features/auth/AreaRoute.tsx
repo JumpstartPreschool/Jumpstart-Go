@@ -7,7 +7,7 @@ import { SignOutButton } from '../../ui/SignOutButton'
 import { ConsentScreen } from './ConsentScreen'
 import { LoginScreen, SignInFrame } from './LoginScreen'
 import { SetPasswordScreen } from './SetPasswordScreen'
-import { AREA_DOES, AREA_ICON, AREA_LABEL } from './AreaShell'
+import { AREA_ICON, areaDoes, areaLabel } from './AreaShell'
 import { areasFor, chooseArea, CONSENT_VERSION, passwordStep, useSession, type Area, type Me } from './session'
 
 /** While the account or a screen is loading: the star on the canvas, never a blank page. */
@@ -51,8 +51,8 @@ function AreaChooser({ me, areas, onPick }: { me: Me; areas: Area[]; onPick: (ar
             <button key={a} type="button" className="choice flex items-center gap-3.5 p-3.5" onClick={() => onPick(a)}>
               <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden>{AREA_ICON[a]}</span>
               <span className="min-w-0 flex-1">
-                <span className="block text-h4">{AREA_LABEL[a]}</span>
-                <span className="block text-small font-semibold text-ink-2">{AREA_DOES[a]}</span>
+                <span className="block text-h4">{areaLabel(a, me.roles)}</span>
+                <span className="block text-small font-semibold text-ink-2">{areaDoes(a, me.roles)}</span>
               </span>
               <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
             </button>

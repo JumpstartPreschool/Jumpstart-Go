@@ -112,7 +112,7 @@ export function AdminSettings() {
           <div className="card h-[420px] animate-pulse rounded-2xl" aria-label="Loading" />
         ) : (
           <div className="card divide-y divide-line rounded-2xl p-5 sm:p-6">
-            <Row title={'"Get ready" reminder'} control={chips('get_ready_lead_min')}>Center leaders hear it this long before the time someone arrives.</Row>
+            <Row title={'"Get ready" reminder'} control={chips('get_ready_lead_min')}>The gate team hears it this long before the time someone arrives.</Row>
             <Row title="Running-late alert" control={chips('late_threshold_min')}>When someone will be at least this late, or the time passes this far with nobody here.</Row>
             <Row title="Drop-off and pickup times" control={<Link to="/admin" className="btn btn--secondary btn--md">Classes<ChevronRight aria-hidden /></Link>}>Set for each programme in People → Classes. New ones start 15 minutes either side of the class.</Row>
             <Row title="School hours" control={locked('Fixed')}>9:00 AM to 7:00 PM. Parents can set a drop-off or pickup for any time.</Row>

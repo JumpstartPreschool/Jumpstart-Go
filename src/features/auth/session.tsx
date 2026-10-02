@@ -3,7 +3,8 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 
 export type Area = 'admin' | 'core' | 'pro' | 'coordinator' | 'parent'
-export type StaffRole = 'admin' | 'core' | 'coordinator' | 'pro'
+/** 'coordinator' is the Center Coordinator (check-ins and handovers); 'leader' the Center Leader (hears, acknowledges, Ready). */
+export type StaffRole = 'admin' | 'core' | 'coordinator' | 'leader' | 'pro'
 
 /** What public.whoami() returns for the signed-in person. */
 export interface Me {
@@ -53,7 +54,8 @@ export function areasFor(me: Me): Area[] {
   if (me.roles.includes('admin')) areas.push('admin')
   if (me.roles.includes('core')) areas.push('core')
   if (me.roles.includes('pro')) areas.push('pro')
-  if (me.roles.includes('coordinator')) areas.push('coordinator')
+  // One gate area for both gate roles; what each may do there is decided by the database (0038).
+  if (me.roles.includes('coordinator') || me.roles.includes('leader')) areas.push('coordinator')
   if (me.children > 0) areas.push('parent')
   return areas
 }

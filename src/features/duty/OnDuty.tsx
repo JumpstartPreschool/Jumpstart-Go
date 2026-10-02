@@ -9,6 +9,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
 import { GateQueue } from './GateQueue'
 import { SpeakerSheet } from './SpeakerSheet'
+import { SoundResultLine } from './StartDuty'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
 const hours = (ms: number) => { const m = Math.max(1, Math.round(ms / 60_000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min` }
@@ -65,6 +66,13 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             Offline. Announcements are paused until the connection is back.
           </div>
         )}
+        {online && duty.soundBlocked && (
+          <button type="button" onClick={duty.resumeSound}
+            className="mt-3 flex min-h-14 w-full items-center gap-3 rounded-lg bg-danger-strong px-5 py-4 text-left text-h4 text-white shadow-float">
+            <Volume2 className="size-6 shrink-0" aria-hidden />
+            Sound is paused by this device. Tap here to turn announcements back on.
+          </button>
+        )}
         {online && duty.wakeSupported && !duty.screenHeld && (
           <button
             type="button"
@@ -115,6 +123,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             Test the speaker
           </LuxButton>
           <p className="text-caption font-semibold text-ink-3">Sound plays through this device's speaker, or a Bluetooth speaker when one is connected.</p>
+          {!duty.testing && duty.result && <div className="basis-full"><SoundResultLine result={duty.result} /></div>}
         </section>
       </main>
 

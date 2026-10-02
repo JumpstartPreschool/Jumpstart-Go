@@ -73,7 +73,7 @@ export function TimeSheet({ open, onClose, childId, first, direction, programme,
         <Button size="xl" className="w-full" icon={<Clock />} loading={busyState} disabled={at === null || at === current || (needsReason && !reason.trim())} onClick={() => void save()}>
           {onBehalfOf ? `Save for ${onBehalfOf}` : "Save today's time"}
         </Button>
-        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">The center leaders hear the new time straight away.</p>
+        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">The gate team hears the new time straight away.</p>
       </SheetFooter>
     </Sheet>
   )

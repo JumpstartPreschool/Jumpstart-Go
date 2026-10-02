@@ -298,7 +298,7 @@ export default function CollectorLink() {
           <CodeTiles code={code} size="xl" />
         </div>
         <ol className="grid gap-2 text-body font-semibold">
-          {['Tap Start trip when you leave', 'Keep this page open on the way', 'Tell the center leader the code'].map((s, i) => (
+          {['Tap Start trip when you leave', 'Keep this page open on the way', 'Tell the center coordinator the code'].map((s, i) => (
             <li key={s} className="flex items-center gap-3"><span className="grid size-7 place-items-center rounded-full bg-sunken text-small font-extrabold tabular-nums" aria-hidden>{i + 1}</span>{s}</li>
           ))}
         </ol>
@@ -314,9 +314,9 @@ export default function CollectorLink() {
       <Page pill={<Pill tone="accent" icon={<Hand />}>At the gate</Pill>}>
         <h1 className="text-h1">Show this code at the gate</h1>
         <div className="card rounded-2xl px-4 py-8"><CodeTiles code={code} size="xl" /></div>
-        <p className="text-body text-ink-2">The center leader types it into the gate tablet, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
-        {l.locked ? <Notice tone="danger" icon={<Lock />}>The handover is locked after three wrong codes. Please ask the center leader to call the parent.</Notice>
-          : <Pill tone="accent" className="justify-self-start"><span className="size-2 animate-pulse rounded-full bg-current" aria-hidden />Waiting for the center leader</Pill>}
+        <p className="text-body text-ink-2">The center coordinator types it into the gate tablet, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
+        {l.locked ? <Notice tone="danger" icon={<Lock />}>The handover is locked after three wrong codes. Please ask the center coordinator to call the parent.</Notice>
+          : <Pill tone="accent" className="justify-self-start"><span className="size-2 animate-pulse rounded-full bg-current" aria-hidden />Waiting for the center coordinator</Pill>}
         <Button variant="quiet" onClick={() => setLocal({ atGate: false })}>Back</Button>
         {callSchool}
       </Page>
@@ -353,7 +353,7 @@ export default function CollectorLink() {
       <Button size="xl" className="w-full" icon={<Hand />} onClick={() => {
         setLocal({ atGate: true })
         void linkArrive(token).then((next) => setState({ kind: 'open', link: next, mine: true }),
-          () => toast("Couldn't tell the gate you're here. Please tell the center leader.", { tone: 'danger' }))
+          () => toast("Couldn't tell the gate you're here. Please tell the gate team.", { tone: 'danger' }))
       }}>I'm at the gate</Button>
       <div className="grid grid-cols-2 gap-2.5">
         <Button variant="sunshine" icon={<Timer />} onClick={() => setLate(true)}>Running late</Button>

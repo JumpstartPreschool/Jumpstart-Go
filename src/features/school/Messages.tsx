@@ -133,7 +133,7 @@ export function OfficeMessages({ area }: { area: Area }) {
                 ))}
               </ul>
             )}
-          {list && <Notice className="mt-4">Center leaders don't read messages; they hear the gate.</Notice>}
+          {list && <Notice className="mt-4">The gate team doesn't read messages; they hear the gate.</Notice>}
         </section>
 
         <section className={kid ? '' : 'max-lg:hidden'} aria-label="Conversation">

@@ -91,12 +91,18 @@ export function useTodayTrips() {
     void load()
     const stop = onTableChange('trips', () => void load())
     const poll = setInterval(() => void load(), 20_000)
+    // The database is the truth: coming back to the app in any way (unlocked, switched back, restored from memory by
+    // iOS, back online) fetches today's trips again, whatever happened to the live connection meanwhile.
     const onVisible = () => document.visibilityState === 'visible' && void load()
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    window.addEventListener('online', onVisible)
     return () => {
       stop()
       clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onVisible)
+      window.removeEventListener('online', onVisible)
     }
   }, [load])
   return { trips, error, reload: load }

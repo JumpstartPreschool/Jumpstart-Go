@@ -6,28 +6,33 @@ import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
 import { useOnline } from '../../ui/hooks'
 import { SignOutButton } from '../../ui/SignOutButton'
-import { areasFor, useSession, type Area } from './session'
+import { areasFor, useSession, type Area, type StaffRole } from './session'
 import { PARENT_PAGES, ParentTabBar, ParentTopNav } from '../family/ParentNav'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { ImportBanner } from '../admin/ImportBanner'
 
-export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Head office', pro: 'Front desk', coordinator: 'Center leader', parent: 'Parent' }
+export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Head office', pro: 'Front desk', coordinator: 'Center coordinator', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
 export const AREA_ICON: Record<Area, ReactNode> = { admin: <ShieldCheck />, core: <CalendarClock />, pro: <Headset />, coordinator: <BellRing />, parent: <UserRound /> }
 /** What each area gives access to, shown when choosing where to start. */
 export const AREA_DOES: Record<Area, string> = {
   admin: 'Everything, including people and roles',
-  core: 'Timings, attendance and center leaders',
+  core: 'Timings, attendance and the gate team',
   pro: 'Calls, messages and announcements',
-  coordinator: 'The gate, on a tablet',
+  coordinator: 'The gate: announcements, check-ins and handovers',
   parent: 'Your own children',
 }
+
+/** The gate area is one area for two roles: someone who is only a Center Leader sees it named and described as theirs. */
+const leaderOnly = (a: Area, roles: readonly StaffRole[]) => a === 'coordinator' && !roles.includes('coordinator')
+export const areaLabel = (a: Area, roles: readonly StaffRole[]) => (leaderOnly(a, roles) ? 'Center leader' : AREA_LABEL[a])
+export const areaDoes = (a: Area, roles: readonly StaffRole[]) => (leaderOnly(a, roles) ? 'The gate: hear requests, acknowledge and mark Ready' : AREA_DOES[a])
 
 /** Pages inside an area, shown as tabs under the top bar. */
 const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; short?: string; icon: ReactNode }>>> = {
   admin: [
     { to: '/admin', label: 'People', icon: <UsersRound /> },
-    { to: '/admin/coordinators', label: 'Center leaders', short: 'Leaders', icon: <BellRing /> },
+    { to: '/admin/coordinators', label: 'Gate team', short: 'Gate', icon: <BellRing /> },
     { to: '/admin/announce', label: 'Announce', icon: <Megaphone /> },
     { to: '/admin/settings', label: 'Settings', icon: <Settings /> },
     { to: '/admin/audit', label: 'Audit log', short: 'Audit', icon: <ScrollText /> },
@@ -35,7 +40,7 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; short?
   core: [
     { to: '/core', label: 'Today', icon: <CalendarClock /> },
     { to: '/core/schedules', label: 'Schedules', short: 'Times', icon: <Clock /> },
-    { to: '/core/coordinators', label: 'Center leaders', short: 'Leaders', icon: <BellRing /> },
+    { to: '/core/coordinators', label: 'Gate team', short: 'Gate', icon: <BellRing /> },
     { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
     { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
   ],
@@ -73,7 +78,7 @@ export function AccountButton({ area }: { area: Area }) {
         <span className="hidden sm:inline">{me.full_name.split(' ')[0]}</span>
         <ChevronDown className="size-4 text-ink-3" aria-hidden />
       </button>
-      <Sheet fade open={open} onClose={() => setOpen(false)} title={me.full_name} description={`Signed in as ${AREA_LABEL[area]}`}>
+      <Sheet fade open={open} onClose={() => setOpen(false)} title={me.full_name} description={`Signed in as ${areaLabel(area, me.roles)}`}>
         {areas.length > 1 && (
           <>
             <p className="kicker">Switch area</p>
@@ -83,8 +88,8 @@ export function AccountButton({ area }: { area: Area }) {
                   onClick={() => { setOpen(false); if (a !== area) navigate(`/${a}`) }}>
                   <span className="lux__icon" aria-hidden>{AREA_ICON[a]}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-h4">{AREA_LABEL[a]}</span>
-                    <span className="block text-caption font-semibold text-ink-2">{a === area ? 'You are here' : AREA_DOES[a]}</span>
+                    <span className="block text-h4">{areaLabel(a, me.roles)}</span>
+                    <span className="block text-caption font-semibold text-ink-2">{a === area ? 'You are here' : areaDoes(a, me.roles)}</span>
                   </span>
                   {a === area ? <Check className="size-5 shrink-0 text-accent" aria-hidden /> : <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />}
                 </button>

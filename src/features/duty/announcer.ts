@@ -34,8 +34,8 @@ export interface Announcement {
 }
 
 export interface AnnouncerOutput {
-  chime(kind: ChimeKind): Promise<void>
-  speak(text: string, childId?: string): Promise<void>
+  chime(kind: ChimeKind): Promise<unknown>
+  speak(text: string, childId?: string): Promise<unknown>
   /** Cut the current speech short (someone has already handled it, or Mute). */
   stop?(): void
   /** Get the words' audio ready while the chime plays, so speech starts the moment it ends. */
