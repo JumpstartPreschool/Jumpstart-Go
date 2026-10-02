@@ -6,7 +6,7 @@ const LAST_MINUTE: Minutes = 24 * 60
 import { windowFor, type Direction, type Programme, type TimeWindow } from '../../domain/programme'
 
 /** How soon a parent can say they'll arrive (the "I'm on my way" choices, in minutes). */
-export const MINUTE_CHOICES = [5, 10, 15, 20, 30, 45] as const
+export const MINUTE_CHOICES = [5, 10, 15] as const
 export const REASONS = ["Doctor's visit", 'Family event', 'Not feeling well', 'Other'] as const
 
 const hm = (t: string) => toMinutes(t.slice(0, 5))

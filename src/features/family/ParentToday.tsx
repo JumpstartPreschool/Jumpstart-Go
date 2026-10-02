@@ -6,7 +6,7 @@ import { Pill } from '../../ui/Pill'
 import { EmptyState, ErrorState } from '../../ui/States'
 import { childColor } from '../../ui/childColor'
 import { useNow } from '../../ui/hooks'
-import { formatTime, indiaClock, toMinutes, type Minutes } from '../../domain/time'
+import { formatTime, indiaClock, toMinutes } from '../../domain/time'
 import { windowFor, type Direction, type Programme } from '../../domain/programme'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
@@ -18,9 +18,8 @@ import { CancelSheet, LateSheet, OnMyWaySheet } from '../trips/TripSheets'
 import { ResendSheet, SomeoneElseSheet } from '../trips/CollectorSheets'
 import { CollectorTracker } from '../trips/TripLocation'
 import { collectorCode } from '../trips/tracking'
-import { gateLoad, undoAbsence, useToday, type Attendance, type DayTime } from '../school/api'
+import { undoAbsence, useToday, type Attendance, type DayTime } from '../school/api'
 import { AWAY_LABEL } from '../school/dayModel'
-import { TimeSheet } from '../school/TimeSheet'
 import { Link } from 'react-router'
 import { formatMobile } from '../../domain/contact'
 import { AbsenceSheet } from './ParentPages'
@@ -54,14 +53,18 @@ function useMyChildren(guardianId: string | null) {
   return { rows, error, reload: load }
 }
 
-function Tile({ icon, label, value, detail, done }: { icon: ReactNode; label: string; value: string; detail: string; done?: boolean }) {
-  return (
-    <div className={`grid content-start gap-1 rounded-lg p-3.5 ${done ? 'bg-live-soft text-live' : 'bg-sunken'}`}>
-      <p className={`kicker flex items-center gap-1.5 [&_svg]:size-4 ${done ? 'text-live!' : ''}`}>{icon}{label}</p>
+/** A drop-off or pickup time. With onClick it's a button: "I'm on my way" for that one, at any time of day. */
+function Tile({ icon, label, value, detail, done, onClick }: { icon: ReactNode; label: string; value: string; detail: string; done?: boolean; onClick?: () => void }) {
+  const body = (
+    <>
+      <p className={`kicker flex items-center gap-1.5 [&_svg]:size-4 ${done ? 'text-live!' : ''}`}>{icon}{label}{onClick && <ChevronRight className="ml-auto text-ink-3" aria-hidden />}</p>
       <p className="text-numeral tabular-nums">{value}</p>
       <p className={`text-caption font-semibold ${done ? '' : 'text-ink-2'}`}>{detail}</p>
-    </div>
+    </>
   )
+  return onClick
+    ? <button type="button" onClick={onClick} aria-label={`I'm on my way for ${label.toLowerCase()}, ${detail.toLowerCase()}`} className="choice grid content-start gap-1 p-3.5 text-left">{body}</button>
+    : <div className={`grid content-start gap-1 rounded-lg p-3.5 ${done ? 'bg-live-soft text-live' : 'bg-sunken'}`}>{body}</div>
 }
 
 /** Sent → Seen → Ready → Collected, each with its time (the Screen Book's trip steps). */
@@ -152,7 +155,7 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
   )
 }
 
-type Sheet = { kind: 'otw' | 'late' | 'cancel' | 'else' | 'resend' | 'time' | 'absence'; direction: Direction } | null
+type Sheet = { kind: 'otw' | 'late' | 'cancel' | 'else' | 'resend' | 'absence'; direction: Direction } | null
 
 function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: { child: ChildRow; trips: Trip[]; nowMs: number; meId: string | null; attendance: Attendance | null; times: DayTime[]; onChanged: () => void }) {
   const toast = useToast()
@@ -183,7 +186,8 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   const dropoffOver = programme ? today.minutes > (programme.windows === 'flexible' ? programme.hours.from + 180 : windowFor(programme, 'dropoff').to + 30) : true
   const away = attendance && attendance.status !== 'present' ? attendance : null
   const next: Direction | null = !school || pickDone || away ? null : !dropDone && !dropoffOver ? 'dropoff' : 'pickup'
-  const expectedAt = (d: Direction): Minutes | null => { const c = changedTime(d); return c ? toMinutes(c.at.slice(0, 5)) : regular ? toMinutes((d === 'pickup' ? regular.pickup : regular.dropoff).slice(0, 5)) : null }
+  // The window only picks which one the big button offers: both tiles open "I'm on my way" at any time until it's done.
+  const otw = (d: Direction) => (!open && next && !(d === 'dropoff' && dropDone) ? () => setSheet({ kind: 'otw', direction: d }) : undefined)
   async function undo() {
     try { await undoAbsence(child.id, today.date); toast(`${first} is expected today again.`); onChanged() } catch (e) { toast(explainDbError(e as { code?: string; message?: string })) }
   }
@@ -205,9 +209,9 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         {dropDone ? <Tile done icon={<Sunrise />} label="Drop-off" value={clockTime(dropDone.closed_at!)} detail="Checked in" />
-          : <Tile icon={<Sunrise />} label={'today' in drop ? 'Drop-off, today' : 'Drop-off'} value={drop.value} detail={drop.detail} />}
+          : <Tile icon={<Sunrise />} label={'today' in drop ? 'Drop-off, today' : 'Drop-off'} value={drop.value} detail={drop.detail} onClick={otw('dropoff')} />}
         {pickDone ? <Tile done icon={<House />} label="Pickup" value={clockTime(pickDone.closed_at!)} detail={pickDone.traveller_kind === 'third_person' ? `By ${pickDone.traveller_name.split(' ')[0]}` : 'Collected'} />
-          : <Tile icon={<House />} label={'today' in pick ? 'Pickup, today' : 'Pickup'} value={pick.value} detail={pick.detail} />}
+          : <Tile icon={<House />} label={'today' in pick ? 'Pickup, today' : 'Pickup'} value={pick.value} detail={pick.detail} onClick={otw('pickup')} />}
       </div>
 
       {/* The way home with the person who collected (TRK-7): until they say they're home, at most an hour. */}
@@ -222,12 +226,9 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
           onCancel={() => setSheet({ kind: 'cancel', direction: open.direction })} />
       ) : next && programme ? (
         <div className="mt-4">
-          <Button size="xl" className="w-full" icon={<Navigation />} onClick={() => setSheet({ kind: 'otw', direction: next })}>I'm on my way</Button>
+          <Button size="xl" className="w-full [--fs:22px] [--h:80px] [--r:24px]" icon={<Navigation />} onClick={() => setSheet({ kind: 'otw', direction: next })}>I'm on my way</Button>
           <p className="mt-2 text-center text-caption font-semibold text-ink-3">For {first}'s {WORD[next]}, {next === 'pickup' ? pick.detail.toLowerCase() : drop.detail.toLowerCase()}</p>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <Button size="md" variant="secondary" icon={<Clock />} className={next === 'pickup' ? '' : 'col-span-2'} onClick={() => setSheet({ kind: 'time', direction: next })}>Change time</Button>
-            {next === 'pickup' && <Button size="md" variant="secondary" icon={<Users />} onClick={() => setSheet({ kind: 'else', direction: 'pickup' })}>Someone else</Button>}
-          </div>
+          {next === 'pickup' && <Button size="md" variant="secondary" icon={<Users />} className="mt-3 w-full" onClick={() => setSheet({ kind: 'else', direction: 'pickup' })}>Someone else is collecting</Button>}
         </div>
       ) : away ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-4 py-3">
@@ -238,7 +239,7 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
       ) : (
         <p className="mt-4 text-body text-ink-2">{!school ? `No school for ${first} today.` : 'All done for today.'}</p>
       )}
-      {school && !away && !pickDone && <button type="button" className="linkbtn mt-3 text-small" onClick={() => setSheet({ kind: 'absence', direction: 'dropoff' })}>{first} won't come today</button>}
+      {school && !away && !pickDone && <Button size="md" variant="secondary" icon={<CalendarX />} className="mt-2.5 w-full" onClick={() => setSheet({ kind: 'absence', direction: 'dropoff' })}>{first} won't come today</Button>}
 
       {programme && sheet?.kind === 'otw' && (
         <OnMyWaySheet open onClose={() => setSheet(null)} childId={child.id} first={first} direction={sheet.direction} programme={programme} trip={open} nowMs={nowMs} />
@@ -247,24 +248,9 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
       {open && sheet?.kind === 'cancel' && <CancelSheet open onClose={() => setSheet(null)} trip={open} first={first} />}
       {programme && sheet?.kind === 'else' && <SomeoneElseSheet open onClose={() => setSheet(null)} childId={child.id} first={first} programme={programme} nowMs={nowMs} />}
       {open && sheet?.kind === 'resend' && <ResendSheet open onClose={() => setSheet(null)} trip={open} first={first} nowMs={nowMs} />}
-      {programme && sheet?.kind === 'time' && <ParentTimeSheet childId={child.id} first={first} direction={sheet.direction} programme={programme} nowMs={nowMs}
-        current={changedTime(sheet.direction) ? expectedAt(sheet.direction) : null} usual={regular ? toMinutes((sheet.direction === 'pickup' ? regular.pickup : regular.dropoff).slice(0, 5)) : null}
-        onClose={() => setSheet(null)} onSaved={onChanged} />}
       {sheet?.kind === 'absence' && <AbsenceSheet kids={[child]} initialChild={child.id} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); onChanged() }} />}
     </li>
   )
-}
-
-/** Change time for a parent, with how busy each slot is from the gate's load (counts only, D15). */
-function ParentTimeSheet({ childId, first, direction, programme, nowMs, current, usual, onClose, onSaved }: {
-  childId: string; first: string; direction: Direction; programme: Programme; nowMs: number; current: Minutes | null; usual: Minutes | null; onClose: () => void; onSaved: () => void
-}) {
-  const [load, setLoad] = useState<Array<{ at: Minutes; n: number }>>([])
-  useEffect(() => { void gateLoad(direction).then((rows) => setLoad(rows.map((r) => ({ at: toMinutes(r.at.slice(0, 5)), n: r.children }))), () => setLoad([])) }, [direction])
-  // Others near a time: everyone due within 8 minutes, less this child if they're one of them.
-  const mineAt = current ?? usual
-  const busy = (at: Minutes) => load.filter((l) => Math.abs(l.at - at) < 8).reduce((a, l) => a + l.n, 0) - (mineAt !== null && Math.abs(mineAt - at) < 8 ? 1 : 0)
-  return <TimeSheet open onClose={onClose} childId={childId} first={first} direction={direction} programme={programme} current={current} usual={usual} nowMs={nowMs} busy={(at) => Math.max(0, busy(at))} onSaved={onSaved} />
 }
 
 /**
