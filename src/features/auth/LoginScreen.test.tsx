@@ -6,14 +6,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ToastProvider } from '../../ui/Toast'
 
-// The Supabase client, recorded. Every call the sign-in screen can make is here, so a test fails if it makes another.
 const auth = vi.hoisted(() => ({
   signInWithOtp: vi.fn(),
+  signInWithPassword: vi.fn(),
   verifyOtp: vi.fn(),
   rpc: vi.fn(),
 }))
 vi.mock('../../lib/supabase', () => ({
-  supabase: { rpc: auth.rpc, auth: { signInWithOtp: auth.signInWithOtp, verifyOtp: auth.verifyOtp } },
+  supabase: { rpc: auth.rpc, auth: { signInWithOtp: auth.signInWithOtp, signInWithPassword: auth.signInWithPassword, verifyOtp: auth.verifyOtp } },
 }))
 
 /** A fresh copy of the screen: the invitation number is read once per module load, so each test starts clean. */
@@ -186,3 +186,22 @@ it('opens an invitation link with the number filled in, then clears it from the 
   expect(screen.getByLabelText('Mobile number')).toHaveValue('+91 92209 91947')
   expect(location.hash).toBe('')
 })
+
+it('supports quick sign-in for coordinator with on-screen code', async () => {
+  auth.rpc.mockImplementation((fn: string) => {
+    if (fn === 'request_screen_otp') {
+      return Promise.resolve({ data: { ok: true, code: '710912', phone: '+919876543212', full_name: 'Kiran Demo' }, error: null })
+    }
+    if (fn === 'verify_screen_otp') {
+      return Promise.resolve({ data: { ok: true, email: 'demo.coordinator@example.com', key: 'JumpstartGo2026!' }, error: null })
+    }
+    return Promise.resolve({ data: true, error: null })
+  })
+  const user = await open()
+  const coordBtn = screen.getByRole('button', { name: /Coordinator \(Kiran\)/ })
+  await user.click(coordBtn)
+  expect(await screen.findByRole('heading', { name: 'Check WhatsApp' })).toBeInTheDocument()
+  expect(screen.getByText('710912')).toBeInTheDocument()
+  expect(screen.getByLabelText('6-digit code')).toHaveValue('710912')
+})
+

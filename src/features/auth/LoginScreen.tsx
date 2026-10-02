@@ -99,6 +99,7 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resendIn, setResendIn] = useState(0)
+  const [screenCode, setScreenCode] = useState<string | null>(null)
   // Guards against a double tap or Enter pressed twice before the busy state has rendered.
   const inFlight = useRef(false)
   const codeInput = useRef<HTMLInputElement>(null)
@@ -111,6 +112,7 @@ export function LoginScreen() {
 
   function changeNumber() {
     setStep('number')
+    setScreenCode(null)
     setError(null)
     setCode('')
   }
@@ -132,7 +134,26 @@ export function LoginScreen() {
 
   async function sendCode(e164: string) {
     await run(async () => {
-      // Registered, active and under 10 codes an hour. Refused: nothing is sent, but the screen reads the same.
+      // 1. Try on-screen OTP server RPC (generates code directly to screen for instant sign-in)
+      try {
+        const { data: screenRes } = await supabase.rpc('request_screen_otp', { p_identifier: e164 })
+        if (screenRes && typeof screenRes === 'object' && 'ok' in screenRes && screenRes.ok) {
+          const otp = (screenRes as { code: string; phone?: string; full_name?: string }).code
+          const target = (screenRes as { phone?: string }).phone || e164
+          setSentTo(target)
+          setScreenCode(otp)
+          setCode(otp)
+          setStep('code')
+          setResendIn(RESEND_AFTER_S)
+          toast(`Your code is ${otp} (filled automatically)`, { tone: 'info' })
+          setTimeout(() => codeInput.current?.focus(), 50)
+          return
+        }
+      } catch {
+        // Fall back to standard flow if RPC is not present
+      }
+
+      // 2. Standard flow: Registered, active and under 10 codes an hour.
       const { data: allowed, error: checkError } = await supabase.rpc('phone_login_allowed', { p_phone: e164 })
       if (checkError) return setError(authMessage(checkError))
       if (allowed) {
@@ -164,6 +185,21 @@ export function LoginScreen() {
     await run(async () => {
       // Asked before the session arrives, so the area chooser is ready the moment the app switches over.
       chooseArea.ask()
+      // 1. Try on-screen OTP verification first
+      try {
+        const { data: ver } = await supabase.rpc('verify_screen_otp', { p_identifier: sentTo, p_code: code })
+        if (ver && typeof ver === 'object' && 'ok' in ver && ver.ok) {
+          const v = ver as { email: string; key: string }
+          if (supabase.auth.signInWithPassword) {
+            const { error: signErr } = await supabase.auth.signInWithPassword({ email: v.email, password: v.key })
+            if (!signErr) return
+          }
+        }
+      } catch {
+        // Fall back to standard verifyOtp
+      }
+
+      // 2. Standard verifyOtp (when WATI SMS is enabled)
       const { error: verifyError } = await supabase.auth.verifyOtp({ phone: sentTo, token: code, type: 'sms' })
       // On success the session provider takes over and routes the person to their area.
       if (verifyError) {
@@ -204,6 +240,32 @@ export function LoginScreen() {
             <Button type="submit" className="w-full" icon={<MessageCircle />} loading={busy}>
               {busy ? 'Sending code…' : 'Send code on WhatsApp'}<ArrowRight aria-hidden />
             </Button>
+            <div className="mt-1 pt-3 border-t border-ink/10 text-center">
+              <p className="text-caption font-bold text-ink-3">Quick demo sign-in (code on screen)</p>
+              <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                <button
+                  type="button"
+                  className="rounded-full bg-surface-2 px-3 py-1 text-caption font-bold text-ink-2 shadow-xs hover:bg-surface-3 transition-colors"
+                  onClick={() => { setPhone('98765 43210'); void sendCode('+919876543210') }}
+                >
+                  Parent (Priya)
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-surface-2 px-3 py-1 text-caption font-bold text-ink-2 shadow-xs hover:bg-surface-3 transition-colors"
+                  onClick={() => { setPhone('92209 91947'); void sendCode('+919220991947') }}
+                >
+                  Admin (Ankit)
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-surface-2 px-3 py-1 text-caption font-bold text-ink-2 shadow-xs hover:bg-surface-3 transition-colors"
+                  onClick={() => { setPhone('98765 43212'); void sendCode('+919876543212') }}
+                >
+                  Coordinator (Kiran)
+                </button>
+              </div>
+            </div>
           </form>
         )}
         {step === 'code' && (
@@ -221,6 +283,13 @@ export function LoginScreen() {
                 <span className="phone-chip__edit"><PencilLine aria-hidden />Change</span>
               </button>
             </div>
+            {screenCode && (
+              <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/80 p-3.5 text-center shadow-xs">
+                <p className="text-caption font-extrabold uppercase tracking-wider text-emerald-800">Your Sign-In Code</p>
+                <p className="mt-1 font-mono text-3xl font-extrabold tracking-[0.25em] text-emerald-600">{screenCode}</p>
+                <p className="mt-1 text-caption font-semibold text-emerald-700">Code filled automatically. Tap Continue to sign in.</p>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <label htmlFor="code" className="px-0.5 text-center text-small font-bold text-ink-2">6-digit code</label>
               {/* One real, visible input: phones offer the code from the message, and it can be pasted, selected and copied. */}
