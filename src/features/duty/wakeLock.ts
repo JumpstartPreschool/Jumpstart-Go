@@ -7,19 +7,26 @@ export function createWakeLock(onChange: (held: boolean) => void) {
   const supported = typeof navigator !== 'undefined' && 'wakeLock' in navigator
   let sentinel: WakeLockSentinel | null = null
   let wanted = false
+  let pending = false
 
   async function acquire() {
-    if (!supported || !wanted || sentinel || document.visibilityState !== 'visible') return
+    if (!supported || !wanted || sentinel || pending || document.visibilityState !== 'visible') return
+    pending = true
     try {
       const lock = await navigator.wakeLock.request('screen')
+      // Ended while the request was in flight: don't keep the screen on.
+      if (!wanted) { await lock.release(); return }
       sentinel = lock
       onChange(true)
       lock.addEventListener('release', () => {
-        if (sentinel === lock) sentinel = null
+        if (sentinel !== lock) return
+        sentinel = null
         onChange(false)
       })
     } catch {
       onChange(false)
+    } finally {
+      pending = false
     }
   }
 

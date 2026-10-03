@@ -216,4 +216,17 @@ describe('reminders and settings (0042)', () => {
     expect(out.stop).toHaveBeenCalled()
     expect(said).toEqual(['New announcement. in about five minutes', 'New announcement. in about twenty minutes'])
   })
+
+  it('does not count a silent announcement as heard: it retries soon, still as new', async () => {
+    const played: string[] = []
+    const out = { played, chime: vi.fn(async () => {}), speak: null as unknown as (text: string) => Promise<unknown> }
+    let silent = true
+    out.speak = vi.fn((text: string) => new Promise<'silent' | 'school'>((r) => setTimeout(() => (out.played.push(text), r(silent ? 'silent' : 'school')), 1000)))
+    const ann = createAnnouncer(out)
+    ann.announce(a('new-1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1_000)
+    silent = false
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(played).toEqual([NEW_LEAD + 'new-1', NEW_LEAD + 'new-1'])
+  })
 })

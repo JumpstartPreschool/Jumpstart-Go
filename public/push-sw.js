@@ -22,3 +22,11 @@ self.addEventListener('notificationclick', (event) => {
     await self.clients.openWindow(url)
   })())
 })
+
+// The push service rotated or expired this device's subscription: subscribe again with the same key. The app saves it
+// for the signed-in person the next time PushSwitch checks (pushState), since the worker has no sign-in of its own.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  const key = event.oldSubscription?.options?.applicationServerKey
+  if (!key) return
+  event.waitUntil(self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }).catch(() => {}))
+})

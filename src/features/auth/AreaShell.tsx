@@ -53,11 +53,18 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; short?
 }
 
 /** The dark area label in the top bar: which part of the app this is, with its icon. */
+/** The area's name for whoever is signed in: a leader-only user sees "Center leader", not "Center coordinator". */
+function useAreaLabel(area: Area): string {
+  const { state } = useSession()
+  return state.status === 'signed-in' && state.me ? areaLabel(area, state.me.roles) : AREA_LABEL[area]
+}
+
 export function AreaChip({ area }: { area: Area }) {
+  const label = useAreaLabel(area)
   return (
-    <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-secondary pl-2.5 pr-3 text-caption font-extrabold text-canvas shadow-[0_2px_0_var(--secondary-lip)] [&_svg]:size-4 max-[374px]:pr-2.5" aria-label={AREA_LABEL[area]}>
+    <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-secondary pl-2.5 pr-3 text-caption font-extrabold text-canvas shadow-[0_2px_0_var(--secondary-lip)] [&_svg]:size-4 max-[374px]:pr-2.5" aria-label={label}>
       {AREA_ICON[area]}
-      <span className="max-[374px]:hidden">{AREA_LABEL[area]}</span>
+      <span className="max-[374px]:hidden">{label}</span>
     </span>
   )
 }
@@ -122,6 +129,7 @@ export function OfflineNotice() {
  */
 export function AreaShell({ area, title, subtitle, actions, children }: { area: Area; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   const pages = AREA_PAGES[area]
+  const label = useAreaLabel(area)
   const { pathname } = useLocation()
   // An area's first page stays selected on the pages it opens (a child's page under People, a parent's conversation).
   const isActive = (to: string) => pathname === to || (to === `/${area}` ? pathname.startsWith(`/${area}/child/`) : pathname.startsWith(`${to}/`))
@@ -137,7 +145,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           <AreaChip area={area} />
           <div className="flex min-w-0 flex-1 justify-center">
             {area === 'parent' ? <ParentTopNav /> : pages && (
-              <nav aria-label={`${AREA_LABEL[area]} pages`} className={`topnav ${pages.length > 3 ? 'max-xl:hidden' : 'max-lg:hidden'}`}>
+              <nav aria-label={`${label} pages`} className={`topnav ${pages.length > 3 ? 'max-xl:hidden' : 'max-lg:hidden'}`}>
                 {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
               </nav>
             )}
@@ -149,7 +157,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
       <main id="main" className={`gutter mx-auto w-full max-w-[calc(var(--content)+2*var(--gutter))] pb-[max(40px,env(safe-area-inset-bottom))] pt-6 ${pages ? 'max-md:pb-[calc(104px+env(safe-area-inset-bottom))]' : ''}`}>
         {pages && (
           // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
-          <nav aria-label={`${AREA_LABEL[area]} pages`} className={`topnav mb-6 w-fit max-w-full overflow-x-auto [scrollbar-width:none] ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'max-md:hidden xl:hidden' : 'max-md:hidden lg:hidden'}`}>
+          <nav aria-label={`${label} pages`} className={`topnav mb-6 w-fit max-w-full overflow-x-auto [scrollbar-width:none] ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'max-md:hidden xl:hidden' : 'max-md:hidden lg:hidden'}`}>
             {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
           </nav>
         )}
@@ -169,7 +177,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           <ImportBanner />
           {pages && (
             // Phones: the area's pages as a glass tab bar at the thumb, the same as the parent's.
-            <nav aria-label={`${AREA_LABEL[area]} pages`} className="glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-40 mx-auto grid max-w-[520px] rounded-[26px] p-1.5 md:hidden"
+            <nav aria-label={`${label} pages`} className="glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-40 mx-auto grid max-w-[520px] rounded-[26px] p-1.5 md:hidden"
               style={{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }}>
               {pages.map((page) => {
                 const active = isActive(page.to)

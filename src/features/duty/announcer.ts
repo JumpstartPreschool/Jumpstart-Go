@@ -46,6 +46,8 @@ export interface AnnouncerState {
   mutedUntil: number | null
 }
 
+// When nothing sounded, the announcement is tried again this soon rather than after a full reminder interval.
+const SILENT_RETRY_MS = 15_000
 export const REPEAT_MS = DEFAULT_GATE.reminder_min * 60_000
 
 interface Item extends Announcement {
@@ -112,14 +114,17 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     }
 
     playing = next
+    let silent = false
     emit()
     try {
       await output.chime(next.chime)
       // Muted during the chime: say nothing now; it plays when the mute ends.
       if (items.get(next.id) === next && Date.now() >= mutedUntil) {
-        await output.speak(spokenFor(next), next.childId)
+        const spoken = await output.speak(spokenFor(next), next.childId)
+        // Nothing sounded (no clip, audio paused, no device voice): not heard, so try again soon, still as new.
+        if (spoken === 'silent' && items.get(next.id) === next) silent = true
         // Heard unless Mute or an acknowledgement cut it short.
-        if (items.get(next.id) === next && Date.now() >= mutedUntil) {
+        else if (items.get(next.id) === next && Date.now() >= mutedUntil) {
           next.heard = true
           if (next.once) items.delete(next.id)
           else output.prepare?.(spokenFor(next), next.childId)
@@ -129,7 +134,7 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       // A failed chime or voice must never stall the gate; the item repeats as usual.
     } finally {
       // Cut off by Mute: it wasn't heard, so it plays as soon as the mute ends rather than in 2 minutes.
-      if (items.get(next.id) === next) next.dueAt = Date.now() < mutedUntil ? mutedUntil : Date.now() + repeatMs
+      if (items.get(next.id) === next) next.dueAt = Date.now() < mutedUntil ? mutedUntil : Date.now() + (silent ? SILENT_RETRY_MS : repeatMs)
       playing = null
       void pump()
     }

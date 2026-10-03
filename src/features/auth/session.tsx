@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { turnOffPush } from '../notifications/push'
 
 export type Area = 'admin' | 'core' | 'pro' | 'coordinator' | 'parent'
 /** 'coordinator' is the Center Coordinator (check-ins and handovers); 'leader' the Center Leader (hears, acknowledges, Ready). */
@@ -148,6 +149,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     chooseArea.done()
+    // This device stops getting the signed-out person's alerts. Needs the session, so it comes first; never blocks sign-out.
+    await Promise.race([turnOffPush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))])
     await supabase.auth.signOut()
     setState({ status: 'signed-out' })
   }, [])

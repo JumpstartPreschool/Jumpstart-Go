@@ -45,6 +45,8 @@ async function saveSubscription(sub: PushSubscription): Promise<boolean> {
 
 const key = (b64: string) => Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4)), (c) => c.charCodeAt(0))
 
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i])
+
 /** Asks the browser (call from a tap), subscribes this device and saves it for the signed-in person. */
 export async function turnOnPush(): Promise<PushState> {
   // Only quick checks before the question: iOS shows the permission prompt only while the tap is fresh, so nothing that
@@ -56,7 +58,12 @@ export async function turnOnPush(): Promise<PushState> {
   // No service worker means no push, ever: say so instead of waiting forever on `ready`.
   const reg = await Promise.race([navigator.serviceWorker.ready, new Promise<null>((r) => setTimeout(() => r(null), 10_000))])
   if (!reg) return 'unsupported'
-  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key(KEY!) }))
+  const appKey = key(KEY!)
+  let sub = await reg.pushManager.getSubscription()
+  // Made with another key (the school's keys were generated or changed since): the push service would reject every send.
+  const old = sub?.options.applicationServerKey
+  if (sub && old && !sameBytes(new Uint8Array(old), appKey)) { await sub.unsubscribe(); sub = null }
+  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey })
   const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
   const { error } = await supabase.rpc('save_push_subscription', { p_endpoint: json.endpoint, p_p256dh: json.keys.p256dh, p_auth: json.keys.auth, p_user_agent: navigator.userAgent })
   if (error) throw error

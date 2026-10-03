@@ -6,7 +6,8 @@ const CHECK_EVERY_MS = 15 * 60_000
 // Just opened: nothing typed yet, so the new version can load straight away.
 const FRESH_MS = 8_000
 // Set by Start duty (useDuty): a gate tablet on duty is never reloaded by itself.
-const onDuty = () => { try { return !!localStorage.getItem('jumpstart.dutySince') } catch { return false } }
+// A key left from an earlier day (End duty forgotten) doesn't count, like useDuty.readSince.
+const onDuty = () => { try { const v = Number(localStorage.getItem('jumpstart.dutySince')); return v > 0 && new Date(v).toDateString() === new Date().toDateString() } catch { return false } }
 
 /**
  * Keeps the installed app (home-screen shortcut) up to date by itself. It looks for a new version when it opens,
