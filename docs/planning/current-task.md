@@ -64,8 +64,25 @@
 ## Done on 2026-10-02: phone and WhatsApp sign-in (D51)
 - Sign-in is a mobile number and a 6-digit code on WhatsApp, with no email and no password anywhere. Supabase Auth makes and checks the code; its Send SMS hook (`send-sms`) delivers it through WATI. People stay signed in until they tap Sign out.
 - Database `0039`: `phone_login_allowed`, phone-keyed invite-only guard, app access needs a mobile, `otp_recipient`, `app.whatsapp_log` (never a code, purged after 90 days) and `whatsapp_recent`.
-- Edge functions: `send-sms`, `whatsapp-invite`, `wati-webhook`, shared `wati.ts`. Brevo, `invite-send`, the email templates and their script are removed.
+- Edge functions: `send-sms`, shared `wati.ts`. `whatsapp-invite` and `wati-webhook` are described in the plan but not built yet.
 - Plan and the owner's steps: [wati-phone-login-plan.md](wati-phone-login-plan.md). Setup: [environments.md](../infrastructure/environments.md).
+
+## Done on 2026-10-03: email and password from the admin's pattern (D52)
+- WhatsApp code stays the main sign-in; anyone with an email can also sign in with it and a password. Admin → Settings → Email sign-in sets the pattern (`_shared/passwordPattern.ts`, shared with the preview); saving it sets every email account's password at once through the `password-pattern` function. A starting password is swapped for the person's own right after signing in. Admin → a person → the key button resets one person to the pattern.
+- Database `0041`: `password_pattern` (admin-only), `profiles.email_sign_in` (none, pattern, own) kept by a trigger on `auth.users`, email accounts made only by the school, a new email removes an old pattern password. Also drops the on-screen code from `0040`, which let anyone sign in as anyone with a shared password.
+- Invitations go from the admin's own phone (WhatsApp or SMS). Brevo is gone: `invite-send`, `_shared/emailLayout.ts`, `supabase/templates`, `scripts/email-templates.ts` and the Privacy line.
+- Checks: `npm test`, `npm run build`, the new database test (`DB_TESTS=supabase/tests/zz_zz_zz_zz_zz_zz_zz_zz_zz_zz_email_password.test.sql npm run test:db`). The rest of `test:db` has failed since `0039` (its fixtures still sign in by email); not fixed here.
+
+## Done on 2026-10-03: the ETA in every announcement, and gate announcements in Settings (D53)
+- Why the ETA was missing: a trip more than 12 minutes away was "on the way" with no time; reminders replayed the first words; an acknowledged trip never announced "has arrived".
+- `_shared/gateAnnounce.ts`: defaults, whitelist templates, validation, `etaOf` (one rounding rule), `childMessages` from the settings. `gate.ts`: stages from the admin's timings, fixed priority, `syncGate`. `announcer.ts`: words made when spoken, admin openings and interval, reminders after new announcements. `pronounce` records ahead from the same settings.
+- `0042`: `gate_announcement_settings` (staff read, admin saves through `admin_save_gate_announcements`, audited, realtime, requeues voices on new wording). Admin → Settings → Gate announcements with preview and Play preview through the gate's own voice.
+- Checks: `npm test` (gate flow tests drive the real announcer through a trip's life), the 0042 database test, `npm run build`. **Not done:** a real iPad and Bluetooth speaker test, and Azure (the demo has no voice service).
+
+## Done on 2026-10-03: Running late (D54)
+- `0043`: `trips.late_at/late_by/late_from/late_note`, `running_late` (own child only, before arriving, +5/+10/+15 or a later time today, note up to 120, 6 in 10 minutes), `clear_late` (another new time ends it), push "Aarav pickup delayed" to the gate team and "time changed" to other family who chose it.
+- Gate: a "Running late · 1:20 PM" pill and the note; the admin's Running late wording said once, then reminders with the new time; priority below urgent, above outside the usual time. Parent: the new sheet (+5/+10/+15, Custom time, note) and a Running late pill.
+- Checks: `npm test` (LateSheet, gate flow), `running_late.test.sql`, build, and a browser run on the demo. **Not done:** a real iPhone/iPad; the collector's own Running late link (`link_late`) still uses +10/20/30 and doesn't set the late fields.
 
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.

@@ -97,7 +97,7 @@ export function PrivacyPage() {
         <ul>
           <li><b>Supabase</b> (database, sign-in and storage), hosted in Singapore.</li>
           <li><b>Cloudflare</b> serves the app's pages.</li>
-          <li><b>Brevo</b> sends sign-in codes and invitations by email.</li>
+          <li><b>WATI</b> sends sign-in codes on WhatsApp. It receives the mobile number and the code.</li>
           <li>Invitations and pickup links sent by text message or WhatsApp go from the school's or the parent's own phone, through those services.</li>
           <li><b>OpenFreeMap</b> provides map images; <b>OpenRouteService</b> may be used for routes and arrival times.</li>
           <li>Apple, Google and Mozilla deliver notifications to devices that turn them on.</li>

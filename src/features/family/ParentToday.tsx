@@ -124,13 +124,14 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
       <div className="flex items-center justify-between gap-3">
         {trip.ready_at ? <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>
           : trip.arrived_at ? <Pill tone="live" icon={<MapPin />}>At the gate</Pill>
+          : trip.late_at ? <Pill tone="warning" icon={<Timer />}>Running late</Pill>
           : <Pill tone="accent" icon={<Navigation />}>On the way</Pill>}
         <span className="kicker">{pickup ? 'Pickup' : 'Drop-off'}</span>
       </div>
       <p className="mt-3 text-h2 tabular-nums">{mine ? 'Arriving' : `${who} arrives`} about {clockTime(trip.arrive_at)}</p>
-      {(trip.off_schedule && trip.reason) || third ? (
+      {(trip.off_schedule && trip.reason && !trip.late_at) || third ? (
         <div className="mt-2.5 flex flex-wrap gap-2">
-          {trip.off_schedule && trip.reason && (
+          {trip.off_schedule && trip.reason && !trip.late_at && (
             <Pill tone="warning" icon={<Timer />}><span className="sr-only">Outside the usual time: </span>{trip.reason}</Pill>
           )}
           {third && (

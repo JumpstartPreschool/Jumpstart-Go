@@ -9,6 +9,8 @@ import { formatMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { checkWhatsAppSetup, explainDbError, type WhatsAppSetup } from './api'
+import { GateAnnouncementsCard } from './GateAnnouncementsCard'
+import { PasswordPatternCard } from './PasswordPatternCard'
 import { PronunciationList } from './PronunciationList'
 
 interface Settings { get_ready_lead_min: number; late_threshold_min: number; school_phone: string | null; app_url: string | null }
@@ -131,12 +133,11 @@ export function AdminSettings() {
   return (
     <AreaShell area="admin" title="Settings" subtitle="Changes apply at once and are written to the audit log.">
       <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
-      <section>
+      <section className="grid gap-6">
         {error ? <ErrorState title="Couldn't load the settings" onRetry={load}>{error}</ErrorState> : !s ? (
           <div className="card h-[420px] animate-pulse rounded-2xl" aria-label="Loading" />
         ) : (
           <div className="card divide-y divide-line rounded-2xl p-5 sm:p-6">
-            <Row title={'"Get ready" reminder'} control={chips('get_ready_lead_min')}>The gate team hears it this long before the time someone arrives.</Row>
             <Row title="Running-late alert" control={chips('late_threshold_min')}>When someone will be at least this late, or the time passes this far with nobody here.</Row>
             <Row title="Drop-off and pickup times" control={<Link to="/admin" className="btn btn--secondary btn--md">Classes<ChevronRight aria-hidden /></Link>}>Set for each programme in People → Classes. New ones start 15 minutes either side of the class.</Row>
             <Row title="School hours" control={locked('Fixed')}>9:00 AM to 7:00 PM. Parents can set a drop-off or pickup for any time.</Row>
@@ -155,13 +156,15 @@ export function AdminSettings() {
             }>The link in invitations. Invites can't be sent until it's set.</Row>
             {urlError && <Notice tone="danger" className="mt-1">{urlError}</Notice>}
             <Row title="WhatsApp messaging" control={<Button size="md" variant="secondary" icon={<MessageCircle />} loading={busy === 'whatsapp'} onClick={() => void checkWhatsApp()}>Check WhatsApp setup</Button>}>
-              Sign-in codes and invitations go on WhatsApp. This checks the connection and the message templates without sending anything.
+              Sign-in codes go on WhatsApp. This checks the connection and the message templates without sending anything.
             </Row>
             {waCheck && <WhatsAppResult r={waCheck} />}
           </div>
         )}
+        <PasswordPatternCard />
       </section>
       <PronunciationList />
+      <div className="xl:col-span-2"><GateAnnouncementsCard /></div>
       </div>
     </AreaShell>
   )

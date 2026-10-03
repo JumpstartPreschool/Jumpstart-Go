@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
-import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
+import { SOUND_CHECK } from '../../../supabase/functions/_shared/gateAnnounce.ts'
 import { chime, deviceOutput, prepare, releaseSound, SOUND_CHECK_BUDGET_MS, soundReady, soundSupported, speak, stopSound, unlockSound, type Spoken } from './sound'
 import { createWakeLock } from './wakeLock'
 import { now } from '../../lib/clock'

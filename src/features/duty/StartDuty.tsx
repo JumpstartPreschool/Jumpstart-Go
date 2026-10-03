@@ -9,7 +9,7 @@ import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty, SoundResult } from './useDuty'
 import { useTodayTrips } from '../trips/api'
 import { now } from '../../lib/clock'
-import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
+import { SOUND_CHECK } from '../../../supabase/functions/_shared/gateAnnounce.ts'
 
 type Tone = 'ok' | 'warn' | 'error' | 'info'
 

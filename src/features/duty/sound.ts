@@ -1,4 +1,4 @@
-import { voiceParts } from '../../../supabase/functions/_shared/announce.ts'
+import { DEFAULT_OPENINGS, voiceParts } from '../../../supabase/functions/_shared/announce.ts'
 import type { AnnouncerOutput, ChimeKind } from './announcer'
 import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, voiceChild } from './voiceClips'
 
@@ -8,6 +8,10 @@ import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, voiceC
  * after the chime, the iPad's own Indian English voice says it instead; without one, the chime and the screen carry it.
  * iPadOS only allows sound after a tap, so `unlockSound()` must run inside the Start duty tap.
  */
+
+// The admin's openings (0042): each is kept on the iPad as its own clip, so the voice must know them to split it off.
+let openings: readonly string[] = DEFAULT_OPENINGS
+export const setVoiceOpenings = (list: readonly string[]) => { openings = list }
 
 let ctx: AudioContext | null = null
 // Bumped by stopSound. Anything started before a Stop (a clip still downloading, a sentence still queued) checks it
@@ -182,7 +186,7 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
 export type Spoken = 'school' | 'device' | 'silent'
 
 export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<Spoken> {
-  const parts = voiceParts(text, voiceChild(childId))
+  const parts = voiceParts(text, voiceChild(childId), openings)
   if (!parts.length) return 'silent'
   const mine = generation
   markVoice(text, 'chime-end')
@@ -218,7 +222,7 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
 export function prepare(text: string, childId?: string): void {
   if (!ctx) return
   markVoice(text, 'prepare')
-  for (const part of voiceParts(text, voiceChild(childId))) void clipAudio(ctx, part).catch(() => {})
+  for (const part of voiceParts(text, voiceChild(childId), openings)) void clipAudio(ctx, part).catch(() => {})
 }
 
 /**

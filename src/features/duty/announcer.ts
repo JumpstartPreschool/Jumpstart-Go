@@ -1,36 +1,34 @@
 /**
- * The coordinator's announcement queue (ANN-1, ANN-2): one announcement at a time, most urgent first,
- * a chime then speech, repeated every 2 minutes until acknowledged. Muting holds the queue; nothing is dropped.
- * The first time something is said it starts "New announcement." ("Urgent." when it needs acting on now); each repeat starts "This is a reminder.",
- * so the gate can tell a new request from one it has already heard.
- * Output is injected so the queue can be tested without a speaker.
+ * The gate's announcement queue (ANN-1, ANN-2): one announcement at a time, most urgent first, a chime then speech,
+ * repeated every reminder interval (the admin's setting, 0042) until acknowledged. Muting holds the queue; nothing is
+ * dropped. The first time something is said it starts with the new or urgent opening; each repeat starts with the
+ * reminder opening, so the gate can tell a new request from one it has already heard. The words are made at the moment
+ * they are spoken, so a reminder says the time left now. Output is injected so the queue can be tested without a speaker.
  */
-import { NEW_LEAD, REPEAT_LEAD, URGENT_LEAD } from '../../../supabase/functions/_shared/announce.ts'
-
-export { NEW_LEAD, REPEAT_LEAD, URGENT_LEAD }
+import { DEFAULT_GATE } from '../../../supabase/functions/_shared/gateAnnounce.ts'
 
 export type ChimeKind = 'normal' | 'flagged'
 
-/** Higher plays first. */
-export const PRIORITY = {
-  flagged: 50,
-  runningLate: 40,
-  newRequest: 30,
-  getReady: 20,
-  arriving: 10,
-  info: 0,
-} as const
+export interface Openings { new: string; urgent: string; reminder: string }
+const DEFAULT_OPENINGS: Openings = { new: DEFAULT_GATE.opening_new, urgent: DEFAULT_GATE.opening_urgent, reminder: DEFAULT_GATE.opening_reminder }
 
 export interface Announcement {
-  /** Stable id, e.g. "trip:123:new". Announcing the same id again replaces it. */
+  /** Stable id, e.g. "trip:123". Announcing the same id again replaces it. */
   id: string
-  text: string
+  /** The message after the opening, or how to make it at the moment it's spoken (a reminder's time left). */
+  text: string | (() => string)
+  /** The first time only, these words instead, with no opening: a running-late update says its own "Pickup update." */
+  first?: () => string
   chime: ChimeKind
   priority: number
   /** The child it's about: the voice says their name the way the school approved. */
   childId?: string
-  /** Said with "Urgent." first and shown in red: outside the usual time, or someone arriving within minutes. */
+  /** Said with the urgent opening and shown in red: outside the usual time, or someone arriving within minutes. */
   urgent?: boolean
+  /** Within one priority, lower goes first: the trip's arrival time. */
+  order?: number
+  /** Said once, then gone (a cancellation): never repeated, and kept through a mute until it has been heard. */
+  once?: boolean
 }
 
 export interface AnnouncerOutput {
@@ -48,7 +46,7 @@ export interface AnnouncerState {
   mutedUntil: number | null
 }
 
-export const REPEAT_MS = 120_000
+export const REPEAT_MS = DEFAULT_GATE.reminder_min * 60_000
 
 interface Item extends Announcement {
   seq: number
@@ -57,16 +55,30 @@ interface Item extends Announcement {
   heard: boolean
 }
 
-/** The words actually spoken for an item: urgent ones say so first, so the gate knows to act now. */
-const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'urgent'>): string => (item.heard ? REPEAT_LEAD : item.urgent ? URGENT_LEAD : NEW_LEAD) + item.text
+/** Before the item is next said, reminders sort after every new announcement. */
+const REMINDER_PENALTY = 1000
+const rank = (i: Item) => i.priority - (i.heard ? REMINDER_PENALTY : 0)
 
 export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
+  let openings = DEFAULT_OPENINGS
+  // The words actually spoken for an item, made now: urgent ones say so first, so the gate knows to act now.
+  const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'urgent' | 'first'>): string =>
+    !item.heard && item.first ? item.first()
+      : `${item.heard ? openings.reminder : item.urgent ? openings.urgent : openings.new} ${typeof item.text === 'function' ? item.text() : item.text}`
   const items = new Map<string, Item>()
   const listeners = new Set<(s: AnnouncerState) => void>()
   let seq = 0
   let playing: Item | null = null
   let mutedUntil = 0
   let timer: ReturnType<typeof setTimeout> | undefined
+  // Announcements that arrive together (Start duty, a reconnect) are all queued before the first plays, so the most
+  // urgent and earliest goes first rather than whichever happened to be announced first.
+  let scheduled = false
+  const soon = () => {
+    if (scheduled) return
+    scheduled = true
+    queueMicrotask(() => { scheduled = false; void pump() })
+  }
 
   const state = (): AnnouncerState => ({
     speaking: playing,
@@ -92,7 +104,7 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     let soonest = Infinity
     for (const item of items.values()) {
       if (item.dueAt > now) soonest = Math.min(soonest, item.dueAt)
-      else if (!next || item.priority > next.priority || (item.priority === next.priority && item.seq < next.seq)) next = item
+      else if (!next || rank(item) > rank(next) || (rank(item) === rank(next) && ((item.order ?? 0) - (next.order ?? 0) || item.seq - next.seq) < 0)) next = item
     }
     if (!next) {
       if (soonest < Infinity) wakeAt(soonest)
@@ -109,7 +121,8 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
         // Heard unless Mute or an acknowledgement cut it short.
         if (items.get(next.id) === next && Date.now() >= mutedUntil) {
           next.heard = true
-          output.prepare?.(spokenFor(next), next.childId)
+          if (next.once) items.delete(next.id)
+          else output.prepare?.(spokenFor(next), next.childId)
         }
       }
     } catch {
@@ -123,13 +136,24 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
   }
 
   return {
+    /** The admin's openings and reminder interval (0042). The announcement being said finishes as it started. */
+    configure(c: { openings?: Openings; repeatMs?: number }) {
+      if (c.openings) openings = c.openings
+      if (c.repeatMs) repeatMs = c.repeatMs
+    },
+    /** Gets an upcoming message's audio ready (a reminder's next time), so it plays without a pause. */
+    warm(text: string, childId?: string) {
+      output.prepare?.(text, childId)
+    },
     announce(a: Announcement) {
       const existing = items.get(a.id)
       // Announcing again (the trip changed) makes it new again: it's news the gate hasn't heard.
       const item = { ...a, seq: existing?.seq ?? seq++, dueAt: Date.now(), heard: false }
       items.set(a.id, item)
+      // Replaced while being said (a new time): the old words stop, and the new ones play next.
+      if (playing?.id === a.id) output.stop?.()
       output.prepare?.(spokenFor(item), item.childId)
-      void pump()
+      soon()
     },
     /** Someone acknowledged it (on any iPad): stop repeating. */
     acknowledge(id: string) {

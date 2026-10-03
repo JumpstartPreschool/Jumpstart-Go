@@ -23,3 +23,20 @@ export function authMessage(e: AuthFailure | null | undefined): string {
   if (e?.name === 'AuthRetryableFetchError' || e?.status === 0 || /failed to fetch|network|load failed|fetch/i.test(text) || globalThis.navigator?.onLine === false) return MESSAGES.offline
   return MESSAGES.unknown
 }
+
+/** Email and password sign-in: one answer for a wrong email or a wrong password, so nobody can probe for accounts. */
+export function passwordMessage(e: AuthFailure | null | undefined): string {
+  const code = e?.code ?? ''
+  if (code === 'invalid_credentials' || code === 'email_not_confirmed' || /invalid login credentials/i.test(e?.message ?? '')) {
+    return "That email and password don't match. Check them, or sign in with your mobile number."
+  }
+  return authMessage(e)
+}
+
+/** Choosing a new password: Supabase's password rules, in words. */
+export function newPasswordMessage(e: AuthFailure | null | undefined): string {
+  const code = e?.code ?? ''
+  if (code === 'same_password') return 'Choose a password different from the one the school gave you.'
+  if (code === 'weak_password') return 'That password is too easy to guess. Use at least 8 characters with letters and numbers.'
+  return authMessage(e)
+}

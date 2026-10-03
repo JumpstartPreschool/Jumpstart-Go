@@ -16,6 +16,21 @@ export interface Me {
   children: number
   /** The mobile number they sign in with, as stored (+ and the country code). */
   phone?: string | null
+  /** The email they can sign in with, when their record has one (0041). */
+  email?: string | null
+  /** Their email password: none yet, the starting one from the school's pattern, or one they chose. */
+  email_sign_in?: 'none' | 'pattern' | 'own'
+}
+
+/** Whether this sign-in used a password (the token's amr), as opposed to a WhatsApp code. */
+export function signedInWithPassword(session: Session): boolean {
+  try {
+    const part = session.access_token.split('.')[1] ?? ''
+    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as { amr?: Array<{ method?: string }> }
+    return !!claims.amr?.some((a) => a.method === 'password')
+  } catch {
+    return false
+  }
 }
 
 const CHOOSE_KEY = 'jumpstart.chooseArea'

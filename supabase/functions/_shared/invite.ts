@@ -1,7 +1,4 @@
-/**
- * What an invitation says (D36) when the admin sends it from their own phone as a text message: the fallback when
- * WhatsApp isn't set up or a number can't be reached. The WhatsApp invitation itself is a WATI template (wati.ts).
- */
+/** What an invitation says (D36), sent by the admin from their own phone on WhatsApp or as a text message. */
 export interface InviteDetails { full_name: string; phone: string | null; app_url: string; staff: boolean; children: string[]; roles?: string | null }
 
 export const firstName = (full: string) => full.trim().split(/\s+/)[0] || full.trim()

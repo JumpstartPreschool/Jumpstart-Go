@@ -99,6 +99,8 @@ async function stored(sentence: string): Promise<ArrayBuffer | null> {
 
 /** Asks the pronounce function to make a sentence nobody made ahead (a preview, or a relation new today). Capped. */
 async function make(sentence: string): Promise<ArrayBuffer> {
+  // npm run dev:demo has no voice service: the tablet's own voice speaks, and nothing leaves the browser.
+  if (import.meta.env.DEV && import.meta.env.VITE_DEMO === '1') throw new Error('demo: no voice service')
   if (Date.now() < pausedUntil) throw new Error('voice paused')
   const supabase = await db()
   const { data: session } = await supabase.auth.getSession()

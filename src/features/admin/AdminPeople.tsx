@@ -170,7 +170,7 @@ export function AdminPeople() {
                         </div>
                         <p className="mb-4 mt-3 text-small font-semibold">{ks.map((x) => `${x.g.relation.split(',')[0]} of ${x.k!.preferred_name ?? x.k!.full_name.split(' ')[0]}`).join(', ')}</p>
                         <div className="mt-auto flex min-h-[57px] items-center justify-between gap-3 border-t border-line pt-3">
-                          <AccessState person={p} onInvite={setInviting} />
+                          <AccessState person={p} onInvite={setInviting} onChanged={() => void reload()} />
                           <Switch on={p.app_access} busy={busy} label={`App access for ${p.full_name}`} onChange={() => accessSwitch(p)} />
                         </div>
                       </li>
@@ -203,7 +203,7 @@ export function AdminPeople() {
                         </div>
                         <div className="mb-4 mt-3 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
                         <div className="mt-auto flex min-h-[57px] flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-3">
-                          {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
+                          {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} onChanged={() => void reload()} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
                           {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
                             : p.active ? <Button size="md" variant="secondary" onClick={() => { setActionError(null); setConfirm({ person: p, what: 'staff' }) }}>Turn off</Button>
                             : <Button size="md" icon={<CircleCheck />} loading={busy} onClick={() => void act(() => setPersonActive(p.id, true), `${p.full_name.split(' ')[0]} can sign in again.`)}>Turn on</Button>}

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createAnnouncer, NEW_LEAD, PRIORITY, REPEAT_LEAD, type Announcement } from './announcer'
+import { createAnnouncer, type Announcement } from './announcer'
+
+// The default openings (gateAnnounce.ts), as the announcer puts them before each message.
+const NEW_LEAD = 'New announcement. '
+const REPEAT_LEAD = 'This is a reminder. '
+const PRIORITY = { flagged: 50, runningLate: 40, newRequest: 30, arriving: 10 }
 
 function fakeOutput() {
   const played: string[] = []
@@ -25,8 +30,8 @@ describe('announcer', () => {
     ann.announce(a('flag', PRIORITY.flagged, 'flagged'))
     ann.announce(a('new-2', PRIORITY.newRequest))
     await vi.advanceTimersByTimeAsync(20_000)
-    // The first one had already started when the others arrived; after that, priority decides.
-    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['arriving', 'flag', 'new-1', 'new-2'].map((t) => NEW_LEAD + t))
+    // Announced together: all queued before the first plays, so priority decides from the start.
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['flag', 'new-1', 'new-2', 'arriving'].map((t) => NEW_LEAD + t))
     expect(out.played).toContain('chime:flagged')
   })
 
@@ -71,9 +76,9 @@ describe('announcer', () => {
     const ann = createAnnouncer(out)
     ann.announce({ ...a('Pickup for Aarav.', PRIORITY.newRequest), childId: 'child-1' })
     expect(out.prepare).toHaveBeenCalledWith(NEW_LEAD + 'Pickup for Aarav.', 'child-1')
+    await vi.advanceTimersByTimeAsync(5_000)
     // Asked for before the chime starts, so the clips are ready when it ends.
     expect(out.prepare.mock.invocationCallOrder[0]).toBeLessThan(out.chime.mock.invocationCallOrder[0]!)
-    await vi.advanceTimersByTimeAsync(5_000)
     expect(out.speak).toHaveBeenCalledWith(NEW_LEAD + 'Pickup for Aarav.', 'child-1')
   })
 
@@ -139,5 +144,76 @@ describe('acknowledging what is being said', () => {
     expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual([NEW_LEAD + 'trip-1', REPEAT_LEAD + 'trip-1', NEW_LEAD + 'running late'])
 
     vi.useRealTimers()
+  })
+})
+
+describe('reminders and settings (0042)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('makes the words when they are spoken, so a reminder says the time left now', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    let left = 'fifteen'
+    ann.announce({ id: 'trip:1', text: () => `Aarav's mother will arrive for pickup in about ${left} minutes.`, chime: 'normal', priority: 20 })
+    await vi.advanceTimersByTimeAsync(3_000)
+    left = 'ten'
+    // The reminder starts 2 minutes after the first ended, and takes 3 s to say.
+    await vi.advanceTimersByTimeAsync(124_000)
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual([
+      "New announcement. Aarav's mother will arrive for pickup in about fifteen minutes.",
+      "This is a reminder. Aarav's mother will arrive for pickup in about ten minutes.",
+    ])
+  })
+
+  it("uses the admin's openings and reminder interval from the next announcement", async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.configure({ openings: { new: 'Attention please.', urgent: 'Urgent.', reminder: 'Once more.' }, repeatMs: 60_000 })
+    ann.announce({ id: 'a', text: 'Kabir pickup.', chime: 'normal', priority: 20 })
+    ann.announce({ id: 'b', text: 'Ira pickup.', chime: 'flagged', priority: 40, urgent: true })
+    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    const said = out.played.filter((p) => !p.startsWith('chime'))
+    // Announced together, so the urgent one plays first.
+    expect(said.slice(0, 2)).toEqual(['Urgent. Ira pickup.', 'Attention please. Kabir pickup.'])
+    expect(said).toContain('Once more. Kabir pickup.')
+  })
+
+  it('plays every new announcement before any reminder, and the earlier arrival first within a priority', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.announce({ id: 'old', text: 'old', chime: 'normal', priority: 40 })
+    await vi.advanceTimersByTimeAsync(3_000)
+    // Something is playing when old's reminder falls due and two new, lower-priority announcements arrive.
+    await vi.advanceTimersByTimeAsync(119_000)
+    ann.announce({ id: 'filler', text: 'filler', chime: 'normal', priority: 10 })
+    await vi.advanceTimersByTimeAsync(1_500)
+    ann.announce({ id: 'late', text: 'later arrival', chime: 'normal', priority: 20, order: 2000 })
+    ann.announce({ id: 'soon', text: 'sooner arrival', chime: 'normal', priority: 20, order: 1000 })
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['New announcement. old', 'New announcement. filler', 'New announcement. sooner arrival', 'New announcement. later arrival', 'This is a reminder. old'])
+  })
+
+  it('says a "once" announcement (a cancellation) one time, even if a mute holds it first', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.mute(60_000)
+    ann.announce({ id: 'trip:1:cancel', text: 'Pickup for Kabir is cancelled.', chime: 'normal', priority: 0, once: true })
+    await vi.advanceTimersByTimeAsync(60_000 + 10 * 60_000)
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['New announcement. Pickup for Kabir is cancelled.'])
+  })
+
+  it('stops the old words when a trip is replaced while being said, and says the new ones next', async () => {
+    let finish: () => void = () => {}
+    const said: string[] = []
+    const out = { chime: async () => {}, speak: (t: string) => new Promise<void>((r) => { said.push(t); finish = r }), stop: vi.fn(() => finish()) }
+    const ann = createAnnouncer(out)
+    ann.announce({ id: 'trip:1', text: 'in about five minutes', chime: 'normal', priority: 20 })
+    await vi.advanceTimersByTimeAsync(10)
+    ann.announce({ id: 'trip:1', text: 'in about twenty minutes', chime: 'normal', priority: 20 })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(out.stop).toHaveBeenCalled()
+    expect(said).toEqual(['New announcement. in about five minutes', 'New announcement. in about twenty minutes'])
   })
 })

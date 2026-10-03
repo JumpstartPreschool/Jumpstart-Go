@@ -7,7 +7,8 @@
 // Secrets: AZURE_SPEECH_KEY, AZURE_SPEECH_REGION (e.g. centralindia), AZURE_SPEECH_VOICE (an en-IN female neural voice,
 // default en-IN-NeerjaNeural), VOICE_CRON_SECRET (as app.voice_config.secret), APP_ORIGIN (optional, as for whatsapp-invite).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { childMessages, clipKey, clipPath, commonPhrases } from '../_shared/announce.ts'
+import { clipKey, clipPath } from '../_shared/announce.ts'
+import { childMessages, commonPhrases, gateSettings, type GateSettings } from '../_shared/gateAnnounce.ts'
 import { azureSpeech, TtsBusy, type TTSProvider } from '../_shared/tts.ts'
 import { handle } from './handler.ts'
 
@@ -95,18 +96,27 @@ type ChildRow = {
   full_name: string
   preferred_name: string | null
   guardianships: Array<{ relation: string | null; profiles: { active: boolean } | null }>
+  programmes: { name: string } | null
   child_pronunciations: { spoken_name: string | null } | null
 }
 
+/** The admin's gate announcement settings (0042), or the defaults for anything missing or broken, as the gate reads them. */
+async function settings(): Promise<GateSettings> {
+  // A failed read stops the run (the next minute's retries): recording the defaults would mark every child done.
+  const { data, error } = await store.from('gate_announcement_settings').select('*').maybeSingle()
+  if (error) throw error
+  return gateSettings(data)
+}
+
 /** A child's announcements, built exactly as the gate builds them. */
-async function childSentences(childId: string): Promise<string[]> {
+async function childSentences(childId: string, cfg: GateSettings): Promise<string[]> {
   const { data, error } = await store.from('children')
-    .select('full_name, preferred_name, guardianships(relation, profiles(active)), child_pronunciations(spoken_name)')
+    .select('full_name, preferred_name, programmes(name), guardianships(relation, profiles(active)), child_pronunciations(spoken_name)')
     .eq('id', childId).single()
   if (error) throw error
   const c = data as unknown as ChildRow
-  const child = { fullName: c.full_name, name: c.preferred_name ?? c.full_name.split(' ')[0]!, spoken: c.child_pronunciations?.spoken_name ?? null }
-  return childMessages(child, c.guardianships.filter((g) => g.profiles?.active).map((g) => g.relation))
+  const child = { fullName: c.full_name, name: c.preferred_name ?? c.full_name.split(' ')[0]!, programme: c.programmes?.name ?? null, spoken: c.child_pronunciations?.spoken_name ?? null }
+  return childMessages(cfg, child, c.guardianships.filter((g) => g.profiles?.active).map((g) => g.relation))
 }
 
 async function drain(tts: TTSProvider): Promise<Record<string, unknown>> {
@@ -121,9 +131,11 @@ async function drain(tts: TTSProvider): Promise<Record<string, unknown>> {
     if (meta.size) await store.rpc('voice_requeue_all')
     await store.from('voice_meta').upsert({ key: 'queued', value: tts.version, updated_at: now() })
   }
+  // Read once per run: a change saved meanwhile requeues every child (0042), and the next run makes the new words.
+  const cfg = await settings()
   let phrases = 0
   try {
-    phrases = await ensure(tts, commonPhrases(), have, deadline)
+    phrases = await ensure(tts, commonPhrases(cfg), have, deadline)
   } catch (e) {
     if (!(e instanceof Stop)) throw e
     log('drain', { phrases: 'partial', ms: Date.now() - started })
@@ -143,7 +155,7 @@ async function drain(tts: TTSProvider): Promise<Record<string, unknown>> {
     for (const row of rows) {
       let ok: boolean | null = false
       try {
-        clips += await ensure(tts, await childSentences(row.child_id), have, deadline)
+        clips += await ensure(tts, await childSentences(row.child_id, cfg), have, deadline)
         ok = true
         children++
       } catch (e) {

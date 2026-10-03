@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { preconnect } from 'react-dom'
-import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, TriangleAlert, UserCheck } from '../../ui/icons'
+import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, Timer, TriangleAlert, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button, LuxButton } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -20,10 +20,13 @@ import { ExpectedLists } from './GateExtras'
 import { Tabs } from '../../ui/Tabs'
 import { CallSheet } from '../school/CallSheet'
 import { useSchoolDay } from '../school/useSchoolDay'
-import { PRIORITY, type Announcer } from './announcer'
+import type { Announcer } from './announcer'
 import { loadVoiceVersion, setVoiceChildren, warmClips } from './voiceClips'
-import { childMessages, commonPhrases, type VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
-import { cancelledText, isUrgent, phaseOf, shouldAnnounce, spokenText, type GateChild } from './gate'
+import type { VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
+import { childMessages, commonPhrases } from '../../../supabase/functions/_shared/gateAnnounce.ts'
+import { isLate, syncGate, type GateChild } from './gate'
+import { setVoiceOpenings } from './sound'
+import { useGateSettings } from './useGateSettings'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
 interface GateData { children: Map<string, GateChild & { guardians: Guardian[]; spoken: string | null }>; myClasses: Set<string>; covered: Set<string> }
@@ -117,6 +120,15 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const [calling, setCalling] = useState(false)
   const cancelHeard = useRef(new Set<string>())
   const announced = useRef(new Map<string, string>())
+  const lateHeard = useRef(new Map<string, string>())
+  // The admin's wording and timings (0042). A change applies from the next announcement; one being said finishes.
+  const cfg = useGateSettings()
+  const cfgRef = useRef(cfg)
+  cfgRef.current = cfg
+  useEffect(() => {
+    announcer.configure({ openings: { new: cfg.opening_new, urgent: cfg.opening_urgent, reminder: cfg.opening_reminder }, repeatMs: cfg.reminder_min * 60_000 })
+    setVoiceOpenings([cfg.opening_new, cfg.opening_urgent, cfg.opening_reminder])
+  }, [cfg, announcer])
 
   // Your classes (and any class nobody covers), or the whole school. Announcements follow their own rule (shouldAnnounce).
   const inScope = (childId: string) => {
@@ -140,12 +152,12 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   // a child, a relation or a pronunciation changes. Copying never makes a clip or spends characters.
   const warmFor = useMemo(() => {
     if (!gate.data) return []
-    const list = commonPhrases()
+    const list = commonPhrases(cfg)
     for (const c of gate.data.children.values()) {
-      list.push(...childMessages({ fullName: c.fullName, name: c.name, spoken: c.spoken }, c.guardians.filter((g) => g.active).map((g) => g.relation)))
+      list.push(...childMessages(cfg, { fullName: c.fullName, name: c.name, programme: c.programmeName, spoken: c.spoken }, c.guardians.filter((g) => g.active).map((g) => g.relation)))
     }
     return list
-  }, [gate.data])
+  }, [gate.data, cfg])
   useEffect(() => {
     if (!warmFor.length) return
     const stop = new AbortController()
@@ -153,34 +165,12 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     return () => stop.abort()
   }, [warmFor])
 
-  // Announcements follow the trips: new ones play (the class's own coordinators first), and again as the trip gets
-  // closer (about ten minutes, about five, arrived); seen ones stop repeating.
+  // Announcements follow the trips (syncGate in gate.ts): new ones play, again at each of the admin's stages, with
+  // reminders saying the time left at that moment; a new time or a cancellation replaces what was queued.
   useEffect(() => {
     if (!trips.trips || !gate.data) return
-    for (const t of trips.trips) {
-      const child = gate.data.children.get(t.child_id)
-      if (!child) continue
-      const id = `trip:${t.id}`
-      if (t.status === 'en_route' && shouldAnnounce(t, child.classId, gate.data.myClasses, gate.data.covered, nowMs)) {
-        // Once per version of the trip; the announcer itself repeats it every 2 minutes until someone acknowledges.
-        const version = `${t.updated_at}|${phaseOf(t, nowMs)}`
-        if (announced.current.get(t.id) !== version) {
-          announced.current.set(t.id, version)
-          const urgent = isUrgent(t, nowMs)
-          announcer.announce({ id, childId: t.child_id, text: spokenText(t, child, nowMs), urgent, chime: urgent ? 'flagged' : 'normal', priority: t.off_schedule ? PRIORITY.flagged : urgent ? PRIORITY.runningLate : PRIORITY.newRequest })
-        }
-      } else if (announced.current.has(t.id)) {
-        announced.current.delete(t.id)
-        announcer.acknowledge(id)
-      }
-      // A cancellation is said once, if it happened in the last 10 minutes.
-      if (t.status === 'cancelled' && nowMs - Date.parse(t.updated_at) < 10 * 60_000 && !cancelHeard.current.has(t.id)) {
-        cancelHeard.current.add(t.id)
-        announcer.announce({ id: `${id}:cancel`, childId: t.child_id, text: cancelledText(t, child), chime: 'normal', priority: PRIORITY.info })
-        setTimeout(() => announcer.acknowledge(`${id}:cancel`), 30_000)
-      }
-    }
-  }, [trips.trips, gate.data, nowMs, announcer])
+    syncGate(trips.trips, gate.data, nowMs, cfg, () => cfgRef.current, { announced: announced.current, cancelHeard: cancelHeard.current, lateHeard: lateHeard.current }, announcer)
+  }, [trips.trips, gate.data, nowMs, announcer, cfg])
 
   async function act(t: Trip, step: GateStep, handedTo?: string) {
     setBusy(t.id)
@@ -237,7 +227,8 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {t.status === 'handed_over' && <Pill tone="live" icon={<House />}>Handed over</Pill>}
                 {t.status === 'checked_in' && <Pill tone="live" icon={<School />}>Checked in</Pill>}
                 {t.status === 'cancelled' && <Pill tone="stale">Cancelled</Pill>}
-                {!done && t.off_schedule && <Pill tone="warning" icon={<TriangleAlert />}>{t.reason ?? 'Outside the usual time'}</Pill>}
+                {!done && isLate(t) && <Pill tone="warning" icon={<Timer />}>Running late · {clockTime(t.arrive_at)}</Pill>}
+                {!done && t.off_schedule && !isLate(t) && <Pill tone="warning" icon={<TriangleAlert />}>{t.reason ?? 'Outside the usual time'}</Pill>}
                 {!done && t.arrived_at && <Pill tone="danger" icon={<MapPin />}>At the gate</Pill>}
                 {!done && t.ready_at && <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>}
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
@@ -366,7 +357,15 @@ function TripDetail({ trip, child, busy, locked, canClose, onStep }: { trip: Tri
       {third && !done && (
         <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} ({trip.traveller_relation?.toLowerCase() ?? 'not family'}) isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone, and check their ID if you don't know them.</Notice>
       )}
-      {trip.off_schedule && trip.reason && <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>Outside the usual time: {trip.reason}</Notice>}
+      {isLate(trip) && !done && (
+        <Notice tone="warning" icon={<Timer aria-hidden />}>
+          <span className="grid gap-0.5">
+            <b>Running late: now about {clockTime(trip.arrive_at)}{trip.late_from ? `, was ${clockTime(trip.late_from)}` : ''}.</b>
+            {trip.late_note && <span>“{trip.late_note}”</span>}
+          </span>
+        </Notice>
+      )}
+      {trip.off_schedule && trip.reason && !isLate(trip) && <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>Outside the usual time: {trip.reason}</Notice>}
       {done ? (
         <Notice tone="success">{trip.status === 'handed_over' ? `Handed over at ${clockTime(trip.closed_at!)}.` : trip.status === 'checked_in' ? `Checked in at ${clockTime(trip.closed_at!)}.` : 'Cancelled by the parent or the school.'}</Notice>
       ) : (

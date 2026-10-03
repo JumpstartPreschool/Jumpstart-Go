@@ -29,6 +29,10 @@ export interface Trip {
   handed_to: string | null
   /** 0035: the parent tapped "I've arrived" (absent before that migration is applied). */
   arrived_at?: string | null
+  /** 0043: the parent's latest Running late: when, the time it replaced, and an optional note (shown, never spoken). */
+  late_at?: string | null
+  late_from?: string | null
+  late_note?: string | null
   // 0008: someone else collecting, and location sharing (absent before that migration is applied)
   traveller_kind?: 'guardian' | 'third_person'
   traveller_phone?: string | null
@@ -56,6 +60,15 @@ export async function cancelTrip(tripId: string): Promise<Trip> {
 }
 
 /** "I've arrived": the gate announces it at once. Only the child's family (or the school); once per trip. */
+/** Running late (0043): +5, +10, +15 minutes, or a later time today, with an optional note. The gate hears it at once. */
+export async function runningLate(tripId: string, change: { minutes: 5 | 10 | 15 } | { at: Date }, note: string | null): Promise<Trip> {
+  const { data, error } = await supabase.rpc('running_late', {
+    p_trip: tripId, p_minutes: 'minutes' in change ? change.minutes : null, p_at: 'at' in change ? change.at.toISOString() : null, p_note: note?.trim() || null,
+  })
+  if (error) throw error
+  return data as Trip
+}
+
 export async function arriveTrip(tripId: string): Promise<Trip> {
   const { data, error } = await supabase.rpc('arrive_trip', { p_trip: tripId })
   if (error) throw error

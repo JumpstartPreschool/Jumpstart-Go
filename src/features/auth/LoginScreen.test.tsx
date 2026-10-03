@@ -43,15 +43,16 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-it('asks only for a mobile number, with the phone keyboard and autofill hints', async () => {
+it('starts with the mobile number, with the phone keyboard and autofill hints, and email sign-in one tap away', async () => {
   await open()
   const field = screen.getByLabelText('Mobile number')
   expect(field).toHaveAttribute('type', 'tel')
   expect(field).toHaveAttribute('autocomplete', 'tel')
   expect(field).toHaveAttribute('placeholder', '98765 43210')
   expect(screen.getByText('Outside India? Start with + and the country code.')).toBeInTheDocument()
+  // Email and password are the second way in (D52): offered, but not asked for until chosen.
   expect(screen.queryByLabelText(/email|password/i)).toBeNull()
-  expect(screen.queryByText(/password/i)).toBeNull()
+  expect(screen.getByRole('button', { name: 'Sign in with email and password' })).toBeInTheDocument()
 })
 
 it('sends a registered number its code on WhatsApp, as a full international number', async () => {
@@ -187,39 +188,70 @@ it('opens an invitation link with the number filled in, then clears it from the 
   expect(location.hash).toBe('')
 })
 
-it('supports quick sign-in for coordinator with on-screen code', async () => {
-  auth.rpc.mockImplementation((fn: string) => {
-    if (fn === 'request_screen_otp') {
-      return Promise.resolve({ data: { ok: true, code: '710912', phone: '+919876543212', full_name: 'Kiran Demo' }, error: null })
-    }
-    if (fn === 'verify_screen_otp') {
-      return Promise.resolve({ data: { ok: true, email: 'demo.coordinator@example.com', key: 'JumpstartGo2026!' }, error: null })
-    }
-    return Promise.resolve({ data: true, error: null })
-  })
+it('never shows a code on screen and has no shortcut sign-ins', async () => {
   const user = await open()
-  const coordBtn = screen.getByRole('button', { name: /Coordinator \(Kiran\)/ })
-  await user.click(coordBtn)
-  expect(await screen.findByRole('heading', { name: 'Check WhatsApp' })).toBeInTheDocument()
-  expect(screen.getByText('710912')).toBeInTheDocument()
-  expect(screen.getByLabelText('6-digit code')).toHaveValue('710912')
+  expect(screen.queryByRole('button', { name: /Parent \(|Admin \(|Coordinator \(|Leader \(/ })).toBeNull()
+  await askForCode(user)
+  await screen.findByRole('heading', { name: 'Check WhatsApp' })
+  expect(auth.rpc).not.toHaveBeenCalledWith('request_screen_otp', expect.anything())
+  expect(screen.getByLabelText('6-digit code')).toHaveValue('')
 })
 
-it('supports quick sign-in for center leader with on-screen code', async () => {
-  auth.rpc.mockImplementation((fn: string) => {
-    if (fn === 'request_screen_otp') {
-      return Promise.resolve({ data: { ok: true, code: '102900', phone: '+919876543213', full_name: 'Lata Demo' }, error: null })
-    }
-    if (fn === 'verify_screen_otp') {
-      return Promise.resolve({ data: { ok: true, email: 'demo.leader@example.com', key: 'JumpstartGo2026!' }, error: null })
-    }
-    return Promise.resolve({ data: true, error: null })
-  })
+async function openEmail() {
   const user = await open()
-  const leaderBtn = screen.getByRole('button', { name: /Leader \(Lata\)/ })
-  await user.click(leaderBtn)
-  expect(await screen.findByRole('heading', { name: 'Check WhatsApp' })).toBeInTheDocument()
-  expect(screen.getByText('102900')).toBeInTheDocument()
-  expect(screen.getByLabelText('6-digit code')).toHaveValue('102900')
+  await user.click(screen.getByRole('button', { name: 'Sign in with email and password' }))
+  return user
+}
+
+it('signs in with an email and password, the email tidied', async () => {
+  auth.signInWithPassword.mockResolvedValue({ data: {}, error: null })
+  const user = await openEmail()
+  expect(screen.getByRole('heading', { name: 'Sign in with email' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'username')
+  const password = screen.getByLabelText('Password')
+  expect(password).toHaveAttribute('type', 'password')
+  expect(password).toHaveAttribute('autocomplete', 'current-password')
+  await user.type(screen.getByLabelText('Email'), '  Meera.Shah@Gmail.com ')
+  await user.type(password, 'Meera@gmail#2026')
+  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalledTimes(1))
+  expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: 'meera.shah@gmail.com', password: 'Meera@gmail#2026' })
+  expect(sessionStorage.getItem('jumpstart.chooseArea')).toBe('1')
 })
 
+it('shows and hides the password', async () => {
+  const user = await openEmail()
+  await user.click(screen.getByRole('button', { name: 'Show password' }))
+  expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'text')
+  await user.click(screen.getByRole('button', { name: 'Hide password' }))
+  expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+})
+
+it('says the same thing for a wrong email or a wrong password, and clears the password', async () => {
+  auth.signInWithPassword.mockResolvedValue({ data: {}, error: { code: 'invalid_credentials', status: 400, message: 'Invalid login credentials' } })
+  const user = await openEmail()
+  await user.type(screen.getByLabelText('Email'), 'someone@example.com')
+  await user.type(screen.getByLabelText('Password'), 'wrong-one')
+  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent("That email and password don't match. Check them, or sign in with your mobile number.")
+  expect(screen.getByLabelText('Password')).toHaveValue('')
+  expect(sessionStorage.getItem('jumpstart.chooseArea')).toBeNull()
+})
+
+it('checks the email and password are there before calling the server', async () => {
+  const user = await openEmail()
+  await user.type(screen.getByLabelText('Email'), 'not-an-email')
+  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter the email address the school has for you.')
+  await user.clear(screen.getByLabelText('Email'))
+  await user.type(screen.getByLabelText('Email'), 'meera@gmail.com')
+  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter your password.')
+  expect(auth.signInWithPassword).not.toHaveBeenCalled()
+})
+
+it('goes back to the mobile number from email sign-in', async () => {
+  const user = await openEmail()
+  await user.click(screen.getByRole('button', { name: /Use my mobile number instead/ }))
+  expect(screen.getByLabelText('Mobile number')).toBeInTheDocument()
+})

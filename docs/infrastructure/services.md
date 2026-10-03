@@ -27,7 +27,14 @@ Free-first. Every external provider sits behind an interface so it can be replac
 Sign-in is the person's mobile number and a 6-digit code. Supabase Auth makes and checks the code. Its Send SMS hook calls the `send-sms` function, which sends the code as a WhatsApp template message through WATI. No code is ever stored; the delivery log keeps only the number, the template and the status, and is purged after 90 days.
 
 - **Cost:** paid, approved by the owner on 2026-10-02. WATI charges a plan fee, and Meta charges per conversation on top. People stay signed in until they tap Sign out, so a code is needed mostly once per person and device.
-- **Templates:** three, each approved by Meta before first use (`jumpstart_signin_code`, `jumpstart_invitation`, `jumpstart_staff_invitation`). Authentication-category templates are approved fastest. If a template is rejected or paused, codes or invitations stop; the Settings check shows each template's status.
+- **Templates:** one, approved by Meta before first use: `jumpstart_signin_code`. Authentication-category templates are approved fastest. If it is rejected or paused, WhatsApp codes stop (email and password sign-in keeps working); the Settings check shows its status. Invitations go from the admin's own phone, so they need no template.
 - **Alternatives:** SMS through MSG91 needs DLT registration and costs about ₹0.15 to ₹0.25 a code. Firebase phone sign-in was ruled out: it needs a Google billing account, costs about ₹6 per code in India and adds a second sign-in system.
 - **Facts used** (docs.wati.io v3, read 2026-10-02): `POST /api/ext/v3/messageTemplates/send` with a Bearer token answers 200 when WATI accepts a message, which is not the same as delivered. Delivery comes later through the webhook. Limit 30 requests per 10 seconds on the Growth plan.
-- **Brevo:** removed. The invitation email, the sign-in emails and the SMTP sender are gone.
+
+## Email and password sign-in (decided 2026-10-03)
+
+The second way in, for anyone whose record has an email (PRD D52). It is Supabase Auth's own password sign-in: no email is sent, so there is no email provider and nothing to pay. The admin's pattern sets the starting passwords through the `password-pattern` function, which calls the Supabase Auth admin API with the service role key (built into Edge Functions, never sent to the browser).
+
+- **Cost:** free (Supabase Auth on the current plan).
+- **Limits:** Supabase Auth's own sign-in rate limits apply to password attempts.
+- **Brevo:** removed. No email provider, SMTP sender or email template remains.

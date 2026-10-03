@@ -20,15 +20,21 @@ Status: **built, not yet deployed** (2026-09-29, D50). Needs the owner's Azure S
 
 Every announcement is an opening, then one message (templates in `_shared/announce.ts`, owner's wording 2026-09-29):
 
-| When | Message (pickup; drop-off names the child only and skips "Please get … ready.") |
-|---|---|
-| Parent taps "On my way" | "Vihaan Kulkarni's father is on the way for pickup. Please get Vihaan ready." |
-| About 12 to 7 minutes before the chosen time | "Vihaan Kulkarni's father will arrive for pickup in about ten minutes. Please get Vihaan ready." |
-| 7 minutes or less | "… will arrive for pickup in about five minutes. …" |
-| Parent taps "I've arrived", or the collector taps "I'm at the gate" on their link (0036) | "Vihaan Kulkarni's father has arrived for pickup. Please get Vihaan ready." (a collector is "pickup person") |
-| Cancelled | "Pickup for Vihaan Kulkarni is cancelled." |
+The wording, openings and timings are the admin's (Admin → Settings → Gate announcements, 0042, PRD D53); these are the defaults.
 
-Openings: "New announcement." / "Urgent new announcement." (outside the child's window, within five minutes, or arrived) / "This is a reminder." (every 2 minutes until someone taps Seen). The relation comes from the trip ("mother", "grandmother"); someone with a one-time link, or with no relation on record, is "pickup person". The class, the time and any reason stay on screen and are never spoken, so every message can be made ahead. The phase is worked out from the parent's chosen time each time the gate looks (`phaseOf`), so after a reconnect the gate says where the trip is now, never a backlog. Programme windows and times are unchanged.
+| When | The gate hears |
+|---|---|
+| Parent taps "On my way" (15 min) | "New announcement. Vihaan Kulkarni's father will arrive for pickup in about fifteen minutes. Please get Vihaan ready." |
+| Each reminder (every 2 min until acknowledged) | "This is a reminder. … in about ten minutes. …", with the time left at that moment |
+| Get ready (10 min) and urgent (5 min) | A new announcement at each; urgent says "Urgent new announcement." and plays first |
+| The time comes with no arrival | "… will arrive for pickup any moment now. …" |
+| Parent taps "I've arrived", or the collector taps "I'm at the gate" (0036) | "Urgent new announcement. Vihaan Kulkarni's father has arrived for pickup. …", even after an acknowledgement |
+| Parent taps Running late (0043, D54) | "Pickup update. Vihaan Kulkarni's father is running late and will arrive in about ten minutes.", once and at once; reminders after it use the new time; the parent's note is shown, never spoken |
+| Cancelled | "Pickup for Vihaan Kulkarni is cancelled.", once |
+
+**The ETA rule** (`etaOf`, one function): from `arrive_at − now`. Within a minute or past it, "any moment now"; up to about an hour, the nearest of 2, 5, 10, 15, 20, 25, 30, 45 and 60 minutes (13 is about fifteen, 6 about five); further out, the clock time in India time ("at about two twenty two in the afternoon"). The stage (`stageOf`: far, early, get ready, urgent, due, arrived) comes from the same timestamps and the admin's timings, worked out afresh on every pass, so a new time (running late, change time) replaces everything queued and a reconnect hears where the trip is now. The relation comes from the trip; a one-time collector is "pickup person". The class, phone numbers, codes, location and any reason stay on screen.
+
+**Queue order** (fixed, not the admin's): arrived, then urgent or due, then running late, then outside the usual time, then the rest; every reminder after every new announcement; the earliest arrival first within a priority.
 
 ## How it works
 
@@ -41,7 +47,7 @@ Parent taps "On my way" / "I've arrived" ─► start_trip / arrive_trip (server
   ─► chime ─► opening + message
 ```
 
-1. **Made ahead, never during a tap.** `childMessages()` lists every recording a child can need: each phase of pickup for each relation on their record and for a pickup person, each phase of drop-off, and both cancellations (about 18 clips a child). The same `message()` builds the gate's words, and a test checks every gate announcement is in that list (`announce.test.ts`).
+1. **Made ahead, never during a tap.** `childMessages()` (`_shared/gateAnnounce.ts`) lists the recordings a child is likely to need from the admin's settings: for each relation on their record and a pickup person, 2, 5, 10 and 15 minutes, any moment now and arrived; the same for drop-off; and both cancellations (about 32 clips a child with the defaults). The same `messageFor()` builds the gate's words, and a test checks that every sentence the 5, 10 and 15 minute buttons can produce, at any moment of the trip, is in that list (`announce.test.ts`). Rarer times (20 minutes and up, or a template with a clock time) are made live the first time, ahead of the reminder that needs them (`warm`), and kept. A saved change to the wording requeues every child; only sentences whose words changed are new clips.
 2. **Version.** `voiceVersion(voice)` = provider, voice (`AZURE_SPEECH_VOICE`), audio format and `WORDING_VERSION`. A new voice or new wording requeues every child once; the pronounce function publishes the version in `voice_meta` once the openings exist, and iPads read it with `voice_version()`. Clip keys include it, so an old clip is never played in a new voice, and iPads delete old versions on Start duty.
 3. **The iPad** (`voiceClips.ts`): on duty it copies every child's clips from the store to Cache Storage (`warmClips`, never makes one). A clip is looked for in memory, then the iPad's cache, then the store; only a sentence nobody made ahead (a relation added today) is made live through `pronounce`, capped.
 4. **Playback** (`sound.ts`): the opening plays as soon as it's ready after the chime; the message follows after a 150 ms pause. Whichever isn't ready within 300 ms is said by the iPad's own Indian English voice (a woman's voice first). Mute, End duty and acknowledging stop everything at once.
@@ -51,8 +57,8 @@ Parent taps "On my way" / "I've arrived" ─► start_trip / arrive_trip (server
 ## Cost (Azure Free F0)
 
 - Free F0 includes 0.5 million neural characters a month ([pricing](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speech-services/), checked 2026-09-29). The database stops at **450,000** (`voice_count`, `voice_usage`) before Azure is called; the minute job stops and carries on next month.
-- One child's clips: about 18 × 85 characters ≈ 1,500. Fifty children ≈ 75,000 once, then only when something changes. Previews and live sentences add a little. Admins can read `voice_usage` and `voice_usage_days`.
-- Never made on: a tap, page load, reconnect, playback, or reading a clip. Only the minute job (queued children) and staff previews.
+- One child's clips: about 32 × 85 characters ≈ 2,700. Fifty children ≈ 136,000 once, then only when something changes. A change to one wording re-records only that wording's sentences (roughly a fifth to a third of that). Previews and live sentences add a little. Admins can read `voice_usage` and `voice_usage_days`.
+- Never made on a page load, reconnect, playback or reading a clip. Made by the minute job (queued children), staff previews (Play preview in Settings), and once for a rarer arrival time on the gate.
 
 ## Security
 

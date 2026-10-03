@@ -93,7 +93,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
               </span>
               <div className="min-w-0">
                 <p className={`kicker ${speaking.urgent ? 'text-white!' : 'text-accent-ink!'}`}>{speaking.urgent ? 'Urgent · now announcing' : 'Now announcing'}</p>
-                <p className="truncate text-h4">{speaking.text}</p>
+                <p className="truncate text-h4">{typeof speaking.text === 'function' ? speaking.text() : speaking.text}</p>
               </div>
               {waiting > 0 && <Pill className="ml-auto">{waiting} waiting</Pill>}
               <span className="rainbow-bar absolute inset-x-0 bottom-0 h-1 animate-pulse" aria-hidden />

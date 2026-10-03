@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, PencilLine, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
+import { ChevronLeft, Globe, Heart, KeyRound, LogOut, Lock, Pencil, PencilLine, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -16,15 +16,19 @@ import { childLeft, explainDbError, removeGuardian, setAppAccess, updateChild, t
 import { AddGuardianSheet, EditGuardianSheet } from './ChildForms'
 import { GenderChoice } from '../../ui/GenderChoice'
 import { InviteSheet, invitedLine } from './InviteSheet'
+import { PasswordSheet } from './PasswordSheet'
 import { formatAge, levelOf } from './programmeCatalogue'
 import { levelIcon, ProgrammePicker } from './ProgrammePicker'
 import { PronunciationCard } from './PronunciationCard'
 
 const hm = (t?: string | null) => (t ? formatTime(toMinutes(t.slice(0, 5))) : '')
 
-/** Signed in, invited (not yet signed in), or no app access: said in words and colour. */
-/** Where someone's app access stands (D36), with Invite for someone who hasn't signed in yet. */
-export function AccessState({ person, onInvite }: { person: Profile; onInvite?: (p: Profile) => void }) {
+/**
+ * Where someone's app access stands (D36), said in words and colour, with Invite for someone who hasn't signed in yet
+ * and, for anyone with an email, their email password (0041). onChanged reloads the list after a change.
+ */
+export function AccessState({ person, onInvite, onChanged }: { person: Profile; onInvite?: (p: Profile) => void; onChanged?: () => void }) {
+  const [password, setPassword] = useState(false)
   const invited = invitedLine(person)
   const [label, cls] = !person.app_access ? ['No app access', 'text-ink-3'] : person.user_id ? ['Signed in', 'text-live'] : invited ? [invited, 'text-info'] : ['Not invited yet', 'text-warning']
   const canInvite = !!onInvite && person.active && person.app_access && !person.user_id
@@ -32,6 +36,10 @@ export function AccessState({ person, onInvite }: { person: Profile; onInvite?: 
     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <span className={`inline-flex items-center gap-1.5 text-caption font-bold ${cls}`}><span className="size-2 rounded-full bg-current" aria-hidden />{label}</span>
       {canInvite && <Button size="md" variant="secondary" icon={<Send />} aria-label={`${invited ? 'Invite again' : 'Invite'} ${person.full_name}`} onClick={() => onInvite(person)}>{invited ? 'Invite again' : 'Invite'}</Button>}
+      {onChanged && person.active && person.app_access && person.email && (
+        <button type="button" className="iconbtn" aria-label={`Email password for ${person.full_name}`} title="Email password" onClick={() => setPassword(true)}><KeyRound /></button>
+      )}
+      {password && <PasswordSheet person={person} onClose={() => setPassword(false)} onDone={() => onChanged?.()} />}
     </span>
   )
 }
@@ -115,7 +123,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
           {g.relation}{p.abroad ? ', lives outside India' : ''}{p.phone ? `, ${formatMobile(p.phone)}` : ''}
         </p>
       </div>
-      <AccessState person={p} onInvite={setInviting} />
+      <AccessState person={p} onInvite={setInviting} onChanged={() => void onChanged()} />
       <Switch on={p.app_access} label={`App access for ${p.full_name}`} busy={busy} onChange={() => toggleAccess(p)} />
       <button type="button" className="iconbtn" aria-label={`Edit ${p.full_name}`} onClick={() => setEditing({ person: p, relation: g.relation })}><PencilLine /></button>
       <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => { setError(null); setPending({ kind: 'remove', person: p }) }} />

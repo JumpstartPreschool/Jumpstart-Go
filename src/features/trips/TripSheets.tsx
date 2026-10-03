@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, CircleCheck, Clock, Timer, TriangleAlert, X } from '../../ui/icons'
+import { Bell, CircleCheck, Clock, MessageSquareText, Timer, TriangleAlert, X } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { SelectField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
@@ -7,8 +7,8 @@ import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { formatTime, indiaClock, type Minutes } from '../../domain/time'
 import { windowFor, type Direction, type Programme } from '../../domain/programme'
-import { cancelTrip, explainTripError, startTrip, type Trip } from './api'
-import { checkArrival, formatRange, MINUTE_CHOICES, REASONS, type Arrival } from './rules'
+import { cancelTrip, explainTripError, runningLate, startTrip, type Trip } from './api'
+import { checkArrival, clockTime, formatRange, MINUTE_CHOICES, REASONS, type Arrival } from './rules'
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
 
@@ -134,23 +134,36 @@ export function OnMyWaySheet({ open, onClose, childId, first, direction, program
   )
 }
 
-/** Running late: push the arrival back by 10, 20 or 30 minutes. */
+const LATE_CHOICES = [5, 10, 15] as const
+
+/**
+ * Running late (0043): +5, +10 or +15 minutes on the time the school has, or a later time today, and an optional note.
+ * It changes the trip's real arrival time, so the gate's queue, reminders and announcements all follow the new time;
+ * the gate hears "… is running late" at once. The child's window is shown as guidance only: it never stops a late time.
+ */
 export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { open: boolean; onClose: () => void; trip: Trip; first: string; programme: Programme; nowMs: number }) {
   const toast = useToast()
-  const [extra, setExtra] = useState(10)
+  const [extra, setExtra] = useState<(typeof LATE_CHOICES)[number]>(10)
+  const [custom, setCustom] = useState<Minutes | null>(null)
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nowMin = indiaClock(new Date(nowMs)).minutes
-  const current = minutesUntil(trip.arrive_at, nowMs)
-  const arrival = nowMin + current + extra
+  // Later than the time the school has (or now, if that has passed), as the server counts it.
+  const base = nowMin + minutesUntil(trip.arrive_at, nowMs)
+  // Custom time: 5-minute clock times after that, up to 3 hours from now and before midnight.
+  const customFrom = Math.floor(base / 5) * 5 + 5
+  const customTimes = Array.from({ length: Math.max(0, Math.floor((Math.min(nowMin + 180, 23 * 60 + 55) - customFrom) / 5) + 1) }, (_, i) => customFrom + i * 5)
+  const arrival = custom ?? base + extra
   const state = checkArrival(programme, trip.direction, arrival)
 
   async function send() {
     setBusy(true)
     setError(null)
     try {
-      await startTrip(trip.child_id, trip.direction, current + extra, state === 'inside' ? null : 'Running late')
-      toast(`The school knows: about ${formatTime(arrival)}.`)
+      const at = new Date(nowMs + (arrival - nowMin) * 60_000)
+      const done = await runningLate(trip.id, custom === null ? { minutes: extra } : { at }, note)
+      toast(`The school knows you're running late. New arrival: about ${clockTime(done.arrive_at)}.`)
       onClose()
     } catch (e) {
       setError(explainTripError(e as { code?: string; message?: string }))
@@ -160,26 +173,46 @@ export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { op
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Running late" description={`Now about ${formatTime(nowMin + current)}. How much later?`}>
-      <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Minutes late">
-        {[10, 20, 30].map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={n === extra} disabled={checkArrival(programme, trip.direction, nowMin + current + n) === 'closed'}
-            onClick={() => setExtra(n)} className="choice grid justify-items-center gap-0.5 px-2 py-2.5 text-center">
-            <span className="text-[22px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">+{n}<span className="ml-0.5 text-small font-bold">min</span></span>
-            <span className="text-caption font-semibold text-ink-2 tabular-nums">{formatTime(nowMin + current + n)}</span>
+    <Sheet open={open} onClose={onClose} title="Running late?" description={`The school has about ${formatTime(base)}. How much later?`}>
+      <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="How much later">
+        {LATE_CHOICES.map((n) => (
+          <button key={n} type="button" role="radio" aria-checked={custom === null && n === extra} disabled={base + n > 23 * 60 + 59}
+            onClick={() => { setExtra(n); setCustom(null) }} className="choice grid justify-items-center gap-1 px-2 py-4 text-center">
+            <span className="text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">+{n}<span className="ml-0.5 text-small font-bold">min</span></span>
+            <span className="text-caption font-semibold text-ink-2 tabular-nums">about {formatTime(base + n)}</span>
           </button>
         ))}
+        <button type="button" role="radio" aria-checked={custom !== null} disabled={!customTimes.length}
+          onClick={() => custom === null && customTimes.length && setCustom(customTimes.find((t) => t >= base + 20) ?? customTimes[0]!)}
+          className="choice col-span-3 flex min-h-14 items-center justify-center gap-2.5 px-4 text-h4 [&_svg]:size-5">
+          <Clock aria-hidden />{custom === null ? 'Custom time' : <>Custom time<span className="tabular-nums text-accent-ink">· {formatTime(custom)}</span></>}
+        </button>
+      </div>
+      {custom !== null && (
+        <div className="mt-4">
+          <SelectField label="Expected arrival" value={custom} onValue={(v) => setCustom(Number(v))}>
+            {customTimes.map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
+          </SelectField>
+        </div>
+      )}
+      <div className="mt-4 grid gap-1.5">
+        <label htmlFor="late-note" className="px-0.5 text-small font-bold text-ink-2">Add a note (optional)</label>
+        <div className="input">
+          <MessageSquareText aria-hidden />
+          <input id="late-note" value={note} maxLength={120} placeholder="Traffic near school" onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <p className="px-0.5 text-caption font-semibold text-ink-2">The gate team reads it. It isn't announced.</p>
       </div>
       <div className="mt-4 grid gap-4">
-        {state === 'inside' ? <Notice tone="success">{formatTime(arrival)} is still inside {first}'s window.</Notice>
-          : state === 'closed' ? <Notice tone="danger">That is outside school hours. Please call the school.</Notice>
-          : <Notice tone="warning">{formatTime(arrival)} is past the window, so it's flagged and the gate team acknowledges it.</Notice>}
+        {state === 'inside' ? <Notice tone="success">About {formatTime(arrival)} is still inside {first}'s {WORD[trip.direction]} window.</Notice>
+          : <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>About {formatTime(arrival)} is after {first}'s usual {WORD[trip.direction]} time. That's fine: the gate team will see it.</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
       <SheetFooter>
-        <Button size="xl" variant="sunshine" className="w-full" icon={<Timer />} loading={busy} disabled={state === 'closed'} onClick={() => void send()}>
+        <Button size="xl" variant="sunshine" className="w-full" icon={<Timer />} loading={busy} onClick={() => void send()}>
           Tell the school
         </Button>
+        <p className="mt-2.5 text-center text-caption font-semibold text-ink-3">The gate team hears it straight away.</p>
       </SheetFooter>
     </Sheet>
   )

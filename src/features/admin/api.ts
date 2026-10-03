@@ -3,7 +3,7 @@ import type { InviteDetails } from '../../../supabase/functions/_shared/invite.t
 import type { StaffRole } from '../auth/session'
 
 /** A person on the school's records. `active`: on the record; `app_access`: can sign in (0012). */
-export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'sms' | 'whatsapp' | null }
+export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'sms' | 'whatsapp' | null; email_sign_in?: 'none' | 'pattern' | 'own' }
 export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string | null; class_id: string; programme_id: string; active: boolean; gender?: 'boy' | 'girl' | null }
 export type GuardianKind = 'parent' | 'family'
 export interface Guardianship { child_id: string; guardian_id: string; relation: string; kind: GuardianKind }
@@ -52,7 +52,7 @@ export function explainDbError(e: { code?: string; message?: string } | null): s
 
 export async function loadDirectory(): Promise<Directory> {
   const [profiles, roles, children, guardianships, classes, programmes, coordinatorClasses, schedules] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id, invited_at, invited_via').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id, invited_at, invited_via, email_sign_in').order('full_name'),
     supabase.from('staff_roles').select('profile_id, role'),
     supabase.from('children').select('id, full_name, preferred_name, date_of_birth, class_id, programme_id, active, gender').order('full_name'),
     supabase.from('guardianships').select('child_id, guardian_id, relation, kind'),
@@ -134,7 +134,7 @@ export async function setPersonActive(profileId: string, active: boolean) {
   if (error) throw error
 }
 
-/** Invitations (0020, D36): what to say, the WhatsApp message (whatsapp-invite), and a record of a text sent from the admin's phone. */
+/** Invitations (0020, D36): what to say, and a record of the message the admin sent from their own phone. */
 export async function inviteDetails(profile: string): Promise<InviteDetails> {
   const { data, error } = await supabase.rpc('invite_details', { p_profile: profile })
   if (error) throw error
@@ -145,14 +145,6 @@ async function functionError(error: unknown): Promise<{ status?: number; message
   const res = (error as { context?: Response }).context
   const body = await res?.json?.().catch(() => null)
   return { status: res?.status, message: typeof body?.error === 'string' ? body.error : undefined }
-}
-/** Sends the invitation on WhatsApp from the school's number. Resolves with the number it went to. */
-export async function sendInviteWhatsApp(profile: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('whatsapp-invite', { body: { profile_id: profile } })
-  if (!error) return (data as { phone: string }).phone
-  const { status, message } = await functionError(error)
-  const fallback = status === 404 ? "WhatsApp invitations aren't set up yet. Send it by text message for now." : "The WhatsApp message couldn't be sent. Check your connection and try again."
-  throw { code: 'P0001', message: message ?? fallback }
 }
 /** Settings → Check WhatsApp setup: whether WATI accepts the token and each template is approved, without sending anything. */
 export type TemplateStatus = 'APPROVED' | 'PENDING' | 'REJECTED' | 'missing'
@@ -167,6 +159,27 @@ export async function checkWhatsAppSetup(): Promise<WhatsAppSetup> {
   const { data, error } = await supabase.functions.invoke('whatsapp-invite', { body: { check: true } })
   if (!error) return data as WhatsAppSetup
   return { error: (await functionError(error)).message ?? "Couldn't reach the WhatsApp service. Check your connection and try again." }
+}
+/** Settings → Email sign-in (0041): the admin's password pattern, readable by the admin only. Null before the first. */
+export async function loadPasswordPattern(): Promise<{ pattern: string; changed_at: string } | null> {
+  const { data, error } = await supabase.from('password_pattern').select('pattern, changed_at').maybeSingle()
+  if (error) throw error
+  return data
+}
+export interface PasswordRun { updated: number; failed: Array<{ name: string; reason: string }>; password?: string }
+/** Saves the pattern and sets every email account's password to it (the password-pattern function). */
+export async function savePasswordPattern(pattern: string): Promise<PasswordRun> {
+  const { data, error } = await supabase.functions.invoke('password-pattern', { body: { action: 'save', pattern } })
+  if (!error) return data as PasswordRun
+  const { status, message } = await functionError(error)
+  throw { code: 'P0001', message: message ?? (status === 404 ? "Email sign-in isn't set up on the server yet (the password-pattern function)." : "The passwords couldn't be updated. Check your connection and try again.") }
+}
+/** One person back to the pattern; resolves with their starting password, for the admin to pass on. */
+export async function resetPassword(profile: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('password-pattern', { body: { action: 'reset', profile_id: profile } })
+  if (!error) return (data as PasswordRun).password ?? ''
+  const { status, message } = await functionError(error)
+  throw { code: 'P0001', message: message ?? (status === 404 ? "Email sign-in isn't set up on the server yet (the password-pattern function)." : "The password couldn't be reset. Check your connection and try again.") }
 }
 export async function markInvited(profile: string, via: 'sms' | 'whatsapp'): Promise<void> {
   const { error } = await supabase.rpc('mark_invited', { p_profile: profile, p_via: via })
