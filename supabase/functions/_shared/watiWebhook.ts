@@ -13,6 +13,11 @@ const EVENTS: Record<string, MessageStatus> = {
   sessionmessagesent_v2: 'sent',
   sentmessagedelivered_v2: 'delivered',
   sentmessageread_v2: 'read',
+  // The same events from webhooks set up with WATI's older (non-v2) event choices.
+  templatemessagesent: 'sent',
+  sessionmessagesent: 'sent',
+  sentmessagedelivered: 'delivered',
+  sentmessageread: 'read',
   templatemessagefailed: 'failed',
   sessionmessagefailed: 'failed',
 }
