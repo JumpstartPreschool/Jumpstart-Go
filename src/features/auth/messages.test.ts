@@ -18,3 +18,7 @@ it('reports a failed WhatsApp hook as one plain message', () => {
   }
   expect(MESSAGES.sendFailed).toBe("Couldn't send the WhatsApp code right now. Please try again in a moment.")
 })
+
+it('shows the send-sms hook limit message as too many attempts', () => {
+  expect(authMessage({ code: 'sms_send_failed', message: 'Error sending sms: rate_limited: Too many attempts. Please wait a moment and try again.', status: 429 })).toBe(MESSAGES.tooMany)
+})

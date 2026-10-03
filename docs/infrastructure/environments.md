@@ -34,7 +34,7 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 | `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional) |
 | `send-sms` | Supabase Auth's Send SMS hook (0039, D51): sends each sign-in code as a WhatsApp template through WATI; sends nothing for an unregistered number | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `SEND_SMS_HOOK_SECRET`, `WATI_TEMPLATE_SIGNIN_CODE` (optional), `WATI_CHANNEL` (optional) |
 | `password-pattern` | Admin → Settings → Email sign-in (0041, D52): saves the password pattern and sets every email account's starting password to it, or resets one person | `APP_ORIGIN` (optional); uses the built-in Supabase keys |
-| `whatsapp-invite` | Admin Settings WhatsApp setup check and invitation dispatch: checks token and template statuses via WATI API | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `WATI_CHANNEL` (optional), `APP_ORIGIN` (optional) |
+| `whatsapp-invite` | Admin Settings WhatsApp setup check: reads the token and sign-in template status from WATI; sends nothing | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `WATI_CHANNEL` (optional), `APP_ORIGIN` (optional) |
 | `wati-webhook` | Records delivered, read and failed statuses from WATI in app.whatsapp_log via webhook | `WATI_WEBHOOK_SECRET` |
 
 Deploying needs a Supabase login on this machine (`npx supabase login`, once):

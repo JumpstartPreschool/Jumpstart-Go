@@ -10,34 +10,17 @@
 export const DEFAULT_WATI_BASE_URL = 'https://live-mt-server.wati.io'
 
 /**
- * Production template definitions and expected parameter mappings.
+ * Message templates this app sends. Only the sign-in code goes out on WhatsApp (invitations are shared from the admin's
+ * own phone), so it is the only template.
  *
  * Parameter definitions:
  * - SIGN_IN_CODE: 1 = verification code
- * - PASSWORD_RESET: 1 = reset code
- * - FAMILY_INVITATION: 1 = parent first name, 2 = child name(s), 3 = app url
- * - STAFF_INVITATION: 1 = staff first name, 2 = assigned role, 3 = app url
  */
 export const WATI_TEMPLATES = {
   SIGN_IN_CODE: {
     env: ['WATI_TEMPLATE_SIGNIN_CODE', 'WATI_TEMPLATE_SIGNIN'],
     fallback: 'jumpstart_signin_code',
     params: ['1'],
-  },
-  PASSWORD_RESET: {
-    env: ['WATI_TEMPLATE_PASSWORD_RESET', 'WATI_TEMPLATE_SIGNIN_CODE', 'WATI_TEMPLATE_SIGNIN'],
-    fallback: 'jumpstart_signin_code',
-    params: ['1'],
-  },
-  FAMILY_INVITATION: {
-    env: ['WATI_TEMPLATE_FAMILY_INVITATION', 'WATI_TEMPLATE_INVITATION'],
-    fallback: 'jumpstart_invitation',
-    params: ['1', '2', '3'],
-  },
-  STAFF_INVITATION: {
-    env: ['WATI_TEMPLATE_STAFF_INVITATION'],
-    fallback: 'jumpstart_staff_invitation',
-    params: ['1', '2', '3'],
   },
 } as const
 
@@ -126,7 +109,7 @@ export type TemplatesResult =
 export interface WhatsAppLogRow {
   profileId: string | null
   phone: string
-  kind: 'signin_code' | 'invitation' | 'staff_invitation'
+  kind: 'signin_code'
   template: string
   localId: string
   broadcastId: string | null
@@ -155,12 +138,16 @@ export interface WatiOptions {
   sleep: (ms: number) => Promise<void>
   now?: () => number
   attemptTimeoutMs?: number
+  /** Total time one call may take, retries included. Default 4500. */
+  budgetMs?: number
+  /** Most tries per call, the first included. Default 3. */
+  maxAttempts?: number
 }
 
-const MAX_ATTEMPTS = 3
 const BACKOFF_MS = [300, 900]
 const RETRY_AFTER_CAP_MS = 2000
-const BUDGET_MS = 4500
+const PAGE_SIZE = 100
+const MAX_PAGES = 10
 
 type Failure = { ok: false; category: WatiFailure; retryable: boolean }
 type Call = { ok: true; json: unknown } | Failure
@@ -182,6 +169,8 @@ export function createWati(opts: WatiOptions): Wati {
   const token = opts.token?.trim() ?? ''
   const now = opts.now ?? Date.now
   const attemptMs = opts.attemptTimeoutMs ?? 1500
+  const budgetMs = opts.budgetMs ?? 4500
+  const maxAttempts = opts.maxAttempts ?? 3
 
   async function once(method: string, path: string, body: unknown, ms: number): Promise<Response> {
     const ctl = new AbortController()
@@ -215,8 +204,8 @@ export function createWati(opts: WatiOptions): Wati {
     const start = now()
     let last: Failure = fail('timeout', true)
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const left = BUDGET_MS - (now() - start)
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const left = budgetMs - (now() - start)
       if (left <= 0) return last
       let wait = BACKOFF_MS[attempt - 1] ?? 0
 
@@ -233,7 +222,7 @@ export function createWati(opts: WatiOptions): Wati {
         last = e instanceof TimedOut ? fail('timeout', true) : fail('unavailable', true)
       }
 
-      if (!last.retryable || attempt === MAX_ATTEMPTS || now() - start + wait >= BUDGET_MS) {
+      if (!last.retryable || attempt === maxAttempts || now() - start + wait >= budgetMs) {
         return last
       }
       await opts.sleep(wait)
@@ -253,7 +242,7 @@ export function createWati(opts: WatiOptions): Wati {
       }
 
       const r = await call('POST', '/api/ext/v3/messageTemplates/send', {
-        channel: opts.channel || null,
+        ...(opts.channel ? { channel: opts.channel } : {}),
         template_name: template.trim(),
         broadcast_name: broadcastName?.trim() || 'jumpstart_broadcast',
         recipients: [
@@ -272,17 +261,23 @@ export function createWati(opts: WatiOptions): Wati {
       const j = (r.json ?? {}) as {
         success?: unknown
         ok?: unknown
+        error?: unknown
         broadcast_id?: unknown
         recipients?: unknown
       }
+      // WATI answers 200 with the refusal in the body: a false success, a top-level error, or a failed recipient.
+      const set = (v: unknown) => v != null && v !== '' && v !== false
       const refused =
-        Array.isArray(j.recipients) &&
-        j.recipients.some((x) => {
-          const errors = (x as { errors?: unknown }).errors
-          return Array.isArray(errors) && errors.length > 0
-        })
+        j.success === false ||
+        j.ok === false ||
+        set(j.error) ||
+        (Array.isArray(j.recipients) &&
+          j.recipients.some((x) => {
+            const rc = (x ?? {}) as { success?: unknown; error?: unknown; errors?: unknown }
+            return rc.success === false || set(rc.error) || (Array.isArray(rc.errors) && rc.errors.length > 0)
+          }))
 
-      if (j.success === false || j.ok === false || refused) {
+      if (refused) {
         return { ok: false, category: 'rejected', retryable: false, localId }
       }
 
@@ -294,15 +289,21 @@ export function createWati(opts: WatiOptions): Wati {
     },
 
     async listTemplates() {
-      const r = await call('GET', '/api/ext/v3/messageTemplates?page_number=1&page_size=100')
-      if (!r.ok) return r
-      const list = (r.json as { templates?: unknown } | null)?.templates
-      const templates = (Array.isArray(list) ? list : []).flatMap((t) => {
-        const x = t as { name?: unknown; status?: unknown }
-        return typeof x.name === 'string'
-          ? [{ name: x.name, status: typeof x.status === 'string' ? x.status : '' }]
-          : []
-      })
+      const templates: Array<{ name: string; status: string }> = []
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const r = await call('GET', `/api/ext/v3/messageTemplates?page_number=${page}&page_size=${PAGE_SIZE}`)
+        if (!r.ok) return r
+        const body = r.json as { templates?: unknown; total?: unknown } | null
+        const list = Array.isArray(body?.templates) ? body.templates : []
+        for (const t of list) {
+          const x = t as { name?: unknown; status?: unknown }
+          if (typeof x.name === 'string') {
+            templates.push({ name: x.name, status: typeof x.status === 'string' ? x.status.toUpperCase() : '' })
+          }
+        }
+        const total = typeof body?.total === 'number' ? body.total : null
+        if (list.length < PAGE_SIZE || (total !== null && page * PAGE_SIZE >= total)) break
+      }
       return { ok: true, templates }
     },
   }

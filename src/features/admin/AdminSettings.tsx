@@ -29,17 +29,29 @@ function Row({ title, children, control }: { title: string; children: ReactNode;
 
 const TOKEN_TEXT = { ok: 'Connected', missing: 'Not set up yet', rejected: 'The WhatsApp service refused the key', unreachable: "Couldn't reach the WhatsApp service" } as const
 const TEMPLATE_TEXT = { APPROVED: 'Approved', PENDING: 'Waiting for approval', REJECTED: 'Rejected', missing: 'Not created yet' } as const
+const TEMPLATE_NEXT = {
+  APPROVED: null,
+  PENDING: 'WhatsApp has not approved it yet. Codes cannot be sent until it is approved.',
+  REJECTED: 'WhatsApp rejected it. Edit the template in WATI and submit it again.',
+  missing: 'Create this template in WATI with the same name, then check again.',
+} as const
 
-/** What "Check WhatsApp setup" found: the connection, each message template's approval, and the last week's sending. */
+/** What "Check WhatsApp setup" found: the connection, the sign-in code template's approval, and the last week's sending. */
 function WhatsAppResult({ r }: { r: WhatsAppSetup }) {
-  if (r.error) return <Notice tone="danger" icon={<TriangleAlert aria-hidden />} className="mt-1">{r.error}</Notice>
+  if (r.error) return <Notice tone="danger" icon={<TriangleAlert aria-hidden />} className="mt-1 break-words">{r.error}</Notice>
   const ok = r.token === 'ok' && !!r.templates?.length && r.templates.every((t) => t.status === 'APPROVED')
+  // With no connection the template list says nothing: every template reads "missing" only because it could not be asked.
+  const templates = r.token === 'ok' ? r.templates : undefined
   return (
-    <Notice tone={ok ? 'success' : 'danger'} icon={ok ? <CircleCheck aria-hidden /> : <TriangleAlert aria-hidden />} className="mt-1">
-      <span className="grid gap-1">
+    <Notice tone={ok ? 'success' : 'danger'} icon={ok ? <CircleCheck aria-hidden /> : <TriangleAlert aria-hidden />} className="mt-1 break-words">
+      <span className="grid min-w-0 gap-1">
         <b>{r.token ? TOKEN_TEXT[r.token] : r.message}</b>
         {r.token && r.message && <span>{r.message}</span>}
-        {r.templates?.map((t) => <span key={t.key} className="text-caption font-semibold">{t.name}: {TEMPLATE_TEXT[t.status]}</span>)}
+        {templates?.map((t) => (
+          <span key={t.key} className="min-w-0 text-caption font-semibold">
+            Sign-in code message ({t.name}): {TEMPLATE_TEXT[t.status]}.{TEMPLATE_NEXT[t.status] && ` ${TEMPLATE_NEXT[t.status]}`}
+          </span>
+        ))}
         {r.recent && (
           <span className="text-caption font-semibold">
             Last 7 days: {r.recent.sent_7d} sent, {r.recent.delivered_7d} delivered, {r.recent.failed_7d} failed.

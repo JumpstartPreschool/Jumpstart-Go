@@ -1,7 +1,8 @@
 // Admin → Settings → WhatsApp: checks the WATI connection, template approval, and recent delivery log.
-// Deploy: npx supabase functions deploy whatsapp-invite
-// Secrets: WATI_API_TOKEN, WATI_API_BASE_URL (optional), WATI_CHANNEL (optional), WATI_TEMPLATE_SIGNIN (optional),
-// WATI_TEMPLATE_INVITATION (optional), WATI_TEMPLATE_STAFF_INVITATION (optional), APP_ORIGIN (optional).
+// Sends nothing: the only message this app sends on WhatsApp is the sign-in code, from send-sms.
+// Deploy: npx supabase functions deploy whatsapp-invite   (keeps JWT verification on; the caller must also be the admin)
+// Secrets: WATI_API_TOKEN, WATI_API_BASE_URL (optional), WATI_CHANNEL (optional), WATI_TEMPLATE_SIGNIN_CODE or
+// WATI_TEMPLATE_SIGNIN (optional), APP_ORIGIN (optional).
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createWati, templateName, WATI_TEMPLATES, type TemplateKey } from '../_shared/wati.ts'
 
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
   const found = new Map(listed.templates.map((t) => [t.name.toLowerCase(), t.status]))
   const templates = (Object.keys(WATI_TEMPLATES) as TemplateKey[]).map((key) => {
     const name = templateName(key, env)
-    const rawStatus = found.get(name.toLowerCase())
+    const rawStatus = found.get(name.toLowerCase())?.toUpperCase()
     const status =
       rawStatus === 'APPROVED' ? 'APPROVED'
       : rawStatus === 'PENDING' ? 'PENDING'

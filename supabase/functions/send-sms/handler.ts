@@ -7,9 +7,13 @@ export interface Deps {
   verify(rawBody: string, headers: Record<string, string>): unknown
   /** public.otp_recipient: the profile that may sign in with this number, or null. */
   otpRecipient(phone: string): Promise<string | null>
+  /** public.otp_send_allowed: counts this send against the number's hourly limit; false once it is used up. */
+  sendAllowed(phone: string): Promise<boolean>
   wati: Pick<Wati, 'sendTemplate'>
-  /** Adds a row to the delivery log. Never given the code. */
+  /** Adds the delivery log row before WATI is called, so WATI's status webhook always finds it. Never given the code. */
   log(row: WhatsAppLogRow): Promise<void>
+  /** Records WATI's answer on that row: the broadcast id, or the failure category. */
+  logDone(localId: string, broadcastId: string | null, error: string | null): Promise<void>
   /** The sign-in code template's name on WATI. */
   template: string
   /** Makes the id WATI reports back on; crypto.randomUUID in production. */
@@ -38,20 +42,33 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const otp = payload?.sms?.otp
   if (typeof phone !== 'string' || typeof otp !== 'string' || !otp) return json({ error: 'bad_request' }, 400)
 
-  const profileId = await deps.otpRecipient(phone)
+  const unavailable = (code: 429 | 500 | 503) =>
+    json({ error: { http_code: code, message: code === 429 ? 'rate_limited: Too many attempts. Please wait a moment and try again.' : "Couldn't send the WhatsApp code right now." } })
+
+  let profileId: string | null
+  try {
+    profileId = await deps.otpRecipient(phone)
+  } catch {
+    console.error(JSON.stringify({ sms: 'lookup_failed' }))
+    return unavailable(503)
+  }
   if (!profileId) return json({})
 
-  const localId = (deps.newId ?? (() => crypto.randomUUID()))()
-  const digits = phone.replace(/^\+/, '')
-  const sent = await deps.wati.sendTemplate({ phone: digits, template: deps.template, params: [otp], localMessageId: localId, broadcastName: 'signin_code' })
-  const row: WhatsAppLogRow = {
-    profileId, phone: digits, kind: 'signin_code', template: deps.template, localId,
-    broadcastId: sent.ok ? sent.broadcastId : null,
-    status: sent.ok ? 'accepted' : 'failed_to_send',
-    error: sent.ok ? null : sent.category,
+  // The limit is counted here, where the code is sent, so calling Auth directly cannot get round it.
+  try {
+    if (!(await deps.sendAllowed(phone))) return unavailable(429)
+  } catch {
+    console.error(JSON.stringify({ sms: 'limit_check_failed' }))
+    return unavailable(503)
   }
-  // A log that can't be written must not stop a code that was sent.
-  await deps.log(row).catch(() => {})
+
+  const localId = (deps.newId ?? (() => crypto.randomUUID()))()
+  // Supabase sends the number as digits without the +, so it is already E.164 with its own country code.
+  const digits = phone.replace(/^\+/, '')
+  // A log that can't be written must not stop a code from being sent.
+  await deps.log({ profileId, phone: digits, kind: 'signin_code', template: deps.template, localId, broadcastId: null, status: 'accepted', error: null }).catch(() => {})
+  const sent = await deps.wati.sendTemplate({ phone: `+${digits}`, template: deps.template, params: [otp], localMessageId: localId, broadcastName: 'signin_code' })
+  await deps.logDone(localId, sent.ok ? sent.broadcastId : null, sent.ok ? null : sent.category).catch(() => {})
   if (sent.ok) return json({})
-  return json({ error: { http_code: BUSY.has(sent.category) ? 503 : 500, message: "Couldn't send the WhatsApp code right now." } }, 200)
+  return unavailable(BUSY.has(sent.category) ? 503 : 500)
 }

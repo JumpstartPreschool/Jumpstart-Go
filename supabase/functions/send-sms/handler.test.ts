@@ -6,13 +6,15 @@ function setupDeps(over: Partial<Deps> = {}) {
   const logs: WhatsAppLogRow[] = []
   const deps: Deps = {
     verify: vi.fn((raw) => JSON.parse(raw)),
-    otpRecipient: vi.fn(async (phone) => (phone === '+919822000001' ? 'profile-uuid-1' : null)),
+    otpRecipient: vi.fn(async (phone) => (phone === '+919822000001' || phone === '6591234567' || phone === '14155552671' ? 'profile-uuid-1' : null)),
+    sendAllowed: vi.fn(async () => true),
     wati: {
       sendTemplate: vi.fn(async () => ({ ok: true, broadcastId: 'bc-999', localId: 'test-local-id' })),
     },
     log: vi.fn(async (row) => {
       logs.push(row)
     }),
+    logDone: vi.fn(async () => {}),
     template: 'jumpstart_signin_code',
     newId: () => 'fixed-local-id',
     ...over,
@@ -78,7 +80,7 @@ describe('send-sms hook handler', () => {
     expect(json).toEqual({})
 
     expect(deps.wati.sendTemplate).toHaveBeenCalledWith({
-      phone: '919822000001',
+      phone: '+919822000001',
       template: 'jumpstart_signin_code',
       params: ['654321'],
       localMessageId: 'fixed-local-id',
@@ -92,10 +94,11 @@ describe('send-sms hook handler', () => {
       kind: 'signin_code',
       template: 'jumpstart_signin_code',
       localId: 'fixed-local-id',
-      broadcastId: 'bc-999',
+      broadcastId: null,
       status: 'accepted',
       error: null,
     })
+    expect(deps.logDone).toHaveBeenCalledWith('fixed-local-id', 'bc-999', null)
   })
 
   it('returns safe error envelope if WATI fails due to rate limiting or downtime', async () => {
@@ -122,5 +125,57 @@ describe('send-sms hook handler', () => {
         message: "Couldn't send the WhatsApp code right now.",
       },
     })
+  })
+
+  it.each([
+    ['6591234567', '+6591234567'],
+    ['14155552671', '+14155552671'],
+  ])('keeps the country code of %s instead of prefixing 91', async (phone, expected) => {
+    const { deps, logs } = setupDeps()
+    await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone }, sms: { otp: '111111' } }) }), deps)
+    expect(deps.wati.sendTemplate).toHaveBeenCalledWith(expect.objectContaining({ phone: expected }))
+    expect(logs[0].phone).toBe(phone)
+  })
+
+  it('writes the log row before calling WATI and records a failure on it', async () => {
+    const order: string[] = []
+    const { deps } = setupDeps({
+      log: vi.fn(async () => { order.push('log') }),
+      wati: { sendTemplate: vi.fn(async () => { order.push('send'); return { ok: false as const, category: 'rejected' as const, retryable: false, localId: 'x' } }) },
+    })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), deps)
+    expect(order).toEqual(['log', 'send'])
+    expect(deps.logDone).toHaveBeenCalledWith('fixed-local-id', null, 'rejected')
+    expect((await res.json()).error.http_code).toBe(500)
+  })
+
+  it('still sends when the log row cannot be written', async () => {
+    const { deps } = setupDeps({ log: vi.fn(async () => { throw new Error('db') }) })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), deps)
+    expect(deps.wati.sendTemplate).toHaveBeenCalled()
+    expect(await res.json()).toEqual({})
+  })
+
+  it('answers with the error envelope when the recipient lookup fails', async () => {
+    const { deps } = setupDeps({ otpRecipient: vi.fn(async () => { throw new Error('db down') }) })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), deps)
+    expect(res.status).toBe(200)
+    expect((await res.json()).error.http_code).toBe(503)
+    expect(deps.wati.sendTemplate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a send once the number is over its hourly limit', async () => {
+    const { deps } = setupDeps({ sendAllowed: vi.fn(async () => false) })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), deps)
+    const json = await res.json()
+    expect(json.error.http_code).toBe(429)
+    expect(json.error.message).toMatch(/too many attempts/i)
+    expect(deps.wati.sendTemplate).not.toHaveBeenCalled()
+  })
+
+  it('does not spend the limit on an unregistered number', async () => {
+    const { deps } = setupDeps()
+    await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919899999999' }, sms: { otp: '1' } }) }), deps)
+    expect(deps.sendAllowed).not.toHaveBeenCalled()
   })
 })

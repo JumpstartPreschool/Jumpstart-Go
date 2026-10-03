@@ -1,6 +1,6 @@
 // Supabase Auth "Send SMS" hook (Authentication → Hooks): sends the sign-in code on WhatsApp through WATI. Supabase makes
 // and checks the code; this only delivers it, and only to a number an active person with app access signs in with.
-// Deploy: npx supabase functions deploy send-sms --no-verify-jwt
+// Deploy: npx supabase functions deploy send-sms --no-verify-jwt   (required: Auth calls it with a signed webhook, not a user JWT)
 // Secrets: SEND_SMS_HOOK_SECRET (the hook's "v1,whsec_..." secret), WATI_API_TOKEN, WATI_API_BASE_URL (optional),
 // WATI_CHANNEL (optional), WATI_TEMPLATE_SIGNIN (optional, default jumpstart_signin_code).
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -19,6 +19,10 @@ Deno.serve((req) => {
     baseUrl: env('WATI_API_BASE_URL'),
     token: env('WATI_API_TOKEN'),
     channel: env('WATI_CHANNEL') || null,
+    // Supabase Auth gives a hook 5 seconds, so a slow WATI must fail before that: one retry inside 3 seconds.
+    budgetMs: 3000,
+    attemptTimeoutMs: 1200,
+    maxAttempts: 2,
     fetch,
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   })
@@ -29,6 +33,11 @@ Deno.serve((req) => {
       if (error) throw error
       return (data as string | null) ?? null
     },
+    sendAllowed: async (phone) => {
+      const { data, error } = await db.rpc('otp_send_allowed', { p_phone: phone })
+      if (error) throw error
+      return data === true
+    },
     wati,
     template: templateName('SIGN_IN_CODE', env),
     log: async (r) => {
@@ -38,7 +47,11 @@ Deno.serve((req) => {
         p_broadcast_id: r.broadcastId, p_status: r.status, p_error: r.error,
       })
       if (error) console.error(JSON.stringify({ sms: 'log_failed', code: error.code }))
-      if (r.status === 'failed_to_send') console.error(JSON.stringify({ sms: 'send_failed', category: r.error }))
+    },
+    logDone: async (localId, broadcastId, failure) => {
+      const { error } = await db.rpc('whatsapp_log_finish', { p_local_id: localId, p_broadcast_id: broadcastId, p_error: failure })
+      if (error) console.error(JSON.stringify({ sms: 'log_failed', code: error.code }))
+      if (failure) console.error(JSON.stringify({ sms: 'send_failed', category: failure }))
     },
   })
 })
