@@ -31,7 +31,7 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 |---|---|---|
 | `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
 | `push-send` | Delivers queued push notifications (0016) and forgets dead devices; called by the database | `PUSH_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
-| `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional) |
+| `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional), `AZURE_SPEECH_STYLE` and `AZURE_SPEECH_RATE` (optional, see below) |
 | `send-sms` | Supabase Auth's Send SMS hook (0039, D51): sends each sign-in code as a WhatsApp template through WATI; sends nothing for an unregistered number | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `SEND_SMS_HOOK_SECRET`, `WATI_TEMPLATE_SIGNIN_CODE` (optional), `WATI_CHANNEL` (optional) |
 | `password-pattern` | Admin → Settings → Email sign-in (0041, D52): saves the password pattern and sets every email account's starting password to it, or resets one person | `APP_ORIGIN` (optional); uses the built-in Supabase keys |
 | `whatsapp-invite` | Admin Settings WhatsApp setup check: reads the token and sign-in template status from WATI; sends nothing | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `WATI_CHANNEL` (optional), `APP_ORIGIN` (optional) |
@@ -97,3 +97,11 @@ Required before anyone logs in (AUTH-1, AUTH-2, PRD D1, D51, D52). The main sign
 5. **Check.** Admin → Settings → WhatsApp: "Check WhatsApp setup" confirms the token and shows each template's status without sending anything. Then sign in with a registered number and confirm the code arrives on WhatsApp.
 
 Delivery log: `app.whatsapp_log` holds the number, template, status and failure category for each message, never a code. Rows older than 90 days are purged daily (pg_cron).
+
+### Choosing the gate voice by ear
+The gate speaks in Azure's `en-IN-NeerjaNeural` (Indian English, woman). Three optional secrets change how it sounds; each change re-records every clip on the next minute job, and the iPads pick up the new voice on their next Start duty.
+- `AZURE_SPEECH_VOICE`: another Indian English woman's voice, for example `en-IN-AartiNeural`, `en-IN-KavyaNeural`, `en-IN-AnanyaNeural`, `en-IN-AashiNeural`, or an HD voice such as `en-IN-Neerja:DragonHDLatestNeural` (HD voices cost more per character and are offered in fewer regions).
+- `AZURE_SPEECH_STYLE`: Neerja only, `empathetic` (softer, warmer), `cheerful` or `newscast`. Empty for her standard voice.
+- `AZURE_SPEECH_RATE`: from `-20%` to `+10%`; `-5%` is a touch slower.
+
+To compare: set one, then Admin → Settings → Gate announcements → Play preview, on the gate iPad and its speaker.

@@ -13,7 +13,8 @@
  */
 export const WORDING_VERSION = 'templates-1'
 /** The clips' version: the provider, the voice, the audio format and the wording. iPads read it with voice_version(). */
-export const voiceVersion = (voice: string) => `azure|${voice}|mp3-24k|${WORDING_VERSION}`
+/** The voice, with its speaking style and rate when set (AZURE_SPEECH_STYLE, AZURE_SPEECH_RATE), so changing either re-records the clips. */
+export const voiceVersion = (voice: string, style = '', rate = '') => `azure|${voice}${style ? `+${style}` : ''}${rate ? `@${rate}` : ''}|mp3-24k|${WORDING_VERSION}`
 export const MAX_CHARS = 400
 
 // Letters and marks in any script, digits, and the punctuation a voice uses for pauses and initials.

@@ -20,27 +20,40 @@ const XML: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"
 /** Text made safe inside SSML: every character that means something to XML is escaped, so nothing can inject tags. */
 export const xmlText = (s: string) => s.replace(/[&<>"']/g, (c) => XML[c]!)
 
-/** The SSML Azure is given: one voice, Indian English, the escaped sentence. */
-export const ssml = (voice: string, text: string) =>
-  `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-IN"><voice name="${xmlText(voice)}">${xmlText(text)}</voice></speak>`
+/**
+ * The SSML Azure is given: one voice, Indian English, the escaped sentence. A speaking style (only en-IN-NeerjaNeural has
+ * them: cheerful, empathetic, newscast) and a rate change are added only when set, so without them the request is as before.
+ */
+export const ssml = (voice: string, text: string, style = '', rate = '') => {
+  let body = xmlText(text)
+  if (rate) body = `<prosody rate="${xmlText(rate)}">${body}</prosody>`
+  if (style) body = `<mstts:express-as style="${xmlText(style)}">${body}</mstts:express-as>`
+  const ns = style ? ' xmlns:mstts="https://www.w3.org/2001/mstts"' : ''
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"${ns} xml:lang="en-IN"><voice name="${xmlText(voice)}">${body}</voice></speak>`
+}
 
 const VOICE = /^[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+(:[A-Za-z0-9]+)?Neural$/
 const REGION = /^[a-z0-9]{3,30}$/
+const STYLE = /^(|cheerful|empathetic|newscast)$/
+// A gentle change only: from 20% slower to 10% faster.
+const RATE = /^(|-(1?[0-9]|20)%|\+?([0-9]|10)%)$/
 
-export interface AzureConfig { key: string; region: string; voice: string; fetch?: typeof fetch; timeoutMs?: number }
+export interface AzureConfig { key: string; region: string; voice: string; style?: string; rate?: string; fetch?: typeof fetch; timeoutMs?: number }
 
 /**
  * Microsoft Azure AI Speech (REST, cognitiveservices/v1), MP3 at 24 kHz. Checks its settings when made, so a typo in a
  * secret fails loudly instead of sending bad requests.
  */
-export function azureSpeech({ key, region, voice, fetch: f = fetch, timeoutMs = 15_000 }: AzureConfig): TTSProvider {
+export function azureSpeech({ key, region, voice, style = '', rate = '', fetch: f = fetch, timeoutMs = 15_000 }: AzureConfig): TTSProvider {
   if (!key) throw new Error('AZURE_SPEECH_KEY is not set')
   if (!REGION.test(region)) throw new Error('AZURE_SPEECH_REGION must be a region name such as centralindia')
   if (!VOICE.test(voice)) throw new Error('AZURE_SPEECH_VOICE must be a neural voice name such as en-IN-NeerjaNeural')
+  if (!STYLE.test(style)) throw new Error('AZURE_SPEECH_STYLE must be empty, cheerful, empathetic or newscast')
+  if (!RATE.test(rate)) throw new Error('AZURE_SPEECH_RATE must be empty or a percentage from -20% to +10%')
   const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`
   return {
     voice,
-    version: voiceVersion(voice),
+    version: voiceVersion(voice, style, rate),
     async synthesize(text) {
       let res: Response
       try {
@@ -52,7 +65,7 @@ export function azureSpeech({ key, region, voice, fetch: f = fetch, timeoutMs = 
             'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3',
             'User-Agent': 'jumpstart-go',
           },
-          body: ssml(voice, text),
+          body: ssml(voice, text, style, rate),
           signal: AbortSignal.timeout(timeoutMs),
         })
       } catch {

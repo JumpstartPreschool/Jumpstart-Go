@@ -292,8 +292,8 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
 
   it('says the whole sentence again when iOS cut it off and gives the audio back, and reports the school voice', async () => {
     comesBack = true
-    const said = sound.speak('This is a sound check. Gate announcements are working.', undefined, sound.SOUND_CHECK_BUDGET_MS)
-    pending.get('This is a sound check. Gate announcements are working.')!.resolve(clip('check', 4))
+    const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    pending.get('This is a sound check. Jumpstart Go gate announcements are working correctly.')!.resolve(clip('check', 4))
     await vi.advanceTimersByTimeAsync(0)
     expect(heard).toEqual(['start:check'])
     interrupt()
@@ -317,8 +317,8 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
   })
 
   it('counts a clip that ends well before its length as cut, and plays it again', async () => {
-    const said = sound.speak('This is a sound check. Gate announcements are working.', undefined, sound.SOUND_CHECK_BUDGET_MS)
-    pending.get('This is a sound check. Gate announcements are working.')!.resolve(clip('check', 4))
+    const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    pending.get('This is a sound check. Jumpstart Go gate announcements are working correctly.')!.resolve(clip('check', 4))
     await vi.advanceTimersByTimeAsync(0)
     liveCtx!.currentTime += 0.7 // "This is a…"
     finish()
@@ -330,8 +330,8 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
   })
 
   it('plays a clip that ran its full length only once', async () => {
-    const said = sound.speak('This is a sound check. Gate announcements are working.', undefined, sound.SOUND_CHECK_BUDGET_MS)
-    pending.get('This is a sound check. Gate announcements are working.')!.resolve(clip('check', 4))
+    const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    pending.get('This is a sound check. Jumpstart Go gate announcements are working correctly.')!.resolve(clip('check', 4))
     await vi.advanceTimersByTimeAsync(0)
     liveCtx!.currentTime += 4
     finish()

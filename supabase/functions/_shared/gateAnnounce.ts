@@ -255,7 +255,7 @@ export function messageFor(settings: GateSettings, e: GateEvent, child: Announce
 export const openingFor = (s: GateSettings, o: { urgent: boolean; reminder: boolean }) =>
   o.reminder ? s.opening_reminder : o.urgent ? s.opening_urgent : s.opening_new
 
-export const SOUND_CHECK = 'This is a sound check. Gate announcements are working.'
+export const SOUND_CHECK = 'This is a sound check. Jumpstart Go gate announcements are working correctly.'
 
 /** The openings and the sound check, as the voice is given them: kept on every iPad. */
 export const commonPhrases = (s: GateSettings) => [s.opening_new, s.opening_urgent, s.opening_reminder, SOUND_CHECK].map((x) => voiceSentence(x))

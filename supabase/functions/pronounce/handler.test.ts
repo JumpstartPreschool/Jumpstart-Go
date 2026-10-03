@@ -121,5 +121,22 @@ describe('Azure AI Speech', () => {
     expect(() => azureSpeech({ key: '', region: 'centralindia', voice: 'en-IN-NeerjaNeural' })).toThrow(/KEY/)
     expect(() => azureSpeech({ key: 'k', region: 'central india', voice: 'en-IN-NeerjaNeural' })).toThrow(/REGION/)
     expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'Neerja"><evil' })).toThrow(/VOICE/)
+    expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', style: 'angry' })).toThrow(/STYLE/)
+    expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', rate: '-50%' })).toThrow(/RATE/)
+    expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', rate: '"/><x' })).toThrow(/RATE/)
+    expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-Neerja:DragonHDLatestNeural' })).not.toThrow()
+  })
+})
+
+describe('a softer voice, chosen on the server', () => {
+  it('sends the same request as before when no style or rate is set, so nothing is re-recorded', () => {
+    expect(ssml('en-IN-NeerjaNeural', 'Hello.')).toBe('<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-IN"><voice name="en-IN-NeerjaNeural">Hello.</voice></speak>')
+    expect(azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural' }).version).toBe(voiceVersion('en-IN-NeerjaNeural'))
+  })
+  it('wraps the sentence in the style and rate, and changes the clip version so the iPads get the new voice', () => {
+    expect(ssml('en-IN-NeerjaNeural', 'Hello.', 'empathetic', '-5%')).toBe('<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-IN"><voice name="en-IN-NeerjaNeural"><mstts:express-as style="empathetic"><prosody rate="-5%">Hello.</prosody></mstts:express-as></voice></speak>')
+    const soft = azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', style: 'empathetic', rate: '-5%' })
+    expect(soft.version).not.toBe(voiceVersion('en-IN-NeerjaNeural'))
+    expect(soft.version).toContain('+empathetic@-5%')
   })
 })

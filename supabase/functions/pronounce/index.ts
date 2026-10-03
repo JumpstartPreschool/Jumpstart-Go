@@ -27,6 +27,8 @@ function makeProvider(): TTSProvider | null {
       key: Deno.env.get('AZURE_SPEECH_KEY') ?? '',
       region: (Deno.env.get('AZURE_SPEECH_REGION') ?? '').trim().toLowerCase(),
       voice: (Deno.env.get('AZURE_SPEECH_VOICE') ?? 'en-IN-NeerjaNeural').trim(),
+      style: (Deno.env.get('AZURE_SPEECH_STYLE') ?? '').trim().toLowerCase(),
+      rate: (Deno.env.get('AZURE_SPEECH_RATE') ?? '').trim(),
     })
   } catch (e) {
     log('not_configured', { reason: (e as Error).message })
