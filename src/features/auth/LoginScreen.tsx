@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowLeft, ArrowRight, KeyRound, LogIn, Mail, MapPin, MessageCircle, PencilLine, RotateCcw, Smartphone, UserCheck } from '../../ui/icons'
+import { ArrowLeft, ArrowRight, KeyRound, LogIn, Mail, MapPin, PencilLine, RotateCcw, Smartphone, UserCheck, WhatsApp } from '../../ui/icons'
 import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
@@ -226,7 +226,7 @@ export function LoginScreen() {
               error={error}
               autoFocus
             />
-            <Button type="submit" className="w-full" icon={<MessageCircle />} loading={busy}>
+            <Button type="submit" className="w-full" icon={<WhatsApp />} loading={busy}>
               {busy ? 'Sending code…' : 'Send code on WhatsApp'}<ArrowRight aria-hidden />
             </Button>
             <div className="signin-or" role="presentation"><span>or</span></div>
@@ -239,7 +239,7 @@ export function LoginScreen() {
           <form key="code" onSubmit={(e) => void onCode(e)} noValidate className="page-in grid gap-4">
             <div className="text-center">
               <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(155deg,#8a161b,#c8262c)] text-white shadow-[0_12px_24px_-12px_rgb(200_38_44/0.7)]">
-                <MessageCircle className="size-8" strokeWidth={1.75} aria-hidden />
+                <WhatsApp className="size-8" aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check WhatsApp</h1>
               <p className="mt-1.5 text-body text-ink-2">If this number is registered with Jumpstart, a 6-digit code is on its way on WhatsApp.</p>

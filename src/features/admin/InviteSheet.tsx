@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { MessageCircle, MessageSquareText, Settings } from '../../ui/icons'
+import { MessageSquareText, Settings, WhatsApp } from '../../ui/icons'
 import { Sheet } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
@@ -66,7 +66,7 @@ export function InviteSheet({ person, onClose, onDone }: { person: Profile; onCl
               <div className="grid gap-2.5">
                 <a className="btn btn--primary btn--xl w-full" href={whatsappUrl(d.phone, text)} target="_blank" rel="noopener noreferrer"
                   aria-label={`Send on WhatsApp to ${formatMobile(d.phone)}`} onClick={() => handedOver('whatsapp')}>
-                  <MessageCircle aria-hidden />Send on WhatsApp
+                  <WhatsApp aria-hidden />Send on WhatsApp
                 </a>
                 <a className="btn btn--secondary btn--lg w-full" href={smsUrl(d.phone, text)} aria-label={`Send by text message to ${formatMobile(d.phone)}`} onClick={() => handedOver('sms')}>
                   <MessageSquareText aria-hidden />Send by SMS

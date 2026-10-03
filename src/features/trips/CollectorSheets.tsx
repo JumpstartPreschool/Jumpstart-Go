@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, Link2, MessageCircle, MessageSquareText, Send, UserPlus } from '../../ui/icons'
+import { Check, Copy, Link2, MessageSquareText, Send, UserPlus, WhatsApp } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { CodeTiles } from '../../ui/CodeTiles'
@@ -48,7 +48,7 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
         <p className="kicker mb-2.5">Send it to {first}</p>
         <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
           <a className="btn btn--primary btn--xl" href={whatsappUrl(sendTo, text)} target="_blank" rel="noopener noreferrer" aria-label={`Send on WhatsApp to ${formatMobile(sendTo)}`}>
-            <MessageCircle aria-hidden />WhatsApp
+            <WhatsApp aria-hidden />WhatsApp
           </a>
           <a className="btn btn--secondary btn--xl" href={smsUrl(sendTo, text)} aria-label={`Send by text message to ${formatMobile(sendTo)}`}>
             <MessageSquareText aria-hidden />SMS

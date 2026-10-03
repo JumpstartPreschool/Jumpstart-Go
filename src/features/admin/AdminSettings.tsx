@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight, CircleCheck, Globe, Lock, MessageCircle, Phone, Save, TriangleAlert } from '../../ui/icons'
+import { ChevronRight, CircleCheck, Globe, Lock, Phone, Save, TriangleAlert, WhatsApp } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { ErrorState, Notice } from '../../ui/States'
@@ -167,7 +167,7 @@ export function AdminSettings() {
               </form>
             }>The link in invitations. Invites can't be sent until it's set.</Row>
             {urlError && <Notice tone="danger" className="mt-1">{urlError}</Notice>}
-            <Row title="WhatsApp messaging" control={<Button size="md" variant="secondary" icon={<MessageCircle />} loading={busy === 'whatsapp'} onClick={() => void checkWhatsApp()}>Check WhatsApp setup</Button>}>
+            <Row title="WhatsApp messaging" control={<Button size="md" variant="secondary" icon={<WhatsApp />} loading={busy === 'whatsapp'} onClick={() => void checkWhatsApp()}>Check WhatsApp setup</Button>}>
               Sign-in codes go on WhatsApp. This checks the connection and the message templates without sending anything.
             </Row>
             {waCheck && <WhatsAppResult r={waCheck} />}
