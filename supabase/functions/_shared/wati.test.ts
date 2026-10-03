@@ -314,3 +314,22 @@ describe('WATI client (createWati)', () => {
     expect(b).toHaveBeenCalledTimes(10)
   })
 })
+
+describe('the endpoint and token as pasted from the WATI dashboard', () => {
+  it('keeps only the host, since v3 paths never carry the account number', async () => {
+    const { watiOrigin } = await import('./wati')
+    expect(watiOrigin('https://live-mt-server.wati.io/123456')).toBe('https://live-mt-server.wati.io')
+    expect(watiOrigin(' https://live-mt-server.wati.io/ ')).toBe('https://live-mt-server.wati.io')
+    expect(watiOrigin('')).toBe('https://live-mt-server.wati.io')
+    expect(watiOrigin('http://evil.example')).toBe('https://live-mt-server.wati.io')
+  })
+  it('sends one Bearer even when the token was pasted with it, to the v3 path on the host', async () => {
+    const { createWati } = await import('./wati')
+    const f = vi.fn(async (_url: string, _init: RequestInit) => new Response(JSON.stringify({ success: true, broadcast_id: 'b1' }), { status: 200 }))
+    const w = createWati({ baseUrl: 'https://live-mt-server.wati.io/123456', token: 'Bearer abc.def', fetch: f as unknown as typeof fetch, sleep: async () => {} })
+    const r = await w.sendTemplate({ phone: '+919820000001', template: 'jumpstart_signin_code', params: ['123456'] })
+    expect(r.ok).toBe(true)
+    expect(f.mock.calls[0]![0]).toBe('https://live-mt-server.wati.io/api/ext/v3/messageTemplates/send')
+    expect((f.mock.calls[0]![1].headers as Record<string, string>).Authorization).toBe('Bearer abc.def')
+  })
+})

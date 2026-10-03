@@ -164,9 +164,23 @@ function statusFailure(status: number): Failure {
 
 class TimedOut extends Error {}
 
+/**
+ * The API host only. WATI's dashboard shows the endpoint with the account number (https://live-mt-server.wati.io/123456),
+ * which v1 and v2 need but v3 refuses: v3 paths start at the host. Anything that isn't an https URL uses the default.
+ */
+export function watiOrigin(input: string | undefined): string {
+  try {
+    const u = new URL((input ?? '').trim())
+    return u.protocol === 'https:' ? u.origin : DEFAULT_WATI_BASE_URL
+  } catch {
+    return DEFAULT_WATI_BASE_URL
+  }
+}
+
 export function createWati(opts: WatiOptions): Wati {
-  const base = (opts.baseUrl?.trim() || DEFAULT_WATI_BASE_URL).replace(/\/+$/, '')
-  const token = opts.token?.trim() ?? ''
+  const base = watiOrigin(opts.baseUrl)
+  // WATI's dashboard shows the token as "Bearer eyJ…"; pasted whole, the header would say Bearer twice and get a 401.
+  const token = (opts.token ?? '').trim().replace(/^bearer\s+/i, '')
   const now = opts.now ?? Date.now
   const attemptMs = opts.attemptTimeoutMs ?? 1500
   const budgetMs = opts.budgetMs ?? 4500
