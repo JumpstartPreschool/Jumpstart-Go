@@ -151,7 +151,8 @@ export function LateSheet({ open, onClose, onChanged, trip, first, programme, no
   const [error, setError] = useState<string | null>(null)
   const nowMin = indiaClock(new Date(nowMs)).minutes
   // Later than the time the school has (or now, if that has passed), as the server counts it.
-  const base = nowMin + minutesUntil(trip.arrive_at, nowMs)
+  // The same minute the parent's card shows (clockTime), so the two never disagree by one.
+  const base = Math.max(indiaClock(new Date(trip.arrive_at)).minutes, nowMin)
   // Custom time: 5-minute clock times after that, up to 3 hours from now and before midnight.
   const customFrom = Math.floor(base / 5) * 5 + 5
   const customTimes = Array.from({ length: Math.max(0, Math.floor((Math.min(nowMin + 180, 23 * 60 + 55) - customFrom) / 5) + 1) }, (_, i) => customFrom + i * 5)

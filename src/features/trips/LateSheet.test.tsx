@@ -81,3 +81,10 @@ it('when the time has moved since the parent looked, says so, reloads the trip a
   expect(onChanged).toHaveBeenCalledTimes(1)
   expect(onClose).not.toHaveBeenCalled()
 })
+
+it('says the same arrival minute as the parent card when the time has seconds (no 1:10 on the card and 1:11 here)', () => {
+  const at = { ...trip, arrive_at: '2026-10-05T07:40:30Z' } as Trip
+  render(<ToastProvider><LateSheet open onClose={() => {}} trip={at} first="Aarav" programme={programme} nowMs={NOW + 10_000} /></ToastProvider>)
+  expect(screen.getByText(/The school has about 1:10 PM/)).toBeInTheDocument()
+  expect(screen.getByRole('radio', { name: /\+5\s*min\s*about 1:15 PM/ })).toBeInTheDocument()
+})

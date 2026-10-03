@@ -5,7 +5,6 @@ import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { TextField } from '../../ui/Field'
-import { useToast } from '../../ui/Toast'
 import { formatMobile, normalizeMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { authMessage, passwordMessage } from './messages'
@@ -90,7 +89,6 @@ function FormError({ id, children }: { id: string; children: ReactNode }) {
  * Every answer reads the same whether or not the number or email is registered, so nobody can probe for accounts.
  */
 export function LoginScreen() {
-  const toast = useToast()
   const [step, setStep] = useState<'number' | 'code' | 'email'>('number')
   // From an invitation link (/#phone=…): the number is already filled in.
   const [phone, setPhone] = useState(() => formatMobile(invitedPhone()))
@@ -148,7 +146,6 @@ export function LoginScreen() {
       setStep('code')
       setCode('')
       setResendIn(RESEND_AFTER_S)
-      toast('If this number is registered with Jumpstart, a code is on its way on WhatsApp.', { tone: 'info' })
       setTimeout(() => codeInput.current?.focus(), 50)
     })
   }
@@ -242,7 +239,7 @@ export function LoginScreen() {
                 <WhatsApp className="size-8" aria-hidden />
               </span>
               <h1 className="mt-4 text-h2">Check WhatsApp</h1>
-              <p className="mt-1.5 text-body text-ink-2">If this number is registered with Jumpstart, a 6-digit code is on its way on WhatsApp.</p>
+              <p className="mt-1.5 text-body text-ink-2" role="status">If this number is registered with Jumpstart, a 6-digit code is on its way on WhatsApp.</p>
               {/* The number the code went to, with Change right on it: where people look when it's the wrong one. */}
               <button type="button" className="phone-chip mt-3" aria-label={`Change number, now ${formatMobile(sentTo)}`} onClick={changeNumber}>
                 <Smartphone className="phone-chip__icon" aria-hidden />
