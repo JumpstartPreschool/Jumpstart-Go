@@ -28,11 +28,12 @@ export const soundSupported = typeof window !== 'undefined' && 'AudioContext' in
 const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
 /**
- * How long each part may keep the gate waiting before the iPad's own voice says it instead: the opening, after the
- * chime; the message, after the opening. Both were asked for when the chime started (prepare), so the opening has had
- * the chime (0.9 s) plus this, and the message the chime, the opening (~1 s) and this.
+ * How long each part may keep the gate waiting for the school's voice (Azure, an Indian woman, en-IN-NeerjaNeural)
+ * before the device's own Indian woman's voice says it instead: the opening, after the chime; the message, after the
+ * opening. Clips already kept on the iPad play at once; one made on the spot takes about 1 to 2 s. Long enough that the
+ * gate nearly always hears the school's voice, short enough that it never waits long.
  */
-export const CLIP_BUDGET_MS = 300
+export const CLIP_BUDGET_MS = 2500
 /**
  * The sound check after Start duty waits longer: it is the day's first request, so the pronounce function may be
  * starting up, and the check should sound like the real gate, not the tablet's voice.
@@ -287,26 +288,23 @@ export async function playSentence(sentence: string, onStart?: () => void): Prom
   if ((await play(clip, mine)) === 'cut' && mine === generation && (await running(audioContext()))) await play(clip, mine)
 }
 
-// The iPad's own Indian English voice, used only when the school's clip isn't ready: a woman's voice, like the gate voice.
-// Never another accent: a wrong accent says Indian names worse than silence plus the name on screen.
-// Measured by recording each voice and transcribing it (2026-09-27): Apple's Tara, the Siri voice, garbled
-// "Urgent. Reminder. Pickup for…" into nonsense, so it comes last; Rishi and Aman (men's voices) said every word, so
-// they are used only when no clear woman's voice is installed. Isha (Settings → Accessibility → Spoken Content) is best.
-const FEMALE = /\b(isha|neerja|heera|lekha)\b/i
+// The device's own voice, used only when the school's clip isn't ready: always an Indian English woman, like the gate
+// voice. Never a man's voice or another accent; with none installed, the chime and the screen carry the announcement.
+// Measured by recording each voice and transcribing it (2026-09-27): Apple's Tara garbled "Urgent. Reminder. Pickup
+// for…", so it comes last. Isha (Settings → Accessibility → Spoken Content) is best on an iPad.
+const FEMALE = /\b(isha|neerja|heera|lekha|veena|kajal|swara|aditi)\b/i
 const PREFERRED = [
   new RegExp(`(${FEMALE.source}.*(natural|online|enhanced|premium))|((natural|online|enhanced|premium).*${FEMALE.source})`, 'i'),
   FEMALE,
-  /\brishi\b/i,
-  /\baman\b/i,
 ]
-const LAST = /\b(tara|siri|veena)\b/i
+const LAST = /\b(tara|siri)\b/i
 export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {
   const voices = all.filter((v) => v.lang.replace('_', '-').toLowerCase() === 'en-in')
   for (const p of PREFERRED) {
     const v = voices.find((x) => p.test(x.name) && !LAST.test(x.name))
     if (v) return v
   }
-  return voices.find((v) => !LAST.test(v.name)) ?? voices[0] ?? null
+  return voices.find((v) => LAST.test(v.name) && /\btara\b/i.test(v.name)) ?? null
 }
 // Safari fills the voice list a moment after the page loads: wait for it once rather than stay silent.
 async function indianVoice(): Promise<SpeechSynthesisVoice | null> {

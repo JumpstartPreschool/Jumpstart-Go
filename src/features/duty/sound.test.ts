@@ -129,8 +129,9 @@ describe('gate sound', () => {
     }
   })
 
-  it('waits no more than 300 ms after the chime for the school voice', () => {
-    expect(sound.CLIP_BUDGET_MS).toBeLessThanOrEqual(300)
+  it("waits long enough for the school's Indian woman's voice that the gate nearly always hears it, but never long", () => {
+    expect(sound.CLIP_BUDGET_MS).toBeGreaterThanOrEqual(2000)
+    expect(sound.CLIP_BUDGET_MS).toBeLessThanOrEqual(3000)
   })
 
   it('says nothing after Stop (End duty or Mute), even when a clip arrives later', async () => {
@@ -250,15 +251,15 @@ describe('what the sound check can report (it uses the same path as real announc
 
 describe("the tablet's own voice", () => {
   const v = (name: string, lang = 'en-IN') => ({ name, lang })
-  it('picks a clear Indian English woman’s voice first, a clear man’s voice next, and Tara (which garbles announcements) last', async () => {
+  it("picks only an Indian English woman's voice: a clear one first, Tara (which garbles announcements) last, never a man's", async () => {
     const { pickIndianVoice } = await import('./sound')
-    expect(pickIndianVoice([v('Tara (English (India))'), v('Aman'), v('Rishi'), v('Samantha', 'en-US')])?.name).toBe('Rishi')
-    expect(pickIndianVoice([v('Tara (English (India))'), v('Aman')])?.name).toBe('Aman')
-    expect(pickIndianVoice([v('Rishi'), v('Microsoft Neerja Online (Natural) - English (India)', 'en_IN')])?.name).toContain('Neerja')
-    expect(pickIndianVoice([v('Tara (English (India))')])?.name).toContain('Tara')
     expect(pickIndianVoice([v('Rishi'), v('Aman'), v('Isha')])?.name).toBe('Isha')
     expect(pickIndianVoice([v('Isha'), v('Isha (Enhanced)')])?.name).toBe('Isha (Enhanced)')
-    expect(pickIndianVoice([v('Samantha', 'en-US')])).toBeNull()
+    expect(pickIndianVoice([v('Rishi'), v('Microsoft Neerja Online (Natural) - English (India)', 'en_IN')])?.name).toContain('Neerja')
+    expect(pickIndianVoice([v('Tara (English (India))'), v('Veena')])?.name).toBe('Veena')
+    expect(pickIndianVoice([v('Tara (English (India))'), v('Rishi')])?.name).toContain('Tara')
+    expect(pickIndianVoice([v('Rishi'), v('Aman'), v('Prabhat')])).toBeNull()
+    expect(pickIndianVoice([v('Samantha', 'en-US'), v('Isha', 'en-GB')])).toBeNull()
   })
 })
 
