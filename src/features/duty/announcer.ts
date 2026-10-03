@@ -121,8 +121,9 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       // Muted during the chime: say nothing now; it plays when the mute ends.
       if (items.get(next.id) === next && Date.now() >= mutedUntil) {
         const spoken = await output.speak(spokenFor(next), next.childId)
-        // Nothing sounded (no clip, audio paused, no device voice): not heard, so try again soon, still as new.
-        if (spoken === 'silent' && items.get(next.id) === next) silent = true
+        // Nothing sounded (no clip, audio paused, no device voice), or it was cut off mid-sentence: not heard, so try again
+        // soon, still as new.
+        if ((spoken === 'silent' || spoken === 'cut') && items.get(next.id) === next) silent = true
         // Heard unless Mute or an acknowledgement cut it short.
         else if (items.get(next.id) === next && Date.now() >= mutedUntil) {
           next.heard = true

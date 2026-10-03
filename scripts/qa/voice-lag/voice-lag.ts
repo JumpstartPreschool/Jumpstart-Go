@@ -2,7 +2,8 @@
 // Drives the app's real announcer, chime, clip cache and fallback, and reports how long after the chime speech starts.
 // Simulated mode is a MOCK of the school voice (Azure): the pronounce request is answered locally, after a set delay, with opening.mp3 or
 // message.mp3 (Indian English recordings made with macOS `say`).
-import { createAnnouncer, PRIORITY } from '../../../src/features/duty/announcer'
+import { createAnnouncer } from '../../../src/features/duty/announcer'
+import { PRIORITY } from '../../../src/features/duty/gate'
 import { deviceOutput, unlockSound, CLIP_BUDGET_MS } from '../../../src/features/duty/sound'
 import { voiceTimings } from '../../../src/features/duty/voiceClips'
 import { supabase } from '../../../src/lib/supabase'
@@ -64,7 +65,7 @@ async function run(): Promise<void> {
         if (s.speaking?.id === id) seen = true
         else if (seen && !s.speaking) { stop(); announcer.acknowledge(id); done() }
       })
-      announcer.announce({ id, text, chime: 'normal', priority: PRIORITY.newRequest })
+      announcer.announce({ id, text, chime: 'normal', priority: PRIORITY.normal })
     })
     const marks = voiceTimings.slice(start)
     const at = (stage: string) => marks.find((m) => m.stage === stage)?.at

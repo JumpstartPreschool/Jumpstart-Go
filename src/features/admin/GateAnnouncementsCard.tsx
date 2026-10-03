@@ -164,7 +164,7 @@ export function GateAnnouncementsCard() {
       const { loadVoiceVersion } = await import('../duty/voiceClips')
       await loadVoiceVersion()
       const voice = await sound.speak(text, undefined, 10_000)
-      setHeard(voice === 'school' ? 'Played in the school voice.' : voice === 'device' ? "The school voice wasn't ready, so this device's voice played it. Try again in a moment." : "Couldn't play it. Check the sound is on.")
+      setHeard(voice === 'school' ? 'Played in the school voice.' : voice === 'device' ? "The school voice wasn't ready, so this device's voice played it. Try again in a moment." : voice === 'cut' ? 'It was cut off before the end. Play it again.' : "Couldn't play it. Check the sound is on.")
     } catch {
       setHeard("Couldn't play it. Check the sound is on.")
     } finally {

@@ -43,6 +43,14 @@ const PART_GAP_MS = 150
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
+// iOS hands the audio session back when the silent unlock sentence (unlockSound) ends, and that interrupts any Web Audio
+// playing at that moment: the sound check was cut after its first two words. Sound waits for that sentence to finish,
+// at most this long (it is one short word; a voice that never reports its end mustn't hold the gate).
+const UNLOCK_SETTLE_MS = 1500
+// A clip that reports its end more than this before its length did not finish (seconds of audio clock).
+const EARLY_END_S = 0.25
+let unlocking: Promise<void> | null = null
+
 // iPhone and iPad before iOS 17 have no Audio Session API, and their Web Audio is muted by the ring/silent switch. A
 // playing media element moves the page into the "playback" audio category, which the switch doesn't mute, so on those
 // devices a silent loop plays for the whole duty. It is pure silence; nothing is ever heard from it.
@@ -81,6 +89,13 @@ export function unlockSound(): void {
     speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance('Ready.')
     u.volume = 0
+    const pending: Promise<void> = new Promise<void>((done) => {
+      const settle = setTimeout(done, UNLOCK_SETTLE_MS)
+      u.onend = u.onerror = () => { clearTimeout(settle); done() }
+    }).then(() => { if (unlocking === pending) unlocking = null })
+    unlocking = pending
+    // Kept referenced: Safari can skip onend for an utterance it garbage-collected.
+    utterance = u
     speechSynthesis.speak(u)
   }
   // Which voice the school's clips are in, then free the space older versions used on this iPad.
@@ -140,6 +155,7 @@ const NOTE_LENGTH = 0.55
 
 /** Plays the chime. Resolves true once it has sounded, false when the audio couldn't play (not unlocked, or paused). */
 export function chime(kind: ChimeKind): Promise<boolean> {
+  if (unlocking) return unlocking.then(() => chime(kind))
   if (!ctx) return Promise.resolve(false)
   if (ctx.state !== 'running') return running(ctx).then((ok) => (ok ? chime(kind) : false))
   const audio = ctx
@@ -161,16 +177,35 @@ export function chime(kind: ChimeKind): Promise<boolean> {
   return wait(((NOTES[kind].length - 1) * NOTE_GAP + NOTE_LENGTH + 0.15) * 1000).then(() => true)
 }
 
-/** Plays one clip, unless a Stop came first. Resolves when it ends or is stopped. */
-function play(buf: AudioBuffer, mine: number): Promise<void> {
-  if (mine !== generation || !ctx) return Promise.resolve()
-  const src = ctx.createBufferSource()
+/**
+ * Plays one clip, unless a Stop came first. Resolves 'cut' when iOS takes the audio away mid-clip (a call, Siri, the
+ * audio session handed back), since the clip then never sounds to its end; otherwise 'done' when it ends or is stopped.
+ */
+function play(buf: AudioBuffer, mine: number): Promise<'done' | 'cut'> {
+  if (mine !== generation || !ctx) return Promise.resolve('done')
+  const audio = ctx
+  const src = audio.createBufferSource()
   src.buffer = buf
-  src.connect(ctx.destination)
+  src.connect(audio.destination)
   return new Promise((resolve) => {
+    const end = (how: 'done' | 'cut') => {
+      clearTimeout(guard)
+      audio.removeEventListener?.('statechange', onState)
+      resolve(how)
+    }
+    const onState = () => {
+      if (audio.state === 'running') return
+      sounding.delete(src)
+      try { src.stop() } catch { /* already ended */ }
+      end('cut')
+    }
     // If the audio is paused mid-clip, 'ended' never fires; without this the gate queue would stop for good.
-    const guard = setTimeout(resolve, buf.duration * 1000 + 1500)
-    src.addEventListener('ended', () => { clearTimeout(guard); resolve() })
+    const guard = setTimeout(() => end(audio.state === 'running' ? 'done' : 'cut'), buf.duration * 1000 + 1500)
+    // The clip's own end is the proof it was heard: one that ends well before its length was cut short by the system,
+    // not by Stop (which changes the generation, so the caller says nothing more either way).
+    const startedAt = audio.currentTime
+    src.addEventListener('ended', () => end(mine === generation && audio.currentTime - startedAt < buf.duration - EARLY_END_S ? 'cut' : 'done'))
+    audio.addEventListener?.('statechange', onState)
     track(src)
     src.start()
   })
@@ -182,13 +217,17 @@ function play(buf: AudioBuffer, mine: number): Promise<void> {
  * while the gate listens; whichever part isn't ready within CLIP_BUDGET_MS is said by the iPad's Indian English voice,
  * so the gate never waits. Never rejects.
  */
-/** Which voice said it: the school's clips, the device's own voice (all or part), or nothing at all. */
-export type Spoken = 'school' | 'device' | 'silent'
+/**
+ * Which voice said it: the school's clips, the device's own voice (all or part), a sentence that started but was cut
+ * off before its end (not heard, so said again), or nothing at all.
+ */
+export type Spoken = 'school' | 'device' | 'cut' | 'silent'
 
 export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<Spoken> {
   const parts = voiceParts(text, voiceChild(childId), openings)
   if (!parts.length) return 'silent'
   const mine = generation
+  if (unlocking) await unlocking
   markVoice(text, 'chime-end')
   if (ctx) {
     const audio = ctx
@@ -209,7 +248,15 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
         return i > 0 && rest === 'silent' ? 'school' : rest
       }
       markVoice(text, i === 0 ? 'speech-start' : 'message-start')
-      await play(buf, mine)
+      // Cut off mid-sentence: say the whole sentence again once the audio is back, or in the tablet's voice if iOS
+      // won't give it back. Never counted as played.
+      if ((await play(buf, mine)) === 'cut' && mine === generation) {
+        markVoice(text, 'cut')
+        if (!(await running(audio)) || (await play(buf, mine)) === 'cut') {
+          if (mine !== generation) return 'silent'
+          return speakDevice(parts.slice(i).join(' '), mine)
+        }
+      }
       if (i === 0) markVoice(text, 'opening-end')
     }
     return mine === generation ? 'school' : 'silent'
@@ -237,7 +284,7 @@ export async function playSentence(sentence: string, onStart?: () => void): Prom
   const clip = await clipAudio(audioContext(), line)
   if (mine !== generation) return
   onStart?.()
-  await play(clip, mine)
+  if ((await play(clip, mine)) === 'cut' && mine === generation && (await running(audioContext()))) await play(clip, mine)
 }
 
 // The iPad's own Indian English voice, used only when the school's clip isn't ready: a woman's voice, like the gate voice.
@@ -281,20 +328,22 @@ async function speakDevice(text: string, mine: number): Promise<Spoken> {
     // A touch slower than default, at natural pitch: clearer across a noisy gate without sounding drawn out.
     u.rate = 0.95
     let done = false
+    // An error after the voice started (iOS took the audio away) means the sentence didn't reach its end.
+    let broken = false
     const finish = () => {
       if (done) return
       done = true
       clearTimeout(fallback)
       if (utterance === u) utterance = null
       if (endDevice === finish) endDevice = null
-      resolve(started ? 'device' : 'silent')
+      resolve(!started ? 'silent' : broken && mine === generation ? 'cut' : 'device')
     }
     // ponytail: Safari occasionally never fires onend; a length-based timeout keeps the queue moving.
     const fallback = setTimeout(finish, 4000 + text.length * 90)
     // onstart is the proof the voice really spoke: a blocked voice can end at once without a sound.
     u.onstart = () => { started = true }
     u.onend = finish
-    u.onerror = finish
+    u.onerror = () => { broken = true; finish() }
     utterance = u
     endDevice = finish
     speechSynthesis.speak(u)

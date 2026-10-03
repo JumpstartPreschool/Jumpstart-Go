@@ -229,4 +229,16 @@ describe('reminders and settings (0042)', () => {
     await vi.advanceTimersByTimeAsync(20_000)
     expect(played).toEqual([NEW_LEAD + 'new-1', NEW_LEAD + 'new-1'])
   })
+
+  it('does not count an announcement cut off mid-sentence as heard: it plays again soon as new, not as a reminder', async () => {
+    const played: string[] = []
+    let cut = true
+    const out = { chime: vi.fn(async () => {}), speak: vi.fn((text: string) => new Promise<'cut' | 'school'>((r) => setTimeout(() => (played.push(text), r(cut ? 'cut' : 'school')), 1000))) }
+    const ann = createAnnouncer(out)
+    ann.announce(a('new-1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1_000)
+    cut = false
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(played).toEqual([NEW_LEAD + 'new-1', NEW_LEAD + 'new-1'])
+  })
 })
