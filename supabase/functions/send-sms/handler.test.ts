@@ -8,6 +8,7 @@ function setupDeps(over: Partial<Deps> = {}) {
     verify: vi.fn((raw) => JSON.parse(raw)),
     otpRecipient: vi.fn(async (phone) => (phone === '+919822000001' || phone === '6591234567' || phone === '14155552671' ? 'profile-uuid-1' : null)),
     sendAllowed: vi.fn(async () => true),
+    sendRefund: vi.fn(async () => {}),
     wati: {
       sendTemplate: vi.fn(async () => ({ ok: true, broadcastId: 'bc-999', localId: 'test-local-id' })),
     },
@@ -147,6 +148,16 @@ describe('send-sms hook handler', () => {
     expect(order).toEqual(['log', 'send'])
     expect(deps.logDone).toHaveBeenCalledWith('fixed-local-id', null, 'rejected')
     expect((await res.json()).error.http_code).toBe(500)
+  })
+
+  it("gives the place back when WATI didn't send the code (no credit), but not when it did", async () => {
+    const failed = setupDeps({ wati: { sendTemplate: vi.fn(async () => ({ ok: false as const, category: 'rejected' as const, retryable: false, localId: 'x', detail: 'Not enough credits to send the message' })) } }).deps
+    await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), failed)
+    expect(failed.sendRefund).toHaveBeenCalledTimes(1)
+    expect(failed.logDone).toHaveBeenCalledWith('fixed-local-id', null, 'rejected: Not enough credits to send the message')
+    const sent = setupDeps().deps
+    await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), sent)
+    expect(sent.sendRefund).not.toHaveBeenCalled()
   })
 
   it('still sends when the log row cannot be written', async () => {

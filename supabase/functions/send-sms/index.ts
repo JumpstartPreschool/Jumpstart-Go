@@ -38,6 +38,10 @@ Deno.serve((req) => {
       if (error) throw error
       return data === true
     },
+    sendRefund: async (phone) => {
+      const { error } = await db.rpc('otp_send_refund', { p_phone: phone })
+      if (error) console.error(JSON.stringify({ sms: 'refund_failed', code: error.code }))
+    },
     wati,
     template: templateName('SIGN_IN_CODE', env),
     log: async (r) => {

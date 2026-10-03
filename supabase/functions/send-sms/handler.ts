@@ -9,6 +9,8 @@ export interface Deps {
   otpRecipient(phone: string): Promise<string | null>
   /** public.otp_send_allowed: counts this send against the number's hourly limit; false once it is used up. */
   sendAllowed(phone: string): Promise<boolean>
+  /** public.otp_send_refund: gives the place back when WATI didn't send the code, so its problems never lock anyone out. */
+  sendRefund(phone: string): Promise<void>
   wati: Pick<Wati, 'sendTemplate'>
   /** Adds the delivery log row before WATI is called, so WATI's status webhook always finds it. Never given the code. */
   log(row: WhatsAppLogRow): Promise<void>
@@ -70,6 +72,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const sent = await deps.wati.sendTemplate({ phone: `+${digits}`, template: deps.template, params: [otp], localMessageId: localId, broadcastName: 'signin_code' })
   // The failure category, and WATI's own reason when it gave one (masked, short), so a refusal can be fixed from the log.
   await deps.logDone(localId, sent.ok ? sent.broadcastId : null, sent.ok ? null : sent.detail ? `${sent.category}: ${sent.detail}` : sent.category).catch(() => {})
+  if (!sent.ok) await deps.sendRefund(phone).catch(() => {})
   if (sent.ok) return json({})
   return unavailable(BUSY.has(sent.category) ? 503 : 500)
 }
