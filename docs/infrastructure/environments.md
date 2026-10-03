@@ -32,15 +32,17 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 | `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
 | `push-send` | Delivers queued push notifications (0016) and forgets dead devices; called by the database | `PUSH_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
 | `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional) |
-| `send-sms` | Supabase Auth's Send SMS hook (0039, D51): sends each sign-in code as a WhatsApp template through WATI; sends nothing for an unregistered number | `WATI_API_TOKEN`, `SEND_SMS_HOOK_SECRET`, `WATI_TEMPLATE_SIGNIN` (optional), `WATI_API_BASE_URL` and `WATI_CHANNEL` (optional) |
+| `send-sms` | Supabase Auth's Send SMS hook (0039, D51): sends each sign-in code as a WhatsApp template through WATI; sends nothing for an unregistered number | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `SEND_SMS_HOOK_SECRET`, `WATI_TEMPLATE_SIGNIN_CODE` (optional), `WATI_CHANNEL` (optional) |
 | `password-pattern` | Admin → Settings → Email sign-in (0041, D52): saves the password pattern and sets every email account's starting password to it, or resets one person | `APP_ORIGIN` (optional); uses the built-in Supabase keys |
-| `whatsapp-invite` | *Not built yet:* the WhatsApp setup check in Settings calls it | `WATI_API_TOKEN`, `APP_ORIGIN` |
-| `wati-webhook` | *Not built yet:* records delivered, read and failed statuses from WATI in the delivery log | `WATI_WEBHOOK_SECRET` |
+| `whatsapp-invite` | Admin Settings WhatsApp setup check and invitation dispatch: checks token and template statuses via WATI API | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `WATI_CHANNEL` (optional), `APP_ORIGIN` (optional) |
+| `wati-webhook` | Records delivered, read and failed statuses from WATI in app.whatsapp_log via webhook | `WATI_WEBHOOK_SECRET` |
 
 Deploying needs a Supabase login on this machine (`npx supabase login`, once):
 ```
-npx supabase secrets set --project-ref <project-ref> ORS_API_KEY=<key>
-npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
+npx supabase secrets set --project-ref <project-ref> WATI_API_TOKEN="..." WATI_API_BASE_URL="https://live-server-XXXXX.wati.io"
+npx supabase functions deploy send-sms --project-ref <project-ref> --no-verify-jwt
+npx supabase functions deploy whatsapp-invite --project-ref <project-ref>
+npx supabase functions deploy wati-webhook --project-ref <project-ref> --no-verify-jwt
 ```
 `--no-verify-jwt` because the function checks the user's session itself (and `push-send` checks its secret).
 
