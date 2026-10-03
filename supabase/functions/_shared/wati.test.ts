@@ -333,3 +333,21 @@ describe('the endpoint and token as pasted from the WATI dashboard', () => {
     expect((f.mock.calls[0]![1].headers as Record<string, string>).Authorization).toBe('Bearer abc.def')
   })
 })
+
+describe("WATI's reason for a refusal, kept for the delivery log", () => {
+  it('reads the message from the shapes WATI answers with, masks digits and keeps it short', async () => {
+    const { watiReason } = await import('./wati')
+    expect(watiReason({ code: 400, message: 'Template jumpstart_signin_code not found' })).toBe('Template jumpstart_signin_code not found')
+    expect(watiReason({ errors: [{ message: 'Invalid number 919820000001 for code 123456' }] })).toBe('Invalid number [n] for code [n]')
+    expect(watiReason(null)).toBeUndefined()
+    expect(watiReason({ message: 'x'.repeat(200) })).toHaveLength(80)
+  })
+  it('returns the reason with a 400', async () => {
+    const { createWati } = await import('./wati')
+    const f = vi.fn(async () => new Response(JSON.stringify({ message: 'Parameter 1 is missing' }), { status: 400 }))
+    const w = createWati({ token: 't', fetch: f as unknown as typeof fetch, sleep: async () => {} })
+    const r = await w.sendTemplate({ phone: '+919820000001', template: 'jumpstart_signin_code', params: ['123456'] })
+    expect(r).toMatchObject({ ok: false, category: 'bad_request', detail: 'Parameter 1 is missing' })
+  })
+})
+

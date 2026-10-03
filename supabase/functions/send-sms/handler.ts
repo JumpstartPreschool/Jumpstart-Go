@@ -68,7 +68,8 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   // A log that can't be written must not stop a code from being sent.
   await deps.log({ profileId, phone: digits, kind: 'signin_code', template: deps.template, localId, broadcastId: null, status: 'accepted', error: null }).catch(() => {})
   const sent = await deps.wati.sendTemplate({ phone: `+${digits}`, template: deps.template, params: [otp], localMessageId: localId, broadcastName: 'signin_code' })
-  await deps.logDone(localId, sent.ok ? sent.broadcastId : null, sent.ok ? null : sent.category).catch(() => {})
+  // The failure category, and WATI's own reason when it gave one (masked, short), so a refusal can be fixed from the log.
+  await deps.logDone(localId, sent.ok ? sent.broadcastId : null, sent.ok ? null : sent.detail ? `${sent.category}: ${sent.detail}` : sent.category).catch(() => {})
   if (sent.ok) return json({})
   return unavailable(BUSY.has(sent.category) ? 503 : 500)
 }

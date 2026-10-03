@@ -100,7 +100,7 @@ export type WatiFailure =
 
 export type SendResult =
   | { ok: true; broadcastId: string | null; localId: string }
-  | { ok: false; category: WatiFailure; retryable: boolean; localId: string }
+  | { ok: false; category: WatiFailure; retryable: boolean; localId: string; detail?: string }
 
 export type TemplatesResult =
   | { ok: true; templates: Array<{ name: string; status: string }> }
@@ -149,7 +149,25 @@ const RETRY_AFTER_CAP_MS = 2000
 const PAGE_SIZE = 100
 const MAX_PAGES = 10
 
-type Failure = { ok: false; category: WatiFailure; retryable: boolean }
+type Failure = { ok: false; category: WatiFailure; retryable: boolean; detail?: string }
+
+/**
+ * WATI's own reason for a refusal ("Template not found", "Invalid parameter"), short enough for the delivery log, with
+ * any run of digits masked so a phone number or a code can never be kept. Never the token: WATI doesn't echo it.
+ */
+export function watiReason(body: unknown): string | undefined {
+  const pick = (v: unknown): string | undefined => {
+    if (typeof v === 'string' && v.trim()) return v
+    if (Array.isArray(v)) return v.map(pick).find(Boolean)
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>
+      return pick(o.message) ?? pick(o.error) ?? pick(o.errors) ?? pick(o.detail) ?? pick(o.title) ?? pick(o.info)
+    }
+    return undefined
+  }
+  const r = pick(body)
+  return r ? r.replace(/\+?\d[\d\s-]{3,}\d/g, '[n]').replace(/\s+/g, ' ').trim().slice(0, 80) : undefined
+}
 type Call = { ok: true; json: unknown } | Failure
 
 const fail = (category: WatiFailure, retryable = false): Failure => ({ ok: false, category, retryable })
@@ -227,6 +245,7 @@ export function createWati(opts: WatiOptions): Wati {
         const res = await once(method, path, body, Math.min(attemptMs, left))
         if (res.ok) return { ok: true, json: await res.json().catch(() => null) }
         last = statusFailure(res.status)
+        if (!last.retryable) last = { ...last, detail: watiReason(await res.json().catch(() => null)) ?? `http ${res.status}` }
         const header = res.headers.get('Retry-After')
         const after = Number(header)
         if (res.status === 429 && header !== null && Number.isFinite(after) && after >= 0) {
@@ -269,7 +288,7 @@ export function createWati(opts: WatiOptions): Wati {
       })
 
       if (!r.ok) {
-        return { ok: false, category: r.category, retryable: r.retryable, localId }
+        return { ok: false, category: r.category, retryable: r.retryable, localId, detail: r.detail }
       }
 
       const j = (r.json ?? {}) as {
@@ -292,7 +311,7 @@ export function createWati(opts: WatiOptions): Wati {
           }))
 
       if (refused) {
-        return { ok: false, category: 'rejected', retryable: false, localId }
+        return { ok: false, category: 'rejected', retryable: false, localId, detail: watiReason({ error: j.error, errors: j.recipients }) }
       }
 
       return {
