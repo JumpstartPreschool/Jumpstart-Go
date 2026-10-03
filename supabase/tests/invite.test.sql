@@ -9,7 +9,7 @@ exception when raise_exception then
 end $$;
 
 -- A deactivated person cannot sign up again either.
-insert into public.profiles (full_name, email, active) values ('Left School', 'left@example.test', false);
+insert into public.profiles (full_name, email, active, phone) values ('Left School', 'left@example.test', false, '+919000000007');
 do $$ begin
   insert into auth.users (email) values ('left@example.test');
   raise exception 'FAIL: a deactivated person got an account';
@@ -24,13 +24,15 @@ do $$ begin
   assert (select user_id is not null from public.profiles where phone = '+919876543210'), 'phone invite linked';
 end $$;
 
--- The login screen's check, as an anonymous visitor.
+-- The login screen's check (phone_login_allowed, 0039), as an anonymous visitor.
 set role anon;
 do $$ begin
-  assert public.login_allowed('Admin@Example.test'), 'registered email allowed (case ignored)';
-  assert not public.login_allowed('stranger@example.test'), 'unknown email refused';
-  assert not public.login_allowed('former.admin@example.test'), 'deactivated person refused';
-  assert not public.login_allowed(''), 'empty input refused';
+  assert public.phone_login_allowed('+91 90000 00001'), 'registered mobile allowed (formatting ignored)';
+  assert public.phone_login_allowed('9000000001'), 'bare ten-digit mobile allowed as +91';
+  assert not public.phone_login_allowed('+919999999999'), 'unknown mobile refused';
+  assert not public.phone_login_allowed('+919000000006'), 'deactivated person refused';
+  assert not public.phone_login_allowed(''), 'empty input refused';
+  assert not public.phone_login_allowed('admin@example.test'), 'an email is not a mobile';
 end $$;
 do $$ begin
   perform public.whoami();

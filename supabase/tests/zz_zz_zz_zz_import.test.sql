@@ -24,11 +24,11 @@ begin
   assert (select class_id = '00000000-0000-0000-0000-00000000c001' from public.children where id = kid), 'class follows the programme';
   assert (select count(*) from public.guardianships where child_id = kid) = 2, 'two people on the record';
   assert (select app_access and email = 'lakshmi@example.com' from public.profiles where phone = '+919811111111'), 'parent has app access, email lower-cased';
-  assert (select not app_access from public.profiles where phone = '+919822222222'), 'family without email has no app access';
+  assert (select not app_access from public.profiles where phone = '+919822222222'), 'family with app_access off has no app access';
 
-  -- 3. A brother: the same mother (matched by email) is linked, not duplicated.
+  -- 3. A brother: the same mother (matched by mobile, 0039:326) is linked, not duplicated.
   kid := public.import_child('{"full_name":"Arjun Iyer","date_of_birth":"2021-01-10","programme_id":"00000000-0000-0000-0000-00000000b001"}',
-    '[{"full_name":"Lakshmi I.","relation":"Mother","kind":"parent","email":"lakshmi@example.com","app_access":true}]');
+    '[{"full_name":"Lakshmi I.","relation":"Mother","kind":"parent","email":"lakshmi@example.com","phone":"+919811111111","app_access":true}]');
   assert (select count(*) from public.profiles where lower(email) = 'lakshmi@example.com') = 1, 'no duplicate parent';
   assert (select count(*) from public.guardianships g join public.profiles p on p.id = g.guardian_id where p.email = 'lakshmi@example.com') = 2, 'mother of both';
   assert (select full_name from public.profiles where email = 'lakshmi@example.com') = 'Lakshmi Iyer', 'existing details kept';
@@ -36,27 +36,25 @@ begin
   -- 4. The same child twice is refused, in words.
   begin
     perform public.import_child('{"full_name":"tara iyer","date_of_birth":"2022-03-04","programme_id":"00000000-0000-0000-0000-00000000b001"}',
-      '[{"full_name":"Someone Else","relation":"Mother","kind":"parent","email":"else@example.com","app_access":true}]');
+      '[{"full_name":"Someone Else","relation":"Mother","kind":"parent","email":"else@example.com","phone":"+919000000031","app_access":true}]');
     raise exception 'FAIL: the same child imported twice';
   exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
     assert sqlerrm like 'duplicate%', sqlerrm;
   end;
 
-  -- 5. An email and a mobile that belong to two different people are refused.
-  begin
-    perform public.import_child('{"full_name":"Meena Rao","date_of_birth":"2022-05-05","programme_id":"00000000-0000-0000-0000-00000000b001"}',
-      '[{"full_name":"Mixed Up","relation":"Mother","kind":"parent","email":"lakshmi@example.com","phone":"+919822222222","app_access":true}]');
-    raise exception 'FAIL: mixed-up person accepted';
-  exception when raise_exception then
-    if sqlerrm like 'FAIL%' then raise; end if;
-    assert sqlerrm like 'person_conflict%', sqlerrm;
-  end;
+  -- 5. A mobile that belongs to someone already here wins over a different email (0039 matches by mobile only; the
+  -- person_conflict check of 0022/0028 is gone): the existing person is linked, nothing is duplicated or changed.
+  kid := public.import_child('{"full_name":"Meena Rao","date_of_birth":"2022-05-05","programme_id":"00000000-0000-0000-0000-00000000b001"}',
+    '[{"full_name":"Mixed Up","relation":"Mother","kind":"parent","email":"mixed@example.com","phone":"+919822222222","app_access":true}]');
+  assert (select count(*) from public.profiles where phone = '+919822222222') = 1, 'one person per mobile';
+  assert not exists (select 1 from public.profiles where email = 'mixed@example.com'), 'the existing person keeps their own details';
+  assert (select count(*) from public.guardianships where child_id = kid and guardian_id = (select id from public.profiles where phone = '+919822222222')) = 1, 'linked to the existing person';
 
   -- 6. The usual rules still apply (a programme is required).
   begin
     perform public.import_child('{"full_name":"No Programme","date_of_birth":"2022-05-05","programme_id":"00000000-0000-0000-0000-000000000000"}',
-      '[{"full_name":"Some Parent","relation":"Mother","kind":"parent","email":"some@example.com","app_access":true}]');
+      '[{"full_name":"Some Parent","relation":"Mother","kind":"parent","email":"some@example.com","phone":"+919000000032","app_access":true}]');
     raise exception 'FAIL: no programme accepted';
   exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
@@ -83,11 +81,11 @@ do $$
 declare kid uuid;
 begin
   kid := public.import_child('{"full_name":"Diya Menon","date_of_birth":"2022-07-07","programme_id":"00000000-0000-0000-0000-00000000b001","gender":"girl"}',
-    '[{"full_name":"Asha Menon","relation":"Mother","kind":"parent","email":"asha@example.com","app_access":true}]');
+    '[{"full_name":"Asha Menon","relation":"Mother","kind":"parent","email":"asha@example.com","phone":"+919000000033","app_access":true}]');
   assert (select gender = 'girl' from public.children where id = kid), 'gender saved';
   begin
     perform public.import_child('{"full_name":"Odd Value","date_of_birth":"2022-07-08","programme_id":"00000000-0000-0000-0000-00000000b001","gender":"x"}',
-      '[{"full_name":"Some One","relation":"Mother","kind":"parent","email":"someone2@example.com","app_access":true}]');
+      '[{"full_name":"Some One","relation":"Mother","kind":"parent","email":"someone2@example.com","phone":"+919000000034","app_access":true}]');
     raise exception 'FAIL: an unknown gender accepted';
   exception when check_violation then null;
   end;

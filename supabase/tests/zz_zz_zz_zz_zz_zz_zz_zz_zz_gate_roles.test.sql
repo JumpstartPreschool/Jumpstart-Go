@@ -2,16 +2,16 @@
 --   L  Lata, Center Leader of Jr KG          K  Kiran, Center Coordinator of Jr KG
 --   P  Pooja, parent of Ishaan (Jr KG)       F  Farah, front desk
 -- The clock is pinned to Monday 5 Oct 2026.
-insert into public.profiles (id, full_name, email, active) values
-  ('00000000-0000-0000-0000-00000000aa01', 'Lata Leader', 'lata@example.test', true),
-  ('00000000-0000-0000-0000-00000000aa02', 'Kiran Coordinator', 'kiran@example.test', true),
-  ('00000000-0000-0000-0000-00000000aa03', 'Pooja Parent', 'pooja@example.test', true),
-  ('00000000-0000-0000-0000-00000000aa04', 'Farah Desk', 'farah@example.test', true);
-insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000aa01', 'lata@example.test'),
-  ('00000000-0000-0000-0000-00000000aa02', 'kiran@example.test'),
-  ('00000000-0000-0000-0000-00000000aa03', 'pooja@example.test'),
-  ('00000000-0000-0000-0000-00000000aa04', 'farah@example.test');
+insert into public.profiles (id, full_name, email, active, phone) values
+  ('00000000-0000-0000-0000-00000000aa01', 'Lata Leader', 'lata@example.test', true, '+919000000011'),
+  ('00000000-0000-0000-0000-00000000aa02', 'Kiran Coordinator', 'kiran@example.test', true, '+919000000012'),
+  ('00000000-0000-0000-0000-00000000aa03', 'Pooja Parent', 'pooja@example.test', true, '+919000000013'),
+  ('00000000-0000-0000-0000-00000000aa04', 'Farah Desk', 'farah@example.test', true, '+919000000014');
+insert into auth.users (id, email, raw_app_meta_data) values
+  ('00000000-0000-0000-0000-00000000aa01', 'lata@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-00000000aa02', 'kiran@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-00000000aa03', 'pooja@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-00000000aa04', 'farah@example.test', '{"provisioned":"school"}');
 insert into public.staff_roles values ('00000000-0000-0000-0000-00000000aa04', 'pro');
 insert into public.children (id, full_name, date_of_birth, class_id, programme_id) values
   ('00000000-0000-0000-0000-0000000c00aa', 'Ishaan Rao', '2021-07-01', '00000000-0000-0000-0000-00000000c001', '00000000-0000-0000-0000-00000000b001');

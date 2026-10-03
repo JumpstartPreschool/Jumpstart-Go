@@ -16,21 +16,21 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
--- 2. Sign-in codes: the eleventh request in an hour for one email is refused (0023: 10 an hour).
+-- 2. Sign-in codes: the eleventh request in an hour for one mobile is refused (0023, now phone_login_allowed in 0039: 10 an hour).
 do $$
-declare e text := (select email from public.profiles where active and app_access and email is not null limit 1);
+declare e text := (select phone from public.profiles where active and app_access and phone is not null limit 1);
 declare i int;
 begin
-  delete from app.throttle_log where key = 'login:' || lower(e);
-  for i in 1..10 loop assert public.login_allowed(e), 'allowed ' || i; end loop;
+  delete from app.throttle_log where key = 'login:' || e;
+  for i in 1..10 loop assert public.phone_login_allowed(e), 'allowed ' || i; end loop;
   begin
-    perform public.login_allowed(e);
+    perform public.phone_login_allowed(e);
     raise exception 'FAIL: an eleventh code request in an hour';
   exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
     assert sqlerrm like 'rate_limited%', sqlerrm;
   end;
-  assert not public.login_allowed('nobody@example.com'), 'unknown emails are still just refused';
+  assert not public.phone_login_allowed('+919999999999'), 'unknown mobiles are still just refused';
 end $$;
 
 -- 3. A trip changed without a sign-in (a collector's link) is limited to 6 changes an hour.

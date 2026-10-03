@@ -1,39 +1,22 @@
--- 0033 and 0034: password sign-in, email codes only for a first sign-in or a reset. People from foundation.test.sql: c1 core. Rolled back, so later tests see nothing changed.
+-- 0033 and 0034 password sign-in, as left by 0039 (email codes, login_allowed and has_password dropped; sign-in is by mobile
+-- code) and 0041 (email and password with the admin's pattern, covered in the email_password test).
+-- People from foundation.test.sql: c1 core. Rolled back, so later tests see nothing changed.
 begin;
 
--- 0. No password yet: a first-sign-in code is allowed; a made-up purpose never is.
+-- 0. The email-code checks are gone; nothing can be asked "may this email get a code".
 do $$ begin
-  assert public.login_allowed('Core@Example.test', 'first'), 'first code allowed before a password exists';
-  assert not public.login_allowed('core@example.test', 'login'), 'unknown purpose refused';
-  assert not public.login_allowed('stranger@example.test', 'reset'), 'unknown email refused';
+  assert to_regprocedure('public.login_allowed(text)') is null, 'login_allowed(text) still exists';
+  assert to_regprocedure('public.login_allowed(text,text)') is null, 'login_allowed(text,text) still exists';
+  assert to_regprocedure('app.has_password()') is null, 'app.has_password still exists';
 end $$;
 
--- 1. whoami says whether the person has set a password; nobody else's password state is visible.
+-- 1. whoami no longer reports password state.
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000c1"}';
 set role authenticated;
 do $$ begin
-  assert (public.whoami() ->> 'has_password')::boolean = false, 'no password yet after email-code sign-in';
+  assert not (public.whoami() ? 'has_password'), 'whoami still reports has_password';
 end $$;
 reset role;
-
-update auth.users set encrypted_password = '$2a$10$hash' where id = '00000000-0000-0000-0000-0000000000c1';
-set role authenticated;
-do $$ begin
-  assert (public.whoami() ->> 'has_password')::boolean, 'password set';
-  begin
-    perform app.has_password();
-    raise exception 'FAIL: app.has_password callable directly';
-  exception when insufficient_privilege then null;
-  end;
-end $$;
-reset role;
-
--- 1b. With a password: no first-sign-in code (saves an email), but Forgot password still sends one.
-do $$ begin
-  assert not public.login_allowed('core@example.test', 'first'), 'first code refused once a password is set';
-  assert public.login_allowed('core@example.test', 'reset'), 'reset code still allowed';
-  assert public.login_allowed('core@example.test'), 'old one-argument call still allows a code';
-end $$;
 
 -- 2. App access turned off: whoami reports the account as not active, so the app shows "Access turned off".
 set request.jwt.claims to '{}';

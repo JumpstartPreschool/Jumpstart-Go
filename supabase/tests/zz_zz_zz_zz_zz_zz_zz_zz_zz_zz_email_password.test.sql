@@ -3,7 +3,11 @@
 --   N  Neel, parent with a mobile only   R  Rohan, parent invited with an email, never signed in
 --   X  Xavier, turned off, still on an old pattern password
 -- Existing accounts are loaded with triggers off, as if made before this migration.
+-- Rolled back at the end. Earlier tests' people now all have a mobile (0039), so they are set aside here with their emails
+-- blanked (triggers off); only the people above can be pattern targets.
+begin;
 set session_replication_role = replica;
+update public.profiles set email = null;
 insert into auth.users (id, phone, email, encrypted_password) values
   ('00000000-0000-0000-0000-0000000e0a01', '919811100001', null, ''),
   ('00000000-0000-0000-0000-0000000e0a02', '919811100002', null, ''),
@@ -135,3 +139,5 @@ insert into auth.users (id, phone) values ('00000000-0000-0000-0000-0000000e0a03
 do $$ begin
   assert (select user_id from public.profiles where id = '00000000-0000-0000-0000-0000000e0b03') = '00000000-0000-0000-0000-0000000e0a03', 'Neel linked by phone';
 end $$;
+
+rollback;
