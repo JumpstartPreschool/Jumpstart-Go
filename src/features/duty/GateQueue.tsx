@@ -121,8 +121,9 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const cancelHeard = useRef(new Set<string>())
   const announced = useRef(new Map<string, string>())
   const lateHeard = useRef(new Map<string, string>())
+  const listeningSince = useRef(Date.now())
   // The admin's wording and timings (0042). A change applies from the next announcement; one being said finishes.
-  const cfg = useGateSettings()
+  const { settings: cfg, failed: settingsFailed } = useGateSettings()
   const cfgRef = useRef(cfg)
   cfgRef.current = cfg
   useEffect(() => {
@@ -169,7 +170,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   // reminders saying the time left at that moment; a new time or a cancellation replaces what was queued.
   useEffect(() => {
     if (!trips.trips || !gate.data) return
-    syncGate(trips.trips, gate.data, nowMs, cfg, () => cfgRef.current, { announced: announced.current, cancelHeard: cancelHeard.current, lateHeard: lateHeard.current }, announcer)
+    syncGate(trips.trips, gate.data, nowMs, cfg, () => cfgRef.current, { announced: announced.current, cancelHeard: cancelHeard.current, lateHeard: lateHeard.current, since: listeningSince.current }, announcer)
   }, [trips.trips, gate.data, nowMs, announcer, cfg])
 
   async function act(t: Trip, step: GateStep, handedTo?: string) {
@@ -263,6 +264,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
             items={[{ key: 'mine', label: gate.data.myClasses.size ? 'Your classes' : 'Uncovered classes', icon: <BellRing /> }, { key: 'all', label: 'Whole school', icon: <School /> }]} />
           {canClose && <LuxButton size="sm" icon={<Phone />} className="ml-auto" disabled={!school.children} onClick={() => setCalling(true)}>Log a call</LuxButton>}
         </div>
+        {settingsFailed && <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>Using default announcement wording. Couldn't load school settings; trying again.</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
         {sections.attention.length > 0 && <Section title="Needs attention" icon={<TriangleAlert />} list={sections.attention} />}
         <Section title="Coming" icon={<Navigation />} list={sections.coming} empty="Nobody is on the way right now. New drop-offs and pickups appear here and are announced." />

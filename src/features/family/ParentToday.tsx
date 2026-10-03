@@ -102,6 +102,7 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
   const who = trip.traveller_name.split(' ')[0]!
   const mine = !third && trip.created_by === meId
   const code = useCollectorCode(trip)
+  const canChange = !trip.arrived_at && !trip.ready_at
   const toast = useToast()
   const [arriving, setArriving] = useState(false)
   // "I've arrived": the gate announces it at once. For the family's own trips; a collector with a link shows the code.
@@ -147,9 +148,10 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
         <Button size="lg" className="mt-4 w-full" icon={<MapPin />} loading={arriving} onClick={() => void arrived()}>I've arrived</Button>
       )}
       <div className="mt-4 flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-40">
-        <Button size="md" variant="sunshine" icon={<Timer />} onClick={onLate}>Running late</Button>
+        {/* Once they've arrived or the child is ready, the school has what it needs: the server refuses a new time too. */}
+        {canChange && <Button size="md" variant="sunshine" icon={<Timer />} onClick={onLate}>Running late</Button>}
         {third ? <Button size="md" variant="secondary" icon={<Send />} onClick={onResend}>Resend link</Button>
-          : <Button size="md" variant="secondary" icon={<Clock />} onClick={onChange}>Change time</Button>}
+          : canChange && <Button size="md" variant="secondary" icon={<Clock />} onClick={onChange}>Change time</Button>}
         <Button size="md" variant="quiet" onClick={onCancel}>Cancel {WORD[trip.direction]}</Button>
       </div>
     </div>
@@ -243,10 +245,10 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
       {school && !away && !pickDone && <Button size="md" variant="secondary" icon={<CalendarX />} className="mt-2.5 w-full" onClick={() => setSheet({ kind: 'absence', direction: 'dropoff' })}>{first} won't come today</Button>}
 
       {programme && sheet?.kind === 'otw' && (
-        <OnMyWaySheet open onClose={() => setSheet(null)} childId={child.id} first={first} direction={sheet.direction} programme={programme} trip={open} nowMs={nowMs} />
+        <OnMyWaySheet open onClose={() => setSheet(null)} onChanged={onChanged} childId={child.id} first={first} direction={sheet.direction} programme={programme} trip={open} nowMs={nowMs} />
       )}
-      {programme && open && sheet?.kind === 'late' && <LateSheet open onClose={() => setSheet(null)} trip={open} first={first} programme={programme} nowMs={nowMs} />}
-      {open && sheet?.kind === 'cancel' && <CancelSheet open onClose={() => setSheet(null)} trip={open} first={first} />}
+      {programme && open && sheet?.kind === 'late' && <LateSheet open onClose={() => setSheet(null)} onChanged={onChanged} trip={open} first={first} programme={programme} nowMs={nowMs} />}
+      {open && sheet?.kind === 'cancel' && <CancelSheet open onClose={() => setSheet(null)} onChanged={onChanged} trip={open} first={first} />}
       {programme && sheet?.kind === 'else' && <SomeoneElseSheet open onClose={() => setSheet(null)} childId={child.id} first={first} programme={programme} nowMs={nowMs} />}
       {open && sheet?.kind === 'resend' && <ResendSheet open onClose={() => setSheet(null)} trip={open} first={first} nowMs={nowMs} />}
       {sheet?.kind === 'absence' && <AbsenceSheet kids={[child]} initialChild={child.id} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); onChanged() }} />}

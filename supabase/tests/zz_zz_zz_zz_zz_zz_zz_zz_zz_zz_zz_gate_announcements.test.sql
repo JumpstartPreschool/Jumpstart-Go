@@ -131,21 +131,21 @@ begin
 end $$;
 reset role;
 
--- New wording at most 5 times a day (each one re-records every child against the Azure cap); timings any time.
+-- New wording at most 20 times a day (each one re-records every child against the Azure cap); timings any time.
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000f0a01"}';
 set role authenticated;
 do $$
 declare i int;
 begin
-  -- Two wording changes so far today (the save and the reset above); three more are allowed.
-  for i in 1..3 loop perform public.admin_save_gate_announcements(jsonb_build_object('pickup_cancelled', format('Pickup for {{child_name}} is cancelled %s.', repeat('!', i)))); end loop;
+  -- One wording change so far today (the save above; the reset isn't counted, 0045); nineteen more are allowed.
+  for i in 1..19 loop perform public.admin_save_gate_announcements(jsonb_build_object('pickup_cancelled', format('Pickup for {{child_name}} is cancelled %s.', repeat('!', i)))); end loop;
   begin
     perform public.admin_save_gate_announcements('{"pickup_cancelled": "Pickup for {{child_name}} is cancelled now."}'::jsonb);
-    raise exception 'a sixth wording change went through';
+    raise exception 'a twenty-first wording change went through';
   exception when sqlstate 'P0001' then
     if sqlerrm not like 'too_many_changes:%' then raise; end if;
   end;
-  perform public.admin_save_gate_announcements('{"pickup_cancelled": "Pickup for {{child_name}} is cancelled !!!.", "early_min": 20}'::jsonb);
+  perform public.admin_save_gate_announcements(jsonb_build_object('pickup_cancelled', format('Pickup for {{child_name}} is cancelled %s.', repeat('!', 19)), 'early_min', 20));
   assert (select early_min from public.gate_announcement_settings) = 20, 'timings still change';
 end $$;
 reset role;

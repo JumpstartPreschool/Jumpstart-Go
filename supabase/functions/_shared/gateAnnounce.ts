@@ -40,7 +40,8 @@ export const TIMING_CHOICES: Record<TimingKey, readonly number[]> = {
   early_min: [10, 15, 20],
   ready_min: [5, 10, 15],
   urgent_min: [3, 5, 7],
-  reminder_min: [1, 2, 3, 5],
+  // Not every minute: with several trips waiting, a 1-minute reminder keeps the gate speaking without a pause (0045).
+  reminder_min: [2, 3, 5],
 }
 
 export const TEMPLATE_KEYS: readonly TemplateKey[] = ['pickup_eta', 'pickup_late', 'pickup_arrived', 'pickup_cancelled', 'dropoff_eta', 'dropoff_late', 'dropoff_arrived', 'dropoff_cancelled']
@@ -149,15 +150,21 @@ export const PREMADE_STEPS = [2, 5, 10, 15] as const
 export type Eta =
   | { kind: 'due' }
   | { kind: 'minutes'; minutes: number }
+  | { kind: 'overdue'; minutes: number }
   | { kind: 'clock'; at: Date; minutes: number }
 
 /**
  * The one rule for how an arrival time is said, from the trip's arrive_at and now: within a minute or past it, "any
- * moment now"; up to about an hour, the nearest step ("in about ten minutes"; 13 minutes is about fifteen, 6 about
+ * moment now" (up to 5 minutes past, then "was expected about ten minutes ago", so a late parent is never "any moment
+ * now"); up to about an hour, the nearest step ("in about ten minutes"; 13 minutes is about fifteen, 6 about
  * five); further out, the clock time ("at about one twenty-two in the afternoon").
  */
+/** Past arrive_at by more than this, the parent is overdue rather than due. */
+const OVERDUE_AFTER_MIN = 5
+
 export function etaOf(arriveAtMs: number, nowMs: number): Eta {
   const left = (arriveAtMs - nowMs) / 60_000
+  if (left < -OVERDUE_AFTER_MIN) return { kind: 'overdue', minutes: Math.max(5, Math.round(-left / 5) * 5) }
   if (left <= 1) return { kind: 'due' }
   // Minutes in quarter hours this far out, so a {{minutes}} wording doesn't need a new recording every minute.
   if (left > 67.5) return { kind: 'clock', at: new Date(arriveAtMs), minutes: Math.round(left / 15) * 15 }
@@ -169,6 +176,7 @@ export function etaOf(arriveAtMs: number, nowMs: number): Eta {
 /** "in about ten minutes", "any moment now", "at about one twenty-two in the afternoon". India time. */
 export function etaWords(eta: Eta): string {
   if (eta.kind === 'due') return 'any moment now'
+  if (eta.kind === 'overdue') return eta.minutes >= 60 ? 'was expected over an hour ago' : `was expected about ${numberWords(eta.minutes)} minutes ago`
   if (eta.kind === 'minutes') return `in about ${numberWords(eta.minutes)} minutes`
   return `at about ${clockAt(eta.at)}`
 }
@@ -193,6 +201,12 @@ export type GateEvent =
   | { kind: Kind; state: 'eta' | 'late'; eta: Eta; arriveAt: Date }
   | { kind: Kind; state: 'arrived' }
   | { kind: Kind; state: 'cancelled' }
+
+/** Said when the arrival time has passed by more than 5 minutes; an admin's template can't phrase this ("will arrive was expected"). */
+const OVERDUE: Record<Kind, string> = {
+  pickup: "{{child_name}}'s {{relation}} has not arrived for pickup yet and {{eta}}.",
+  dropoff: '{{child_name}} has not arrived for drop-off yet and {{eta}}.',
+}
 
 const keyFor = (e: GateEvent): TemplateKey => `${e.kind}_${e.state}` as TemplateKey
 
@@ -229,6 +243,7 @@ export function messageFor(settings: GateSettings, e: GateEvent, child: Announce
   let template = settings[key]
   // Due, and the admin's template says minutes or a clock time: those would be wrong now, so the default says it.
   if ((e.state === 'eta' || e.state === 'late') && e.eta.kind === 'due' && !variablesIn(template).includes('eta')) template = DEFAULT_GATE[key]
+  if ((e.state === 'eta' || e.state === 'late') && e.eta.kind === 'overdue') template = OVERDUE[e.kind]
   try {
     return fill(template, values)
   } catch {

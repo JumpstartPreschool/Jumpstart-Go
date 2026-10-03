@@ -84,10 +84,10 @@ function TemplateEditor({ k, value, fallback, onChange, onPlay, playing }: {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="vault__label">The gate hears</p>
           {(k.endsWith('_eta') || k.endsWith('_late')) && (
-            <div className="flex gap-1.5" role="radiogroup" aria-label="Example arrival">
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Example arrival">
               {([15, 10, 5, 0] as const).map((m) => (
                 <button key={m} type="button" role="radio" aria-checked={eta === m} onClick={() => setEta(m)}
-                  className={`vault__copy !min-h-9 !px-3 !text-[13px] ${eta === m ? '!bg-white/20' : ''}`}>{m ? `${m} min` : 'Due'}</button>
+                  className={`vault__copy !min-h-11 !min-w-11 !px-3 !text-[13px] ${eta === m ? '!bg-white/20' : ''}`}>{m ? `${m} min` : 'Due'}</button>
               ))}
             </div>
           )}
@@ -119,16 +119,17 @@ export function GateAnnouncementsCard() {
   const [playing, setPlaying] = useState<string | null>(null)
   const [heard, setHeard] = useState<string | null>(null)
 
+  /** Shows a settings row, from a read or from the save that just returned it. */
+  const show = (data: unknown) => {
+    const s = gateSettings(data as Parameters<typeof gateSettings>[0])
+    const row = (data ?? {}) as Record<string, unknown>
+    const custom = [...TEMPLATE_KEYS, ...OPENING_KEYS].some((k) => row[k] != null) || TIMING_KEYS.some((k) => row[k] != null && row[k] !== DEFAULT_GATE[k])
+    setSaved({ s, updated_at: (row.updated_at as string | undefined) ?? null, custom })
+    setDraft(s)
+  }
   const load = () => {
     setLoadError(null)
-    void supabase.from('gate_announcement_settings').select('*').maybeSingle().then(({ data, error: e }) => {
-      if (e) return setLoadError(explainDbError(e))
-      const s = gateSettings(data)
-      const row = (data ?? {}) as Record<string, unknown>
-      const custom = [...TEMPLATE_KEYS, ...OPENING_KEYS].some((k) => row[k] != null) || TIMING_KEYS.some((k) => row[k] != null && row[k] !== DEFAULT_GATE[k])
-      setSaved({ s, updated_at: (row.updated_at as string | undefined) ?? null, custom })
-      setDraft(s)
-    })
+    void supabase.from('gate_announcement_settings').select('*').maybeSingle().then(({ data, error: e }) => (e ? setLoadError(explainDbError(e)) : show(data)))
   }
   useEffect(load, [])
 
@@ -143,12 +144,13 @@ export function GateAnnouncementsCard() {
     // A wording the same as the default is saved as "default", so it follows any future improvement to the default.
     const p: Record<string, unknown> = Object.fromEntries(TIMING_KEYS.map((k) => [k, next[k]]))
     for (const k of [...TEMPLATE_KEYS, ...OPENING_KEYS]) p[k] = next[k].trim() === DEFAULT_GATE[k] ? null : next[k].trim()
-    const { error: e } = await supabase.rpc('admin_save_gate_announcements', { p })
+    const { data, error: e } = await supabase.rpc('admin_save_gate_announcements', { p })
     setBusy(false)
     if (e) return setError(explainDbError(e))
     setConfirmReset(false)
     toast('Saved. Gate iPads use it from their next announcement.')
-    load()
+    // The save returns the row it stored: no second read that could fail or overwrite edits made meanwhile.
+    show(data)
   }
 
   /** The draft as the gate would say it, through the same voice as the gate: the school's clips, made if needed. */
@@ -170,7 +172,7 @@ export function GateAnnouncementsCard() {
     }
   }
 
-  if (loadError) return <ErrorState title="Couldn't load gate announcements" onRetry={load}>{loadError}</ErrorState>
+  if (loadError && !saved) return <ErrorState title="Couldn't load gate announcements" onRetry={load}>{loadError}</ErrorState>
   if (!saved) return <div className="card h-[640px] animate-pulse rounded-2xl" aria-label="Loading" />
 
   return (

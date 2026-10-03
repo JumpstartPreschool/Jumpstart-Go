@@ -16,7 +16,7 @@ const trip = (over: Partial<Trip>): Trip => ({
   created_at: iso(T0), updated_at: iso(T0), acknowledged_by: null, acknowledged_at: null, ready_at: null, closed_at: null, handed_to: null, ...over,
 }) as Trip
 
-function gateDevice(settings: GateSettings = DEFAULT_GATE) {
+function gateDevice(settings: GateSettings = DEFAULT_GATE, since?: number) {
   const said: Array<{ at: number; text: string }> = []
   const announcer = createAnnouncer({
     chime: async () => {},
@@ -24,7 +24,7 @@ function gateDevice(settings: GateSettings = DEFAULT_GATE) {
     speak: (text: string) => new Promise<void>((r) => setTimeout(() => { said.push({ at: (Date.now() - T0) / 60_000, text }); r() }, 3_000)),
   }, settings.reminder_min * 60_000)
   announcer.configure({ openings: { new: settings.opening_new, urgent: settings.opening_urgent, reminder: settings.opening_reminder }, repeatMs: settings.reminder_min * 60_000 })
-  const memory: GateMemory = { announced: new Map(), cancelHeard: new Set(), lateHeard: new Map() }
+  const memory: GateMemory = { announced: new Map(), cancelHeard: new Set(), lateHeard: new Map(), since }
   let trips: Trip[] = []
   /** Runs the gate for some minutes, a pass every 5 seconds as the iPad does. */
   async function run(minutes: number) {
@@ -84,11 +84,11 @@ describe('a trip, as the gate hears it', () => {
   it('the admin\'s wording, openings and timings, end to end', async () => {
     const s = gateSettings({
       pickup_eta: '{{preferred_name}}, pickup by {{relation}}, {{eta}}.', opening_new: 'Attention please.', opening_reminder: 'Once more.',
-      early_min: 20, ready_min: 15, urgent_min: 7, reminder_min: 1,
+      early_min: 20, ready_min: 15, urgent_min: 7, reminder_min: 2,
     })
     const g = gateDevice(s)
     g.setTrips([trip({ arrive_at: iso(T0 + 18 * 60_000) })])
-    await g.run(1.2)
+    await g.run(2.2)
     expect(g.said.map((x) => x.text).slice(0, 2)).toEqual(['Attention please. Aarav, pickup by mother, in about twenty minutes.', 'Once more. Aarav, pickup by mother, in about fifteen minutes.'])
   })
 
@@ -131,5 +131,13 @@ describe('a trip, as the gate hears it', () => {
       "Pickup update. Aarav Sharma's mother is running late and will arrive in about twenty minutes.",
       "Pickup update. Aarav Sharma's mother is running late and will arrive in about thirty minutes.",
     ])
+  })
+
+  it('an iPad reloaded after a running-late update does not announce it again, but still announces the trip with its time', async () => {
+    const lateAt = T0 - 2 * 60_000
+    const g = gateDevice(DEFAULT_GATE, T0)
+    g.setTrips([trip({ arrive_at: iso(T0 + 15 * 60_000), late_from: iso(T0 + 5 * 60_000), late_at: iso(lateAt), updated_at: iso(lateAt) })])
+    await g.run(1)
+    expect(g.said.map((x) => x.text)).toEqual(["New announcement. Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready."])
   })
 })

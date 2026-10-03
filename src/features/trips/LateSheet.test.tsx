@@ -23,8 +23,9 @@ const trip = { id: 't1', child_id: 'c', direction: 'pickup', status: 'en_route',
 function show() {
   const user = userEvent.setup()
   const onClose = vi.fn()
-  render(<ToastProvider><LateSheet open onClose={onClose} trip={trip} first="Aarav" programme={programme} nowMs={NOW} /></ToastProvider>)
-  return { user, onClose }
+  const onChanged = vi.fn()
+  render(<ToastProvider><LateSheet open onClose={onClose} onChanged={onChanged} trip={trip} first="Aarav" programme={programme} nowMs={NOW} /></ToastProvider>)
+  return { user, onClose, onChanged }
 }
 beforeEach(() => { api.runningLate.mockImplementation(async (_id, change) => ({ ...trip, arrive_at: 'minutes' in change ? new Date(Date.parse(trip.arrive_at) + change.minutes * 60_000).toISOString() : change.at.toISOString() })) })
 afterEach(() => { cleanup(); vi.clearAllMocks() })
@@ -40,12 +41,13 @@ it('offers +5, +10 and +15 on the time the school has, and Custom time', () => {
 })
 
 it.each([5, 10, 15] as const)('sends +%i minutes and confirms the new time', async (n) => {
-  const { user, onClose } = show()
+  const { user, onClose, onChanged } = show()
   await user.click(screen.getByRole('radio', { name: new RegExp(`\\+${n}\\s*min`) }))
   await user.click(screen.getByRole('button', { name: 'Tell the school' }))
-  await waitFor(() => expect(api.runningLate).toHaveBeenCalledWith('t1', { minutes: n }, ''))
+  await waitFor(() => expect(api.runningLate).toHaveBeenCalledWith('t1', { minutes: n }, '', trip.arrive_at))
   expect(await screen.findByText(new RegExp(`The school knows you're running late. New arrival: about 1:${10 + n} PM.`))).toBeInTheDocument()
   expect(onClose).toHaveBeenCalled()
+  expect(onChanged).toHaveBeenCalled()
 })
 
 it('sends a custom later time and an optional note, without asking for a reason', async () => {
@@ -68,5 +70,14 @@ it("shows the server's reason when it refuses (a finished trip, say)", async () 
   const { user, onClose } = show()
   await user.click(screen.getByRole('button', { name: 'Tell the school' }))
   expect(await screen.findByText(/already finished/)).toBeInTheDocument()
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+it('when the time has moved since the parent looked, says so, reloads the trip and does not close', async () => {
+  api.runningLate.mockRejectedValueOnce({ code: 'P0001', message: "stale: The time changed. Here's the new time." })
+  const { user, onClose, onChanged } = show()
+  await user.click(screen.getByRole('button', { name: 'Tell the school' }))
+  expect(await screen.findByText("The time changed. Here's the new time.")).toBeInTheDocument()
+  expect(onChanged).toHaveBeenCalledTimes(1)
   expect(onClose).not.toHaveBeenCalled()
 })

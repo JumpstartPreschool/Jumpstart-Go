@@ -101,7 +101,13 @@ export function shouldAnnounce(trip: Trip, classId: string, myClasses: ReadonlyS
  * What the gate queue remembers between passes: each trip's last announced version, cancellations already said, and
  * each trip's last running-late update already said (by the time it replaced, which changes with every update).
  */
-export interface GateMemory { announced: Map<string, string>; cancelHeard: Set<string>; lateHeard: Map<string, string> }
+export interface GateMemory {
+  announced: Map<string, string>
+  cancelHeard: Set<string>
+  lateHeard: Map<string, string>
+  /** When this iPad started listening. A running-late update from before then was announced (or missed) in an earlier session: a reload never repeats it. */
+  since?: number
+}
 
 /**
  * One pass over today's trips (every few seconds and on every change): new trips are announced, each again as a new
@@ -130,6 +136,7 @@ export function syncGate(
         // A new running-late update (said within the last 10 minutes, once): its own words the first time.
         const lateKey = isLate(t) && t.late_from ? `${t.late_from}|${t.arrive_at}` : null
         const freshLate = !!lateKey && memory.lateHeard.get(t.id) !== lateKey && nowMs - Date.parse(t.late_at!) < 10 * 60_000
+          && (memory.since === undefined || Date.parse(t.late_at!) >= memory.since)
         if (lateKey) memory.lateHeard.set(t.id, lateKey)
         announcer.announce({
           id, childId: t.child_id, urgent, chime: urgent || freshLate ? 'flagged' : 'normal', priority: priorityOf(t, nowMs, s), order: Date.parse(t.arrive_at),

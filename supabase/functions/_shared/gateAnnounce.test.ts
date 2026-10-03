@@ -23,7 +23,10 @@ describe('one rule for how an arrival time is said', () => {
 
   it('says any moment now within a minute or after the time, and a clock time past about an hour', () => {
     expect(etaWords(etaOf(inMin(0.5), NOW))).toBe('any moment now')
-    expect(etaWords(etaOf(inMin(-12), NOW))).toBe('any moment now')
+    expect(etaWords(etaOf(inMin(-4), NOW))).toBe('any moment now')
+    // More than 5 minutes past: overdue, never "any moment now".
+    expect(etaWords(etaOf(inMin(-12), NOW))).toBe('was expected about ten minutes ago')
+    expect(etaWords(etaOf(inMin(-90), NOW))).toBe('was expected over an hour ago')
     expect(etaWords(etaOf(inMin(22 + 60), NOW))).toBe('at about two twenty two in the afternoon')
     expect(etaWords(etaOf(Date.parse('2026-09-28T06:35:00Z'), Date.parse('2026-09-28T04:00:00Z')))).toBe('at about twelve oh five in the afternoon')
   })
@@ -64,6 +67,8 @@ describe('templates', () => {
     expect(openingProblem('Hello. There.')).not.toBeNull()
     expect(timingProblem({ early_min: 10, ready_min: 10, urgent_min: 5, reminder_min: 2 })).toMatch(/before/)
     expect(timingProblem({ early_min: 15, ready_min: 10, urgent_min: 5, reminder_min: 4 })).toMatch(/listed/)
+    // One-minute reminders can keep a busy gate speaking without a pause.
+    expect(timingProblem({ early_min: 15, ready_min: 10, urgent_min: 5, reminder_min: 1 })).toMatch(/listed/)
   })
 
   it('renders the sample the editor previews', () => {
@@ -79,5 +84,44 @@ describe('templates', () => {
     const made = childMessages(s, { fullName: 'Aarav Sharma', name: 'Aarav', spoken: null }, ['Mother'])
     expect(made.some((m) => m.includes('pickup'))).toBe(true)
     expect(made.some((m) => /pickup .*at /.test(m) && !/cancel|arrived/.test(m))).toBe(false)
+  })
+})
+
+describe('every announcement says the latest arrival time', () => {
+  const say = (kind: 'pickup' | 'dropoff', state: 'eta' | 'late', arriveInMin: number, now = NOW, s = DEFAULT_GATE) =>
+    messageFor(s, { kind, state, eta: etaOf(inMin(arriveInMin), now), arriveAt: new Date(inMin(arriveInMin)) }, SAMPLE_CHILD, 'Mother')
+
+  it('on the way and reminders follow arrive_at as it moves, and as the clock does', () => {
+    expect(say('pickup', 'eta', 10)).toContain('in about ten minutes')
+    // The parent moved arrive_at 10 minutes later: the same moment now says fifteen, never the old ten.
+    expect(say('pickup', 'eta', 15)).toContain('in about fifteen minutes')
+    // A reminder two minutes on says the time left then.
+    expect(messageFor(DEFAULT_GATE, { kind: 'pickup', state: 'eta', eta: etaOf(inMin(15), NOW + 10 * 60_000), arriveAt: new Date(inMin(15)) }, SAMPLE_CHILD, 'Mother')).toContain('in about five minutes')
+    expect(say('dropoff', 'eta', 5)).toContain('in about five minutes')
+  })
+
+  it('running late says the new time, in the late wording', () => {
+    expect(say('pickup', 'late', 15)).toBe("Pickup update. Aarav Sharma's mother is running late and will arrive in about fifteen minutes.")
+    expect(say('dropoff', 'late', 5)).toBe('Drop-off update. Aarav Sharma is running late and will arrive in about five minutes.')
+  })
+
+  it('due says any moment now; overdue says how long ago, for both directions', () => {
+    expect(say('pickup', 'eta', 0)).toContain('any moment now')
+    expect(say('pickup', 'eta', -12)).toBe("Aarav Sharma's mother has not arrived for pickup yet and was expected about ten minutes ago.")
+    expect(say('dropoff', 'eta', -12)).toBe('Aarav Sharma has not arrived for drop-off yet and was expected about ten minutes ago.')
+    // An admin's wording can't turn it into "will arrive was expected".
+    const custom = gateSettings({ pickup_eta: '{{child_name}} pickup {{eta}}.' })
+    expect(say('pickup', 'eta', -12, NOW, custom)).toContain('has not arrived')
+  })
+
+  it('arrived and cancelled carry no time at all', () => {
+    expect(messageFor(DEFAULT_GATE, { kind: 'pickup', state: 'arrived' }, SAMPLE_CHILD, 'Mother')).toBe("Aarav Sharma's mother has arrived for pickup. Please get Aarav ready.")
+    expect(messageFor(DEFAULT_GATE, { kind: 'dropoff', state: 'cancelled' }, SAMPLE_CHILD, 'Mother')).toBe('Drop-off for Aarav Sharma is cancelled.')
+  })
+
+  it('an admin template with {{minutes}} or {{arrival_time}} still follows the latest time', () => {
+    const s = gateSettings({ pickup_eta: '{{child_name}} pickup in {{minutes}} minutes, at {{arrival_time}}.' })
+    expect(say('pickup', 'eta', 10, NOW, s)).toBe('Aarav Sharma pickup in ten minutes, at one ten in the afternoon.')
+    expect(say('pickup', 'eta', 15, NOW, s)).toBe('Aarav Sharma pickup in fifteen minutes, at one fifteen in the afternoon.')
   })
 })

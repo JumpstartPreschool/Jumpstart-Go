@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { CalendarDays, CalendarX, Check, MessageSquare, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from '../../ui/icons'
+import { CalendarDays, CalendarX, Check, MessageSquare, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Timer, Trash2, UserPlus, X } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField, TextField } from '../../ui/Field'
@@ -42,6 +42,7 @@ function tripUpdates(t: Trip, kid: Kid, me: string | null): Update[] {
   const who = t.created_by === me ? 'You' : t.traveller_name.split(' ')[0]!
   const word = t.direction === 'pickup' ? 'pickup' : 'drop-off'
   const out: Update[] = [{ key: `${t.id}-sent`, at: t.created_at, icon: <Navigation />, tone: 'bg-accent-soft text-accent-ink', title: `${first(kid)}'s ${word}: on the way`, text: `${who}, about ${clockTime(t.arrive_at)}${t.phoned_in_by ? ', phoned in to the school' : ''}.` }]
+  if (t.late_at && t.late_from) out.push({ key: `${t.id}-late`, at: t.late_at, icon: <Timer />, tone: 'bg-warning-soft text-warning', title: `${first(kid)}'s ${word} time changed`, text: `Now about ${clockTime(t.arrive_at)} (was ${clockTime(t.late_from)}).` })
   if (t.acknowledged_at) out.push({ key: `${t.id}-seen`, at: t.acknowledged_at, icon: <Eye />, tone: 'bg-accent-soft text-accent-ink', title: 'The school has seen it', text: `They're getting ${first(kid)} ready.` })
   if (t.ready_at) out.push({ key: `${t.id}-ready`, at: t.ready_at, icon: <CircleCheck />, tone: 'bg-live-soft text-live', title: `${first(kid)} is ready at the gate`, text: `Ready at ${clockTime(t.ready_at)}.` })
   if (t.closed_at && t.status === 'handed_over') out.push({ key: `${t.id}-done`, at: t.closed_at, icon: <House />, tone: 'bg-live-soft text-live', title: `${first(kid)} has been collected`, text: `At ${clockTime(t.closed_at)}${t.handed_to_name ? `, by ${t.handed_to_name.split(' ')[0]}` : ''}.` })

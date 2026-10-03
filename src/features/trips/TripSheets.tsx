@@ -55,8 +55,8 @@ export function ReasonPicker({ onChange }: { onChange: (v: string) => void }) {
  * "I'm on my way" (TRIP-1, TRIP-2): minutes until arrival, checked against the child's window; a reason when it's outside.
  * Sending again while on the way changes the time, and the gate hears it again.
  */
-export function OnMyWaySheet({ open, onClose, childId, first, direction, programme, trip, nowMs }: {
-  open: boolean; onClose: () => void; childId: string; first: string; direction: Direction; programme: Programme; trip: Trip | null; nowMs: number
+export function OnMyWaySheet({ open, onClose, onChanged, childId, first, direction, programme, trip, nowMs }: {
+  open: boolean; onClose: () => void; onChanged?: () => void; childId: string; first: string; direction: Direction; programme: Programme; trip: Trip | null; nowMs: number
 }) {
   const toast = useToast()
   const nowMin = indiaClock(new Date(nowMs)).minutes
@@ -82,6 +82,7 @@ export function OnMyWaySheet({ open, onClose, childId, first, direction, program
     setError(null)
     try {
       await startTrip(childId, direction, sendMinutes, reason)
+      onChanged?.()
       toast(trip ? `New time sent: about ${formatTime(arrival)}.` : `The school knows you're coming, about ${formatTime(arrival)}.`)
       onClose()
     } catch (e) {
@@ -100,8 +101,8 @@ export function OnMyWaySheet({ open, onClose, childId, first, direction, program
           const closed = checkArrival(programme, direction, nowMin + n) === 'closed'
           return (
             <button key={n} type="button" role="radio" aria-checked={custom === null && n === minutes} disabled={closed} onClick={() => { setMinutes(n); setCustom(null) }}
-              className="choice grid min-h-[200px] justify-items-center content-center gap-2 px-2 py-6 text-center sm:min-h-[228px]">
-              <span className="text-[64px] font-extrabold leading-none tracking-[-0.04em] tabular-nums sm:text-[78px]">{n}</span>
+              className="choice grid min-h-[200px] min-w-0 justify-items-center content-center gap-2 px-1.5 py-6 text-center sm:min-h-[228px]">
+              <span className="text-[48px] font-extrabold leading-none tracking-[-0.04em] tabular-nums min-[360px]:text-[64px] sm:text-[78px]">{n}</span>
               <span className="text-h3 font-extrabold">min</span>
               <span className="text-small font-bold text-ink-2 tabular-nums">{formatTime(nowMin + n)}</span>
             </button>
@@ -141,7 +142,7 @@ const LATE_CHOICES = [5, 10, 15] as const
  * It changes the trip's real arrival time, so the gate's queue, reminders and announcements all follow the new time;
  * the gate hears "… is running late" at once. The child's window is shown as guidance only: it never stops a late time.
  */
-export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { open: boolean; onClose: () => void; trip: Trip; first: string; programme: Programme; nowMs: number }) {
+export function LateSheet({ open, onClose, onChanged, trip, first, programme, nowMs }: { open: boolean; onClose: () => void; onChanged?: () => void; trip: Trip; first: string; programme: Programme; nowMs: number }) {
   const toast = useToast()
   const [extra, setExtra] = useState<(typeof LATE_CHOICES)[number]>(10)
   const [custom, setCustom] = useState<Minutes | null>(null)
@@ -162,11 +163,17 @@ export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { op
     setError(null)
     try {
       const at = new Date(nowMs + (arrival - nowMin) * 60_000)
-      const done = await runningLate(trip.id, custom === null ? { minutes: extra } : { at }, note)
+      // The time shown is the time the change builds on: if it has moved since (a first tap whose reply was lost, the
+      // other parent), the server refuses instead of adding the minutes twice.
+      const done = await runningLate(trip.id, custom === null ? { minutes: extra } : { at }, note, trip.arrive_at)
       toast(`The school knows you're running late. New arrival: about ${clockTime(done.arrive_at)}.`)
+      onChanged?.()
       onClose()
     } catch (e) {
-      setError(explainTripError(e as { code?: string; message?: string }))
+      const err = e as { code?: string; message?: string }
+      setError(explainTripError(err))
+      // Stale: show the new time the school has, and let the parent choose again from it.
+      if (err.message?.startsWith('stale:')) { setCustom(null); onChanged?.() }
     } finally {
       setBusy(false)
     }
@@ -177,9 +184,9 @@ export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { op
       <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="How much later">
         {LATE_CHOICES.map((n) => (
           <button key={n} type="button" role="radio" aria-checked={custom === null && n === extra} disabled={base + n > 23 * 60 + 59}
-            onClick={() => { setExtra(n); setCustom(null) }} className="choice grid justify-items-center gap-1 px-2 py-4 text-center">
-            <span className="text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">+{n}<span className="ml-0.5 text-small font-bold">min</span></span>
-            <span className="text-caption font-semibold text-ink-2 tabular-nums">about {formatTime(base + n)}</span>
+            onClick={() => { setExtra(n); setCustom(null) }} className="choice grid min-h-[104px] min-w-0 content-center justify-items-center gap-1 px-1.5 py-3 text-center">
+            <span className="text-[26px] font-extrabold leading-none tracking-[-0.03em] tabular-nums min-[360px]:text-[30px]">+{n}<span className="block text-small font-bold leading-tight">min</span></span>
+            <span className="text-caption font-semibold leading-tight text-ink-2 tabular-nums">about {formatTime(base + n)}</span>
           </button>
         ))}
         <button type="button" role="radio" aria-checked={custom !== null} disabled={!customTimes.length}
@@ -219,7 +226,7 @@ export function LateSheet({ open, onClose, trip, first, programme, nowMs }: { op
 }
 
 /** Cancel a trip on the way. The gate hears that it's cancelled. */
-export function CancelSheet({ open, onClose, trip, first }: { open: boolean; onClose: () => void; trip: Trip; first: string }) {
+export function CancelSheet({ open, onClose, onChanged, trip, first }: { open: boolean; onClose: () => void; onChanged?: () => void; trip: Trip; first: string }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -228,6 +235,7 @@ export function CancelSheet({ open, onClose, trip, first }: { open: boolean; onC
     setError(null)
     try {
       await cancelTrip(trip.id)
+      onChanged?.()
       toast('Cancelled. The gate has been told.')
       onClose()
     } catch (e) {

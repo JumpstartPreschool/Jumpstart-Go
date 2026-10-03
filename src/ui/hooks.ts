@@ -18,8 +18,12 @@ export function useOnline(): boolean {
 export function useNow(everyMs = 1000): number {
   const [now, setNow] = useState(clockNow)
   useEffect(() => {
-    const id = setInterval(() => setNow(clockNow()), everyMs)
-    return () => clearInterval(id)
+    const tick = () => setNow(clockNow())
+    const id = setInterval(tick, everyMs)
+    // A timer frozen in the background (iOS) is stale on return: read the clock at once.
+    const onVisible = () => document.visibilityState === 'visible' && tick()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
   }, [everyMs])
   return now
 }
