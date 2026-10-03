@@ -1,13 +1,13 @@
 -- 0046: push delivery is retried. Its own person: a parent with one device.
 set session_replication_role = replica;
-insert into auth.users (id, phone) values ('00000000-0000-0000-0000-000000020a01', '919833300021');
+insert into auth.users (id, phone) values ('00000000-0000-0000-0000-000000046a01', '919833304601');
 insert into public.profiles (id, user_id, full_name, phone, active, app_access)
-  values ('00000000-0000-0000-0000-000000020b01', '00000000-0000-0000-0000-000000020a01', 'Retry Parent', '+919833300021', true, true);
+  values ('00000000-0000-0000-0000-000000046b01', '00000000-0000-0000-0000-000000046a01', 'Retry Parent', '+919833304601', true, true);
 set session_replication_role = origin;
 delete from app.push_outbox;
 insert into public.push_subscriptions (profile_id, endpoint, p256dh, auth) values
-  ('00000000-0000-0000-0000-000000020b01', 'https://fcm.googleapis.com/fcm/send/retry-e2', repeat('p', 60), repeat('a', 20));
-insert into app.push_outbox (profile_id, title, body) values ('00000000-0000-0000-0000-000000020b01', 'Retry', 'me');
+  ('00000000-0000-0000-0000-000000046b01', 'https://fcm.googleapis.com/fcm/send/retry-e2', repeat('p', 60), repeat('a', 20));
+insert into app.push_outbox (profile_id, title, body) values ('00000000-0000-0000-0000-000000046b01', 'Retry', 'me');
 
 -- A transient failure puts it back, up to 3 tries.
 do $$ declare o bigint; begin
