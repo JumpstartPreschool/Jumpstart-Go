@@ -99,6 +99,17 @@
 3. **Test on a real iPad:** Home Screen install, Start duty, the screen staying on for a full shift, and the sound check with Silent Mode on and off.
 4. **Publishing:** give the Cloudflare token Workers Scripts: Edit, then `npm run deploy:design`.
 
+## Done on 2026-10-03: go-live hardening
+- WATI v3 checked against WATI's docs (send, template list, webhook events). The webhook maps WATI's exact event names (delivered and read were recorded as sent), keeps the failure reason, compares its key in constant time and asks WATI to retry when the database is down. `send-sms` logs before it sends, stays under Auth's 5-second hook limit, keeps the country code for numbers outside India, and treats a refusal inside a 200 as a failure. The 6-an-hour code limit moved to the send path (`otp_send_allowed`, `0044`), so a stranger can't lock a parent out. Only the sign-in template is required.
+- Gate voice: announcements were cut after their first words. The silent sentence that unlocks the iPad's voice at Start duty hands iOS's audio session back when it ends, interrupting the clip playing then; sound now waits for it. A clip iOS interrupts or that ends early is played again, or said by the device voice, and a cut sentence is never counted as heard. The sound check reports a cut sentence as a failure.
+- Parents: Running late can't add the minutes twice after a lost reply (`0045`), Running late and Change time hide after I've arrived, the card updates at once, the late sheet shows the card's minute, and live updates reconnect. Gate: overdue trips say how late they are instead of "any moment now"; admins get 20 wording changes a day and Reset doesn't count; reminders at least 2 minutes apart.
+- Push: `push-send` answers 503 without VAPID secrets instead of crashing; failed deliveries are retried up to 3 times (`0046`); signing out removes this device's subscription.
+- Center Leader is shown as Center Leader everywhere (it showed Center coordinator after choosing the area). The gate shows Leaders only Acknowledge and Ready; Coordinators also Check in, Hand over and Enter code.
+- Sign-in: the WhatsApp mark on WhatsApp buttons; the code-sent message no longer lingers over the next screen.
+- `npm run test:db` runs again (fixtures given mobiles after `0039`).
+- Live data: the "Demo" people, children, trips and sign-in accounts from 2026-10-02 were removed. QA data for testing: children "QA Test Tara" and "QA Test Vihaan" with the owner's account as parent, and "QA Test Grandparent" (no app access).
+- **Not deployed yet:** `0044`–`0046`, the functions and the app wait for the owner to run the deploy steps (secrets, then deploy).
+
 ## Waiting on the owner
 - **WhatsApp sign-in setup** (paid, approved 2026-10-02): create the three WATI templates and wait for Meta to approve them; set the secrets; turn on the Phone provider and the Send SMS hook; deploy `send-sms`, `whatsapp-invite` and `wati-webhook`; add the WATI webhook. Exact steps: "Turning on WhatsApp through WATI" in [environments.md](../infrastructure/environments.md).
 - A mobile number for every staff member who needs the app (the gate tablet's account and anyone without one can't sign in until it's added).
