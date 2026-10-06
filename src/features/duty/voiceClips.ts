@@ -31,7 +31,11 @@ export const secs = (n: unknown) => (typeof n === 'number' && Number.isFinite(n)
 export function voiceLog(stage: string, detail: Record<string, unknown> = {}): void {
   const failed = /fail|unavailable|cut|paused|not-ready/.test(stage)
   ;(failed ? console.warn : console.info)('[voice]', stage, detail)
+  if (failed) problem = { stage, detail, at: Date.now() }
 }
+// The latest thing that went wrong with the voice, so the duty screen can say why the device's own voice was used.
+let problem: { stage: string; detail: Record<string, unknown>; at: number } | null = null
+export const lastVoiceProblem = () => problem
 // Loaded when first needed, so these modules (and their tests) don't open a Supabase connection just by loading.
 const db = async () => (await import('../../lib/supabase')).supabase
 

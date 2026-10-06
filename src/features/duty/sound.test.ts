@@ -39,6 +39,8 @@ vi.mock('./voiceClips', () => ({
   voiceChild: () => null,
   markVoice: () => {},
   voiceLog: () => {},
+  lastVoiceProblem: () => null,
+  storedClipAudio: async () => null,
   secs: () => null,
   loadVoiceVersion: async () => null,
   clipAudio: (_ctx: unknown, line: string) => new Promise((resolve, reject) => pending.set(line, { resolve, reject })),
@@ -379,5 +381,18 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
     await vi.advanceTimersByTimeAsync(sound.CLIP_BUDGET_MS + 700)
     expect(await said).toBe('cut')
     deviceVoice.speak.mockImplementation((u: FakeUtterance) => unlockEnds(u) || heard.push(`device:${u.text}`))
+  })
+})
+
+describe('why the phone used its own voice', () => {
+  it('says the reason in plain words', async () => {
+    const { explainVoiceProblem } = await import('./sound')
+    const at = 1_000_000
+    expect(explainVoiceProblem(null, 6000, at)).toBe("the school's voice didn't arrive within 6 seconds")
+    expect(explainVoiceProblem({ stage: 'clip-failed', detail: { reason: 'voice paused' }, at }, 2500, at)).toMatch(/too many new recordings/)
+    expect(explainVoiceProblem({ stage: 'clip-failed', detail: { reason: 'TimeoutError: signal timed out' }, at }, 2500, at)).toMatch(/connection/)
+    expect(explainVoiceProblem({ stage: 'audio-paused', detail: {}, at }, 2500, at)).toBe('this phone had paused its sound')
+    // An old problem isn't blamed for a new announcement.
+    expect(explainVoiceProblem({ stage: 'audio-paused', detail: {}, at }, 2500, at + 60_000)).toBe("the school's voice didn't arrive within 2.5 seconds")
   })
 })

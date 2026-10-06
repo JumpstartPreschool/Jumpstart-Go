@@ -129,6 +129,7 @@
 ## Done on 2026-10-07: the gate speaking in an American voice
 - Cause: the American voice is the iPhone's own fallback (Samantha), used when the school's Indian voice isn't ready in 2.5 s. Looking ahead to each open trip's next reminder made a live clip about once a minute per trip, so with several test trips open a gate person used up the 300 live clips an hour; the server answered 429 and the phone paused live clips for 10 minutes, falling back to the device voice.
 - Fix: looking ahead uses only clips already made (`storedClipAudio`, `warm`); after a 429 the phone tries again in 1 minute; without an Indian woman's voice on the device it waits up to 6 s for the school's voice.
+- Live check (2026-10-07): voice-drain runs every minute (1,440 successful runs a day), all 13 active children ready, Azure en-IN-NeerjaNeural, 37,881 of 450,000 characters, 3 live requests in the last hour: the server side is healthy. The duty screen now says after each announcement which voice was used and, when it was the device's, why (`onVoiceUsed`, `explainVoiceProblem`), to find the phone-side cause on a real iPhone.
 - `scripts/voice-check.sql` (read-only): whether pg_cron's voice-drain job runs, each active child's recordings, live requests in the last hour and this month's characters.
 
 ## Remaining work (in order)

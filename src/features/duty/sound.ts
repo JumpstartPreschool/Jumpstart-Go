@@ -1,6 +1,6 @@
 import { DEFAULT_OPENINGS, voiceParts } from '../../../supabase/functions/_shared/announce.ts'
 import type { AnnouncerOutput, ChimeKind } from './announcer'
-import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, secs, storedClipAudio, voiceChild, voiceLog } from './voiceClips'
+import { clearRetiredVoiceCaches, clipAudio, lastVoiceProblem, loadVoiceVersion, markVoice, secs, storedClipAudio, voiceChild, voiceLog } from './voiceClips'
 
 /**
  * Chime and voice for announcements on the coordinator's iPad (PRD D7, D50). The voice is the school's Indian English
@@ -241,10 +241,39 @@ function play(buf: AudioBuffer, mine: number): Promise<'done' | 'cut'> {
  */
 export type Spoken = 'school' | 'device' | 'cut' | 'silent'
 
+/** Which voice the last announcement used, and why when it wasn't the school's: shown on the duty screen. */
+export interface VoiceUsed { voice: Spoken; why: string | null; at: number }
+const usedListeners = new Set<(v: VoiceUsed) => void>()
+export function onVoiceUsed(fn: (v: VoiceUsed) => void): () => void {
+  usedListeners.add(fn)
+  return () => void usedListeners.delete(fn)
+}
+/** The reason in plain words, from the voice log's latest problem in the last 30 seconds. */
+export function explainVoiceProblem(p: { stage: string; detail: Record<string, unknown>; at: number } | null, budgetMs: number, now = Date.now()): string {
+  const fallback = `the school's voice didn't arrive within ${budgetMs / 1000} seconds`
+  if (!p || now - p.at > 30_000) return fallback
+  const reason = String(p.detail.reason ?? p.detail.status ?? '')
+  if (p.stage === 'audio-paused') return 'this phone had paused its sound'
+  if (p.stage === 'device-voice-unavailable') return 'this phone has no suitable voice installed'
+  if (/paused|429/.test(reason)) return 'too many new recordings were asked for; the school voice is back within a minute'
+  if (/signed out/.test(reason)) return 'this phone is signed out'
+  if (/Timeout|abort|fetch|network|Load failed/i.test(reason)) return 'the connection to the voice service was too slow'
+  if (/decod|EncodingError/i.test(reason)) return "this phone couldn't play the recording"
+  if (/pronounce 5\d\d/.test(reason)) return 'the voice service had a problem'
+  return fallback
+}
+
 export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<Spoken> {
+  const budget = budgetMs === CLIP_BUDGET_MS && speechSupported && !pickIndianVoice(speechSynthesis.getVoices()) ? NO_INDIAN_VOICE_BUDGET_MS : budgetMs
+  const voice = await speakWith(text, childId, budget)
+  const used: VoiceUsed = { voice, why: voice === 'school' ? null : explainVoiceProblem(lastVoiceProblem(), budget), at: Date.now() }
+  usedListeners.forEach((fn) => fn(used))
+  return voice
+}
+
+async function speakWith(text: string, childId: string | undefined, budgetMs: number): Promise<Spoken> {
   const parts = voiceParts(text, voiceChild(childId), openings)
   if (!parts.length) return 'silent'
-  if (budgetMs === CLIP_BUDGET_MS && speechSupported && !pickIndianVoice(speechSynthesis.getVoices())) budgetMs = NO_INDIAN_VOICE_BUDGET_MS
   const mine = generation
   if (unlocking) await unlocking
   markVoice(text, 'chime-end')
