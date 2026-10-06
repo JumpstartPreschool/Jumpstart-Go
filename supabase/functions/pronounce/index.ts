@@ -9,7 +9,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { clipKey, clipPath } from '../_shared/announce.ts'
 import { childMessages, commonPhrases, gateSettings, type GateSettings } from '../_shared/gateAnnounce.ts'
-import { azureSpeech, TtsBusy, type TTSProvider } from '../_shared/tts.ts'
+import { azureSpeech, indianWomanVoice, TtsBusy, type TTSProvider } from '../_shared/tts.ts'
 import { handle } from './handler.ts'
 
 const BUCKET = 'voice-audio'
@@ -22,11 +22,14 @@ const log = (event: string, extra: Record<string, unknown> = {}) => console.log(
 
 /** The configured provider, or null (with the reason logged) when a secret is missing or malformed. */
 function makeProvider(): TTSProvider | null {
+  // Always an Indian English woman's voice: anything else set by mistake is replaced by the default, and said so.
+  const { voice, replaced } = indianWomanVoice(Deno.env.get('AZURE_SPEECH_VOICE'))
+  if (replaced) log('voice_replaced', { reason: 'AZURE_SPEECH_VOICE is not an Indian English woman\'s voice', using: voice })
   try {
     return azureSpeech({
       key: Deno.env.get('AZURE_SPEECH_KEY') ?? '',
       region: (Deno.env.get('AZURE_SPEECH_REGION') ?? '').trim().toLowerCase(),
-      voice: (Deno.env.get('AZURE_SPEECH_VOICE') ?? 'en-IN-NeerjaNeural').trim(),
+      voice,
       style: (Deno.env.get('AZURE_SPEECH_STYLE') ?? '').trim().toLowerCase(),
       rate: (Deno.env.get('AZURE_SPEECH_RATE') ?? '').trim(),
     })

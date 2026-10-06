@@ -160,6 +160,17 @@ describe('send-sms hook handler', () => {
     expect(sent.sendRefund).not.toHaveBeenCalled()
   })
 
+  it('treats a WATI timeout as a temporary failure: the hook answers 503, the place is given back, and the code is never logged', async () => {
+    const { deps } = setupDeps({ wati: { sendTemplate: vi.fn(async () => ({ ok: false as const, category: 'timeout' as const, retryable: true, localId: 'x' })) } })
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '482913' } }) }), deps)
+    expect((await res.json()).error.http_code).toBe(503)
+    expect(deps.sendRefund).toHaveBeenCalledTimes(1)
+    expect(deps.logDone).toHaveBeenCalledWith('fixed-local-id', null, 'timeout')
+    expect(JSON.stringify([...(deps.log as ReturnType<typeof vi.fn>).mock.calls, ...(deps.logDone as ReturnType<typeof vi.fn>).mock.calls, ...errors.mock.calls])).not.toContain('482913')
+    errors.mockRestore()
+  })
+
   it('still sends when the log row cannot be written', async () => {
     const { deps } = setupDeps({ log: vi.fn(async () => { throw new Error('db') }) })
     const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), deps)

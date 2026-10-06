@@ -156,8 +156,8 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       // Announcing again (the trip changed) makes it new again: it's news the gate hasn't heard.
       const item = { ...a, seq: existing?.seq ?? seq++, dueAt: Date.now(), heard: false }
       items.set(a.id, item)
-      // Replaced while being said (a new time): the old words stop, and the new ones play next.
-      if (playing?.id === a.id) output.stop?.()
+      // Replaced while being said (a new time, a new stage): the sentence finishes, never cut midway, and the new words
+      // play straight after it. Only Mute, an acknowledgement and End duty stop speech.
       output.prepare?.(spokenFor(item), item.childId)
       soon()
     },

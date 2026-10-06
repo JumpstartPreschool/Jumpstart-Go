@@ -115,6 +115,9 @@ export function sayable(text: string): string {
   return text
     .replace(/\b(\d{1,2}):(\d{2})(?:\s*([AP]M)\b)?/gi, (all, h: string, m: string, half?: string) =>
       +h > 23 || +m > 59 || (half && (+h < 1 || +h > 12)) ? all : timeWords(+h, +m, half))
+    // The school's name as two words: read as one unfamiliar word, Azure's voice dropped "Jumpstart" almost to a whisper
+    // (owner, 2026-10-04). Two familiar words each get their own stress, at the same volume as the rest.
+    .replace(/\bjump\s*-?\s*start\b/gi, 'Jump Start')
     .replace(/\bJr\b\.?/g, 'Junior').replace(/\bSr\b\.?/g, 'Senior').replace(/\bKG\b/g, 'K G')
     // Five or more digits is a phone or code: said digit by digit. Shorter numbers are said as numbers.
     .replace(/\d+/g, (d) => (d.length >= 5 ? [...d].map((x) => ONES[+x]).join(' ') : numberWords(+d)))

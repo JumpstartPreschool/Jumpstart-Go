@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { authMessage, MESSAGES } from './messages'
+import { authMessage, MESSAGES, passwordMessage, wrongPassword } from './messages'
 
 it('turns auth errors into plain words and never passes the server text through', () => {
   expect(authMessage({ code: 'otp_expired', message: 'Token has expired or is invalid', status: 403 })).toBe(MESSAGES.code)
@@ -21,4 +21,22 @@ it('reports a failed WhatsApp hook as one plain message', () => {
 
 it('shows the send-sms hook limit message as too many attempts', () => {
   expect(authMessage({ code: 'sms_send_failed', message: 'Error sending sms: rate_limited: Too many attempts. Please wait a moment and try again.', status: 429 })).toBe(MESSAGES.tooMany)
+})
+
+it('gives one neutral answer for a wrong password, a lock and email sign-in being off (all one Invalid login credentials), and names only an expired temporary password', () => {
+  const neutral = passwordMessage({ code: 'invalid_credentials', message: 'Invalid login credentials', status: 400 })
+  expect(neutral).toMatch(/don't match, or email sign-in is paused/)
+  // a locked account and email sign-in being off reach the app as the same "Invalid login credentials"
+  expect(passwordMessage({ message: 'Invalid login credentials', status: 400 })).toBe(neutral)
+  expect(passwordMessage({ code: 'email_not_confirmed' })).toBe(neutral)
+  const expired = passwordMessage({ message: 'temporary_expired: This temporary password has expired. Ask the school for a new one.' })
+  expect(expired).not.toBe(neutral)
+  expect(expired).toMatch(/temporary password has expired/)
+  expect(passwordMessage({ message: 'TypeError: Failed to fetch' })).toBe(MESSAGES.offline)
+})
+
+it('tells a refused email and password from a network failure', () => {
+  expect(wrongPassword({ code: 'invalid_credentials' })).toBe(true)
+  expect(wrongPassword({ message: 'Invalid login credentials' })).toBe(true)
+  expect(wrongPassword({ message: 'Failed to fetch' })).toBe(false)
 })

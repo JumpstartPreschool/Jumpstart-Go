@@ -95,6 +95,9 @@ describe('the gate voice words', () => {
   })
 
   it('writes out times, numbers and class abbreviations for the voice, which reads text literally', () => {
+    expect(sayable('Jumpstart Go gate announcements are working correctly.')).toBe('Jump Start Go gate announcements are working correctly.')
+    expect(sayable('Welcome to JUMPSTART and jump-start.')).toBe('Welcome to Jump Start and Jump Start.')
+    expect(sayable('A jumpstarter.')).toBe('A jumpstarter.')
     expect(sayable('Arriving about 3:15 PM.')).toBe('Arriving about three fifteen in the afternoon.')
     expect(sayable('Arriving about 12:00 PM.')).toBe('Arriving about twelve noon.')
     expect(sayable('Arriving about 12:45 PM.')).toBe('Arriving about twelve forty five in the afternoon.')

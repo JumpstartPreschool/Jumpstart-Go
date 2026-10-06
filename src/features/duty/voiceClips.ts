@@ -22,6 +22,16 @@ const RATE_PAUSE_MS = 10 * 60_000
 const PAUSE_KEY = 'jumpstart.voicePausedUntil'
 
 const debug = (...a: unknown[]) => { if (import.meta.env.DEV) console.debug('[voice]', ...a) }
+/**
+ * The gate voice's log, in every build, for finding out on a real iPad why something wasn't heard: where each clip came
+ * from, when playback starts and ends, and any failure. Never the words, a name or a key; only stages, sizes and timings.
+ */
+/** Seconds, rounded for a log; never throws, so logging can't stop a clip. */
+export const secs = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? Math.round(n * 100) / 100 : null)
+export function voiceLog(stage: string, detail: Record<string, unknown> = {}): void {
+  const failed = /fail|unavailable|cut|paused|not-ready/.test(stage)
+  ;(failed ? console.warn : console.info)('[voice]', stage, detail)
+}
 // Loaded when first needed, so these modules (and their tests) don't open a Supabase connection just by loading.
 const db = async () => (await import('../../lib/supabase')).supabase
 
@@ -43,16 +53,23 @@ export const voiceChild = (id?: string) => (id ? children.get(id) ?? null : null
 // The voice the school's clips are made in (voice_version(), set by the pronounce function). Null until loaded, or
 // before the first clips are made: then the gate uses the tablet's own voice.
 let version: string | null = null
+// The version being read. Start duty plays its sound check in the same tap that asks for the version; without waiting
+// for it, the check found no version, skipped the school's stored clip and had a new one made every time.
+let loadingVersion: Promise<string | null> | null = null
 /** Reads the clips' voice version once per duty (Start duty, or reopening the duty screen). */
-export async function loadVoiceVersion(): Promise<string | null> {
-  try {
-    const { data, error } = await (await db()).rpc('voice_version')
-    if (!error) {
-      if (data !== version) memory.clear()
-      version = typeof data === 'string' && data ? data : null
-    }
-  } catch { /* offline: keep what we had */ }
-  return version
+export function loadVoiceVersion(): Promise<string | null> {
+  loadingVersion ??= (async () => {
+    try {
+      const { data, error } = await (await db()).rpc('voice_version')
+      if (!error) {
+        if (data !== version) memory.clear()
+        version = typeof data === 'string' && data ? data : null
+        voiceLog('version', { ready: !!version })
+      } else voiceLog('version-failed', { code: error.code })
+    } catch { voiceLog('version-failed', { offline: true }) /* keep what we had */ }
+    return version
+  })().finally(() => { loadingVersion = null })
+  return loadingVersion
 }
 
 const cacheName = (v: string) => `${CACHE_PREFIX}${v}`
@@ -85,6 +102,7 @@ const keep = (cache: Cache | null, key: string, bytes: ArrayBuffer) =>
 
 /** The clip if this iPad or the school already has it, else null. Never makes one. */
 async function stored(sentence: string): Promise<ArrayBuffer | null> {
+  if (!version && loadingVersion) await loadingVersion
   if (!version) return null
   const key = await clipKey(version, sentence)
   const cache = await deviceCache()
@@ -94,6 +112,7 @@ async function stored(sentence: string): Promise<ArrayBuffer | null> {
   if (!data) return null
   const bytes = await data.arrayBuffer()
   await keep(cache, key, bytes)
+  voiceLog('clip-loaded', { from: 'store', bytes: bytes.byteLength })
   return bytes
 }
 
@@ -117,8 +136,9 @@ async function make(sentence: string): Promise<ArrayBuffer> {
     pause(reason === 'cap' ? nextMonthUtc() : Date.now() + RATE_PAUSE_MS)
     debug('paused', reason)
   }
-  if (!res.ok) throw new Error(`pronounce ${res.status}`)
+  if (!res.ok) { voiceLog('make-failed', { status: res.status }); throw new Error(`pronounce ${res.status}`) }
   const bytes = await res.arrayBuffer()
+  voiceLog('clip-made', { bytes: bytes.byteLength })
   // Kept under the voice the server says it used, so a clip never lands under the wrong version.
   const made = res.headers.get('x-voice-version')
   if (made && made === version) await keep(await deviceCache(), await clipKey(made, sentence), bytes)
@@ -140,7 +160,8 @@ export function clipAudio(ctx: BaseAudioContext, sentence: string): Promise<Audi
   const made = stored(sentence)
     .then((bytes) => bytes ?? (debug('made live'), make(sentence)))
     .then((bytes) => { markVoice(sentence, 'response'); return ctx.decodeAudioData(bytes) })
-    .then((buf) => { markVoice(sentence, 'decoded'); return buf })
+    .then((buf) => { markVoice(sentence, 'decoded'); voiceLog('clip-ready', { seconds: secs(buf.duration) }); return buf })
+  made.catch((e: unknown) => voiceLog('clip-failed', { reason: e instanceof Error ? e.message : String(e) }))
   // A failure is remembered for a minute, so a gate repeating an announcement doesn't ask again every time.
   made.catch(() => setTimeout(() => { if (memory.get(sentence) === made) memory.delete(sentence) }, FAILED_RETRY_MS))
   memory.set(sentence, made)

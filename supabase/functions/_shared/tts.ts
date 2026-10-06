@@ -33,6 +33,19 @@ export const ssml = (voice: string, text: string, style = '', rate = '') => {
 }
 
 const VOICE = /^[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+(:[A-Za-z0-9]+)?Neural$/
+/**
+ * The gate always speaks in an Indian English woman's voice (owner, 2026-10-04). Azure's en-IN women's voices; any other
+ * setting, a man's voice such as en-IN-PrabhatNeural included, is replaced by the default and logged by the caller.
+ */
+export const DEFAULT_VOICE = 'en-IN-NeerjaNeural'
+export const INDIAN_WOMEN_VOICES: readonly string[] = ['en-IN-NeerjaNeural', 'en-IN-AartiNeural', 'en-IN-AashiNeural', 'en-IN-AnanyaNeural', 'en-IN-KavyaNeural']
+// The same women's voices, or their HD versions (en-IN-Neerja:DragonHDLatestNeural).
+const INDIAN_WOMAN = /^en-IN-(Neerja|Aarti|Aashi|Ananya|Kavya)(:[A-Za-z0-9]+)?Neural$/
+export const isIndianWomanVoice = (voice: string) => INDIAN_WOMAN.test(voice)
+export const indianWomanVoice = (voice: string | undefined): { voice: string; replaced: boolean } => {
+  const v = (voice ?? '').trim()
+  return isIndianWomanVoice(v) ? { voice: v, replaced: false } : { voice: DEFAULT_VOICE, replaced: v !== '' }
+}
 const REGION = /^[a-z0-9]{3,30}$/
 const STYLE = /^(|cheerful|empathetic|newscast)$/
 // A gentle change only: from 20% slower to 10% faster.
@@ -48,6 +61,7 @@ export function azureSpeech({ key, region, voice, style = '', rate = '', fetch: 
   if (!key) throw new Error('AZURE_SPEECH_KEY is not set')
   if (!REGION.test(region)) throw new Error('AZURE_SPEECH_REGION must be a region name such as centralindia')
   if (!VOICE.test(voice)) throw new Error('AZURE_SPEECH_VOICE must be a neural voice name such as en-IN-NeerjaNeural')
+  if (!isIndianWomanVoice(voice)) throw new Error(`AZURE_SPEECH_VOICE must be one of ${INDIAN_WOMEN_VOICES.join(', ')}`)
   if (!STYLE.test(style)) throw new Error('AZURE_SPEECH_STYLE must be empty, cheerful, empathetic or newscast')
   if (!RATE.test(rate)) throw new Error('AZURE_SPEECH_RATE must be empty or a percentage from -20% to +10%')
   const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`

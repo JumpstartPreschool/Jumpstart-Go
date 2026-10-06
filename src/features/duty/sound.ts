@@ -1,6 +1,6 @@
 import { DEFAULT_OPENINGS, voiceParts } from '../../../supabase/functions/_shared/announce.ts'
 import type { AnnouncerOutput, ChimeKind } from './announcer'
-import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, voiceChild } from './voiceClips'
+import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, secs, voiceChild, voiceLog } from './voiceClips'
 
 /**
  * Chime and voice for announcements on the coordinator's iPad (PRD D7, D50). The voice is the school's Indian English
@@ -85,10 +85,17 @@ export function unlockSound(): void {
     src.connect(audio.destination)
     src.start(0)
   } catch { /* nothing to warm up */ }
-  if (speechSupported) {
-    // iOS unlocks the device voice only for a real sentence spoken inside a tap; an empty one is dropped. Said silently.
+  // iOS unlocks the device voice only for a real sentence spoken inside a tap; an empty one is dropped. It is meant to be
+  // silent, but iPhone and iPad ignore `volume` for speech, so it is said in the same woman's voice the gate would use:
+  // with no voice chosen, an Indian iPad says it in Rishi, a man's voice. Without a woman's voice there is no device
+  // voice to unlock (speakDevice would never use another), so nothing is said.
+  const unlockVoice = speechSupported ? pickFallbackVoice(speechSynthesis.getVoices()) : null
+  if (speechSupported && !unlockVoice) voiceLog('device-voice-unavailable', { at: 'unlock', voices: speechSynthesis.getVoices().length })
+  if (unlockVoice) {
     speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance('Ready.')
+    u.voice = unlockVoice
+    u.lang = unlockVoice.lang
     u.volume = 0
     const pending: Promise<void> = new Promise<void>((done) => {
       const settle = setTimeout(done, UNLOCK_SETTLE_MS)
@@ -205,9 +212,14 @@ function play(buf: AudioBuffer, mine: number): Promise<'done' | 'cut'> {
     // The clip's own end is the proof it was heard: one that ends well before its length was cut short by the system,
     // not by Stop (which changes the generation, so the caller says nothing more either way).
     const startedAt = audio.currentTime
-    src.addEventListener('ended', () => end(mine === generation && audio.currentTime - startedAt < buf.duration - EARLY_END_S ? 'cut' : 'done'))
+    src.addEventListener('ended', () => {
+      const cut = mine === generation && audio.currentTime - startedAt < buf.duration - EARLY_END_S
+      voiceLog(cut ? 'playback-cut' : 'playback-end', { seconds: secs(buf.duration), played: secs(audio.currentTime - startedAt) })
+      end(cut ? 'cut' : 'done')
+    })
     audio.addEventListener?.('statechange', onState)
     track(src)
+    voiceLog('playback-start', { seconds: secs(buf.duration), state: audio.state })
     src.start()
   })
 }
@@ -236,7 +248,10 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
     // Still being made when the time runs out: kept for the 2-minute repeat.
     for (const clip of clips) clip.catch(() => {})
     // Paused by iOS: clips would play silently, so the tablet's voice says it (the clips stay ready for later).
-    if (!(await running(audio))) return speakDevice(parts.join(' '), mine)
+    if (!(await running(audio))) {
+      voiceLog('audio-paused', { state: audio.state })
+      return speakDevice(parts.join(' '), mine)
+    }
     for (const [i, clip] of clips.entries()) {
       if (i > 0) await wait(PART_GAP_MS)
       if (mine !== generation) return 'silent'
@@ -244,6 +259,7 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
       if (mine !== generation) return 'silent'
       if (!buf) {
         markVoice(text, 'device-voice')
+        voiceLog('school-voice-not-ready', { part: i, waitedMs: budgetMs })
         // One owner per announcement: the late clip is never played once the device voice has taken over.
         const rest = await speakDevice(parts.slice(i).join(' '), mine)
         return i > 0 && rest === 'silent' ? 'school' : rest
@@ -306,18 +322,40 @@ export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'l
   }
   return voices.find((v) => LAST.test(v.name) && /\btara\b/i.test(v.name)) ?? null
 }
-// Safari fills the voice list a moment after the page loads: wait for it once rather than stay silent.
-async function indianVoice(): Promise<SpeechSynthesisVoice | null> {
+// Women's English voices by name, for a device with no Indian English woman's voice (most Macs, Windows without Heera,
+// and iPads without Isha downloaded, whose only Indian English voice is Rishi, a man). Browsers don't say a voice's
+// gender, so only names known to be women's voices are used; an unknown voice is never risked.
+const FEMALE_ENGLISH = /\b(samantha|karen|moira|tessa|fiona|victoria|allison|ava|susan|serena|kate|zoe|nicky|catherine|kathy|vicki|zira|aria|jenny|hazel|libby|sonia|clara|natasha|michelle|emma|female)\b/i
+const NOT_A_WOMAN = /\b(male|rishi|daniel|alex|fred|tom|aaron|arthur|oliver|guy|ryan|david|mark|george|james|prabhat|aman|ravi)\b/i
+/** The device voice the gate may use: an Indian English woman first, else another English woman's voice, else none. */
+export function pickFallbackVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {
+  const indian = pickIndianVoice(all)
+  if (indian) return indian
+  const women = all.filter((v) => /^en[-_]/i.test(v.lang) && FEMALE_ENGLISH.test(v.name) && !NOT_A_WOMAN.test(v.name))
+  // Closest accent first: British, then the rest.
+  return women.find((v) => /^en[-_]gb/i.test(v.lang)) ?? women[0] ?? null
+}
+// Safari fills the voice list a moment after the page loads: ask early, so the Start duty tap can use it at once.
+if (speechSupported) {
+  speechSynthesis.getVoices()
+  speechSynthesis.addEventListener?.('voiceschanged', () => speechSynthesis.getVoices())
+}
+async function fallbackVoice(): Promise<SpeechSynthesisVoice | null> {
   if (!speechSynthesis.getVoices().length) {
     await Promise.race([new Promise((r) => speechSynthesis.addEventListener('voiceschanged', r, { once: true })), wait(1000)])
   }
-  return pickIndianVoice(speechSynthesis.getVoices())
+  const all = speechSynthesis.getVoices()
+  const voice = pickFallbackVoice(all)
+  if (!voice) voiceLog('device-voice-unavailable', { voices: all.length, indianEnglish: all.filter((v) => /^en[-_]in/i.test(v.lang)).map((v) => v.name) })
+  else if (!pickIndianVoice([voice])) voiceLog('device-voice-not-preferred', { using: voice.name, lang: voice.lang })
+  return voice
 }
 
 async function speakDevice(text: string, mine: number): Promise<Spoken> {
   if (!speechSupported || mine !== generation) return 'silent'
-  const voice = await indianVoice()
+  const voice = await fallbackVoice()
   if (!voice || mine !== generation) return 'silent'
+  voiceLog('device-voice-start', { voice: voice.name, chars: text.length })
   return new Promise((resolve) => {
     let started = false
     const u = new SpeechSynthesisUtterance(text)
@@ -334,7 +372,9 @@ async function speakDevice(text: string, mine: number): Promise<Spoken> {
       clearTimeout(fallback)
       if (utterance === u) utterance = null
       if (endDevice === finish) endDevice = null
-      resolve(!started ? 'silent' : broken && mine === generation ? 'cut' : 'device')
+      const how = !started ? 'silent' : broken && mine === generation ? 'cut' : 'device'
+      voiceLog(how === 'device' ? 'device-voice-end' : 'device-voice-failed', { how })
+      resolve(how)
     }
     // ponytail: Safari occasionally never fires onend; a length-based timeout keeps the queue moving.
     const fallback = setTimeout(finish, 4000 + text.length * 90)

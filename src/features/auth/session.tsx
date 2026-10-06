@@ -19,8 +19,9 @@ export interface Me {
   phone?: string | null
   /** The email they can sign in with, when their record has one (0041). */
   email?: string | null
-  /** Their email password: none yet, the starting one from the school's pattern, or one they chose. */
-  email_sign_in?: 'none' | 'pattern' | 'own'
+  /** Their email password: none, a temporary one the admin issued (D55), or one they chose. */
+  email_sign_in?: 'none' | 'temporary' | 'own'
+  temp_password_expires_at?: string | null
 }
 
 /** Whether this sign-in used a password (the token's amr), as opposed to a WhatsApp code. */

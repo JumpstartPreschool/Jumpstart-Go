@@ -204,7 +204,7 @@ describe('reminders and settings (0042)', () => {
     expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['New announcement. Pickup for Kabir is cancelled.'])
   })
 
-  it('stops the old words when a trip is replaced while being said, and says the new ones next', async () => {
+  it('lets the old words finish when a trip is replaced while being said, then says the new ones next', async () => {
     let finish: () => void = () => {}
     const said: string[] = []
     const out = { chime: async () => {}, speak: (t: string) => new Promise<void>((r) => { said.push(t); finish = r }), stop: vi.fn(() => finish()) }
@@ -213,7 +213,11 @@ describe('reminders and settings (0042)', () => {
     await vi.advanceTimersByTimeAsync(10)
     ann.announce({ id: 'trip:1', text: 'in about twenty minutes', chime: 'normal', priority: 20 })
     await vi.advanceTimersByTimeAsync(10)
-    expect(out.stop).toHaveBeenCalled()
+    // Never cut midway: nothing stops the sentence being said, and the new one waits for it.
+    expect(out.stop).not.toHaveBeenCalled()
+    expect(said).toEqual(['New announcement. in about five minutes'])
+    finish()
+    await vi.advanceTimersByTimeAsync(10)
     expect(said).toEqual(['New announcement. in about five minutes', 'New announcement. in about twenty minutes'])
   })
 

@@ -1,16 +1,18 @@
 // DEVELOPMENT MOCK, never in a production build. `npm run dev:demo` answers every Supabase request in the browser with
 // the made-up school below, so the screens can be checked without touching the live project. Nothing is saved: a
 // reload starts over except for who is signed in. Loaded only when import.meta.env.DEV and VITE_DEMO=1 (supabase.ts).
-import { passwordFor } from '../../supabase/functions/_shared/passwordPattern'
+import { checkPattern, DEFAULT_POLICY, generate, passwordProblem, RECOMMENDED, type Block, type Policy } from '../../supabase/functions/_shared/passwordPattern'
 import { templateProblem, timingProblem, TEMPLATE_KEYS, type TemplateKey } from '../../supabase/functions/_shared/gateAnnounce'
 
-const PATTERN_START = '{First}@{domain}#2026'
-
-interface Person { id: string; user_id: string; full_name: string; email: string | null; phone: string; roles: string[]; email_sign_in: 'none' | 'pattern' | 'own'; password: string | null }
+interface Person {
+  id: string; user_id: string; full_name: string; email: string | null; phone: string; roles: string[]
+  email_sign_in: 'none' | 'temporary' | 'own'; password: string | null
+  temp_password_expires_at?: string | null; locked_until?: string | null; failures?: number; history?: string[]
+}
 
 const people: Person[] = [
   { id: 'p-admin', user_id: 'u-admin', full_name: 'Anita Kapoor', email: 'anita.kapoor@jumpstart.test', phone: '+919800000001', roles: ['admin'], email_sign_in: 'own', password: 'AdminDemo#2026' },
-  { id: 'p-parent', user_id: 'u-parent', full_name: 'Meera Shah', email: 'meera.shah@gmail.com', phone: '+919800000002', roles: [], email_sign_in: 'pattern', password: null },
+  { id: 'p-parent', user_id: 'u-parent', full_name: 'Meera Shah', email: 'meera.shah@gmail.com', phone: '+919800000002', roles: [], email_sign_in: 'temporary', password: 'meerQK4827#', temp_password_expires_at: new Date(Date.now() + 48 * 3600_000).toISOString() },
   { id: 'p-dad', user_id: 'u-dad', full_name: 'Rohan Shah', email: 'rohan.shah92@outlook.com', phone: '+919800000003', roles: [], email_sign_in: 'none', password: null },
   { id: 'p-gran', user_id: 'u-gran', full_name: 'Sunita Rao', email: null, phone: '+919800000004', roles: [], email_sign_in: 'none', password: null },
   { id: 'p-lead', user_id: 'u-lead', full_name: 'Lata Joshi', email: 'lata.joshi@jumpstart.test', phone: '+919800000005', roles: ['leader'], email_sign_in: 'own', password: 'LeaderDemo#2026' },
@@ -18,8 +20,12 @@ const people: Person[] = [
   { id: 'p-vikram', user_id: 'u-vikram', full_name: 'Vikram Mehta', email: null, phone: '+919800000007', roles: [], email_sign_in: 'none', password: null },
   { id: 'p-neha', user_id: 'u-neha', full_name: 'Neha Kapoor', email: null, phone: '+919800000008', roles: [], email_sign_in: 'none', password: null },
 ]
-let pattern = { pattern: PATTERN_START, changed_at: '2026-10-03T06:30:00Z' }
-for (const p of people) if (p.email_sign_in === 'pattern' && p.email) p.password = passwordFor(pattern.pattern, p.email)
+// Temporary passwords (D55, 0048): the rules and the patterns, with the same checks as the database.
+let policy: Policy & { changed_at: string } = { ...DEFAULT_POLICY, changed_at: '2026-10-04T06:30:00Z' }
+const patterns: Record<string, { scope: string; blocks: Block[]; changed_at: string }> = { default: { scope: 'default', blocks: RECOMMENDED, changed_at: '2026-10-04T06:30:00Z' } }
+const patternFor = (p: Person) =>
+  (['admin', 'core', 'leader', 'coordinator', 'pro'].map((r) => p.roles.includes(r) && patterns[r]).find(Boolean) || (!p.roles.length && patterns.family) || patterns.default!).blocks
+const now = () => new Date().toISOString()
 
 const programme = { id: 'g-nur', name: 'Nursery · Morning', class_id: 'c-nur', extended: false, flexible: false, starts: '09:00', ends: '12:30', weekdays: [1, 2, 3, 4, 5], saturday_rule: 'except_2nd_and_last', term_start: null, term_end: null, dropoff_from: '08:45', dropoff_to: '09:15', pickup_from: '12:15', pickup_to: '12:45' }
 const classes = [{ id: 'c-pg', name: 'Playgroup', active: true, sort: 1 }, { id: 'c-nur', name: 'Nursery', active: true, sort: 2 }, { id: 'c-jr', name: 'Jr KG', active: true, sort: 3 }, { id: 'c-sr', name: 'Sr KG', active: true, sort: 4 }]
@@ -83,7 +89,7 @@ function changeTrip(id: unknown, patch: (t: DemoTrip) => Partial<DemoTrip>): Dem
   return t
 }
 
-const profileRow = (p: Person) => ({ id: p.id, full_name: p.full_name, email: p.email, phone: p.phone, active: true, app_access: true, abroad: false, user_id: p.user_id, invited_at: null, invited_via: null, email_sign_in: p.email_sign_in })
+const profileRow = (p: Person) => ({ id: p.id, full_name: p.full_name, email: p.email, phone: p.phone, active: true, app_access: true, abroad: false, user_id: p.user_id, invited_at: null, invited_via: null, email_sign_in: p.email_sign_in, temp_password_expires_at: p.temp_password_expires_at ?? null, locked_until: p.locked_until ?? null })
 
 // Gate announcements (0042): null wording means the default, like the real table.
 let gate: Record<string, unknown> = { id: true, early_min: 15, ready_min: 10, urgent_min: 5, reminder_min: 2, updated_at: '2026-10-03T06:30:00Z' }
@@ -99,7 +105,8 @@ const TABLES: Record<string, () => unknown[]> = {
   classes: () => classes,
   programmes: () => [programme],
   settings: () => [{ id: true, get_ready_lead_min: 10, late_threshold_min: 10, school_phone: '+912025451234', app_url: 'http://localhost:5173' }],
-  password_pattern: () => [pattern],
+  password_policy: () => [policy],
+  password_patterns: () => Object.values(patterns),
 }
 
 // The signed-in person rides in the access token's subject, like the real thing.
@@ -135,6 +142,10 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     if (grant === 'password') {
       const p = people.find((x) => x.email && x.email === String(body?.email ?? '').toLowerCase())
       if (!p || !p.password || p.password !== body?.password) return authError('invalid_credentials', 'Invalid login credentials')
+      // What the Custom Access Token hook refuses (0048).
+      // Locked or off answers exactly like a wrong password.
+      if (p.email_sign_in === 'none' || (p.locked_until ?? '') > now()) return authError('invalid_credentials', 'Invalid login credentials')
+      if (p.email_sign_in === 'temporary' && (p.temp_password_expires_at ?? '') <= now()) return authError('unexpected_failure', 'temporary_expired: This temporary password has expired.', 403)
       return json(session(p, 'password'))
     }
     if (grant === 'refresh_token') {
@@ -160,21 +171,37 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   }
   if (path.endsWith('/auth/v1/logout')) return new Response(null, { status: 204 })
 
-  // The password-pattern function
+  // The password-pattern function: one temporary password, shown once (D55).
   if (path.endsWith('/functions/v1/password-pattern')) {
-    if (!me?.roles.includes('admin')) return json({ error: 'Only the admin can change the password pattern.' }, 403)
-    if (body?.action === 'save') {
-      pattern = { pattern: String(body.pattern), changed_at: new Date().toISOString() }
-      // Staff never get a pattern password (0041).
-      const set = people.filter((p) => p.email && !p.roles.length)
-      for (const p of set) { p.password = passwordFor(pattern.pattern, p.email!); p.email_sign_in = 'pattern' }
-      return json({ updated: set.length, failed: [] })
-    }
+    if (!me?.roles.includes('admin')) return json({ error: 'Only the admin can issue temporary passwords.' }, 403)
     const p = people.find((x) => x.id === body?.profile_id)
-    if (!p?.email || p.roles.length) return json({ error: 'Only parents and family with an email and app access get a pattern password. Staff sign in with their mobile number.' }, 400)
-    p.password = passwordFor(pattern.pattern, p.email)
-    p.email_sign_in = 'pattern'
-    return json({ updated: 1, failed: [], password: p.password })
+    if (!p) return json({ error: 'Turn on app access for them first.' }, 400)
+    if (p.id === me.id) return json({ error: "You can't issue your own temporary password. Ask the other admin." }, 400)
+    if (!p.email) return json({ error: 'Add their email first.' }, 400)
+    const blocks = patternFor(p)
+    const problem = checkPattern(blocks, policy).problem
+    if (problem) return json({ error: `${problem} Fix the pattern in Settings first.` }, 400)
+    if (p.password) p.history = [p.password, ...(p.history ?? [])].slice(0, 24)
+    p.password = generate(blocks, { full_name: p.full_name, email: p.email })
+    p.email_sign_in = 'temporary'
+    p.temp_password_expires_at = new Date(Date.now() + policy.temp_expiry_hours * 3600_000).toISOString()
+    p.locked_until = null
+    p.failures = 0
+    return json({ password: p.password, expires_at: p.temp_password_expires_at })
+  }
+  // The password-change function: their own password, under the rules and not a recent one.
+  if (path.endsWith('/functions/v1/password-change')) {
+    if (!me) return json({ error: 'Please sign in again.' }, 401)
+    if (me.email_sign_in === 'none') return json({ error: "Email sign-in isn't turned on for you. Ask the school." }, 403)
+    const pw = String(body?.password ?? '')
+    const problem = passwordProblem(pw, policy)
+    if (problem) return json({ error: problem }, 400)
+    if (pw === me.password || (me.history ?? []).slice(0, policy.reuse_count).includes(pw)) return json({ error: 'You used this password recently. Choose a different one.' }, 400)
+    if (me.password) me.history = [me.password, ...(me.history ?? [])].slice(0, 24)
+    me.password = pw
+    me.email_sign_in = 'own'
+    me.temp_password_expires_at = null
+    return json({ ok: true })
   }
   if (path.includes('/functions/v1/')) return json({ error: 'Not part of the demo.' }, 404)
 
@@ -184,9 +211,39 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     if (rpc === 'whoami') {
       if (!me) return json(null)
       const kids = guardianships.filter((g) => g.guardian_id === me.id).length
-      return json({ profile_id: me.id, full_name: me.full_name, phone: me.phone, email: me.email, email_sign_in: me.email_sign_in, active: true, consent_version: '2026-10-02', roles: me.roles, children: kids })
+      return json({ profile_id: me.id, full_name: me.full_name, phone: me.phone, email: me.email, email_sign_in: me.email_sign_in, temp_password_expires_at: me.temp_password_expires_at ?? null, active: true, consent_version: '2026-10-02', roles: me.roles, children: kids })
     }
     if (rpc === 'phone_login_allowed') return json(true)
+    // Wrong passwords and the lock (0048): says nothing back.
+    if (rpc === 'password_sign_in_failed') {
+      const p = people.find((x) => x.email && x.email === String(body?.p_email ?? '').toLowerCase())
+      if (p && (p.locked_until ?? '') <= now() && (p.failures = (p.failures ?? 0) + 1) >= policy.max_failed) { p.locked_until = new Date(Date.now() + policy.lock_minutes * 60_000).toISOString(); p.failures = 0 }
+      return json(null)
+    }
+    if (rpc === 'password_sign_in_ok') { if (me) me.failures = 0; return json(null) }
+    if (rpc === 'admin_save_password_policy' || rpc === 'admin_save_password_pattern' || rpc === 'admin_email_sign_in_off') {
+      if (!me?.roles.includes('admin')) return json({ code: '42501', message: 'Only the admin can do that.' }, 403)
+      if (rpc === 'admin_email_sign_in_off') {
+        const p = people.find((x) => x.id === body?.p_profile)
+        if (!p || p.id === me.id) return json({ code: 'P0001', message: "self: You can't turn off your own email sign-in here." }, 400)
+        Object.assign(p, { email_sign_in: 'none', password: null, temp_password_expires_at: null, locked_until: null })
+        return json(null)
+      }
+      if (rpc === 'admin_save_password_policy') {
+        const next = { ...policy, ...(body?.p as Partial<Policy>) }
+        const bad = Object.values(patterns).find((x) => checkPattern(x.blocks, next).problem)
+        if (bad) return json({ code: 'P0001', message: `weak_pattern: The ${bad.scope} pattern: ${checkPattern(bad.blocks, next).problem} Change the pattern first.` }, 400)
+        policy = { ...next, changed_at: now() }
+        return json(null)
+      }
+      const scope = String(body?.p_scope)
+      const blocks = body?.p_blocks as Block[] | null
+      if (!blocks) { if (scope !== 'default') delete patterns[scope]; return json(null) }
+      const problem = checkPattern(blocks, policy).problem
+      if (problem) return json({ code: 'P0001', message: `weak_pattern: ${problem}` }, 400)
+      patterns[scope] = { scope, blocks, changed_at: now() }
+      return json(null)
+    }
     // Trips, as the database functions do them (0006, 0026, 0035, 0038).
     if (rpc === 'gate_step') {
       const now = new Date().toISOString()

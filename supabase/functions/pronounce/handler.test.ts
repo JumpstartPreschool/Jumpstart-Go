@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { voiceVersion } from '../_shared/announce'
-import { azureSpeech, ssml, TtsBusy, type TTSProvider } from '../_shared/tts'
+import { azureSpeech, indianWomanVoice, ssml, TtsBusy, type TTSProvider } from '../_shared/tts'
 import { handle, type Deps } from './handler'
 
 // MOCK: Azure, the database and the store are stand-ins; nothing here reaches any service.
@@ -125,6 +125,16 @@ describe('Azure AI Speech', () => {
     expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', rate: '-50%' })).toThrow(/RATE/)
     expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', rate: '"/><x' })).toThrow(/RATE/)
     expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-Neerja:DragonHDLatestNeural' })).not.toThrow()
+  })
+})
+
+describe("always an Indian English woman's voice (owner, 2026-10-04)", () => {
+  it("refuses a man's voice or another language, and replaces any such setting with Neerja", () => {
+    expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-IN-PrabhatNeural' })).toThrow(/must be one of/)
+    expect(() => azureSpeech({ key: 'k', region: 'centralindia', voice: 'en-US-GuyNeural' })).toThrow(/must be one of/)
+    expect(indianWomanVoice('en-IN-PrabhatNeural')).toEqual({ voice: 'en-IN-NeerjaNeural', replaced: true })
+    expect(indianWomanVoice(undefined)).toEqual({ voice: 'en-IN-NeerjaNeural', replaced: false })
+    expect(indianWomanVoice(' en-IN-AashiNeural ')).toEqual({ voice: 'en-IN-AashiNeural', replaced: false })
   })
 })
 

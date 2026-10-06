@@ -284,6 +284,18 @@ describe('WATI client (createWati)', () => {
     expect(bodies[1].channel).toBe('+919000000000')
   })
 
+  it('gives up as a timeout when WATI never answers, within the budget, and the code never reaches the log', async () => {
+    // MOCK: a WATI that accepts the connection and never replies (a stuck plan or network), aborted by the app.
+    const f = vi.fn((_url: string, init: { signal: AbortSignal }) => new Promise<Response>((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')))))
+    const started = Date.now()
+    const res = await client(f, { maxAttempts: 2, budgetMs: 120, attemptTimeoutMs: 50 }).sendTemplate({ phone: '9822000001', template: 't', params: ['482913'] })
+    expect(Date.now() - started).toBeLessThan(1000)
+    // One try: after it timed out, the backoff before a second wouldn't fit in the budget, so it stops in time.
+    expect(f).toHaveBeenCalledTimes(1)
+    expect(res).toMatchObject({ ok: false, category: 'timeout', retryable: true })
+    expect(JSON.stringify(res)).not.toContain('482913')
+  })
+
   it('honours a short budget with one retry', async () => {
     const f = vi.fn(async () => new Response('{}', { status: 503 }))
     const res = await send(client(f, { maxAttempts: 2, budgetMs: 3000, attemptTimeoutMs: 1200 }))

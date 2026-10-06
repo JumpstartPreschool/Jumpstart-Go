@@ -209,8 +209,10 @@ export function createWati(opts: WatiOptions): Wati {
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        ctl.abort()
+        // Settle as a timeout first: aborting rejects the request at once, which would otherwise win the race and be
+        // logged as "unavailable".
         reject(new TimedOut())
+        ctl.abort()
       }, ms)
     })
     try {

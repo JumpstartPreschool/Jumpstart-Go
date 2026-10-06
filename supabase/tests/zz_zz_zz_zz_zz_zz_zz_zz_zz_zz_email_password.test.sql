@@ -1,10 +1,11 @@
--- Email and password sign-in with the admin's pattern (0041). Its own people, so earlier tests can't change the outcome:
+-- Email sign-in provisioning: the on-screen code stays removed, a new email on a person
+-- follows to their sign-in (a temporary password is dropped, their own is kept), invited emails and phones link. Its own people, so earlier tests can't change the outcome:
 --   A  Anita, admin                      M  Meera, parent with an email and a mobile, already signed in by phone
 --   N  Neel, parent with a mobile only   R  Rohan, parent invited with an email, never signed in
---   X  Xavier, turned off, still on an old pattern password
+--   X  Xavier, turned off, on a temporary password
 -- Existing accounts are loaded with triggers off, as if made before this migration.
 -- Rolled back at the end. Earlier tests' people now all have a mobile (0039), so they are set aside here with their emails
--- blanked (triggers off); only the people above can be pattern targets.
+-- blanked (triggers off); only the people above have an email.
 begin;
 set session_replication_role = replica;
 update public.profiles set email = null;
@@ -17,7 +18,7 @@ insert into public.profiles (id, user_id, full_name, email, phone, active, app_a
   ('00000000-0000-0000-0000-0000000e0b02', '00000000-0000-0000-0000-0000000e0a02', 'Meera Shah', 'meera.shah@example.test', '+919811100002', true, true, 'none'),
   ('00000000-0000-0000-0000-0000000e0b03', null, 'Neel Rao', null, '+919811100003', true, true, 'none'),
   ('00000000-0000-0000-0000-0000000e0b04', null, 'Rohan Iyer', 'rohan@example.test', '+919811100004', true, true, 'none'),
-  ('00000000-0000-0000-0000-0000000e0b05', '00000000-0000-0000-0000-0000000e0a05', 'Xavier Old', 'xavier@example.test', '+919811100005', false, true, 'pattern');
+  ('00000000-0000-0000-0000-0000000e0b05', '00000000-0000-0000-0000-0000000e0a05', 'Xavier Old', 'xavier@example.test', '+919811100005', false, true, 'temporary');
 insert into public.staff_roles (profile_id, role) values ('00000000-0000-0000-0000-0000000e0b01', 'admin');
 set session_replication_role = origin;
 
@@ -28,86 +29,44 @@ do $$ begin
   assert to_regclass('app.screen_otps') is null, 'screen_otps still exists';
 end $$;
 
--- A parent can't change the pattern, can't read it, and can't mark passwords.
+-- The 0041 pattern is gone: no pattern table, no pattern functions, and 'pattern' is no longer a password state.
+do $$ begin
+  assert to_regclass('public.password_pattern') is null, 'password_pattern still exists';
+  assert to_regprocedure('public.admin_save_password_pattern(text)') is null, 'old admin_save_password_pattern still exists';
+  assert to_regprocedure('public.admin_password_target(uuid)') is null, 'admin_password_target still exists';
+  assert to_regprocedure('public.mark_email_sign_in(uuid,uuid,text)') is null, 'mark_email_sign_in still exists';
+  begin
+    update public.profiles set email_sign_in = 'pattern' where id = '00000000-0000-0000-0000-0000000e0b02';
+    raise exception 'pattern is still an allowed state';
+  exception when check_violation then null;
+  end;
+end $$;
+
+-- whoami tells the app she has a temporary password, so it asks her to choose her own.
+update public.profiles set email_sign_in = 'temporary', temp_password_expires_at = now() + interval '1 day'
+  where id = '00000000-0000-0000-0000-0000000e0b02';
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000e0a02"}';
 set role authenticated;
 do $$ begin
-  begin
-    perform public.admin_save_password_pattern('{First}@{domain}#2026');
-    raise exception 'a parent saved the pattern';
-  exception when insufficient_privilege then null;
-  end;
-  begin
-    perform public.mark_email_sign_in('00000000-0000-0000-0000-0000000e0b02', null, 'pattern');
-    raise exception 'a parent marked a password';
-  exception when insufficient_privilege then null;
-  end;
-end $$;
-reset role;
-
--- The admin saves the pattern: everyone with an email and app access is set; Xavier (turned off) is cleared;
--- Neel (no email) and Anita (staff: never a pattern password, even with an email) are left alone.
-set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000e0a01"}';
-set role authenticated;
-do $$
-declare t jsonb;
-begin
-  t := public.admin_save_password_pattern('  {First}@{domain}#2026 ');
-  assert jsonb_array_length(t) = 3, format('expected 3 targets, got %s', t);
-  assert (select count(*) from jsonb_array_elements(t) e where e ->> 'action' = 'set') = 2, 'two to set';
-  assert (select e ->> 'action' from jsonb_array_elements(t) e where e ->> 'full_name' = 'Xavier Old') = 'clear', 'Xavier cleared';
-  assert not exists (select 1 from jsonb_array_elements(t) e where e ->> 'full_name' in ('Neel Rao', 'Anita Admin')), 'no email or staff, no target';
-  assert (select pattern from public.password_pattern) = '{First}@{domain}#2026', 'admin reads the trimmed pattern';
-  assert (public.admin_password_target('00000000-0000-0000-0000-0000000e0b04') -> 'target' ->> 'email') = 'rohan@example.test', 'one person';
-  begin
-    perform public.admin_password_target('00000000-0000-0000-0000-0000000e0b01');
-    raise exception 'reset worked for the admin';
-  exception when sqlstate 'P0001' then null;
-  end;
-  begin
-    perform public.admin_password_target('00000000-0000-0000-0000-0000000e0b03');
-    raise exception 'reset worked for someone with no email';
-  exception when sqlstate 'P0001' then null;
-  end;
-end $$;
-reset role;
-
--- A parent sees no pattern row.
-set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000e0a02"}';
-set role authenticated;
-do $$ begin
-  assert (select count(*) from public.password_pattern) = 0, 'a parent read the pattern';
-end $$;
-reset role;
-
--- The function (service role) sets Meera's password, then marks it: she ends on 'pattern'.
-update auth.users set encrypted_password = '$2a$pattern' where id = '00000000-0000-0000-0000-0000000e0a02';
-select public.mark_email_sign_in('00000000-0000-0000-0000-0000000e0b02', '00000000-0000-0000-0000-0000000e0a02', 'pattern');
-do $$ begin
-  assert (select email_sign_in from public.profiles where id = '00000000-0000-0000-0000-0000000e0b02') = 'pattern', 'Meera on pattern';
-end $$;
-
--- whoami tells the app she should choose her own password.
-set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000e0a02"}';
-set role authenticated;
-do $$ begin
-  assert (public.whoami() ->> 'email_sign_in') = 'pattern', 'whoami says pattern';
+  assert (public.whoami() ->> 'email_sign_in') = 'temporary', 'whoami says temporary';
   assert (public.whoami() ->> 'email') = 'meera.shah@example.test', 'whoami has the email';
+  assert (public.whoami() ->> 'temp_password_expires_at') is not null, 'whoami has the expiry';
 end $$;
 reset role;
 
--- She chooses her own: Supabase Auth writes the new hash and she moves to 'own'.
+-- She chooses her own: Supabase Auth writes the new hash (no admin issue in progress) and she moves to 'own'.
 update auth.users set encrypted_password = '$2a$mine' where id = '00000000-0000-0000-0000-0000000e0a02';
 do $$ begin
   assert (select email_sign_in from public.profiles where id = '00000000-0000-0000-0000-0000000e0b02') = 'own', 'Meera on own';
+  assert (select temp_password_expires_at from public.profiles where id = '00000000-0000-0000-0000-0000000e0b02') is null, 'expiry cleared';
 end $$;
 
--- A new email on someone with a pattern password: sign-in email follows, the old password is removed.
-update public.profiles set email_sign_in = 'pattern' where id = '00000000-0000-0000-0000-0000000e0b02';
+-- A new email on someone with a temporary password: sign-in email follows, the old password is removed.
+update public.profiles set email_sign_in = 'temporary' where id = '00000000-0000-0000-0000-0000000e0b02';
 update public.profiles set email = 'meera@example.test' where id = '00000000-0000-0000-0000-0000000e0b02';
 do $$ begin
   assert (select email from auth.users where id = '00000000-0000-0000-0000-0000000e0a02') = 'meera@example.test', 'auth email follows';
-  assert (select encrypted_password from auth.users where id = '00000000-0000-0000-0000-0000000e0a02') = '', 'old pattern password removed';
+  assert (select encrypted_password from auth.users where id = '00000000-0000-0000-0000-0000000e0a02') = '', 'temporary password removed';
   assert (select email_sign_in from public.profiles where id = '00000000-0000-0000-0000-0000000e0b02') = 'none', 'back to none';
 end $$;
 

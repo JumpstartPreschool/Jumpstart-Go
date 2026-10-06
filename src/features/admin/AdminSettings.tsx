@@ -10,7 +10,7 @@ import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { checkWhatsAppSetup, explainDbError, type WhatsAppSetup } from './api'
 import { GateAnnouncementsCard } from './GateAnnouncementsCard'
-import { PasswordPatternCard } from './PasswordPatternCard'
+import { AuthenticationSettings } from './PasswordPatternCard'
 import { PronunciationList } from './PronunciationList'
 
 interface Settings { get_ready_lead_min: number; late_threshold_min: number; school_phone: string | null; app_url: string | null }
@@ -173,7 +173,7 @@ export function AdminSettings() {
             {waCheck && <WhatsAppResult r={waCheck} />}
           </div>
         )}
-        <PasswordPatternCard />
+        <AuthenticationSettings />
       </section>
       <PronunciationList />
       <div className="xl:col-span-2"><GateAnnouncementsCard /></div>

@@ -66,7 +66,7 @@ function AreaChooser({ me, areas, onPick }: { me: Me; areas: Area[]; onPick: (ar
 /**
  * Opens an area only for people who hold it (AUTH-7). The database enforces the same rules on every
  * request; this decides what to show. The Parent area asks for the consent notice first (AUTH-6), and a starting
- * password from the school's pattern is swapped for the person's own before any area opens.
+ * temporary password from the school is swapped for the person's own before any area opens.
  */
 export function AreaRoute({ area, children }: { area: Area | null; children: ReactNode }) {
   const { state, refresh } = useSession()
@@ -79,8 +79,8 @@ export function AreaRoute({ area, children }: { area: Area | null; children: Rea
   const { me } = state
   if (!me) return <Problem title="Account not found">Your sign-in isn't linked to anyone at the school. Please contact the school.</Problem>
   if (!me.active) return <Problem title="Access turned off">The school has turned off access for this account. Please contact the school if this is a mistake.</Problem>
-  // Signed in with the school's starting password: they choose their own before anything else (0041).
-  if (me.email_sign_in === 'pattern' && signedInWithPassword(state.session)) return <ChoosePasswordScreen me={me} />
+  // Signed in with a temporary password: they choose their own before anything else (D55).
+  if (me.email_sign_in === 'temporary' && signedInWithPassword(state.session)) return <ChoosePasswordScreen me={me} />
   const areas = areasFor(me)
   if (areas.length === 0) return <Problem title="Nothing to show yet">The school hasn't linked you to a child or given you a role yet. Please contact the school.</Problem>
   if (choosing) {

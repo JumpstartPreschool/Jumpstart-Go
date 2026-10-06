@@ -1,21 +1,22 @@
-// Sets email passwords from the admin's pattern (0041). Kept apart from index.ts so it runs under Vitest with fakes.
-import { passwordFor, patternProblem } from '../_shared/passwordPattern.ts'
+// Issues one person's temporary password from the admin's pattern (D55, 0048). Kept apart from index.ts so it runs
+// under Vitest with fakes. The password is returned to the admin once and never logged or stored in plain text.
+import { checkPattern, generate, passwordProblem, type Block, type Policy } from '../_shared/passwordPattern.ts'
 
-export interface Target { profile_id: string; user_id: string | null; full_name: string; email: string | null; phone: string | null; action: 'set' | 'clear' }
+/** What admin_begin_temp_password says to make, after checking the caller is the admin and the person may have one. */
+export interface Target { profile_id: string; user_id: string | null; full_name: string; email: string; phone: string | null; blocks: Block[]; policy: Policy }
 
-/** What the handler needs: the database as the caller (admin checks, audit) and the Supabase Auth admin API. */
 export interface Deps {
-  savePattern: (pattern: string) => Promise<Target[]>
-  personTarget: (profileId: string) => Promise<{ pattern: string; target: Target }>
+  /** As the admin: the checks, the person's pattern and the rules; marks them as expecting a temporary password. */
+  begin: (profileId: string) => Promise<Target>
   createUser: (u: { email: string; phone: string | null; password: string }) => Promise<string>
-  updateUser: (id: string, u: { email?: string; password: string }) => Promise<void>
-  mark: (profileId: string, userId: string | null, state: 'none' | 'pattern') => Promise<void>
-  randomPassword: () => string
+  updateUser: (id: string, u: { email: string; password: string }) => Promise<void>
+  /** Service role: links a new account, sets the expiry; resolves with when it ends. */
+  finish: (profileId: string, userId: string) => Promise<string>
+  randomInt?: (max: number) => number
 }
 
-export type Body = { action: 'save'; pattern: string } | { action: 'reset'; profile_id: string }
-
-export interface Result { updated: number; failed: Array<{ name: string; reason: string }>; password?: string }
+export type Body = { action: 'issue'; profile_id: string }
+export interface Result { password: string; expires_at: string }
 
 /** A refused request, with words the admin can act on. */
 export class Refused extends Error {
@@ -24,68 +25,33 @@ export class Refused extends Error {
 
 export function parseBody(raw: unknown): Body {
   const b = (raw ?? {}) as Record<string, unknown>
-  if (b.action === 'save' && typeof b.pattern === 'string') {
-    const problem = patternProblem(b.pattern)
-    if (problem) throw new Refused(400, problem)
-    return { action: 'save', pattern: b.pattern.trim() }
-  }
-  if (b.action === 'reset' && typeof b.profile_id === 'string' && /^[0-9a-f-]{36}$/i.test(b.profile_id)) return { action: 'reset', profile_id: b.profile_id }
-  throw new Refused(400, 'Choose a pattern to save, or a person to reset.')
+  if (b.action === 'issue' && typeof b.profile_id === 'string' && /^[0-9a-f-]{36}$/i.test(b.profile_id)) return { action: 'issue', profile_id: b.profile_id }
+  throw new Refused(400, 'Choose who to issue a temporary password for.')
 }
 
 /** Supabase Auth's reasons, in words for the admin. Never includes the password. */
-function reasonFor(e: unknown): string {
+export function reasonFor(e: unknown): string {
   const m = String((e as { message?: unknown })?.message ?? '')
   if (/already (been )?registered|already exists|duplicate/i.test(m)) return 'Another sign-in already uses this email or mobile.'
-  if (/too long/.test(m)) return 'The pattern makes this password longer than 72 characters. Use {first} or {last} instead of {name}.'
-  if (/password/i.test(m)) return "Supabase didn't accept the password. Check the password rules in Supabase → Authentication."
+  if (/password/i.test(m)) return "Supabase didn't accept the password. Check that Supabase's own password rules aren't stricter than yours (Authentication → Providers → Email)."
   if (/email/i.test(m)) return "Supabase didn't accept the email address."
-  return "Couldn't be updated. Try again."
+  return "The temporary password couldn't be set. Try again."
 }
-
-async function apply(deps: Deps, pattern: string, t: Target): Promise<void> {
-  if (t.action === 'clear') {
-    // No longer allowed in: a random password nobody knows, so the old pattern one stops working.
-    if (t.user_id) await deps.updateUser(t.user_id, { password: deps.randomPassword() })
-    await markOnce(deps, t.profile_id, t.user_id, 'none')
-    return
-  }
-  const email = t.email!
-  const password = passwordFor(pattern, email)
-  // Supabase Auth hashes with bcrypt, which reads only the first 72 bytes.
-  if (new TextEncoder().encode(password).length > 72) throw new Error('too long')
-  let userId = t.user_id
-  if (userId) await deps.updateUser(userId, { email, password })
-  else userId = await deps.createUser({ email, phone: t.phone, password })
-  // After the password write, which on its own would read as "chose their own".
-  await markOnce(deps, t.profile_id, userId, 'pattern')
-}
-
-/** Marks which password they have, trying twice: left unmarked, a pattern password would read as one they chose. */
-async function markOnce(deps: Deps, profileId: string, userId: string | null, state: 'none' | 'pattern') {
-  try { await deps.mark(profileId, userId, state) } catch { await deps.mark(profileId, userId, state) }
-}
-
-// ponytail: 5 at a time, sequential batches. ceiling: ~1,000 accounts inside the function's time limit. upgrade: a
-// queue table worked through by a scheduled job when the school passes that.
-const BATCH = 5
 
 export async function handle(deps: Deps, body: Body): Promise<Result> {
-  if (body.action === 'reset') {
-    const { pattern, target } = await deps.personTarget(body.profile_id)
-    await apply(deps, pattern, target)
-    return { updated: 1, failed: [], password: passwordFor(pattern, target.email!) }
+  const t = await deps.begin(body.profile_id)
+  // The database checked the pattern already; checked again here so a bad row can never make a weak password.
+  const check = checkPattern(t.blocks, t.policy)
+  if (check.problem) throw new Refused(400, `${check.problem} Fix the pattern in Settings first.`)
+  const password = generate(t.blocks, { full_name: t.full_name, email: t.email }, deps.randomInt)
+  if (passwordProblem(password, t.policy)) throw new Refused(400, "The pattern made a password the rules don't allow. Check the pattern in Settings.")
+  let userId = t.user_id
+  try {
+    if (userId) await deps.updateUser(userId, { email: t.email, password })
+    else userId = await deps.createUser({ email: t.email, phone: t.phone, password })
+  } catch (e) {
+    throw new Refused(400, reasonFor(e))
   }
-  const targets = await deps.savePattern(body.pattern)
-  const failed: Result['failed'] = []
-  let updated = 0
-  for (let i = 0; i < targets.length; i += BATCH) {
-    const batch = targets.slice(i, i + BATCH)
-    const results = await Promise.allSettled(batch.map((t) => apply(deps, body.pattern, t)))
-    results.forEach((r, j) => {
-      if (r.status === 'fulfilled') updated++
-      else failed.push({ name: batch[j]!.full_name, reason: reasonFor(r.reason) })
-    })
-  }
-  return { updated, failed }
+  const expires_at = await deps.finish(t.profile_id, userId)
+  return { password, expires_at }
 }

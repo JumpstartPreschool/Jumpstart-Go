@@ -24,19 +24,28 @@ export function authMessage(e: AuthFailure | null | undefined): string {
   return MESSAGES.unknown
 }
 
-/** Email and password sign-in: one answer for a wrong email or a wrong password, so nobody can probe for accounts. */
+/**
+ * Email and password sign-in: one answer for a wrong email, a wrong password, a lock or email sign-in being off (the
+ * token hook answers those like a wrong password, 0048), so nobody can probe for accounts or learn that a guess was
+ * right (D55). Only an expired temporary password is named.
+ */
 export function passwordMessage(e: AuthFailure | null | undefined): string {
   const code = e?.code ?? ''
-  if (code === 'invalid_credentials' || code === 'email_not_confirmed' || /invalid login credentials/i.test(e?.message ?? '')) {
-    return "That email and password don't match. Check them, or sign in with your mobile number."
+  const text = e?.message ?? ''
+  if (/temporary_expired/.test(text)) return 'This temporary password has expired. Ask the school for a new one, or sign in with your mobile number.'
+  if (code === 'invalid_credentials' || code === 'email_not_confirmed' || /invalid login credentials/i.test(text)) {
+    return "That email and password don't match, or email sign-in is paused for now. Check them, or sign in with your mobile number."
   }
   return authMessage(e)
 }
+
+/** Whether the server refused the email or password itself, as opposed to the network failing. */
+export const wrongPassword = (e: AuthFailure) => e.code === 'invalid_credentials' || /invalid login credentials/i.test(e.message ?? '')
 
 /** Choosing a new password: Supabase's password rules, in words. */
 export function newPasswordMessage(e: AuthFailure | null | undefined): string {
   const code = e?.code ?? ''
   if (code === 'same_password') return 'Choose a password different from the one the school gave you.'
-  if (code === 'weak_password') return 'That password is too easy to guess. Use at least 8 characters with letters and numbers.'
+  if (code === 'weak_password') return 'That password is too easy to guess. Follow the rules above.'
   return authMessage(e)
 }

@@ -38,6 +38,8 @@ vi.mock('./voiceClips', () => ({
   clearRetiredVoiceCaches: async () => {},
   voiceChild: () => null,
   markVoice: () => {},
+  voiceLog: () => {},
+  secs: () => null,
   loadVoiceVersion: async () => null,
   clipAudio: (_ctx: unknown, line: string) => new Promise((resolve, reject) => pending.set(line, { resolve, reject })),
 }))
@@ -261,6 +263,29 @@ describe("the tablet's own voice", () => {
     expect(pickIndianVoice([v('Rishi'), v('Aman'), v('Prabhat')])).toBeNull()
     expect(pickIndianVoice([v('Samantha', 'en-US'), v('Isha', 'en-GB')])).toBeNull()
   })
+
+  it("falls back to another English woman's voice, never a man's or an unknown one, when there's no Indian woman's voice", async () => {
+    const { pickFallbackVoice } = await import('./sound')
+    // This Mac's Chrome (2026-10-04): Rishi is the only Indian English voice, and it is a man's.
+    expect(pickFallbackVoice([v('Rishi'), v('Daniel', 'en-GB'), v('Samantha', 'en-US')])?.name).toBe('Samantha')
+    expect(pickFallbackVoice([v('Rishi'), v('Samantha', 'en-US'), v('Google UK English Female', 'en-GB')])?.name).toBe('Google UK English Female')
+    expect(pickFallbackVoice([v('Isha'), v('Samantha', 'en-US')])?.name).toBe('Isha')
+    expect(pickFallbackVoice([v('Rishi'), v('Google UK English Male', 'en-GB'), v('Alex', 'en-US'), v('en-in-x-ahp-local')])).toBeNull()
+    expect(pickFallbackVoice([v('Amélie', 'fr-FR'), v('Karen', 'fr-FR')])).toBeNull()
+  })
+
+  it("says the unlock word in a woman's voice (iOS ignores its volume), and says nothing when the device has none", async () => {
+    deviceVoice.speak.mockClear()
+    sound.unlockSound()
+    const u = deviceVoice.speak.mock.calls.at(-1)![0] as { voice?: { name: string } }
+    expect(u.voice?.name).toBe('Isha')
+    const original = deviceVoice.getVoices
+    deviceVoice.getVoices = () => [{ name: 'Rishi', lang: 'en-IN' }]
+    deviceVoice.speak.mockClear()
+    sound.unlockSound()
+    expect(deviceVoice.speak).not.toHaveBeenCalled()
+    deviceVoice.getVoices = original
+  })
 })
 
 describe('a sentence is never cut short (the sound check stopped after "This is a…")', () => {
@@ -294,7 +319,7 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
   it('says the whole sentence again when iOS cut it off and gives the audio back, and reports the school voice', async () => {
     comesBack = true
     const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
-    pending.get('This is a sound check. Jumpstart Go gate announcements are working correctly.')!.resolve(clip('check', 4))
+    pending.get('This is a sound check. Jump Start Go gate announcements are working correctly.')!.resolve(clip('check', 4))
     await vi.advanceTimersByTimeAsync(0)
     expect(heard).toEqual(['start:check'])
     interrupt()
@@ -319,7 +344,7 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
 
   it('counts a clip that ends well before its length as cut, and plays it again', async () => {
     const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
-    pending.get('This is a sound check. Jumpstart Go gate announcements are working correctly.')!.resolve(clip('check', 4))
+    pending.get('This is a sound check. Jump Start Go gate announcements are working correctly.')!.resolve(clip('check', 4))
     await vi.advanceTimersByTimeAsync(0)
     liveCtx!.currentTime += 0.7 // "This is a…"
     finish()
@@ -332,7 +357,7 @@ describe('a sentence is never cut short (the sound check stopped after "This is 
 
   it('plays a clip that ran its full length only once', async () => {
     const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
-    pending.get('This is a sound check. Jumpstart Go gate announcements are working correctly.')!.resolve(clip('check', 4))
+    pending.get('This is a sound check. Jump Start Go gate announcements are working correctly.')!.resolve(clip('check', 4))
     await vi.advanceTimersByTimeAsync(0)
     liveCtx!.currentTime += 4
     finish()
