@@ -18,7 +18,7 @@ const MAKE_TIMEOUT_MS = 10_000
 const FAILED_RETRY_MS = 60_000
 const WARM_AT_ONCE = 4
 // Refused for the monthly cap or the hourly limit: no live clips for a while, instead of asking on every announcement.
-const RATE_PAUSE_MS = 10 * 60_000
+const RATE_PAUSE_MS = 60_000
 const PAUSE_KEY = 'jumpstart.voicePausedUntil'
 
 const debug = (...a: unknown[]) => { if (import.meta.env.DEV) console.debug('[voice]', ...a) }
@@ -167,6 +167,22 @@ export function clipAudio(ctx: BaseAudioContext, sentence: string): Promise<Audi
   memory.set(sentence, made)
   if (memory.size > 120) memory.delete(memory.keys().next().value!)
   return made
+}
+
+/**
+ * The sentence as playable audio only if the school already made it (on this iPad or in the store). Never makes one, so
+ * looking ahead (the next reminder's words) can't spend the hourly or monthly voice allowance.
+ */
+export function storedClipAudio(ctx: BaseAudioContext, sentence: string): Promise<AudioBuffer | null> {
+  const hit = memory.get(sentence)
+  if (hit) return hit.catch(() => null)
+  return stored(sentence).then((bytes) => {
+    if (!bytes || memory.has(sentence)) return memory.get(sentence)?.catch(() => null) ?? null
+    const buf = ctx.decodeAudioData(bytes)
+    memory.set(sentence, buf)
+    if (memory.size > 120) memory.delete(memory.keys().next().value!)
+    return buf
+  }).catch(() => null)
 }
 
 /**

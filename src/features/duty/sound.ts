@@ -1,6 +1,6 @@
 import { DEFAULT_OPENINGS, voiceParts } from '../../../supabase/functions/_shared/announce.ts'
 import type { AnnouncerOutput, ChimeKind } from './announcer'
-import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, secs, voiceChild, voiceLog } from './voiceClips'
+import { clearRetiredVoiceCaches, clipAudio, loadVoiceVersion, markVoice, secs, storedClipAudio, voiceChild, voiceLog } from './voiceClips'
 
 /**
  * Chime and voice for announcements on the coordinator's iPad (PRD D7, D50). The voice is the school's Indian English
@@ -39,6 +39,11 @@ export const CLIP_BUDGET_MS = 2500
  * starting up, and the check should sound like the real gate, not the tablet's voice.
  */
 export const SOUND_CHECK_BUDGET_MS = 8000
+/**
+ * Without an Indian woman's voice on the device (an iPhone by default has only Rishi, a man), the fallback is another
+ * accent (Samantha, American): the gate waits longer for the school's own voice before using it.
+ */
+export const NO_INDIAN_VOICE_BUDGET_MS = 6000
 // The natural pause after "New announcement." before the message.
 const PART_GAP_MS = 150
 
@@ -239,6 +244,7 @@ export type Spoken = 'school' | 'device' | 'cut' | 'silent'
 export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDGET_MS): Promise<Spoken> {
   const parts = voiceParts(text, voiceChild(childId), openings)
   if (!parts.length) return 'silent'
+  if (budgetMs === CLIP_BUDGET_MS && speechSupported && !pickIndianVoice(speechSynthesis.getVoices())) budgetMs = NO_INDIAN_VOICE_BUDGET_MS
   const mine = generation
   if (unlocking) await unlocking
   markVoice(text, 'chime-end')
@@ -287,6 +293,12 @@ export function prepare(text: string, childId?: string): void {
   if (!ctx) return
   markVoice(text, 'prepare')
   for (const part of voiceParts(text, voiceChild(childId), openings)) void clipAudio(ctx, part).catch(() => {})
+}
+
+/** Copies a coming sentence's clips if the school already made them (the next reminder): never makes one live. */
+export function warm(text: string, childId?: string): void {
+  if (!ctx) return
+  for (const part of voiceParts(text, voiceChild(childId), openings)) void storedClipAudio(ctx, part)
 }
 
 /**
@@ -400,4 +412,4 @@ export function stopSound(): void {
   endDevice?.()
 }
 
-export const deviceOutput: AnnouncerOutput = { chime, speak, stop: stopSound, prepare }
+export const deviceOutput: AnnouncerOutput = { chime, speak, stop: stopSound, prepare, warm }

@@ -38,6 +38,8 @@ export interface AnnouncerOutput {
   stop?(): void
   /** Get the words' audio ready while the chime plays, so speech starts the moment it ends. */
   prepare?(text: string, childId?: string): void
+  /** Get a later message ready only from clips already made: looking ahead never makes one live. */
+  warm?(text: string, childId?: string): void
 }
 
 export interface AnnouncerState {
@@ -149,7 +151,7 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
     },
     /** Gets an upcoming message's audio ready (a reminder's next time), so it plays without a pause. */
     warm(text: string, childId?: string) {
-      output.prepare?.(text, childId)
+      output.warm?.(text, childId)
     },
     announce(a: Announcement) {
       const existing = items.get(a.id)

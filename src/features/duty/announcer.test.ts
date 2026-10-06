@@ -246,3 +246,15 @@ describe('reminders and settings (0042)', () => {
     expect(played).toEqual([NEW_LEAD + 'new-1', NEW_LEAD + 'new-1'])
   })
 })
+
+describe('looking ahead', () => {
+  it('readies the next reminder only from clips already made, never by making one live', async () => {
+    const { createAnnouncer } = await import('./announcer')
+    const prepare = vi.fn()
+    const warm = vi.fn()
+    const a = createAnnouncer({ chime: async () => true, speak: async () => 'school', prepare, warm })
+    a.warm('This is a reminder. Aarav Shah’s mother will arrive in about twenty minutes.', 'k1')
+    expect(warm).toHaveBeenCalledWith('This is a reminder. Aarav Shah’s mother will arrive in about twenty minutes.', 'k1')
+    expect(prepare).not.toHaveBeenCalled()
+  })
+})

@@ -126,6 +126,11 @@
 - From an independent review: a half-said announcement (opening heard, the child's name not) counts as not heard and is tried again; a muted phone or one with paused sound checks in as off duty, so other phones speak its classes; one failed refresh no longer replaces the queue with an error page; an older refresh can't bring back an acknowledged trip; rows no longer remount every 5 s (taps were lost); a selected row on an iPad no longer blocks the pop-up; an error shows only on its own trip's pop-up; a persistent warning on duty when the device can't keep its screen on.
 - Left as is, noted: the app can't keep an iPhone awake by itself before iOS 18.4 (Auto-Lock → Never); a phone iOS closes in the background shows Resume duty; reminder phrases not made ahead are made live and count toward the voice quota.
 
+## Done on 2026-10-07: the gate speaking in an American voice
+- Cause: the American voice is the iPhone's own fallback (Samantha), used when the school's Indian voice isn't ready in 2.5 s. Looking ahead to each open trip's next reminder made a live clip about once a minute per trip, so with several test trips open a gate person used up the 300 live clips an hour; the server answered 429 and the phone paused live clips for 10 minutes, falling back to the device voice.
+- Fix: looking ahead uses only clips already made (`storedClipAudio`, `warm`); after a 429 the phone tries again in 1 minute; without an Indian woman's voice on the device it waits up to 6 s for the school's voice.
+- `scripts/voice-check.sql` (read-only): whether pg_cron's voice-drain job runs, each active child's recordings, live requests in the last hour and this month's characters.
+
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
