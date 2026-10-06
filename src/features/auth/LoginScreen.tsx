@@ -7,9 +7,10 @@ import { Logo, Mascot } from '../../ui/Logo'
 import { TextField } from '../../ui/Field'
 import { formatMobile, normalizeMobile } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
-import { authMessage, passwordMessage } from './messages'
+import { authMessage, passwordMessage, wrongPassword } from './messages'
 import { PasswordField } from './PasswordField'
 import { chooseArea } from './session'
+import { DEMO_CODE, isDemoNumber } from './demoLogins'
 
 // Six digits, matching Supabase → Authentication → Providers → Phone → OTP Length (environments.md).
 const CODE_LENGTH = 6
@@ -133,8 +134,9 @@ export function LoginScreen() {
 
   async function sendCode(e164: string) {
     await run(async () => {
-      // Registered, active and under 10 codes an hour.
-      const { data: allowed, error: checkError } = await supabase.rpc('phone_login_allowed', { p_phone: e164 })
+      // Registered, active and under 10 codes an hour. Demo numbers send nothing, so the team never hits the limit.
+      const demo = isDemoNumber(e164)
+      const { data: allowed, error: checkError } = demo ? { data: true, error: null } : await supabase.rpc('phone_login_allowed', { p_phone: e164 })
       if (checkError) return setError(authMessage(checkError))
       if (allowed) {
         // shouldCreateUser: someone's first code creates their account, which the database links to the invite.
@@ -144,7 +146,7 @@ export function LoginScreen() {
       }
       setSentTo(e164)
       setStep('code')
-      setCode('')
+      setCode(demo ? DEMO_CODE : '')
       setResendIn(RESEND_AFTER_S)
       setTimeout(() => codeInput.current?.focus(), 50)
     })
@@ -193,6 +195,10 @@ export function LoginScreen() {
         chooseArea.done()
         setPassword('')
         setError(passwordMessage(signError))
+        // Counted toward the lock (0048). Says nothing back, and never blocks the message.
+        if (wrongPassword(signError)) await supabase.rpc('password_sign_in_failed', { p_email: address }).then(() => {}, () => {})
+      } else {
+        await supabase.rpc('password_sign_in_ok').then(() => {}, () => {})
       }
     })
   }
@@ -238,8 +244,10 @@ export function LoginScreen() {
               <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(155deg,#8a161b,#c8262c)] text-white shadow-[0_12px_24px_-12px_rgb(200_38_44/0.7)]">
                 <WhatsApp className="size-8" aria-hidden />
               </span>
-              <h1 className="mt-4 text-h2">Check WhatsApp</h1>
-              <p className="mt-1.5 text-body text-ink-2" role="status">If this number is registered with Jumpstart, a 6-digit code is on its way on WhatsApp.</p>
+              <h1 className="mt-4 text-h2">{isDemoNumber(sentTo) ? 'Demo sign-in' : 'Check WhatsApp'}</h1>
+              <p className="mt-1.5 text-body text-ink-2" role="status">
+                {isDemoNumber(sentTo) ? 'This is a demo number: the code is filled in below. Tap Continue.' : 'If this number is registered with Jumpstart, a 6-digit code is on its way on WhatsApp.'}
+              </p>
               {/* The number the code went to, with Change right on it: where people look when it's the wrong one. */}
               <button type="button" className="phone-chip mt-3" aria-label={`Change number, now ${formatMobile(sentTo)}`} onClick={changeNumber}>
                 <Smartphone className="phone-chip__icon" aria-hidden />

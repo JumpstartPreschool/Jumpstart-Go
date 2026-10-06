@@ -1,6 +1,6 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-02
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-04
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
@@ -84,6 +84,23 @@
 - Gate: a "Running late · 1:20 PM" pill and the note; the admin's Running late wording said once, then reminders with the new time; priority below urgent, above outside the usual time. Parent: the new sheet (+5/+10/+15, Custom time, note) and a Running late pill.
 - Checks: `npm test` (LateSheet, gate flow), `running_late.test.sql`, build, and a browser run on the demo. **Not done:** a real iPhone/iPad; the collector's own Running late link (`link_late`) still uses +10/20/30 and doesn't set the late fields.
 
+## Done on 2026-10-04: temporary passwords from the admin's pattern builder (D55, [plan](temporary-password-plan.md))
+- `0048`: rules (`password_policy`) and patterns (`password_patterns`, default plus per role and family) checked in SQL as in `_shared/passwordPattern.ts`; one temporary password at a time (`admin_begin_temp_password` → `password-pattern` function → `finish_temp_password`), shown once, 48 h; `password-change` for the person's own (rules, last 5, other devices signed out); lock after 5 wrong tries for 15 min, email sign-in only; Custom Access Token hook enforces lock, expiry and off, and refuses recovery and magic links; password state and `user_id` can't be written directly. The 0041 pattern and its passwords are gone.
+- App: Settings → Authentication (Password rules; Temporary passwords builder with move controls, live preview and strength meter); the key button on a person issues, regenerates or turns off email sign-in; Add and Edit staff and Edit family have an optional email; choose-your-own screen shows the rules; demo follows the same rules.
+- Security review: two High and two Medium findings fixed in `0048` (see the plan's "As built"); one open decision above.
+- Checks: `npm test` 38 files, 351 tests; `npm run test:db` passed (30 files); `npm run build` passed; demo in the browser: first sign-in and forced change, reuse refused, weak pattern refused, strong pattern saved, issue shown once, lock after 5 with a neutral message, WhatsApp code still works when locked, no console errors, no sideways scroll at 390 px. **Not done:** `deno check` (Deno isn't installed), anything against the live project.
+
+## Done on 2026-10-04: gate voice audible and always a woman's; WATI sign-in checked
+- Cause of silent announcements: when the school's clip wasn't ready, the device fallback allowed only Indian women's voices, which most devices don't have (this Mac's Chrome: only Rishi, a man), so nothing was said and the queue retried silently. Now an Indian woman's voice, else another English woman's voice, never a man's; logged when unavailable. The unlock word at Start duty (audible on iOS, which ignores its volume) was in the default voice, Rishi on Indian iPads: it now uses the same woman's voice, or isn't said. The sound check waited for no voice version and had its clip made live every time; it now waits. A re-announced trip no longer cuts the sentence being said. `[voice]` logs in every build.
+- WATI: a timeout was logged as "unavailable" (the abort won the race); fixed. Tests added for a WATI that never answers. Test numbers documented as the safe way to sign in while WATI is inactive.
+- Checks: `npm test` 38 files, 355 tests; `npm run test:db` passed; build passed; Chrome on the lag page: clips arriving play in full (8.19 s clip, 8.2 s played), a clip that never arrives is now said in full by a woman's voice (Karen) instead of nothing. **Not done:** real iPad, iPhone and Android checks, and hearing the live Azure voice (no staff sign-in available here).
+
+## Done on 2026-10-06: one mobile for several roles, numbers reused, demo sign-ins
+- **One person, several roles:** a mobile is one sign-in, so typing a number someone already has links that person instead of refusing it. Add a child or a parent: a staff member's number links them as the parent (they keep their roles and get the Parent area too); Link someone already here now lists staff. Add staff: a parent's number gives that parent the roles (and app access if they had none).
+- **Numbers reused after removal** (`0049`): adding or editing a person with the number of someone turned off moves it to them (the old record keeps its history, not the number). A parent re-added by mobile after their child left is linked again with app access back on. Inactive people may have no contact left.
+- **Demo sign-ins (temporary):** ten demo parents on +91 90000 00001 to 00010, each with one "… Demo" child (`scripts/demo/add-demo-logins.sql`). Those numbers sign in with Supabase test codes and the sign-in screen fills the code in (`src/features/auth/demoLogins.ts`); every other number keeps WhatsApp. Remove for good with `scripts/demo/remove-demo-logins.sql`, then delete the test numbers in Supabase and `demoLogins.ts`.
+- Checks: `npm test` 38 files, 358 tests; `npm run build`; `npm run test:db` passed for every file but `zz_..._gate_roles.test.sql`, which fails at 15:39 IST with and without these changes (an attendance time check); the new `..._reuse_numbers.test.sql` covers reuse, both roles, re-linking, and adding then removing the demo data. Browser (demo mode): demo number fills the code, other numbers don't; Add staff with a parent's number shows the notice. **Not done:** a real iPhone.
+
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.
@@ -111,6 +128,8 @@
 - **Not deployed yet:** `0044`–`0046`, the functions and the app wait for the owner to run the deploy steps (secrets, then deploy).
 
 ## Waiting on the owner
+- **Turn on D55 in Supabase** (built 2026-10-04, not deployed): run `0048`, deploy `password-pattern` and `password-change`, turn on the Custom Access Token hook (`public.access_token_hook`) and set Email → minimum length 10 with all four character kinds. Steps: "Auth settings" in [environments.md](../infrastructure/environments.md).
+- **Decide (D55, security review H2a):** the admin knows a temporary password for up to 48 hours, so they could sign in as that person and choose the "own" password themselves. Closing it needs a WhatsApp code before the first change (one more message per issue). Accept, or add the code step.
 - **WhatsApp sign-in setup** (paid, approved 2026-10-02): create the three WATI templates and wait for Meta to approve them; set the secrets; turn on the Phone provider and the Send SMS hook; deploy `send-sms`, `whatsapp-invite` and `wati-webhook`; add the WATI webhook. Exact steps: "Turning on WhatsApp through WATI" in [environments.md](../infrastructure/environments.md).
 - A mobile number for every staff member who needs the app (the gate tablet's account and anyone without one can't sign in until it's added).
 - What the existing "Jumpstart app" (website FAQ) is, and whether this platform replaces it.
