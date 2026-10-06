@@ -6,6 +6,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ToastProvider } from '../../ui/Toast'
 
+// jsdom has no <dialog> methods; the country picker is a sheet that uses showModal().
+HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', '') }
+HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open') }
+
 const auth = vi.hoisted(() => ({
   signInWithOtp: vi.fn(),
   signInWithPassword: vi.fn(),
@@ -47,9 +51,11 @@ it('starts with the mobile number, with the phone keyboard and autofill hints, a
   await open()
   const field = screen.getByLabelText('Mobile number')
   expect(field).toHaveAttribute('type', 'tel')
-  expect(field).toHaveAttribute('autocomplete', 'tel')
+  expect(field).toHaveAttribute('autocomplete', 'tel-national')
   expect(field).toHaveAttribute('placeholder', '98765 43210')
-  expect(screen.getByText('Outside India? Start with + and the country code.')).toBeInTheDocument()
+  // +91 is fixed in front; other countries are one tap away.
+  expect(screen.getByRole('button', { name: 'Country code: India, +91. Change' })).toBeInTheDocument()
+  expect(screen.getByText('Outside India? Tap +91 to choose your country.')).toBeInTheDocument()
   // Email and password are the second way in (D52): offered, but not asked for until chosen.
   expect(screen.queryByLabelText(/email|password/i)).toBeNull()
   expect(screen.getByRole('button', { name: 'Sign in with email and password' })).toBeInTheDocument()
@@ -66,7 +72,11 @@ it('sends a registered number its code on WhatsApp, as a full international numb
 
 it('takes numbers from other countries', async () => {
   const user = await open()
-  await askForCode(user, '+971 50 123 4567')
+  await user.click(screen.getByRole('button', { name: /Country code/ }))
+  await user.type(screen.getByLabelText('Search a country or code'), 'emirates')
+  await user.click(screen.getByRole('option', { name: /United Arab Emirates/ }))
+  expect(screen.getByRole('button', { name: 'Country code: United Arab Emirates, +971. Change' })).toBeInTheDocument()
+  await askForCode(user, '50 123 4567')
   await screen.findByRole('heading', { name: 'Check WhatsApp' })
   expect(auth.signInWithOtp).toHaveBeenCalledWith({ phone: '+971501234567', options: { shouldCreateUser: true } })
 })
@@ -84,7 +94,7 @@ it('checks the number before calling the server', async () => {
   const user = await open()
   await user.type(screen.getByLabelText('Mobile number'), '12345')
   await user.click(screen.getByRole('button', { name: /Send code on WhatsApp/ }))
-  expect(screen.getByRole('alert')).toHaveTextContent('Enter a mobile number')
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter the 10-digit mobile number')
   expect(auth.rpc).not.toHaveBeenCalled()
 })
 
@@ -160,7 +170,7 @@ it('lets a new code be asked for only after the 60 second wait, and Change goes 
   expect(screen.getByRole('button', { name: /Send a new code in \d+s/ })).toBeDisabled()
   expect(screen.getByRole('button', { name: /Send a new code in 6\ds/ })).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /Change number/ }))
-  expect(screen.getByLabelText('Mobile number')).toHaveValue('+91 98765 43210')
+  expect(screen.getByLabelText('Mobile number')).toHaveValue('98765 43210')
 })
 
 it('enables Send a new code when the countdown ends, and sends to the same number', async () => {
@@ -184,7 +194,7 @@ it('enables Send a new code when the countdown ends, and sends to the same numbe
 
 it('opens an invitation link with the number filled in, then clears it from the address', async () => {
   await open('#phone=%2B919220991947')
-  expect(screen.getByLabelText('Mobile number')).toHaveValue('+91 92209 91947')
+  expect(screen.getByLabelText('Mobile number')).toHaveValue('92209 91947')
   expect(location.hash).toBe('')
 })
 
@@ -257,14 +267,17 @@ it('goes back to the mobile number from email sign-in', async () => {
 })
 
 it('fills in the code for a demo number and signs in with it, while other numbers still wait for WhatsApp', async () => {
+  auth.rpc.mockImplementation(async (fn: string) => ({ data: fn === 'demo_code' ? '482913' : true, error: null }))
   const user = await open()
   await askForCode(user, '90000 00003')
   await screen.findByRole('heading', { name: 'Demo sign-in' })
   expect(auth.rpc).not.toHaveBeenCalledWith('phone_login_allowed', expect.anything())
   expect(auth.signInWithOtp).toHaveBeenCalledWith({ phone: '+919000000003', options: { shouldCreateUser: true } })
-  expect(screen.getByLabelText('6-digit code')).toHaveValue('246810')
+  // The code Supabase made, read back from the sign-in hook (0050).
+  expect(auth.rpc).toHaveBeenCalledWith('demo_code', { p_phone: '+919000000003' })
+  expect(screen.getByLabelText('6-digit code')).toHaveValue('482913')
   await user.click(screen.getByRole('button', { name: 'Continue' }))
-  expect(auth.verifyOtp).toHaveBeenCalledWith({ phone: '+919000000003', token: '246810', type: 'sms' })
+  expect(auth.verifyOtp).toHaveBeenCalledWith({ phone: '+919000000003', token: '482913', type: 'sms' })
 
   await user.click(screen.getByRole('button', { name: /Use a different number/ }))
   await user.clear(screen.getByLabelText('Mobile number'))

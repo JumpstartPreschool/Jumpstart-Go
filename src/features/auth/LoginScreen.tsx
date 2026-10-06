@@ -6,11 +6,13 @@ import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { TextField } from '../../ui/Field'
 import { formatMobile, normalizeMobile } from '../../domain/contact'
+import { formatRest, fullNumber, INDIA, splitNumber } from '../../domain/countries'
+import { PhoneField } from './PhoneField'
 import { supabase } from '../../lib/supabase'
 import { authMessage, passwordMessage, wrongPassword } from './messages'
 import { PasswordField } from './PasswordField'
 import { chooseArea } from './session'
-import { DEMO_CODE, isDemoNumber } from './demoLogins'
+import { demoCode, isDemoNumber } from './demoLogins'
 
 // Six digits, matching Supabase → Authentication → Providers → Phone → OTP Length (environments.md).
 const CODE_LENGTH = 6
@@ -91,8 +93,10 @@ function FormError({ id, children }: { id: string; children: ReactNode }) {
  */
 export function LoginScreen() {
   const [step, setStep] = useState<'number' | 'code' | 'email'>('number')
-  // From an invitation link (/#phone=…): the number is already filled in.
-  const [phone, setPhone] = useState(() => formatMobile(invitedPhone()))
+  // From an invitation link (/#phone=…): the number is already filled in, with its country.
+  const [invite] = useState(() => (invitedPhone() ? splitNumber(invitedPhone()) : { country: INDIA, rest: '' }))
+  const [country, setCountry] = useState(invite.country)
+  const [phone, setPhone] = useState(() => formatRest(invite.country, invite.rest))
   // The number the code went to, as stored (+ and the country code).
   const [sentTo, setSentTo] = useState('')
   const [code, setCode] = useState('')
@@ -146,7 +150,7 @@ export function LoginScreen() {
       }
       setSentTo(e164)
       setStep('code')
-      setCode(demo ? DEMO_CODE : '')
+      setCode(demo ? await demoCode(e164) : '')
       setResendIn(RESEND_AFTER_S)
       setTimeout(() => codeInput.current?.focus(), 50)
     })
@@ -154,9 +158,8 @@ export function LoginScreen() {
 
   async function onNumber(e: FormEvent) {
     e.preventDefault()
-    const e164 = normalizeMobile(phone)
-    if (!e164) return setError('Enter a mobile number, like 98765 43210. Outside India, start with + and the country code.')
-    setPhone(formatMobile(e164))
+    const e164 = fullNumber(country, phone)
+    if (!e164) return setError(country.iso === 'IN' ? 'Enter the 10-digit mobile number, like 98765 43210.' : `Enter the ${country.name} mobile number, without +${country.dial}.`)
     await sendCode(e164)
   }
 
@@ -214,21 +217,8 @@ export function LoginScreen() {
               <h1 className="mt-1 text-h1">Sign in to Jumpstart Go</h1>
               <p className="mt-2 text-body text-ink-2">Enter the mobile number the school has for you. We'll send a 6-digit code on WhatsApp.</p>
             </div>
-            <TextField
-              label="Mobile number"
-              name="phone"
-              icon={<Smartphone aria-hidden />}
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              enterKeyHint="send"
-              placeholder="98765 43210"
-              hint="Outside India? Start with + and the country code."
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); setError(null) }}
-              error={error}
-              autoFocus
-            />
+            <PhoneField country={country} onCountry={(c) => { setCountry(c); setError(null) }} value={phone}
+              onChange={(v) => { setPhone(v); setError(null) }} error={error} />
             <Button type="submit" className="w-full" icon={<WhatsApp />} loading={busy}>
               {busy ? 'Sending code…' : 'Send code on WhatsApp'}<ArrowRight aria-hidden />
             </Button>
