@@ -24,7 +24,8 @@ import type { Announcer } from './announcer'
 import { loadVoiceVersion, setVoiceChildren, warmClips } from './voiceClips'
 import type { VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
 import { childMessages, commonPhrases } from '../../../supabase/functions/_shared/gateAnnounce.ts'
-import { isLate, syncGate, type GateChild } from './gate'
+import { isLate, shouldAnnounce, syncGate, type GateChild } from './gate'
+import { RequestPopup } from './RequestPopup'
 import { setVoiceOpenings } from './sound'
 import { useGateSettings } from './useGateSettings'
 
@@ -153,6 +154,8 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const school = useSchoolDay()
   const [scope, setScope] = useState<'mine' | 'all'>('mine')
   const [calling, setCalling] = useState(false)
+  // "Later" on the pop-up, per trip: hidden until the trip changes (a new time, I've arrived), then it pops up again.
+  const [later, setLater] = useState<Map<string, string>>(new Map())
   const cancelHeard = useRef(new Set<string>())
   const announced = useRef(new Map<string, string>())
   const lateHeard = useRef(new Map<string, string>())
@@ -361,6 +364,20 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
             void trips.reload()
           }} />
       )}
+      {(() => {
+        // The request this phone is announcing that nobody has acknowledged yet, earliest first: popped up to acknowledge.
+        // Not over another sheet the coordinator is using.
+        if (handover || codeFor || calling || picked) return null
+        const waiting = trips.trips!.filter((t) => {
+          const c = children.get(t.child_id)
+          return c && later.get(t.id) !== t.updated_at && shouldAnnounce(t, c.classId, gate.data!.myClasses, covered, nowMs)
+        }).sort((a, b) => Number(!!b.arrived_at) - Number(!!a.arrived_at) || Date.parse(a.arrive_at) - Date.parse(b.arrive_at))
+        const t = waiting[0]
+        const c = t && children.get(t.child_id)
+        if (!t || !c) return null
+        return <RequestPopup key={`${t.id}|${t.updated_at}`} trip={t} child={c} more={waiting.length - 1} busy={busy === t.id} error={error}
+          onAcknowledge={() => void act(t, 'acknowledge')} onLater={() => setLater((m) => new Map(m).set(t.id, t.updated_at))} />
+      })()}
       <Button size="md" variant="quiet" icon={<RotateCcw />} className="justify-self-start lg:col-span-2" onClick={() => { void trips.reload(); void gate.reload() }}>Refresh</Button>
     </div>
   )
