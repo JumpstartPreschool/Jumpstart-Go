@@ -325,7 +325,8 @@ export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'l
 // Women's English voices by name, for a device with no Indian English woman's voice (most Macs, Windows without Heera,
 // and iPads without Isha downloaded, whose only Indian English voice is Rishi, a man). Browsers don't say a voice's
 // gender, so only names known to be women's voices are used; an unknown voice is never risked.
-const FEMALE_ENGLISH = /\b(samantha|karen|moira|tessa|fiona|victoria|allison|ava|susan|serena|kate|zoe|nicky|catherine|kathy|vicki|zira|aria|jenny|hazel|libby|sonia|clara|natasha|michelle|emma|female)\b/i
+// Not Apple's novelty voices (Kathy, Bubbles and the like), which sound robotic.
+const FEMALE_ENGLISH = /\b(samantha|karen|moira|tessa|fiona|victoria|allison|ava|susan|serena|kate|zoe|nicky|catherine|vicki|martha|zira|aria|jenny|hazel|libby|sonia|clara|natasha|michelle|emma|female)\b/i
 const NOT_A_WOMAN = /\b(male|rishi|daniel|alex|fred|tom|aaron|arthur|oliver|guy|ryan|david|mark|george|james|prabhat|aman|ravi)\b/i
 /** The device voice the gate may use: an Indian English woman first, else another English woman's voice, else none. */
 export function pickFallbackVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {

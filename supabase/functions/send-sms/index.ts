@@ -38,6 +38,11 @@ Deno.serve((req) => {
       if (error) throw error
       return data === true
     },
+    keepDemoCode: async (phone, otp) => {
+      const { data, error } = await db.rpc('demo_code_keep', { p_phone: phone, p_code: otp })
+      if (error) throw error
+      return data === true
+    },
     sendRefund: async (phone) => {
       const { error } = await db.rpc('otp_send_refund', { p_phone: phone })
       if (error) console.error(JSON.stringify({ sms: 'refund_failed', code: error.code }))

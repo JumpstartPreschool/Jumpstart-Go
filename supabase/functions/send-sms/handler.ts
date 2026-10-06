@@ -11,6 +11,8 @@ export interface Deps {
   sendAllowed(phone: string): Promise<boolean>
   /** public.otp_send_refund: gives the place back when WATI didn't send the code, so its problems never lock anyone out. */
   sendRefund(phone: string): Promise<void>
+  /** public.demo_code_keep: true for a demo number (scripts/demo), whose code is kept for the sign-in screen, not sent. */
+  keepDemoCode?(phone: string, otp: string): Promise<boolean>
   wati: Pick<Wati, 'sendTemplate'>
   /** Adds the delivery log row before WATI is called, so WATI's status webhook always finds it. Never given the code. */
   log(row: WhatsAppLogRow): Promise<void>
@@ -55,6 +57,13 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     return unavailable(503)
   }
   if (!profileId) return json({})
+
+  // Demo numbers: the sign-in screen shows the code, so nothing is sent and nothing counts toward the limit.
+  try {
+    if (deps.keepDemoCode && (await deps.keepDemoCode(phone, otp))) return json({})
+  } catch {
+    console.error(JSON.stringify({ sms: 'demo_check_failed' }))
+  }
 
   // The limit is counted here, where the code is sent, so calling Auth directly cannot get round it.
   try {

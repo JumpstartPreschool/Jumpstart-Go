@@ -169,8 +169,13 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   const today = indiaClock(new Date(nowMs))
   const mine = trips.filter((t) => t.child_id === child.id)
   const open = mine.find((t) => t.status === 'en_route') ?? null
-  const dropDone = mine.find((t) => t.direction === 'dropoff' && t.status === 'checked_in') ?? null
-  const pickDone = mine.find((t) => t.direction === 'pickup' && t.status === 'handed_over') ?? null
+  // Any number of drop-offs and pickups a day (0050): the latest handover says where the child is now.
+  const latest = (status: Trip['status']) => mine.filter((t) => t.status === status && t.closed_at).sort((a, b) => Date.parse(b.closed_at!) - Date.parse(a.closed_at!))[0] ?? null
+  const lastDrop = latest('checked_in')
+  const lastPick = latest('handed_over')
+  const atSchool = !!lastDrop && (!lastPick || Date.parse(lastDrop.closed_at!) > Date.parse(lastPick.closed_at!))
+  const dropDone = atSchool ? lastDrop : null
+  const pickDone = lastPick && !atSchool ? lastPick : null
   const regular = child.child_schedules.find((s) => s.weekday === today.weekday)
   // 0026: trips work any day, so the buttons show every day (the regular times still follow the programme's days).
   const school = !!programme
@@ -188,9 +193,9 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   // Drop-off first; after it (or once its time has clearly passed) the pickup.
   const dropoffOver = programme ? today.minutes > (programme.windows === 'flexible' ? programme.hours.from + 180 : windowFor(programme, 'dropoff').to + 30) : true
   const away = attendance && attendance.status !== 'present' ? attendance : null
-  const next: Direction | null = !school || pickDone || away ? null : !dropDone && !dropoffOver ? 'dropoff' : 'pickup'
-  // The window only picks which one the big button offers: both tiles open "I'm on my way" at any time until it's done.
-  const otw = (d: Direction) => (!open && next && !(d === 'dropoff' && dropDone) ? () => setSheet({ kind: 'otw', direction: d }) : undefined)
+  const next: Direction | null = !school || away ? null : pickDone ? 'dropoff' : !dropDone && !dropoffOver ? 'dropoff' : 'pickup'
+  // The window only picks which one the big button offers: either tile opens "I'm on my way" whenever it can happen next.
+  const otw = (d: Direction) => (!open && next && !(d === 'dropoff' && dropDone) && !(d === 'pickup' && pickDone) ? () => setSheet({ kind: 'otw', direction: d }) : undefined)
   async function undo() {
     try { await undoAbsence(child.id, today.date); toast(`${first} is expected today again.`); onChanged() } catch (e) { toast(explainDbError(e as { code?: string; message?: string })) }
   }
@@ -227,6 +232,12 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
           onLate={() => setSheet({ kind: 'late', direction: open.direction })}
           onChange={() => setSheet({ kind: 'otw', direction: open.direction })}
           onCancel={() => setSheet({ kind: 'cancel', direction: open.direction })} />
+      ) : next && programme && pickDone ? (
+        // Already home: bringing them back is there, but quieter than the day's main button.
+        <div className="mt-4">
+          <Button size="lg" variant="secondary" className="w-full" icon={<Navigation />} onClick={() => setSheet({ kind: 'otw', direction: 'dropoff' })}>Bringing {first} back today</Button>
+          <p className="mt-2 text-center text-caption font-semibold text-ink-3">Another drop-off, then pick up again as often as you need.</p>
+        </div>
       ) : next && programme ? (
         <div className="mt-4">
           <Button size="xl" className="w-full [--fs:22px] [--h:80px] [--r:24px]" icon={<Navigation />} onClick={() => setSheet({ kind: 'otw', direction: next })}>I'm on my way</Button>

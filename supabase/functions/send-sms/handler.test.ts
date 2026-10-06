@@ -200,4 +200,22 @@ describe('send-sms hook handler', () => {
     await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919899999999' }, sms: { otp: '1' } }) }), deps)
     expect(deps.sendAllowed).not.toHaveBeenCalled()
   })
+
+  it('keeps a demo number\'s code for the sign-in screen and sends nothing on WhatsApp', async () => {
+    const keepDemoCode = vi.fn(async (phone: string) => phone === '+919822000001')
+    const { deps } = setupDeps({ keepDemoCode })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '482913' } }) }), deps)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({})
+    expect(keepDemoCode).toHaveBeenCalledWith('+919822000001', '482913')
+    expect(deps.wati.sendTemplate).not.toHaveBeenCalled()
+    expect(deps.sendAllowed).not.toHaveBeenCalled()
+  })
+
+  it('still sends on WhatsApp when the demo check fails', async () => {
+    const { deps } = setupDeps({ keepDemoCode: vi.fn(async () => { throw new Error('db down') }) })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '482913' } }) }), deps)
+    expect(res.status).toBe(200)
+    expect(deps.wati.sendTemplate).toHaveBeenCalled()
+  })
 })

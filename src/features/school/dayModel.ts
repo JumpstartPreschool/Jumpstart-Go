@@ -41,12 +41,16 @@ export function childDay(input: {
   }
   const expected = { dropoff: expect('dropoff'), pickup: expect('pickup') }
   const open = trips.find((t) => t.status === 'en_route') ?? null
-  const collected = trips.find((t) => t.direction === 'pickup' && t.status === 'handed_over')
-  const checkedIn = trips.find((t) => t.direction === 'dropoff' && t.status === 'checked_in')
+  // Any number of drop-offs and pickups a day (0050): the latest handover says where the child is now.
+  const last = trips.filter((t) => (t.status === 'handed_over' || t.status === 'checked_in') && t.closed_at)
+    .sort((a, b) => Date.parse(b.closed_at!) - Date.parse(a.closed_at!))[0]
+  const collected = last?.status === 'handed_over' ? last : null
+  const checkedIn = last?.status === 'checked_in' ? last : null
   const away = attendance && attendance.status !== 'present' ? attendance : null
   const base = { expected, changed, trip: open, away }
   if (away) return { ...base, state: 'away', next: { at: null, label: AWAY_LABEL[away.status] ?? 'Away' } }
-  if (collected) return { ...base, state: 'collected', next: { at: at(collected.closed_at!), label: 'collected' } }
+  // Collected, unless someone is now bringing them back.
+  if (collected && open?.direction !== 'dropoff') return { ...base, state: 'collected', next: { at: at(collected.closed_at!), label: 'collected' } }
   if (open) return { ...base, state: 'otw', next: { at: at(open.arrive_at), label: open.direction === 'pickup' ? 'arriving' : 'coming in' } }
   if (checkedIn || attendance?.checked_in_at) return { ...base, state: 'here', next: { at: expected.pickup, label: 'pickup' } }
   return { ...base, state: 'expected', next: { at: expected.dropoff, label: 'drop-off' } }
