@@ -23,6 +23,12 @@ describe("a child's day", () => {
     expect(here.state).toBe('here')
     expect(here.next).toEqual({ at: toMinutes('13:00'), label: 'pickup' })
     expect(childDay({ ...base, trips: [trip({ status: 'handed_over', closed_at: '2026-09-24T07:35:00Z' })] }).next).toEqual({ at: toMinutes('13:05'), label: 'collected' })
+    // Any number of trips a day (0050): the latest handover says where the child is.
+    const out = trip({ id: 'p1', status: 'handed_over', closed_at: '2026-09-24T07:35:00Z' })
+    const backIn = trip({ id: 'd2', direction: 'dropoff', status: 'checked_in', closed_at: '2026-09-24T09:00:00Z' })
+    expect(childDay({ ...base, trips: [out, trip({ id: 'd2', direction: 'dropoff' })] }).state).toBe('otw')
+    expect(childDay({ ...base, trips: [out, backIn] }).state).toBe('here')
+    expect(childDay({ ...base, trips: [out, backIn, trip({ id: 'p2', status: 'handed_over', closed_at: '2026-09-24T11:00:00Z' })] }).state).toBe('collected')
     expect(childDay({ ...base, attendance: { child_id: 'k', day: '', status: 'absent', note: 'Unwell', reported_by: null, checked_in_at: null, checked_out_at: null } }).state).toBe('away')
   })
   it('counts who else is due near a time, ignoring those away or done', () => {
