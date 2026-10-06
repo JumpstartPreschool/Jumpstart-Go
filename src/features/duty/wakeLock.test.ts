@@ -33,3 +33,17 @@ describe('wake lock', () => {
     expect(locks[0]!.release).toHaveBeenCalled()
   })
 })
+
+describe('wake lock on Apple Home Screen apps', () => {
+  const iphone = (v: string) => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148`
+  it('is not trusted from the Home Screen before iOS 18.4', async () => {
+    const { brokenOnApple } = await import('./wakeLock')
+    expect(brokenOnApple(iphone('17_5'), true)).toBe(true)
+    expect(brokenOnApple(iphone('18_3_1'), true)).toBe(true)
+    expect(brokenOnApple(iphone('18_4'), true)).toBe(false)
+    expect(brokenOnApple(iphone('26_0'), true)).toBe(false)
+    // In Safari itself it works from iOS 16.4.
+    expect(brokenOnApple(iphone('17_5'), false)).toBe(false)
+    expect(brokenOnApple('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0', true)).toBe(false)
+  })
+})

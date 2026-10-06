@@ -114,6 +114,12 @@
 - The demo backend (`npm run dev:demo`) now accepts a bulk upload, so it can be tried on localhost.
 - Checks: `npm test` 39 files, 363 tests; build; a browser run of a 4-column CSV (3 added, the row without a date of birth held back with its reason).
 
+## Done on 2026-10-07: late and missing announcements on iPhone
+- Cause: a gate phone announces its own classes at once, but another coordinator's class only after 2 minutes (FALLBACK_MS) with nobody acting, and a class counted as covered whenever someone was *assigned*, even off duty. With the team testing across classes, a child in a class assigned to someone not on duty was announced 2 to 3 minutes late on the iPhone, and the clock restarted on every change to the trip.
+- `0051`: gate phones on duty check in every 30 s (`gate_heartbeat`); a class counts as covered only while one of its coordinators checked in within 75 s, so an off-duty or locked coordinator's classes are announced straight away on every other gate phone. Pill: "Nobody on duty".
+- iPhone/iPad Home Screen apps before iOS 18.4 accept a wake lock but don't hold it, so the screen locked after 30 s and the page stopped. The duty screen no longer claims "Screen stays on" there and asks for Auto-Lock → Never.
+- Checks: `npm test` 364; build; `npm run test:db` (all but the time-dependent gate_roles file) with the new gate_on_duty test. **Not done:** a real iPhone.
+
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.

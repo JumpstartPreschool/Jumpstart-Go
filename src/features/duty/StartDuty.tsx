@@ -185,7 +185,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
             {duty.wakeSupported ? (
               <Tile tone="ok" icon={<CircleCheck />} title="Screen stays on">While you're on duty, this screen won't go to sleep.</Tile>
             ) : (
-              <Tile tone="warn" icon={<TriangleAlert />} title="Keep the screen on">In the device's settings, set the screen to never turn off (on an iPad: Display &amp; Brightness → Auto-Lock → Never).</Tile>
+              <Tile tone="warn" icon={<TriangleAlert />} title="Keep the screen on">Otherwise it locks and announcements stop. On an iPhone or iPad: Settings → Display &amp; Brightness → Auto-Lock → Never.</Tile>
             )}
             {duty.soundSupported ? (
               <Tile tone="info" icon={<Volume2 />} title="Sound check">

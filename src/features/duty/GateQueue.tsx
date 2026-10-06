@@ -29,7 +29,39 @@ import { setVoiceOpenings } from './sound'
 import { useGateSettings } from './useGateSettings'
 
 interface Guardian { id: string; name: string; relation: string; active: boolean; kind: 'parent' | 'family'; abroad: boolean }
-interface GateData { children: Map<string, GateChild & { guardians: Guardian[]; spoken: string | null }>; myClasses: Set<string>; covered: Set<string> }
+interface GateData {
+  children: Map<string, GateChild & { guardians: Guardian[]; spoken: string | null }>
+  myClasses: Set<string>
+  /** Who could cover each class for this tablet (see useGateData); it counts as covered only while one is on duty. */
+  assigned: Array<{ profileId: string; classId: string }>
+}
+
+/**
+ * Who is on duty at the gate now (0051): this phone checks in every 30 seconds and on return to the screen, and says it
+ * has left when the duty screen closes. Null until the first answer, or when the server can't say: then a class counts
+ * as covered by whoever is assigned, as before.
+ */
+function useOnDuty(): Set<string> | null {
+  const [ids, setIds] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    let stopped = false
+    const beat = async () => {
+      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: true })
+      if (!stopped) setIds(!error && Array.isArray(data) ? new Set(data as string[]) : null)
+    }
+    void beat()
+    const every = setInterval(() => void beat(), 30_000)
+    const onVisible = () => { if (document.visibilityState === 'visible') void beat() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      stopped = true
+      clearInterval(every)
+      document.removeEventListener('visibilitychange', onVisible)
+      void supabase.rpc('gate_heartbeat', { p_on: false }).then(() => {}, () => {})
+    }
+  }, [])
+  return ids
+}
 
 /** Center Coordinators check in and hand over; Center Leaders hear, acknowledge and mark Ready (0038, enforced by the database). */
 function useCanClose(): boolean {
@@ -69,8 +101,8 @@ function useGateData() {
     // A class counts as covered for this tablet when someone who can do what it does is assigned: for a Center
     // Coordinator, another coordinator; for a Center Leader, anyone on the gate team. Same rule as push (0038).
     const coordinators = new Set(((gateRoles.data ?? []) as Array<{ profile_id: string; role: string }>).filter((r) => r.role === 'coordinator').map((r) => r.profile_id))
-    const covered = new Set(rows.filter((r) => !canClose || coordinators.has(r.profile_id)).map((r) => r.class_id))
-    setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), covered })
+    const covering = rows.filter((r) => !canClose || coordinators.has(r.profile_id)).map((r) => ({ profileId: r.profile_id, classId: r.class_id }))
+    setData({ children, myClasses: new Set(rows.filter((r) => r.profile_id === myId).map((r) => r.class_id)), assigned: covering })
   }, [myId, canClose])
   useEffect(() => {
     void load()
@@ -108,6 +140,9 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const canClose = useCanClose()
   const trips = useTodayTrips()
   const gate = useGateData()
+  const onDuty = useOnDuty()
+  // Covered: someone assigned who is on duty now. A class whose coordinator isn't is announced here straight away.
+  const covered = new Set((gate.data?.assigned ?? []).filter((a) => !onDuty || onDuty.has(a.profileId)).map((a) => a.classId))
   const nowMs = useNow(5_000)
   const [picked, setPicked] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -134,7 +169,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   // Your classes (and any class nobody covers), or the whole school. Announcements follow their own rule (shouldAnnounce).
   const inScope = (childId: string) => {
     const c = gate.data?.children.get(childId)
-    return scope === 'all' || !c || gate.data!.myClasses.has(c.classId) || !gate.data!.covered.has(c.classId)
+    return scope === 'all' || !c || gate.data!.myClasses.has(c.classId) || !covered.has(c.classId)
   }
   const sections = useMemo(() => {
     const all = (trips.trips ?? []).filter((t) => inScope(t.child_id))
@@ -170,8 +205,8 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   // reminders saying the time left at that moment; a new time or a cancellation replaces what was queued.
   useEffect(() => {
     if (!trips.trips || !gate.data) return
-    syncGate(trips.trips, gate.data, nowMs, cfg, () => cfgRef.current, { announced: announced.current, cancelHeard: cancelHeard.current, lateHeard: lateHeard.current, since: listeningSince.current }, announcer)
-  }, [trips.trips, gate.data, nowMs, announcer, cfg])
+    syncGate(trips.trips, { ...gate.data, covered }, nowMs, cfg, () => cfgRef.current, { announced: announced.current, cancelHeard: cancelHeard.current, lateHeard: lateHeard.current, since: listeningSince.current }, announcer)
+  }, [trips.trips, gate.data, onDuty, nowMs, announcer, cfg])
 
   async function act(t: Trip, step: GateStep, handedTo?: string) {
     setBusy(t.id)
@@ -235,7 +270,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
                 {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
                 {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
-                {!done && !mine && (c && !gate.data!.covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>Nobody assigned</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
+                {!done && !mine && (c && !covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>{gate.data!.assigned.some((x) => x.classId === c.classId) ? 'Nobody on duty' : 'Nobody assigned'}</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
               </span>
             </span>
           </button>
