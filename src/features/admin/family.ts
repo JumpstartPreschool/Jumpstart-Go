@@ -32,6 +32,8 @@ export interface PersonDraft {
   /** Set when linking someone already here (then only the relation is ours to choose). */
   linkedId?: string
   linkedNote?: string
+  /** Linked by typing their mobile: app access as chosen here (back on for a parent whose child had left). */
+  access?: boolean
   name: string
   phone: string
   abroad: boolean
@@ -56,10 +58,20 @@ export function personErrors(p: PersonDraft, phoneTaken: (e164: string) => boole
   return e
 }
 
+/**
+ * A mobile is one person's sign-in, so a new person typed with a mobile someone at the school already has is that
+ * person: they're linked, keeping their roles. That's how a staff member is also a parent, with both areas.
+ */
+export function linkByMobile(p: PersonDraft, profiles: Array<{ id: string; full_name: string; phone: string | null; active: boolean }>): PersonDraft {
+  const n = !p.linkedId && p.phone.trim() ? normalizeMobile(p.phone) : null
+  const o = n ? profiles.find((x) => x.active && x.phone === n) : undefined
+  return o ? { ...p, name: o.full_name, linkedId: o.id, linkedNote: 'Already at the school with this mobile', access: p.appAccess } : p
+}
+
 /** The record as the database takes it (admin_save_child, admin_add_guardian). */
 export function toInput(p: PersonDraft): PersonInput {
   const kind = kindOf(p.relation)
-  if (p.linkedId) return { id: p.linkedId, relation: p.relation, kind }
+  if (p.linkedId) return { id: p.linkedId, relation: p.relation, kind, ...(p.access && { app_access: true }) }
   return {
     full_name: p.name.trim().replace(/\s+/g, ' '),
     phone: p.phone.trim() ? normalizeMobile(p.phone) : null,

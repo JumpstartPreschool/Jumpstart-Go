@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blankPerson, kindOf, personErrors, relationLabel, someoneHere, toInput } from './family'
+import { blankPerson, kindOf, linkByMobile, personErrors, relationLabel, someoneHere, toInput } from './family'
 
 const person = (over: Partial<ReturnType<typeof blankPerson>>) => ({ ...blankPerson('Mother'), ...over })
 const none = () => false
@@ -34,5 +34,14 @@ describe('who is on a child record', () => {
     expect(someoneHere([person({ abroad: true })])).toBe(false)
     expect(someoneHere([person({ abroad: true }), person({ relation: 'Grandmother' })])).toBe(true)
     expect(someoneHere([person({ abroad: true, linkedId: 'x' })])).toBe(true)
+  })
+  it('links a staff member typed in with their own mobile, so one person holds both roles', () => {
+    const staff = [{ id: 's1', full_name: 'Priya Deshpande', phone: '+919876543210', active: true }, { id: 's2', full_name: 'Rohan Joshi', phone: '+919812345678', active: false }]
+    const linked = linkByMobile(person({ name: 'Priya D', phone: '98765 43210' }), staff)
+    expect(toInput(linked)).toEqual({ id: 's1', relation: 'Mother', kind: 'parent', app_access: true })
+    expect(linked.name).toBe('Priya Deshpande')
+    // Someone turned off: their number moves to the new person instead (0049).
+    expect(linkByMobile(person({ name: 'Rohan J', phone: '98123 45678' }), staff).linkedId).toBeUndefined()
+    expect(linkByMobile(person({ name: 'Sneha K', phone: '99887 76655' }), staff).linkedId).toBeUndefined()
   })
 })

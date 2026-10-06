@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
+import { Check, ChevronDown, ChevronRight, Glasses, Globe, HandHeart, Heart, Link2, Mail, Plus, ShieldUser, Smartphone, Trash2, UserPen, UserPlus, UserRound, UserRoundPlus, UsersRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -9,8 +9,10 @@ import { Notice } from '../../ui/States'
 import { Switch } from '../../ui/Switch'
 import { childColor } from '../../ui/childColor'
 import { formatMobile, normalizeMobile } from '../../domain/contact'
+import { isEmail } from '../../../supabase/functions/_shared/passwordPattern'
 import { addGuardian, explainDbError, saveChild, updatePerson, type Child, type Directory, type Profile } from './api'
-import { blankPerson, kindOf, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
+import { ROLE } from './roles'
+import { blankPerson, kindOf, linkByMobile, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
 import { formatAge, levelOf, suggestedLevel } from './programmeCatalogue'
 import { levelIcon, ProgrammePicker } from './ProgrammePicker'
 import { GenderChoice } from '../../ui/GenderChoice'
@@ -134,12 +136,17 @@ function PersonCard({ p, i, errors, onChange, onRemove, onRelation }: {
   )
 }
 
-/** Everyone at the school on a child's record, to link instead of adding twice ("Already here for Aarav"). */
+/**
+ * Everyone at the school on a child's record, and the staff, to link instead of adding twice ("Already here for
+ * Aarav", "Staff: Head office"). A staff member linked as a parent keeps their roles.
+ */
 function linkable(dir: Directory, exclude: Set<string>) {
-  return dir.profiles.filter((p) => p.active && !exclude.has(p.id) && dir.guardianships.some((g) => g.guardian_id === p.id)).map((p) => {
+  return dir.profiles.filter((p) => p.active && !exclude.has(p.id) && (dir.guardianships.some((g) => g.guardian_id === p.id) || !!dir.roles.get(p.id)?.length)).map((p) => {
     const kids = dir.guardianships.filter((g) => g.guardian_id === p.id).map((g) => dir.children.find((c) => c.id === g.child_id)).filter((c): c is Child => !!c?.active)
     const rel = dir.guardianships.find((g) => g.guardian_id === p.id)?.relation ?? ''
-    return { p, rel, note: `Already here for ${kids.map((k) => k.preferred_name ?? k.full_name.split(' ')[0]).join(' and ') || 'a child who has left'}` }
+    const staff = dir.roles.get(p.id)?.map((r) => ROLE[r].name).join(', ')
+    const note = rel ? `Already here for ${kids.map((k) => k.preferred_name ?? k.full_name.split(' ')[0]).join(' and ') || 'a child who has left'}` : `Staff: ${staff}`
+    return { p, rel, note }
   })
 }
 
@@ -162,7 +169,6 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
   const who = (name.trim().split(/\s+/)[0] || '').trim()
   const programme = dir.programmes.find((p) => p.id === programmeId)
   const suggested = suggestedLevel(dob)
-  const phones = new Set(dir.profiles.map((p) => p.phone).filter(Boolean) as string[])
   const parents = people.map((p, i) => [p, i] as const).filter(([p]) => kindOf(p.relation) === 'parent')
   const family = people.map((p, i) => [p, i] as const).filter(([p]) => kindOf(p.relation) === 'family')
   const others = linkable(dir, new Set(people.map((p) => p.linkedId).filter(Boolean) as string[]))
@@ -178,19 +184,24 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     else if (dob > today) e.dob = 'The date of birth cannot be in the future.'
     if (!programmeId) e.programme = 'Choose the class and programme.'
     const seen = new Set<string>()
-    people.forEach((p, i) => {
-      const pe = personErrors(p, (n) => phones.has(n) || seen.has(n))
+    const ids = new Set<string>()
+    const list = people.map((p) => linkByMobile(p, dir.profiles))
+    list.forEach((p, i) => {
+      const pe = personErrors(p, () => false)
       const n = p.linkedId ? null : phoneOf(p.phone)
+      if ((n && seen.has(n)) || (p.linkedId && ids.has(p.linkedId))) pe.phone = 'Already on this list.'
       if (n) seen.add(n)
+      if (p.linkedId) ids.add(p.linkedId)
       for (const [k, v] of Object.entries(pe)) e[`${k}.${i}`] = v
     })
-    if (!someoneHere(people)) e.people = 'Add at least one parent or relative who lives in India, to collect from the gate.'
+    if (people.some((p) => !p.relation)) e.people = 'Choose how each person is related.'
+    else if (!someoneHere(people)) e.people = 'Add at least one parent or relative who lives in India, to collect from the gate.'
     setErrors(e)
     if (Object.keys(e).length) return setFormError('Please check the highlighted fields.')
     setBusy(true)
     setFormError(null)
     try {
-      const id = await saveChild({ full_name: words.join(' '), preferred_name: '', date_of_birth: dob, programme_id: programmeId!, gender }, people.map(toInput))
+      const id = await saveChild({ full_name: words.join(' '), preferred_name: '', date_of_birth: dob, programme_id: programmeId!, gender }, list.map(toInput))
       onSaved(id, who)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
@@ -257,7 +268,13 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
               {others.map(({ p, rel, note }) => (
                 <li key={p.id}>
                   <button type="button" className="choice flex w-full items-center gap-3 p-3 text-left"
-                    onClick={() => { setPeople((list) => [...list.filter((x) => x.linkedId || x.name || x.phone), { ...blankPerson(rel), name: p.full_name, linkedId: p.id, linkedNote: note }]); setLinking(false) }}>
+                    onClick={() => {
+                      const kept = people.filter((x) => x.linkedId || x.name || x.phone)
+                      setPeople([...kept, { ...blankPerson(rel), name: p.full_name, linkedId: p.id, linkedNote: note }])
+                      setLinking(false)
+                      // Staff have no relation to copy: ask for it straight away.
+                      if (!rel) setPicker({ relationFor: kept.length })
+                    }}>
                     <Avatar name={p.full_name} color={childColor(p.id)} size="sm" />
                     <span className="min-w-0"><span className="block truncate text-h4">{p.full_name}</span><span className="block truncate text-caption font-semibold text-ink-2">{rel}. {note}</span></span>
                   </button>
@@ -298,21 +315,24 @@ export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: 
   const [formError, setFormError] = useState<string | null>(null)
   const [relationOpen, setRelationOpen] = useState(false)
   const listed = new Set(dir.guardianships.filter((g) => g.child_id === child.id).map((g) => g.guardian_id))
-  const phones = new Set(dir.profiles.map((x) => x.phone).filter(Boolean) as string[])
 
   if (!p) return <RelationPicker open={open} onClose={onClose} childName={first} onUse={(relation) => setP(blankPerson(relation))} />
   const parent = kindOf(p.relation) === 'parent'
 
   async function save() {
-    const pe = personErrors(p!, (n) => phones.has(n))
+    const q = linkByMobile(p!, dir.profiles)
+    // A number held by someone turned off moves to this person (0049).
+    const pe = personErrors(q, () => false)
+    if (q.linkedId && listed.has(q.linkedId)) pe.phone = `Already on ${first}'s record.`
     const e: Errors = Object.fromEntries(Object.entries(pe).map(([k, v]) => [`${k}.0`, v]))
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     setFormError(null)
     try {
-      await addGuardian(child.id, toInput(p!))
-      onSaved(p!.appAccess ? `${p!.name.trim().split(' ')[0]} added. Tap Invite to send them the link.` : `${p!.name.trim().split(' ')[0]} added. They can collect ${first} from the gate.`)
+      await addGuardian(child.id, toInput(q))
+      const name = q.name.trim().split(' ')[0]
+      onSaved(q.linkedId ? `${name} added for ${first}, with the same sign-in.` : q.appAccess ? `${name} added. Tap Invite to send them the link.` : `${name} added. They can collect ${first} from the gate.`)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {
@@ -357,18 +377,20 @@ export function EditGuardianSheet({ dir, child, person, relation, onClose, onSav
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [relationOpen, setRelationOpen] = useState(false)
-  const phones = new Set(dir.profiles.filter((x) => x.id !== person.id).map((x) => x.phone).filter(Boolean) as string[])
+  const [email, setEmail] = useState(person.email ?? '')
+  const phones = new Set(dir.profiles.filter((x) => x.id !== person.id && x.active).map((x) => x.phone).filter(Boolean) as string[])
   const signedIn = !!person.user_id
 
   async function save() {
     const pe = personErrors(p, (n) => phones.has(n))
     const e: Errors = Object.fromEntries(Object.entries(pe).map(([k, v]) => [`${k}.0`, v === 'Already here. Use Link someone already here.' ? 'Someone else here already uses this mobile.' : v]))
+    if (email.trim() && !isEmail(email)) e.email = "That email doesn't look right."
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     setFormError(null)
     try {
-      await updatePerson(person.id, child.id, { ...toInput(p), email: person.email } as Parameters<typeof updatePerson>[2])
+      await updatePerson(person.id, child.id, { ...toInput(p), email: email.trim().toLowerCase() || null } as Parameters<typeof updatePerson>[2])
       const changed = phoneOf(p.phone)
       onSaved(signedIn && changed && changed !== person.phone ? `Saved. ${p.name.trim().split(' ')[0]}'s sign-in code now goes to ${formatMobile(changed)}.` : 'Saved.')
     } catch (err) {
@@ -381,6 +403,11 @@ export function EditGuardianSheet({ dir, child, person, relation, onClose, onSav
   return (
     <Sheet open onClose={onClose} title={`Edit ${person.full_name.split(' ')[0]}`} description={`${relation} of ${first}. Changes show everywhere at once.`}>
       <PersonCard p={p} i={0} errors={errors} onChange={setP} onRelation={() => setRelationOpen(true)} />
+      <div className="mt-4">
+        <TextField label="Email, for email sign-in (optional)" type="email" inputMode="email" autoCapitalize="none" spellCheck={false} icon={<Mail aria-hidden />}
+          value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" error={errors.email}
+          hint="Email sign-in starts only when you turn it on with the key button. A new email ends any password they have." />
+      </div>
       {signedIn && phoneOf(p.phone) && phoneOf(p.phone) !== person.phone && (
         <Notice className="mt-4">{person.full_name.split(' ')[0]} has signed in before. From now on they sign in with the new mobile.</Notice>
       )}

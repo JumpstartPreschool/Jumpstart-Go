@@ -1,9 +1,10 @@
 import { supabase } from '../../lib/supabase'
 import type { InviteDetails } from '../../../supabase/functions/_shared/invite.ts'
 import type { StaffRole } from '../auth/session'
+import type { Block, Policy } from '../../../supabase/functions/_shared/passwordPattern'
 
 /** A person on the school's records. `active`: on the record; `app_access`: can sign in (0012). */
-export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'sms' | 'whatsapp' | null; email_sign_in?: 'none' | 'pattern' | 'own' }
+export interface Profile { id: string; full_name: string; email: string | null; phone: string | null; active: boolean; app_access: boolean; abroad: boolean; user_id: string | null; invited_at?: string | null; invited_via?: 'sms' | 'whatsapp' | null; email_sign_in?: 'none' | 'temporary' | 'own'; temp_password_expires_at?: string | null; locked_until?: string | null }
 export interface Child { id: string; full_name: string; preferred_name: string | null; date_of_birth: string | null; class_id: string; programme_id: string; active: boolean; gender?: 'boy' | 'girl' | null }
 export type GuardianKind = 'parent' | 'family'
 export interface Guardianship { child_id: string; guardian_id: string; relation: string; kind: GuardianKind }
@@ -52,7 +53,7 @@ export function explainDbError(e: { code?: string; message?: string } | null): s
 
 export async function loadDirectory(): Promise<Directory> {
   const [profiles, roles, children, guardianships, classes, programmes, coordinatorClasses, schedules] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id, invited_at, invited_via, email_sign_in').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id, invited_at, invited_via, email_sign_in, temp_password_expires_at, locked_until').order('full_name'),
     supabase.from('staff_roles').select('profile_id, role'),
     supabase.from('children').select('id, full_name, preferred_name, date_of_birth, class_id, programme_id, active, gender').order('full_name'),
     supabase.from('guardianships').select('child_id, guardian_id, relation, kind'),
@@ -78,15 +79,21 @@ export async function loadDirectory(): Promise<Directory> {
 }
 
 /** A staff member with their roles (never Admin: D27). Returns their profile id. */
-export async function addPerson(input: { fullName: string; phone: string; roles: StaffRole[] }): Promise<string> {
-  const { data, error } = await supabase.rpc('admin_add_person', { p_full_name: input.fullName, p_email: null, p_phone: input.phone, p_roles: input.roles })
+export async function addPerson(input: { fullName: string; phone: string; roles: StaffRole[]; email?: string | null }): Promise<string> {
+  const { data, error } = await supabase.rpc('admin_add_person', { p_full_name: input.fullName, p_email: input.email ?? null, p_phone: input.phone, p_roles: input.roles })
   if (error) throw error
   return data as string
 }
 
+/** More roles for someone already here (a parent who is also staff). The database still refuses Admin (D27). */
+export async function addRoles(profileId: string, roles: StaffRole[]): Promise<void> {
+  const { error } = await supabase.from('staff_roles').insert(roles.map((role) => ({ profile_id: profileId, role })))
+  if (error) throw error
+}
+
 /** Someone new on a child's record, or someone already here ({ id }). */
 export type PersonInput =
-  | { id: string; relation: string; kind: GuardianKind }
+  | { id: string; relation: string; kind: GuardianKind; app_access?: true }
   | { full_name: string; phone: string | null; abroad: boolean; app_access: boolean; relation: string; kind: GuardianKind }
 
 /** A child with everyone on their record, saved together or not at all (0012). Returns the child's id. */
@@ -160,26 +167,43 @@ export async function checkWhatsAppSetup(): Promise<WhatsAppSetup> {
   if (!error) return data as WhatsAppSetup
   return { error: (await functionError(error)).message ?? "Couldn't reach the WhatsApp service. Check your connection and try again." }
 }
-/** Settings → Email sign-in (0041): the admin's password pattern, readable by the admin only. Null before the first. */
-export async function loadPasswordPattern(): Promise<{ pattern: string; changed_at: string } | null> {
-  const { data, error } = await supabase.from('password_pattern').select('pattern, changed_at').maybeSingle()
+/** Settings → Authentication (D55, 0048): the rules everyone's password follows, and the admin's patterns. */
+export type PatternScope = 'default' | 'admin' | 'core' | 'leader' | 'coordinator' | 'pro' | 'family'
+export interface PasswordSettings { policy: Policy & { changed_at: string }; patterns: Partial<Record<PatternScope, { blocks: Block[]; changed_at: string }>> }
+export async function loadPasswordSettings(): Promise<PasswordSettings> {
+  const [policy, patterns] = await Promise.all([
+    supabase.from('password_policy').select('*').single(),
+    supabase.from('password_patterns').select('scope, blocks, changed_at'),
+  ])
+  if (policy.error) throw policy.error
+  if (patterns.error) throw patterns.error
+  return {
+    policy: policy.data as PasswordSettings['policy'],
+    patterns: Object.fromEntries((patterns.data as Array<{ scope: PatternScope; blocks: Block[]; changed_at: string }>).map((r) => [r.scope, { blocks: r.blocks, changed_at: r.changed_at }])),
+  }
+}
+/** Saves the rules; the database refuses them if a saved pattern would break them. Nobody's password changes. */
+export async function savePasswordPolicy(policy: Policy): Promise<void> {
+  const { error } = await supabase.rpc('admin_save_password_policy', { p: policy })
   if (error) throw error
-  return data
 }
-export interface PasswordRun { updated: number; failed: Array<{ name: string; reason: string }>; password?: string }
-/** Saves the pattern and sets every email account's password to it (the password-pattern function). */
-export async function savePasswordPattern(pattern: string): Promise<PasswordRun> {
-  const { data, error } = await supabase.functions.invoke('password-pattern', { body: { action: 'save', pattern } })
-  if (!error) return data as PasswordRun
-  const { status, message } = await functionError(error)
-  throw { code: 'P0001', message: message ?? (status === 404 ? "Email sign-in isn't set up on the server yet (the password-pattern function)." : "The passwords couldn't be updated. Check your connection and try again.") }
+/** Saves one pattern, or (null) removes a role's own so it uses the default. Nobody's password changes. */
+export async function savePasswordPattern(scope: PatternScope, blocks: Block[] | null): Promise<void> {
+  const { error } = await supabase.rpc('admin_save_password_pattern', { p_scope: scope, p_blocks: blocks })
+  if (error) throw error
 }
-/** One person back to the pattern; resolves with their starting password, for the admin to pass on. */
-export async function resetPassword(profile: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('password-pattern', { body: { action: 'reset', profile_id: profile } })
-  if (!error) return (data as PasswordRun).password ?? ''
+export interface TempPassword { password: string; expires_at: string }
+/** A new temporary password for one person, from their pattern; shown to the admin once and never again. */
+export async function issueTempPassword(profile: string): Promise<TempPassword> {
+  const { data, error } = await supabase.functions.invoke('password-pattern', { body: { action: 'issue', profile_id: profile } })
+  if (!error) return data as TempPassword
   const { status, message } = await functionError(error)
-  throw { code: 'P0001', message: message ?? (status === 404 ? "Email sign-in isn't set up on the server yet (the password-pattern function)." : "The password couldn't be reset. Check your connection and try again.") }
+  throw { code: 'P0001', message: message ?? (status === 404 ? "Email sign-in isn't set up on the server yet (the password-pattern function)." : "The temporary password couldn't be issued. Check your connection and try again.") }
+}
+/** Turns someone's email sign-in off: their password is removed. WhatsApp codes keep working. */
+export async function emailSignInOff(profile: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_email_sign_in_off', { p_profile: profile })
+  if (error) throw error
 }
 export async function markInvited(profile: string, via: 'sms' | 'whatsapp'): Promise<void> {
   const { error } = await supabase.rpc('mark_invited', { p_profile: profile, p_via: via })
