@@ -275,6 +275,25 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
       writeTrips(all)
       return json(t)
     }
+    // Bulk upload (0022): the child and their family join the made-up school until a reload. Same mobile, same person.
+    if (rpc === 'import_child') {
+      const c = (body?.p_child ?? {}) as Record<string, unknown>
+      if (children.some((k: Record<string, unknown>) => String(k.full_name).toLowerCase() === String(c.full_name).toLowerCase() && k.date_of_birth === c.date_of_birth)) {
+        return json({ code: 'P0001', message: `duplicate: ${String(c.full_name)} is already registered.` }, 400)
+      }
+      const id = `k-${crypto.randomUUID().slice(0, 8)}`
+      const links = ((body?.p_people ?? []) as Array<Record<string, string>>).map((x) => {
+        let who = people.find((q) => q.phone === x.phone)
+        if (!who) {
+          who = { id: `p-${crypto.randomUUID().slice(0, 8)}`, user_id: '', full_name: x.full_name!, email: null, phone: x.phone!, roles: [], email_sign_in: 'none', password: null }
+          people.push(who)
+        }
+        return { child_id: id, guardian_id: who.id, relation: x.relation!, kind: x.kind! }
+      })
+      guardianships.push(...links)
+      children.push(child({ id, full_name: String(c.full_name), preferred_name: c.preferred_name ?? null, date_of_birth: c.date_of_birth ?? null, gender: c.gender ?? null, guardianships: links }))
+      return json(id)
+    }
     if (rpc === 'admin_save_gate_announcements') {
       if (!me?.roles.includes('admin')) return json({ code: '42501', message: 'Only the admin can change gate announcements.' }, 403)
       const p = (body?.p ?? {}) as Record<string, unknown>

@@ -108,6 +108,12 @@
 - Gate voice on iPhone: the fallback voice skips Apple's robotic Kathy and can use Martha.
 - Checks: `npm test` 39 files, 363 tests; build; `npm run test:db` passes for all files but the time-dependent `gate_roles` one (fails after 12:10 IST with or without these changes); new `..._trips_again.test.sql`. Browser: sign-in box and picker at 390 px. **Not done:** a real iPhone.
 
+## Done on 2026-10-07: bulk upload with four columns
+- The sheet needs only Child full name, Date of birth, Parent name and Contact number, all required (owner). Common column names work too ("Student name", "DOB", "Mother name", "Mobile"); older sheets with more columns still work and their extra details are used.
+- The programme is chosen in the app before adding: per child, or one programme for every child still without one. Relation, other family and the rest are edited on the child's page; the parent is added as "Parent".
+- The demo backend (`npm run dev:demo`) now accepts a bulk upload, so it can be tried on localhost.
+- Checks: `npm test` 39 files, 363 tests; build; a browser run of a 4-column CSV (3 added, the row without a date of birth held back with its reason).
+
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.

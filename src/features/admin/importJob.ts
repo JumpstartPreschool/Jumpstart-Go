@@ -35,13 +35,14 @@ export const clearImport = () => { if (!job || job.finished) set(null) }
 /** Imports the rows that are ready, one by one; a row the database turns down never stops the rest. */
 export async function startImport(file: string, header: string[], rows: ImportRow[]) {
   if (job && !job.finished) return
-  const ready = rows.filter((r) => !r.problems.length && r.child)
+  // Every child goes in with the programme chosen in the app (BulkImportSheet).
+  const ready = rows.filter((r) => !r.problems.length && r.child?.programme_id)
   set({ file, header, rows, total: ready.length, done: 0, added: 0, failed: new Map(), finished: false })
   for (const r of ready) {
     const failed = new Map(job!.failed)
     let added = job!.added
     try {
-      await importChild(r.child!, r.people)
+      await importChild({ ...r.child!, programme_id: r.child!.programme_id! }, r.people)
       added++
     } catch (e) {
       const err = e as { code?: string; message?: string }
