@@ -73,6 +73,12 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             Sound is paused by this device. Tap here to turn announcements back on.
           </button>
         )}
+        {!duty.wakeSupported && (
+          <p role="status" className="mt-3 flex items-center gap-3 rounded-lg bg-warning-soft px-5 py-4 text-h4 text-warning shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--warning)_25%,transparent)]">
+            <TriangleAlert className="size-6 shrink-0" aria-hidden />
+            This device can't keep its screen on by itself. If it locks, announcements stop: set Auto-Lock to Never.
+          </p>
+        )}
         {online && duty.wakeSupported && !duty.screenHeld && (
           <button
             type="button"
@@ -117,7 +123,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
       </header>
 
       <main className="gutter pt-6 pb-[max(32px,calc(env(safe-area-inset-bottom)+16px))]">
-        <GateQueue announcer={duty.announcer} />
+        <GateQueue announcer={duty.announcer} audible={!mutedUntil && !duty.soundBlocked} />
         <section className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-line pt-5" aria-label="Sound">
           <LuxButton size="sm" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
             Test the speaker

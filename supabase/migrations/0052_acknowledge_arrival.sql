@@ -70,3 +70,5 @@ begin
   end case;
   return t;
 end $$;
+
+revoke execute on function app.arrived_since_seen(public.trips) from public, anon;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { preconnect } from 'react-dom'
 import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, Timer, TriangleAlert, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
@@ -42,13 +42,15 @@ interface GateData {
  * has left when the duty screen closes. Null until the first answer, or when the server can't say: then a class counts
  * as covered by whoever is assigned, as before.
  */
-function useOnDuty(): Set<string> | null {
+function useOnDuty(audible: boolean): Set<string> | null {
   const [ids, setIds] = useState<Set<string> | null>(null)
   useEffect(() => {
     let stopped = false
+    // Muted or with sound paused, this phone can't be heard: it checks in as off duty, so the others speak its classes.
     const beat = async () => {
-      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: true })
-      if (!stopped) setIds(!error && Array.isArray(data) ? new Set(data as string[]) : null)
+      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: audible })
+      // A failed check-in keeps the last list, so classes don't flip between covered and not.
+      if (!stopped && !error && Array.isArray(data)) setIds(new Set(data as string[]))
     }
     void beat()
     const every = setInterval(() => void beat(), 30_000)
@@ -60,7 +62,7 @@ function useOnDuty(): Set<string> | null {
       document.removeEventListener('visibilitychange', onVisible)
       void supabase.rpc('gate_heartbeat', { p_on: false }).then(() => {}, () => {})
     }
-  }, [])
+  }, [audible])
   return ids
 }
 
@@ -118,8 +120,11 @@ function useGateData() {
 }
 
 /** What this person does next with a trip, or null when the rest is a Center Coordinator's (check in, hand over). */
+// The parent tapped I've arrived after the gate last acknowledged: new news, acknowledged again (0052).
+const arrivedSinceSeen = (t: Trip) => !!t.arrived_at && !!t.acknowledged_at && Date.parse(t.arrived_at) > Date.parse(t.acknowledged_at)
+
 function nextStep(t: Trip, canClose: boolean): { step: GateStep | 'handover'; label: string; icon: ReactNode } | null {
-  if (t.off_schedule && !t.acknowledged_at) return { step: 'acknowledge', label: 'Acknowledge', icon: <Eye /> }
+  if ((t.off_schedule && !t.acknowledged_at) || (!canClose && arrivedSinceSeen(t))) return { step: 'acknowledge', label: 'Acknowledge', icon: <Eye /> }
   if (t.direction === 'dropoff') return canClose ? { step: 'close', label: 'Check in', icon: <DoorOpen /> } : t.acknowledged_at ? null : { step: 'acknowledge', label: 'Acknowledge', icon: <Eye /> }
   if (!t.ready_at) return { step: 'ready', label: 'Ready', icon: <CircleCheck /> }
   if (!canClose) return null
@@ -134,14 +139,14 @@ const relationName = (t: Trip) => [t.traveller_relation, t.traveller_name.split(
  * The live gate queue on the coordinator's iPad (J4, J5, ANN-1): today's drop-offs and pickups as they come in,
  * announced aloud, with the steps at the gate. Handover goes only to a registered guardian (D4), checked by the server.
  */
-export function GateQueue({ announcer }: { announcer: Announcer }) {
+export function GateQueue({ announcer, audible = true }: { announcer: Announcer; audible?: boolean }) {
   // The gate voice's requests go to the functions on this origin: open the connection before the first announcement.
   if (import.meta.env.VITE_SUPABASE_URL) preconnect(import.meta.env.VITE_SUPABASE_URL)
   const toast = useToast()
   const canClose = useCanClose()
   const trips = useTodayTrips()
   const gate = useGateData()
-  const onDuty = useOnDuty()
+  const onDuty = useOnDuty(audible)
   // Covered: someone assigned who is on duty now. A class whose coordinator isn't is announced here straight away.
   const covered = new Set((gate.data?.assigned ?? []).filter((a) => !onDuty || onDuty.has(a.profileId)).map((a) => a.classId))
   const nowMs = useNow(5_000)
@@ -154,8 +159,9 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const school = useSchoolDay()
   const [scope, setScope] = useState<'mine' | 'all'>('mine')
   const [calling, setCalling] = useState(false)
-  // "Later" on the pop-up, per trip: hidden until the trip changes (a new time, I've arrived), then it pops up again.
-  const [later, setLater] = useState<Map<string, string>>(new Map())
+  const [errorTrip, setErrorTrip] = useState<string | null>(null)
+  // "Later" on the pop-up, per trip: hidden until the next reminder, or sooner when the trip changes (I've arrived).
+  const [later, setLater] = useState<Map<string, { version: string; until: number }>>(new Map())
   const cancelHeard = useRef(new Set<string>())
   const announced = useRef(new Map<string, string>())
   const lateHeard = useRef(new Map<string, string>())
@@ -214,6 +220,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   async function act(t: Trip, step: GateStep, handedTo?: string) {
     setBusy(t.id)
     setError(null)
+    setErrorTrip(t.id)
     try {
       await gateStep(t.id, step, handedTo)
       await trips.reload()
@@ -238,7 +245,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
     void act(t, n.step)
   }
 
-  if (trips.error || gate.error) {
+  if ((trips.error && !trips.trips) || (gate.error && !gate.data)) {
     return <ErrorState title="Couldn't load the queue" onRetry={() => { void trips.reload(); void gate.reload() }}>Check this device's connection. Announcements pause until it's back.</ErrorState>
   }
   if (!trips.trips || !gate.data) return <SkeletonList count={3} className="grid gap-3" />
@@ -287,7 +294,7 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
   const Section = ({ title, icon, list, empty }: { title: string; icon: ReactNode; list: Trip[]; empty?: string }) => (
     <section className="grid gap-2.5">
       <h2 className="kicker flex items-center gap-2 px-0.5 [&_svg]:size-4">{icon}{title} · {list.length}</h2>
-      {list.length ? <ul className="grid gap-2.5">{list.map((t) => <Row key={t.id} t={t} />)}</ul>
+      {list.length ? <ul className="grid gap-2.5">{list.map((t) => <Fragment key={t.id}>{Row({ t })}</Fragment>)}</ul>
         : empty ? <p className="rounded-lg bg-sunken px-4 py-3 text-small font-semibold text-ink-2">{empty}</p> : null}
     </section>
   )
@@ -304,10 +311,10 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
         </div>
         {settingsFailed && <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>Using default announcement wording. Couldn't load school settings; trying again.</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
-        {sections.attention.length > 0 && <Section title="Needs attention" icon={<TriangleAlert />} list={sections.attention} />}
-        <Section title="Coming" icon={<Navigation />} list={sections.coming} empty="Nobody is on the way right now. New drop-offs and pickups appear here and are announced." />
+        {sections.attention.length > 0 && Section({ title: 'Needs attention', icon: <TriangleAlert />, list: sections.attention })}
+        {Section({ title: 'Coming', icon: <Navigation />, list: sections.coming, empty: 'Nobody is on the way right now. New drop-offs and pickups appear here and are announced.' })}
         {school.children && <ExpectedLists canClose={canClose} children={school.children.filter((c) => inScope(c.id))} onDone={() => { school.reload(); void trips.reload() }} />}
-        {sections.done.length > 0 && <Section title="Done today" icon={<CircleCheck />} list={sections.done} />}
+        {sections.done.length > 0 && Section({ title: 'Done today', icon: <CircleCheck />, list: sections.done })}
       </div>
 
       {/* The chosen trip, side by side on iPad landscape and desktop. */}
@@ -367,16 +374,17 @@ export function GateQueue({ announcer }: { announcer: Announcer }) {
       {(() => {
         // The request this phone is announcing that nobody has acknowledged yet, earliest first: popped up to acknowledge.
         // Not over another sheet the coordinator is using.
-        if (handover || codeFor || calling || picked) return null
+        if (handover || codeFor || calling) return null
         const waiting = trips.trips!.filter((t) => {
           const c = children.get(t.child_id)
-          return c && later.get(t.id) !== t.updated_at && shouldAnnounce(t, c.classId, gate.data!.myClasses, covered, nowMs)
+          const snoozed = later.get(t.id)
+          return c && !(snoozed && snoozed.version === t.updated_at && nowMs < snoozed.until) && shouldAnnounce(t, c.classId, gate.data!.myClasses, covered, nowMs)
         }).sort((a, b) => Number(!!b.arrived_at) - Number(!!a.arrived_at) || Date.parse(a.arrive_at) - Date.parse(b.arrive_at))
         const t = waiting[0]
         const c = t && children.get(t.child_id)
         if (!t || !c) return null
-        return <RequestPopup key={`${t.id}|${t.updated_at}`} trip={t} child={c} more={waiting.length - 1} busy={busy === t.id} error={error}
-          onAcknowledge={() => void act(t, 'acknowledge')} onLater={() => setLater((m) => new Map(m).set(t.id, t.updated_at))} />
+        return <RequestPopup key={`${t.id}|${t.updated_at}`} trip={t} child={c} more={waiting.length - 1} busy={busy === t.id} error={errorTrip === t.id ? error : null}
+          onAcknowledge={() => void act(t, 'acknowledge')} onLater={() => setLater((m) => new Map(m).set(t.id, { version: t.updated_at, until: Date.now() + cfg.reminder_min * 60_000 }))} />
       })()}
       <Button size="md" variant="quiet" icon={<RotateCcw />} className="justify-self-start lg:col-span-2" onClick={() => { void trips.reload(); void gate.reload() }}>Refresh</Button>
     </div>
@@ -424,7 +432,7 @@ function TripDetail({ trip, child, busy, locked, canClose, onStep }: { trip: Tri
         <Notice tone="success">{trip.status === 'handed_over' ? `Handed over at ${clockTime(trip.closed_at!)}.` : trip.status === 'checked_in' ? `Checked in at ${clockTime(trip.closed_at!)}.` : 'Cancelled by the parent or the school.'}</Notice>
       ) : (
         <div className="grid gap-2.5">
-          {!trip.acknowledged_at && <Button variant={trip.off_schedule ? 'sunshine' : 'secondary'} icon={<Eye />} loading={busy} onClick={() => onStep('acknowledge')}>Acknowledge</Button>}
+          {(!trip.acknowledged_at || arrivedSinceSeen(trip)) && <Button variant={trip.off_schedule ? 'sunshine' : 'secondary'} icon={<Eye />} loading={busy} onClick={() => onStep('acknowledge')}>Acknowledge</Button>}
           {pickup && !trip.ready_at && <Button variant="secondary" icon={<CircleCheck />} loading={busy} onClick={() => onStep('ready')}>{child.name} is ready</Button>}
           {locked ? <Notice tone="danger" icon={<Lock aria-hidden />}>Locked after three wrong codes. Call the parent before releasing {child.name}.</Notice>
             : !canClose ? <Notice icon={<UserCheck aria-hidden />}>A center coordinator {pickup ? `hands ${child.name} over` : `checks ${child.name} in`} at the gate.</Notice>

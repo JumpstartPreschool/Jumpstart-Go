@@ -120,6 +120,12 @@
 - iPhone/iPad Home Screen apps before iOS 18.4 accept a wake lock but don't hold it, so the screen locked after 30 s and the page stopped. The duty screen no longer claims "Screen stays on" there and asks for Auto-Lock → Never.
 - Checks: `npm test` 364; build; `npm run test:db` (all but the time-dependent gate_roles file) with the new gate_on_duty test. **Not done:** a real iPhone.
 
+## Done on 2026-10-07: pop-up to acknowledge, and a review of the whole gate pipeline
+- Each new request pops up on the gate phones that announce it (Center Coordinators and Center Leaders): the child, who is coming and when, Acknowledge (held for 0.7 s so a double tap can't acknowledge the next one unread) and Later (hidden until the next reminder).
+- `0052`: Acknowledge and Ready after "I've arrived" now take in the arrival, so "has arrived" stops repeating; Center Leaders get an Acknowledge button for it.
+- From an independent review: a half-said announcement (opening heard, the child's name not) counts as not heard and is tried again; a muted phone or one with paused sound checks in as off duty, so other phones speak its classes; one failed refresh no longer replaces the queue with an error page; an older refresh can't bring back an acknowledged trip; rows no longer remount every 5 s (taps were lost); a selected row on an iPad no longer blocks the pop-up; an error shows only on its own trip's pop-up; a persistent warning on duty when the device can't keep its screen on.
+- Left as is, noted: the app can't keep an iPhone awake by itself before iOS 18.4 (Auto-Lock → Never); a phone iOS closes in the background shows Resume duty; reminder phrases not made ahead are made live and count toward the voice quota.
+
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
 1. **Push 0007–0018 to the live database** (owner approved 2026-09-25): run `bash ~/.claude/tmp/handoff-9a5915b6-abee-4e23-9703-4cfdc22c99a4.sh` (dry run, then apply). Then check a real sign-in, Admin → People and the core team's Today. Coordinator assignments to old class groups are removed by 0011; the core team re-assigns levels.

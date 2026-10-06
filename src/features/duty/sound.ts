@@ -261,8 +261,8 @@ export async function speak(text: string, childId?: string, budgetMs = CLIP_BUDG
         markVoice(text, 'device-voice')
         voiceLog('school-voice-not-ready', { part: i, waitedMs: budgetMs })
         // One owner per announcement: the late clip is never played once the device voice has taken over.
-        const rest = await speakDevice(parts.slice(i).join(' '), mine)
-        return i > 0 && rest === 'silent' ? 'school' : rest
+        // The opening played but the child's name wasn't said: not heard, so the announcer tries again soon.
+        return speakDevice(parts.slice(i).join(' '), mine)
       }
       markVoice(text, i === 0 ? 'speech-start' : 'message-start')
       // Cut off mid-sentence: say the whole sentence again once the audio is back, or in the tablet's voice if iOS

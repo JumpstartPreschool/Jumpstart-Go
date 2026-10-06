@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { onTableChange } from '../../lib/live'
 import { now } from '../../lib/clock'
@@ -96,8 +96,13 @@ export function explainTripError(e: { code?: string; message?: string } | null):
 export function useTodayTrips() {
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [error, setError] = useState(false)
+  // Loads overlap (live change, poll, return to the app): only the newest answer counts, so an older one can't bring
+  // back a trip as it was before it was acknowledged.
+  const latest = useRef(0)
   const load = useCallback(async () => {
+    const mine = ++latest.current
     const { data, error: e } = await supabase.from('trips').select('*').eq('day', todayInIndia()).order('arrive_at')
+    if (mine !== latest.current) return
     if (e) return setError(true)
     setError(false)
     setTrips((data ?? []) as Trip[])

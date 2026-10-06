@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Eye, MapPin, Timer, TriangleAlert } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
@@ -23,6 +24,9 @@ export function RequestPopup({ trip, child, more, busy, error, onAcknowledge, on
   onAcknowledge: () => void
   onLater: () => void
 }) {
+  // A double tap on the previous pop-up's Acknowledge must not acknowledge this one unread.
+  const [armed, setArmed] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setArmed(true), 700); return () => clearTimeout(t) }, [])
   const arrived = !!trip.arrived_at
   const what = trip.direction === 'pickup' ? 'pickup' : 'drop-off'
   const first = trip.traveller_name.split(' ')[0]
@@ -49,7 +53,7 @@ export function RequestPopup({ trip, child, more, busy, error, onAcknowledge, on
       </div>
       {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
       <div className="mt-5 grid gap-2.5 sm:grid-cols-[1fr_auto]">
-        <Button size="xl" variant="sunshine" icon={<Eye />} loading={busy} onClick={onAcknowledge} autoFocus>Acknowledge</Button>
+        <Button size="xl" variant="sunshine" icon={<Eye />} loading={busy} disabled={!armed} onClick={onAcknowledge} autoFocus>Acknowledge</Button>
         <Button size="xl" variant="secondary" onClick={onLater}>Later</Button>
       </div>
     </Sheet>
