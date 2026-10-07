@@ -218,4 +218,32 @@ describe('send-sms hook handler', () => {
     expect(res.status).toBe(200)
     expect(deps.wati.sendTemplate).toHaveBeenCalled()
   })
+  it('answers Auth before WATI finishes, then sends, logs and gives the place back on failure (Auth allows 5 seconds)', async () => {
+    let finish!: (r: { ok: false; category: 'timeout'; retryable: true; localId: string }) => void
+    const tasks: Promise<unknown>[] = []
+    const { deps } = setupDeps({
+      wati: { sendTemplate: vi.fn(() => new Promise((r) => { finish = r })) },
+      background: (t) => { tasks.push(t) },
+    })
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), deps)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({})
+    expect(tasks).toHaveLength(1)
+    await vi.waitFor(() => expect(deps.wati.sendTemplate).toHaveBeenCalled())
+    expect(deps.sendRefund).not.toHaveBeenCalled()
+    finish({ ok: false, category: 'timeout', retryable: true, localId: 'x' })
+    await tasks[0]
+    expect(deps.logDone).toHaveBeenCalledWith('fixed-local-id', null, 'timeout')
+    expect(deps.sendRefund).toHaveBeenCalledTimes(1)
+  })
+
+  it('never sends in the background for an unregistered number or one over its limit', async () => {
+    const background = vi.fn()
+    const stranger = setupDeps({ background }).deps
+    await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919899999999' }, sms: { otp: '1' } }) }), stranger)
+    const limited = setupDeps({ background, sendAllowed: vi.fn(async () => false) }).deps
+    const res = await handle(new Request('https://example.com', { method: 'POST', body: JSON.stringify({ user: { phone: '+919822000001' }, sms: { otp: '1' } }) }), limited)
+    expect((await res.json()).error.http_code).toBe(429)
+    expect(background).not.toHaveBeenCalled()
+  })
 })

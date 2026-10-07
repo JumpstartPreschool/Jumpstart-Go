@@ -19,7 +19,7 @@ Deno.serve((req) => {
     baseUrl: env('WATI_API_BASE_URL'),
     token: env('WATI_API_TOKEN'),
     channel: env('WATI_CHANNEL') || null,
-    // Supabase Auth gives a hook 5 seconds, so a slow WATI must fail before that: one retry inside 3 seconds.
+    // Sent after the hook has answered (background below), so WATI may take its time: one retry inside 3 seconds.
     budgetMs: 3000,
     attemptTimeoutMs: 1200,
     maxAttempts: 2,
@@ -49,6 +49,8 @@ Deno.serve((req) => {
     },
     wati,
     template: templateName('SIGN_IN_CODE', env),
+    // Answers Auth at once and sends after: past Auth's 5 seconds the code and a new person's account are dropped.
+    background: (task) => (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(task) ?? void task,
     log: async (r) => {
       // Category and counts only: never the number or the code.
       const { error } = await db.rpc('whatsapp_log_add', {

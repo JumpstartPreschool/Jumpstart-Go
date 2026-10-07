@@ -172,7 +172,7 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
         description={editing ? `${editing.full_name} hears pickups and drop-offs for these classes while on duty.` : undefined}>
         {editing && data && (
           <EditMember key={editing.id} person={editing} classes={data.classes} initialRoles={gateRolesOf(data.roles.get(editing.id))}
-            initialClasses={data.assignments.get(editing.id) ?? []} onDone={done} />
+            lastRoles={(data.roles.get(editing.id) ?? []).every((r) => r === 'coordinator' || r === 'leader')} initialClasses={data.assignments.get(editing.id) ?? []} onDone={done} />
         )}
       </Sheet>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add to the gate team">
@@ -217,8 +217,8 @@ async function saveMember(person: Profile, roles: GateRole[], before: GateRole[]
   if (removed.length) await removeCoordinator(person.id, removed)
 }
 
-function EditMember({ person, classes, initialRoles, initialClasses, onDone }: {
-  person: Profile; classes: ClassRow[]; initialRoles: GateRole[]; initialClasses: string[]; onDone: (message: string) => void | Promise<void>
+function EditMember({ person, classes, initialRoles, lastRoles, initialClasses, onDone }: {
+  person: Profile; classes: ClassRow[]; initialRoles: GateRole[]; lastRoles: boolean; initialClasses: string[]; onDone: (message: string) => void | Promise<void>
 }) {
   const [roles, setRoles] = useState<GateRole[]>(initialRoles)
   const [picked, setPicked] = useState(initialClasses)
@@ -238,7 +238,9 @@ function EditMember({ person, classes, initialRoles, initialClasses, onDone }: {
       <div className="mt-8 border-t border-line pt-5">
         {confirmRemove ? (
           <>
-            <p className="text-body font-bold">Remove {firstName(person)} from the gate team? They stop hearing announcements and can no longer act at the gate. Their other roles stay.</p>
+            <p className="text-body font-bold">Remove {firstName(person)} from the gate team? They stop hearing announcements and can no longer act at the gate. {lastRoles
+              ? 'This is their only role: they stay under People → Staff as "No role" until you give them one.'
+              : 'Their other roles stay.'}</p>
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <Button variant="secondary" onClick={() => setConfirmRemove(false)}>Keep</Button>
               <Button variant="danger" icon={<UserMinus />} loading={save.busy} onClick={() => void save.run(() => removeCoordinator(person.id), () => onDone(`${firstName(person)} is no longer on the gate team.`))}>Remove</Button>

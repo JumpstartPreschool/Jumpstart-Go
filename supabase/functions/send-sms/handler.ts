@@ -22,6 +22,12 @@ export interface Deps {
   template: string
   /** Makes the id WATI reports back on; crypto.randomUUID in production. */
   newId?: () => string
+  /**
+   * Runs the WhatsApp send after the hook has answered (EdgeRuntime.waitUntil in production). Supabase Auth gives the
+   * hook 5 seconds and, past that, drops the code and a new person's account even though WhatsApp still delivers it; a
+   * slow WATI or a cold start must never cost anyone their sign-in. Without it, the send is awaited (tests).
+   */
+  background?: (task: Promise<unknown>) => void
 }
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -76,12 +82,20 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const localId = (deps.newId ?? (() => crypto.randomUUID()))()
   // Supabase sends the number as digits without the +, so it is already E.164 with its own country code.
   const digits = phone.replace(/^\+/, '')
-  // A log that can't be written must not stop a code from being sent.
-  await deps.log({ profileId, phone: digits, kind: 'signin_code', template: deps.template, localId, broadcastId: null, status: 'accepted', error: null }).catch(() => {})
-  const sent = await deps.wati.sendTemplate({ phone: `+${digits}`, template: deps.template, params: [otp], localMessageId: localId, broadcastName: 'signin_code' })
-  // The failure category, and WATI's own reason when it gave one (masked, short), so a refusal can be fixed from the log.
-  await deps.logDone(localId, sent.ok ? sent.broadcastId : null, sent.ok ? null : sent.detail ? `${sent.category}: ${sent.detail}` : sent.category).catch(() => {})
-  if (!sent.ok) await deps.sendRefund(phone).catch(() => {})
+  const send = async () => {
+    // A log that can't be written must not stop a code from being sent.
+    await deps.log({ profileId, phone: digits, kind: 'signin_code', template: deps.template, localId, broadcastId: null, status: 'accepted', error: null }).catch(() => {})
+    const sent = await deps.wati.sendTemplate({ phone: `+${digits}`, template: deps.template, params: [otp], localMessageId: localId, broadcastName: 'signin_code' })
+    // The failure category, and WATI's own reason when it gave one (masked, short), so a refusal can be fixed from the log.
+    await deps.logDone(localId, sent.ok ? sent.broadcastId : null, sent.ok ? null : sent.detail ? `${sent.category}: ${sent.detail}` : sent.category).catch(() => {})
+    if (!sent.ok) await deps.sendRefund(phone).catch(() => {})
+    return sent
+  }
+  if (deps.background) {
+    deps.background(send().catch(() => console.error(JSON.stringify({ sms: 'background_send_failed' }))))
+    return json({})
+  }
+  const sent = await send()
   if (sent.ok) return json({})
   return unavailable(BUSY.has(sent.category) ? 503 : 500)
 }

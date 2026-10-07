@@ -76,7 +76,9 @@ export function AdminPeople() {
   const hit = (...xs: Array<string | null | undefined>) => !q || xs.some((x) => x?.toLowerCase().includes(q))
   const kids = dir ? dir.children.filter((c) => c.active) : []
   const guardianRows = dir ? dir.profiles.filter((p) => p.active && dir.guardianships.some((g) => g.guardian_id === p.id && kids.some((k) => k.id === g.child_id))) : []
-  const staffRows = dir ? dir.profiles.filter((p) => (dir.roles.get(p.id)?.length ?? 0) > 0) : []
+  // Staff, and anyone left with no role and no child (removed from the gate team, say): listed here as "No role" so they
+  // never vanish from every list while their record and sign-in still exist.
+  const staffRows = dir ? dir.profiles.filter((p) => (dir.roles.get(p.id)?.length ?? 0) > 0 || (p.active && !dir.guardianships.some((g) => g.guardian_id === p.id))) : []
   const kidsOf = (pid: string) => dir!.guardianships.filter((g) => g.guardian_id === pid).map((g) => ({ g, k: kids.find((k) => k.id === g.child_id) })).filter((x) => x.k)
   const lists = dir && {
     children: kids.filter((c) => hit(c.full_name, c.preferred_name, dir.programmes.find((p) => p.id === c.programme_id)?.name,
@@ -201,7 +203,10 @@ export function AdminPeople() {
                           </div>
                           <button type="button" className="iconbtn" aria-label={`Edit ${p.full_name}`} onClick={() => setEditingStaff(p)}><PencilLine /></button>
                         </div>
-                        <div className="mb-4 mt-3 flex flex-wrap gap-1.5">{roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}</div>
+                        <div className="mb-4 mt-3 flex flex-wrap gap-1.5">
+                          {roles.length ? roles.map((r) => <Pill key={r} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)
+                            : <Pill tone="stale" icon={<ShieldOff />}>No role: use Add staff with their mobile to give one</Pill>}
+                        </div>
                         <div className="mt-auto flex min-h-[57px] flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-3">
                           {p.active ? <AccessState person={p} onInvite={p.id === myId ? undefined : setInviting} onChanged={() => void reload()} /> : <Pill tone="stale" icon={<ShieldOff />}>Access off</Pill>}
                           {p.id === myId ? null : admin ? <span className="inline-flex items-center gap-1.5 text-small font-bold text-ink-3"><Lock className="size-4" aria-hidden />Protected</span>
