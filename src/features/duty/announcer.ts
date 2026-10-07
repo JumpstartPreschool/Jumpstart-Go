@@ -10,7 +10,6 @@ import { DEFAULT_GATE } from '../../../supabase/functions/_shared/gateAnnounce.t
 export type ChimeKind = 'normal' | 'flagged'
 
 export interface Openings { new: string; urgent: string; reminder: string }
-const DEFAULT_OPENINGS: Openings = { new: DEFAULT_GATE.opening_new, urgent: DEFAULT_GATE.opening_urgent, reminder: DEFAULT_GATE.opening_reminder }
 
 export interface Announcement {
   /** Stable id, e.g. "trip:123". Announcing the same id again replaces it. */
@@ -64,11 +63,9 @@ const REMINDER_PENALTY = 1000
 const rank = (i: Item) => i.priority - (i.heard ? REMINDER_PENALTY : 0)
 
 export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
-  let openings = DEFAULT_OPENINGS
-  // The words actually spoken for an item, made now: urgent ones say so first, so the gate knows to act now.
-  const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'urgent' | 'first'>): string =>
-    !item.heard && item.first ? item.first()
-      : `${item.heard ? openings.reminder : item.urgent ? openings.urgent : openings.new} ${typeof item.text === 'function' ? item.text() : item.text}`
+  // The words actually spoken for an item, made now: the message alone, with no opening before it.
+  const spokenFor = (item: Pick<Item, 'text' | 'heard' | 'first'>): string =>
+    !item.heard && item.first ? item.first() : typeof item.text === 'function' ? item.text() : item.text
   const items = new Map<string, Item>()
   const listeners = new Set<(s: AnnouncerState) => void>()
   let seq = 0
@@ -144,9 +141,8 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
   }
 
   return {
-    /** The admin's openings and reminder interval (0042). The announcement being said finishes as it started. */
+    /** The admin's reminder interval (0042). Openings are accepted but never said: the gate says the message alone. */
     configure(c: { openings?: Openings; repeatMs?: number }) {
-      if (c.openings) openings = c.openings
       if (c.repeatMs) repeatMs = c.repeatMs
     },
     /** Gets an upcoming message's audio ready (a reminder's next time), so it plays without a pause. */

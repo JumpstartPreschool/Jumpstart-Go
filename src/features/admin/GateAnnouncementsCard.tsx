@@ -24,19 +24,16 @@ const STATE_LABEL = { eta: 'On the way', late: 'Running late', arrived: 'Arrived
 type SampleEta = 15 | 10 | 5 | 0
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
-/** What a draft says for the example child, opening first, exactly as the gate would build it. */
+/** What a draft says for the example child, exactly as the gate would build it. */
 function sample(s: GateSettings, key: TemplateKey, minutes: SampleEta): string {
   const kind: Kind = key.startsWith('pickup') ? 'pickup' : 'dropoff'
   const now = Date.now()
   const arriveAt = now + minutes * 60_000
   const timed = key.endsWith('_eta') || key.endsWith('_late')
-  const urgent = key.endsWith('_arrived') || (key.endsWith('_eta') && minutes <= s.urgent_min)
   const event = timed ? { kind, state: key.endsWith('_late') ? 'late' : 'eta', eta: etaOf(arriveAt, now), arriveAt: new Date(arriveAt) } as const
     : { kind, state: key.endsWith('_arrived') ? 'arrived' : 'cancelled' } as const
-  // A running-late update carries its own lead ("Pickup update."), so no opening goes before it.
-  if (key.endsWith('_late')) return messageFor(s, event, SAMPLE_CHILD, 'Mother')
-  const opening = key.endsWith('_cancelled') ? s.opening_new : urgent ? s.opening_urgent : s.opening_new
-  return `${opening} ${messageFor(s, event, SAMPLE_CHILD, 'Mother')}`
+  // The gate says the message alone, with no opening before it.
+  return messageFor(s, event, SAMPLE_CHILD, 'Mother')
 }
 
 /** One template: the wording, variables to tap in, its check, and the example as the gate would say it. */

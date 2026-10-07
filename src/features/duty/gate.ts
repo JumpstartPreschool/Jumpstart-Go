@@ -146,7 +146,7 @@ export function syncGate(
         })
       }
       // The next reminder's words, ready ahead: a time not recorded ahead (twenty minutes, say) is made now.
-      if (!t.arrived_at) announcer.warm(`${s.opening_reminder} ${spokenText(t, child, nowMs + s.reminder_min * 60_000, s)}`, t.child_id)
+      if (!t.arrived_at) announcer.warm(spokenText(t, child, nowMs + s.reminder_min * 60_000, s), t.child_id)
     } else if (memory.announced.has(t.id)) {
       memory.announced.delete(t.id)
       announcer.acknowledge(id)

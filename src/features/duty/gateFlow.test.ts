@@ -47,11 +47,11 @@ describe('a trip, as the gate hears it', () => {
     g.setTrips([trip({ arrived_at: iso(Date.now()), updated_at: iso(Date.now()) })])
     await g.run(0.5)
     const texts = g.said.map((s) => s.text)
-    expect(texts[0]).toBe("New announcement. Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready.")
-    expect(texts).toContain("This is a reminder. Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready.")
-    expect(texts).toContain("New announcement. Aarav Sharma's mother will arrive for pickup in about ten minutes. Please get Aarav ready.")
-    expect(texts).toContain("Urgent new announcement. Aarav Sharma's mother will arrive for pickup in about five minutes. Please get Aarav ready.")
-    expect(texts.at(-1)).toBe("Urgent new announcement. Aarav Sharma's mother has arrived for pickup. Please get Aarav ready.")
+    expect(texts[0]).toBe("Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready.")
+    expect(texts).toContain("Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready.")
+    expect(texts).toContain("Aarav Sharma's mother will arrive for pickup in about ten minutes. Please get Aarav ready.")
+    expect(texts).toContain("Aarav Sharma's mother will arrive for pickup in about five minutes. Please get Aarav ready.")
+    expect(texts.at(-1)).toBe("Aarav Sharma's mother has arrived for pickup. Please get Aarav ready.")
     // Every sentence before the arrival said the time; none said a stale one (fifteen after the first five minutes).
     for (const s of g.said.slice(0, -1)) expect(s.text).toMatch(/in about (fifteen|ten|five|two) minutes/)
     for (const s of g.said.filter((x) => x.at > 5.5 && !x.text.includes('arrived'))) expect(s.text).not.toContain('fifteen')
@@ -66,7 +66,7 @@ describe('a trip, as the gate hears it', () => {
     const before = g.said.length
     await g.run(8)
     const after = g.said.slice(before).map((s) => s.text)
-    expect(after[0]).toBe("New announcement. Aarav Sharma's mother will arrive for pickup in about twenty minutes. Please get Aarav ready.")
+    expect(after[0]).toBe("Aarav Sharma's mother will arrive for pickup in about twenty minutes. Please get Aarav ready.")
     expect(after.some((t) => /five minutes|two minutes|any moment/.test(t))).toBe(false)
   })
 
@@ -78,7 +78,7 @@ describe('a trip, as the gate hears it', () => {
     g.setTrips([trip({ status: 'cancelled', updated_at: iso(Date.now()) })])
     await g.run(10)
     const later = g.said.slice(before).map((s) => s.text)
-    expect(later).toEqual(['New announcement. Pickup for Aarav Sharma is cancelled.'])
+    expect(later).toEqual(['Pickup for Aarav Sharma is cancelled.'])
   })
 
   it('the admin\'s wording, openings and timings, end to end', async () => {
@@ -89,7 +89,7 @@ describe('a trip, as the gate hears it', () => {
     const g = gateDevice(s)
     g.setTrips([trip({ arrive_at: iso(T0 + 18 * 60_000) })])
     await g.run(2.2)
-    expect(g.said.map((x) => x.text).slice(0, 2)).toEqual(['Attention please. Aarav, pickup by mother, in about twenty minutes.', 'Once more. Aarav, pickup by mother, in about fifteen minutes.'])
+    expect(g.said.map((x) => x.text).slice(0, 2)).toEqual(['Aarav, pickup by mother, in about twenty minutes.', 'Aarav, pickup by mother, in about fifteen minutes.'])
   })
 
   it('two gate iPads hear the same trip once each, from the one trip record', async () => {
@@ -114,7 +114,7 @@ describe('a trip, as the gate hears it', () => {
     const after = g.said.slice(before).map((x) => x.text)
     expect(after[0]).toBe("Pickup update. Aarav Sharma's mother is running late and will arrive in about fifteen minutes.")
     expect(after.filter((t) => t.includes('running late'))).toHaveLength(1)
-    expect(after.slice(1).every((t) => t.startsWith('This is a reminder.') || t.startsWith('New announcement.') || t.startsWith('Urgent'))).toBe(true)
+    expect(after.slice(1).some((t) => /^(This is a reminder|New announcement|Urgent)/.test(t))).toBe(false)
     // Nothing for the old 1:10 (which would be "any moment now" or "two minutes" by now), and the note is never spoken.
     expect(after.some((t) => /any moment|two minutes|traffic/i.test(t))).toBe(false)
   })
@@ -138,6 +138,6 @@ describe('a trip, as the gate hears it', () => {
     const g = gateDevice(DEFAULT_GATE, T0)
     g.setTrips([trip({ arrive_at: iso(T0 + 15 * 60_000), late_from: iso(T0 + 5 * 60_000), late_at: iso(lateAt), updated_at: iso(lateAt) })])
     await g.run(1)
-    expect(g.said.map((x) => x.text)).toEqual(["New announcement. Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready."])
+    expect(g.said.map((x) => x.text)).toEqual(["Aarav Sharma's mother will arrive for pickup in about fifteen minutes. Please get Aarav ready."])
   })
 })

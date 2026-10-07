@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAnnouncer, type Announcement } from './announcer'
 
-// The default openings (gateAnnounce.ts), as the announcer puts them before each message.
-const NEW_LEAD = 'New announcement. '
-const REPEAT_LEAD = 'This is a reminder. '
+// The gate says each message alone: no opening goes before it.
+const NEW_LEAD = ''
+const REPEAT_LEAD = ''
 const PRIORITY = { flagged: 50, runningLate: 40, newRequest: 30, arriving: 10 }
 
 function fakeOutput() {
@@ -161,8 +161,8 @@ describe('reminders and settings (0042)', () => {
     // The reminder starts 2 minutes after the first ended, and takes 3 s to say.
     await vi.advanceTimersByTimeAsync(124_000)
     expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual([
-      "New announcement. Aarav's mother will arrive for pickup in about fifteen minutes.",
-      "This is a reminder. Aarav's mother will arrive for pickup in about ten minutes.",
+      "Aarav's mother will arrive for pickup in about fifteen minutes.",
+      "Aarav's mother will arrive for pickup in about ten minutes.",
     ])
   })
 
@@ -176,8 +176,8 @@ describe('reminders and settings (0042)', () => {
     await vi.advanceTimersByTimeAsync(60_000)
     const said = out.played.filter((p) => !p.startsWith('chime'))
     // Announced together, so the urgent one plays first.
-    expect(said.slice(0, 2)).toEqual(['Urgent. Ira pickup.', 'Attention please. Kabir pickup.'])
-    expect(said).toContain('Once more. Kabir pickup.')
+    expect(said.slice(0, 2)).toEqual(['Ira pickup.', 'Kabir pickup.'])
+    expect(said).toContain('Kabir pickup.')
   })
 
   it('plays every new announcement before any reminder, and the earlier arrival first within a priority', async () => {
@@ -192,7 +192,7 @@ describe('reminders and settings (0042)', () => {
     ann.announce({ id: 'late', text: 'later arrival', chime: 'normal', priority: 20, order: 2000 })
     ann.announce({ id: 'soon', text: 'sooner arrival', chime: 'normal', priority: 20, order: 1000 })
     await vi.advanceTimersByTimeAsync(20_000)
-    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['New announcement. old', 'New announcement. filler', 'New announcement. sooner arrival', 'New announcement. later arrival', 'This is a reminder. old'])
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['old', 'filler', 'sooner arrival', 'later arrival', 'old'])
   })
 
   it('says a "once" announcement (a cancellation) one time, even if a mute holds it first', async () => {
@@ -201,7 +201,7 @@ describe('reminders and settings (0042)', () => {
     ann.mute(60_000)
     ann.announce({ id: 'trip:1:cancel', text: 'Pickup for Kabir is cancelled.', chime: 'normal', priority: 0, once: true })
     await vi.advanceTimersByTimeAsync(60_000 + 10 * 60_000)
-    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['New announcement. Pickup for Kabir is cancelled.'])
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['Pickup for Kabir is cancelled.'])
   })
 
   it('lets the old words finish when a trip is replaced while being said, then says the new ones next', async () => {
@@ -215,10 +215,10 @@ describe('reminders and settings (0042)', () => {
     await vi.advanceTimersByTimeAsync(10)
     // Never cut midway: nothing stops the sentence being said, and the new one waits for it.
     expect(out.stop).not.toHaveBeenCalled()
-    expect(said).toEqual(['New announcement. in about five minutes'])
+    expect(said).toEqual(['in about five minutes'])
     finish()
     await vi.advanceTimersByTimeAsync(10)
-    expect(said).toEqual(['New announcement. in about five minutes', 'New announcement. in about twenty minutes'])
+    expect(said).toEqual(['in about five minutes', 'in about twenty minutes'])
   })
 
   it('does not count a silent announcement as heard: it retries soon, still as new', async () => {
