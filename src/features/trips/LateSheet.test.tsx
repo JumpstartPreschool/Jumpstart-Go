@@ -10,6 +10,8 @@ import type { Trip } from './api'
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', '') }
 HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open') }
 
+// The real client needs the project's address, which CI doesn't have; LateSheet only calls runningLate, mocked below.
+vi.mock('../../lib/supabase', () => ({ supabase: {} }))
 const api = vi.hoisted(() => ({ runningLate: vi.fn() }))
 vi.mock('./api', async (real) => ({ ...(await real<typeof import('./api')>()), runningLate: api.runningLate }))
 const { LateSheet } = await import('./TripSheets')

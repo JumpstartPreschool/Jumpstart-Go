@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { unreadBySide } from './Unread'
+import { unreadBySide } from './unreadCount'
 
 const msg = (id: number, child: string, role: 'parent' | 'family' | 'core' | 'pro' | 'admin', at: string, sender = role === 'parent' ? 'mom' : 'staff1') =>
   ({ id, child_id: child, sender, sender_name: 'Someone', sender_role: role, body: 'Hi', created_at: `2026-10-10T${at}:00Z` })
