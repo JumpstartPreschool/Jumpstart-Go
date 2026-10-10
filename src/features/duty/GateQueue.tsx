@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { preconnect } from 'react-dom'
-import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Lock, MapPin, Navigation, Phone, RotateCcw, School, Timer, TriangleAlert, UserCheck } from '../../ui/icons'
+import { BellRing, CircleCheck, DoorOpen, Eye, Headset, House, KeyRound, Link2, Lock, MapPin, Navigation, Phone, RotateCcw, School, Timer, TriangleAlert, UserCheck } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button, LuxButton } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -278,7 +278,8 @@ export function GateQueue({ announcer, audible = true }: { announcer: Announcer;
                 {!done && t.arrived_at && <Pill tone="danger" icon={<MapPin />}>At the gate</Pill>}
                 {!done && t.ready_at && <Pill tone="live" icon={<CircleCheck />}>Ready</Pill>}
                 {!done && t.acknowledged_at && !t.ready_at && <Pill icon={<Eye />}>Seen</Pill>}
-                {!done && t.traveller_kind === 'third_person' && (locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
+                {!done && t.traveller_kind === 'third_person' && (t.direction === 'dropoff' ? <Pill icon={<Link2 />}>Sent by a parent</Pill>
+                  : locked.has(t.id) ? <Pill tone="danger" icon={<Lock />}>Locked</Pill> : <Pill icon={<KeyRound />}>Code needed</Pill>)}
                 {!done && t.phoned_in_by && <Pill icon={<Headset />}>Phoned in</Pill>}
                 {!done && !mine && (c && !covered.has(c.classId) ? <Pill tone="warning" icon={<BellRing />}>{gate.data!.assigned.some((x) => x.classId === c.classId) ? 'Nobody on duty' : 'Nobody assigned'}</Pill> : <Pill icon={<BellRing />}>Other class</Pill>)}
               </span>
@@ -416,8 +417,9 @@ function TripDetail({ trip, child, busy, locked, canClose, onStep }: { trip: Tri
         {fact('Arrives', `about ${clockTime(trip.arrive_at)}`)}
         {fact('Coming', relationName(trip) || trip.traveller_name)}
       </div>
-      {third && !done && (
-        <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} ({trip.traveller_relation?.toLowerCase() ?? 'not family'}) isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone, and check their ID if you don't know them.</Notice>
+      {third && !done && (pickup
+        ? <Notice tone="info" icon={<KeyRound aria-hidden />}>Sent by a parent: {who} ({trip.traveller_relation?.toLowerCase() ?? 'not family'}) isn't registered with the school. Hand over only with the 4-digit code on {who}'s phone, and check their ID if you don't know them.</Notice>
+        : <Notice tone="info" icon={<Link2 aria-hidden />}>Sent by a parent: {who} ({trip.traveller_relation?.toLowerCase() ?? 'not family'}) is bringing {child.name}. They aren't registered with the school; check {child.name} in as usual. No code is needed.</Notice>
       )}
       {isLate(trip) && !done && (
         <Notice tone="warning" icon={<Timer aria-hidden />}>

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ToastProvider } from '../../ui/Toast'
-import type { Programme } from '../../domain/programme'
 import type { Trip } from './api'
 
 // jsdom has no <dialog> methods; the app's sheets use showModal().
@@ -17,14 +16,13 @@ const { LateSheet } = await import('./TripSheets')
 
 // 1:00 PM in India; the school has the pickup at 1:10 PM.
 const NOW = Date.parse('2026-10-05T07:30:00Z')
-const programme: Programme = { name: 'Nursery', weekdays: [1, 2, 3, 4, 5], saturdayRule: 'every', term: null, hours: { from: 540, to: 1140 }, windows: { dropoff: { from: 525, to: 555 }, pickup: { from: 765, to: 795 } } }
 const trip = { id: 't1', child_id: 'c', direction: 'pickup', status: 'en_route', arrive_at: '2026-10-05T07:40:00Z' } as Trip
 
 function show() {
   const user = userEvent.setup()
   const onClose = vi.fn()
   const onChanged = vi.fn()
-  render(<ToastProvider><LateSheet open onClose={onClose} onChanged={onChanged} trip={trip} first="Aarav" programme={programme} nowMs={NOW} /></ToastProvider>)
+  render(<ToastProvider><LateSheet open onClose={onClose} onChanged={onChanged} trip={trip} nowMs={NOW} /></ToastProvider>)
   return { user, onClose, onChanged }
 }
 beforeEach(() => { api.runningLate.mockImplementation(async (_id, change) => ({ ...trip, arrive_at: 'minutes' in change ? new Date(Date.parse(trip.arrive_at) + change.minutes * 60_000).toISOString() : change.at.toISOString() })) })
@@ -55,8 +53,8 @@ it('sends a custom later time and an optional note, without asking for a reason'
   await user.click(screen.getByRole('radio', { name: /Custom time/ }))
   expect(screen.getByText('Expected arrival')).toBeInTheDocument()
   await user.type(screen.getByLabelText('Add a note (optional)'), 'Traffic near school')
-  // Past the pickup window: shown as guidance, never a blocker.
-  expect(screen.getByText(/after Aarav's usual pickup time. That's fine/)).toBeInTheDocument()
+  // Any time is fine (D56): the new arrival is confirmed, never compared with a window.
+  expect(screen.getByText(/New arrival: about 1:30 PM/)).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Tell the school' }))
   await waitFor(() => expect(api.runningLate).toHaveBeenCalledTimes(1))
   const [, change, note] = api.runningLate.mock.calls[0]!
@@ -84,7 +82,7 @@ it('when the time has moved since the parent looked, says so, reloads the trip a
 
 it('says the same arrival minute as the parent card when the time has seconds (no 1:10 on the card and 1:11 here)', () => {
   const at = { ...trip, arrive_at: '2026-10-05T07:40:30Z' } as Trip
-  render(<ToastProvider><LateSheet open onClose={() => {}} trip={at} first="Aarav" programme={programme} nowMs={NOW + 10_000} /></ToastProvider>)
+  render(<ToastProvider><LateSheet open onClose={() => {}} trip={at} nowMs={NOW + 10_000} /></ToastProvider>)
   expect(screen.getByText(/The school has about 1:10 PM/)).toBeInTheDocument()
   expect(screen.getByRole('radio', { name: /\+5\s*min\s*about 1:15 PM/ })).toBeInTheDocument()
 })

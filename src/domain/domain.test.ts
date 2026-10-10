@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatTime, indiaClock, toMinutes } from './time'
-import { checkTime, programmeErrors, runsOn, type Programme } from './programme'
+import { programmeErrors, runsOn, type Programme } from './programme'
 import { formatAge, freshness } from './freshness'
 import { lateBand } from './lateness'
 
@@ -67,27 +67,6 @@ describe('programmes', () => {
   })
 })
 
-describe('checkTime', () => {
-  it('allows a time inside the window with no flags', () => {
-    expect(checkTime(jrKgHalfDay, 'pickup', t('13:05'), t('10:00'))).toEqual({ ok: true, offSchedule: false, shortNotice: false })
-  })
-  it('flags off-schedule and short notice, but still allows them', () => {
-    expect(checkTime(jrKgHalfDay, 'pickup', t('11:00'), t('10:50'))).toEqual({ ok: true, offSchedule: true, shortNotice: true })
-    expect(checkTime(jrKgHalfDay, 'pickup', t('13:30'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
-  })
-  it('lets the Learning Center collect any time until 7 PM', () => {
-    expect(checkTime(learningCenter, 'pickup', t('17:40'), null)).toEqual({ ok: true, offSchedule: false, shortNotice: false })
-    expect(checkTime(learningCenter, 'dropoff', t('10:30'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
-  })
-  it('allows any hour (0026), flags times outside the window, and refuses the past', () => {
-    expect(checkTime(learningCenter, 'pickup', t('19:15'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
-    expect(checkTime(learningCenter, 'pickup', t('19:20'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
-    expect(checkTime(learningCenter, 'dropoff', t('08:45'), null)).toEqual({ ok: true, offSchedule: false, shortNotice: false })
-    expect(checkTime(learningCenter, 'dropoff', t('08:40'), null)).toEqual({ ok: true, offSchedule: true, shortNotice: false })
-    expect(checkTime(jrKgHalfDay, 'pickup', t('12:30'), t('12:40'))).toEqual({ ok: false, reason: 'in_the_past' })
-  })
-})
-
 describe('freshness', () => {
   const now = 1_000_000
   it('labels by age', () => {
@@ -118,14 +97,15 @@ describe('lateBand', () => {
 })
 
 describe('contact details', async () => {
-  const { normalizeEmail, normalizeMobile, formatMobile, whatsappUrl } = await import('./contact')
+  const { normalizeEmail, normalizeMobile, normalizeIndianPhone, formatMobile, whatsappUrl } = await import('./contact')
   it('normalizes emails', () => {
     expect(normalizeEmail('  Sneha.K@Example.COM ')).toBe('sneha.k@example.com')
     expect(normalizeEmail('not-an-email')).toBeNull()
     expect(normalizeEmail('a@b')).toBeNull()
   })
   it('accepts Indian mobiles in any common format', () => {
-    for (const v of ['98765 43210', '+91 98765 43210', '+91-98765-43210', '09876543210', '919876543210', '0091 9876543210', '091 9876543210']) {
+    for (const v of ['98765 43210', '+91 98765 43210', '+91-98765-43210', '09876543210', '919876543210', '0091 9876543210', '091 9876543210',
+      '+91 098765 43210', '0091 0 9876543210', '91 0 98765 43210', ' 098765-43210 ']) {
       expect(normalizeMobile(v)).toBe('+919876543210')
     }
   })
@@ -141,6 +121,13 @@ describe('contact details', async () => {
     expect(normalizeMobile('+91 20 2545 1234')).toBeNull()
     expect(normalizeMobile('5876543210')).toBeNull()
     expect(normalizeMobile('0')).toBeNull()
+  })
+  it("takes the school's own number in any common format, landline or mobile", () => {
+    for (const v of ['020 2545 1234', '+91 20 2545 1234', '+91 020 2545 1234', '0091 20 2545 1234', '0091 020 2545 1234', '912025451234']) {
+      expect(normalizeIndianPhone(v)).toBe('+912025451234')
+    }
+    expect(normalizeIndianPhone('9123456789')).toBe('+919123456789')
+    expect(normalizeIndianPhone('2545 1234')).toBeNull()
   })
   it('formats for display, and links to WhatsApp', () => {
     expect(formatMobile('+919876543210')).toBe('+91 98765 43210')

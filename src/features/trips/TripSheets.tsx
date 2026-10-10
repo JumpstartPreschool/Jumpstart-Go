@@ -1,62 +1,32 @@
 import { useState } from 'react'
-import { Bell, CircleCheck, Clock, MessageSquareText, Timer, TriangleAlert, X } from '../../ui/icons'
+import { Bell, CircleCheck, Clock, MessageSquareText, Timer, X } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { SelectField } from '../../ui/Field'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { formatTime, indiaClock, type Minutes } from '../../domain/time'
-import { windowFor, type Direction, type Programme } from '../../domain/programme'
+import type { Direction } from '../../domain/programme'
 import { cancelTrip, explainTripError, runningLate, startTrip, type Trip } from './api'
-import { checkArrival, clockTime, formatRange, MINUTE_CHOICES, REASONS, type Arrival } from './rules'
+import { clockTime, MINUTE_CHOICES, pastMidnight } from './rules'
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
 
 /** The time as the gate sees it: whole minutes after now. */
 const minutesUntil = (iso: string, nowMs: number) => Math.max(0, Math.ceil((Date.parse(iso) - nowMs) / 60_000))
 
-/** Where the chosen time falls against the child's window, said plainly: on time, early or late. Never blocks sending. */
-function CheckLine({ now, arrival, state, first, direction, programme }: { now: Minutes; arrival: Minutes; state: Arrival; first: string; direction: Direction; programme: Programme }) {
-  const win = formatRange(windowFor(programme, direction))
-  if (state === 'inside') return <Notice tone="success">Arriving about {formatTime(arrival)}, inside {first}'s {WORD[direction]} window ({win}).</Notice>
-  if (state === 'closed') return <Notice tone="danger">{formatTime(arrival)} is after midnight. Please call the school.</Notice>
-  return (
-    <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>
-      <b>{state === 'late' ? "You're running late." : "You're early."}</b> It's {formatTime(now)} now and {first}'s {WORD[direction]} window is {win}. The school will see that you'll arrive about {formatTime(arrival)}.
-    </Notice>
-  )
-}
-
-export function ReasonPicker({ onChange }: { onChange: (v: string) => void }) {
-  const [choice, setChoice] = useState<string | null>(null)
-  const [other, setOther] = useState('')
-  const pick = (r: string) => { setChoice(r); onChange(r === 'Other' ? other : r) }
-  return (
-    <fieldset className="grid gap-2.5">
-      <legend className="kicker mb-2">Why?</legend>
-      <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Reason">
-        {REASONS.map((r) => (
-          <button key={r} type="button" role="radio" aria-checked={choice === r} className="choice h-12 px-3.5 text-small font-bold" onClick={() => pick(r)}>
-            {r}
-          </button>
-        ))}
-      </div>
-      {choice === 'Other' && (
-        <label className="input input--sm">
-          <input autoFocus value={other} maxLength={200} placeholder="A few words for the school" aria-label="Other reason"
-            onChange={(e) => { setOther(e.target.value); onChange(e.target.value) }} />
-        </label>
-      )}
-    </fieldset>
-  )
+/** When they'll arrive, said plainly. Any time today is fine (D56); only past midnight can't be sent. */
+function CheckLine({ arrival }: { arrival: Minutes }) {
+  if (pastMidnight(arrival)) return <Notice tone="danger">{formatTime(arrival)} is after midnight. Please call the school.</Notice>
+  return <Notice tone="success">Arriving about {formatTime(arrival)}.</Notice>
 }
 
 /**
- * "I'm on my way" (TRIP-1, TRIP-2): minutes until arrival, checked against the child's window; a reason when it's outside.
- * Sending again while on the way changes the time, and the gate hears it again.
+ * "I'm on my way" (TRIP-1, TRIP-2): minutes until arrival, at any time today (D56). Sending again while on the way
+ * changes the time, and the gate hears it again.
  */
-export function OnMyWaySheet({ open, onClose, onChanged, childId, first, direction, programme, trip, nowMs }: {
-  open: boolean; onClose: () => void; onChanged?: () => void; childId: string; first: string; direction: Direction; programme: Programme; trip: Trip | null; nowMs: number
+export function OnMyWaySheet({ open, onClose, onChanged, childId, first, direction, trip, nowMs }: {
+  open: boolean; onClose: () => void; onChanged?: () => void; childId: string; first: string; direction: Direction; trip: Trip | null; nowMs: number
 }) {
   const toast = useToast()
   const nowMin = indiaClock(new Date(nowMs)).minutes
@@ -72,16 +42,13 @@ export function OnMyWaySheet({ open, onClose, onChanged, childId, first, directi
   const customTimes = Array.from({ length: Math.max(0, Math.floor((Math.min(nowMin + 180, 23 * 60 + 55) - customFrom) / 5) + 1) }, (_, i) => customFrom + i * 5)
   const sendMinutes = custom === null ? minutes : Math.max(0, custom - nowMin)
   const arrival = nowMin + sendMinutes
-  const state = checkArrival(programme, direction, arrival)
-  // Outside the window the trip is still flagged for the gate team to acknowledge; the reason is said for the parent.
-  const reason = state === 'late' ? 'Running late' : state === 'early' ? 'Arriving early' : null
-  const canSend = state !== 'closed'
+  const canSend = !pastMidnight(arrival)
 
   async function send() {
     setBusy(true)
     setError(null)
     try {
-      await startTrip(childId, direction, sendMinutes, reason)
+      await startTrip(childId, direction, sendMinutes, null)
       onChanged?.()
       toast(trip ? `New time sent: about ${formatTime(arrival)}.` : `The school knows you're coming, about ${formatTime(arrival)}.`)
       onClose()
@@ -94,11 +61,11 @@ export function OnMyWaySheet({ open, onClose, onChanged, childId, first, directi
 
   return (
     <Sheet open={open} onClose={onClose} title={`On my way to ${direction === 'pickup' ? 'pick up' : 'drop off'} ${first}`}
-      description={`It's ${formatTime(nowMin)} now. ${first}'s ${WORD[direction]} window is ${formatRange(windowFor(programme, direction))}.`}>
+      description={`It's ${formatTime(nowMin)} now.`}>
       <p className="kicker">I'll reach the school in</p>
       <div className="mt-3 grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Minutes until you arrive">
         {MINUTE_CHOICES.map((n) => {
-          const closed = checkArrival(programme, direction, nowMin + n) === 'closed'
+          const closed = pastMidnight(nowMin + n)
           return (
             <button key={n} type="button" role="radio" aria-checked={custom === null && n === minutes} disabled={closed} onClick={() => { setMinutes(n); setCustom(null) }}
               className="choice grid min-h-[200px] min-w-0 justify-items-center content-center gap-2 px-1.5 py-6 text-center sm:min-h-[228px]">
@@ -122,7 +89,7 @@ export function OnMyWaySheet({ open, onClose, onChanged, childId, first, directi
         </div>
       )}
       <div className="mt-4 grid gap-4">
-        <CheckLine now={nowMin} arrival={arrival} state={state} first={first} direction={direction} programme={programme} />
+        <CheckLine arrival={arrival} />
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
       <SheetFooter>
@@ -140,9 +107,9 @@ const LATE_CHOICES = [5, 10, 15] as const
 /**
  * Running late (0043): +5, +10 or +15 minutes on the time the school has, or a later time today, and an optional note.
  * It changes the trip's real arrival time, so the gate's queue, reminders and announcements all follow the new time;
- * the gate hears "… is running late" at once. The child's window is shown as guidance only: it never stops a late time.
+ * the gate hears "… is running late" at once.
  */
-export function LateSheet({ open, onClose, onChanged, trip, first, programme, nowMs }: { open: boolean; onClose: () => void; onChanged?: () => void; trip: Trip; first: string; programme: Programme; nowMs: number }) {
+export function LateSheet({ open, onClose, onChanged, trip, nowMs }: { open: boolean; onClose: () => void; onChanged?: () => void; trip: Trip; nowMs: number }) {
   const toast = useToast()
   const [extra, setExtra] = useState<(typeof LATE_CHOICES)[number]>(10)
   const [custom, setCustom] = useState<Minutes | null>(null)
@@ -157,7 +124,6 @@ export function LateSheet({ open, onClose, onChanged, trip, first, programme, no
   const customFrom = Math.floor(base / 5) * 5 + 5
   const customTimes = Array.from({ length: Math.max(0, Math.floor((Math.min(nowMin + 180, 23 * 60 + 55) - customFrom) / 5) + 1) }, (_, i) => customFrom + i * 5)
   const arrival = custom ?? base + extra
-  const state = checkArrival(programme, trip.direction, arrival)
 
   async function send() {
     setBusy(true)
@@ -212,8 +178,7 @@ export function LateSheet({ open, onClose, onChanged, trip, first, programme, no
         <p className="px-0.5 text-caption font-semibold text-ink-2">The gate team reads it. It isn't announced.</p>
       </div>
       <div className="mt-4 grid gap-4">
-        {state === 'inside' ? <Notice tone="success">About {formatTime(arrival)} is still inside {first}'s {WORD[trip.direction]} window.</Notice>
-          : <Notice tone="warning" icon={<TriangleAlert aria-hidden />}>About {formatTime(arrival)} is after {first}'s usual {WORD[trip.direction]} time. That's fine: the gate team will see it.</Notice>}
+        <Notice tone="success">New arrival: about {formatTime(arrival)}. The gate team will see it.</Notice>
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
       <SheetFooter>

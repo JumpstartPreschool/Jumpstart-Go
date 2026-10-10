@@ -7,8 +7,9 @@ import { distanceM, positionOf, type LatestPoint, type Point, type Position } fr
 // ---- Calls ------------------------------------------------------------------------------------------------
 
 export interface Invite { trip_id: string; token: string; code: string }
-export async function inviteCollector(childId: string, minutes: number, name: string, phone: string, relation: string, reason: string | null): Promise<Invite> {
-  const { data, error } = await supabase.rpc('invite_collector', { p_child: childId, p_minutes: minutes, p_name: name, p_phone: phone, p_relation: relation, p_reason: reason })
+/** A one-time link for someone the parent sends to collect, or to drop off (D58). */
+export async function inviteCollector(childId: string, minutes: number, name: string, phone: string, relation: string, reason: string | null, direction: 'pickup' | 'dropoff' = 'pickup'): Promise<Invite> {
+  const { data, error } = await supabase.rpc('invite_collector', { p_child: childId, p_minutes: minutes, p_name: name, p_phone: phone, p_relation: relation, p_reason: reason, p_direction: direction })
   if (error) throw error
   return data as Invite
 }
@@ -26,7 +27,9 @@ export async function handoverWithCode(tripId: string, code: string): Promise<{ 
 export const linkUrl = (token: string) => `${window.location.origin}/t/${token}`
 
 /** The message a parent sends on WhatsApp: who, when, the link and the code. */
-export function whatsappText(p: { collector: string; child: string; at: string; token: string; code: string }): string {
+export function whatsappText(p: { collector: string; child: string; at: string; token: string; code: string; direction?: 'pickup' | 'dropoff' }): string {
+  // A drop-off needs no code: the gate checks the child in (D58).
+  if (p.direction === 'dropoff') return `Hi ${p.collector.split(' ')[0]}, please drop ${p.child} at Jumpstart, Karve Road, at about ${p.at}. Open this link on your phone: ${linkUrl(p.token)} The gate team will check ${p.child} in.`
   return `Hi ${p.collector.split(' ')[0]}, please collect ${p.child} from Jumpstart, Karve Road, at about ${p.at}. Open this link on your phone: ${linkUrl(p.token)} Show code ${p.code} at the gate.`
 }
 

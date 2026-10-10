@@ -13,7 +13,7 @@ export interface ChildDay {
   state: DayState
   /** The time that matters next, and what it is ("drop-off", "arriving", "collected"). */
   next: { at: Minutes | null; label: string }
-  /** Expected times today: the changed time, else the regular time, else the start of the window. */
+  /** Expected times today: the changed time, else the regular time, else the first drop-off and last pickup of the day's programmes. */
   expected: Record<Direction, Minutes | null>
   changed: Record<Direction, DayTime | null>
   trip: Trip | null
@@ -25,19 +25,22 @@ const at = (iso: string) => indiaClock(new Date(iso)).minutes
 export const AWAY_LABEL: Record<string, string> = { absent: 'Absent', on_leave: 'On leave', off: 'Off today' }
 
 export function childDay(input: {
-  programme: Programme | null
+  /** The child's programmes running today (the main one and any others, D56). */
+  programmes: Programme[]
   regular: { dropoff: string; pickup: string } | null
   trips: Trip[]
   attendance: Attendance | null
   times: DayTime[]
 }): ChildDay {
-  const { programme, regular, trips, attendance, times } = input
+  const { programmes, regular, trips, attendance, times } = input
   const changed = { dropoff: times.find((t) => t.direction === 'dropoff') ?? null, pickup: times.find((t) => t.direction === 'pickup') ?? null }
   const expect = (d: Direction): Minutes | null => {
     const c = changed[d]
     if (c) return mins(c.at)
     if (regular) return mins(d === 'pickup' ? regular.pickup : regular.dropoff)
-    return programme ? windowFor(programme, d).from : null
+    if (!programmes.length) return null
+    const starts = programmes.map((p) => windowFor(p, d).from)
+    return d === 'dropoff' ? Math.min(...starts) : Math.max(...starts)
   }
   const expected = { dropoff: expect('dropoff'), pickup: expect('pickup') }
   const open = trips.find((t) => t.status === 'en_route') ?? null

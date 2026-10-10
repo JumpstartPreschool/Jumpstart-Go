@@ -8,25 +8,23 @@ import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
 import { formatTime, indiaClock } from '../../domain/time'
-import { windowFor, type Programme } from '../../domain/programme'
 import { now } from '../../lib/clock'
 import { explainTripError, type Trip } from './api'
 import { formatMobile, normalizeMobile, smsUrl, whatsappUrl } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { savePerson, useLive, type SavedPerson } from '../school/api'
 import { useMyId } from '../family/parentData'
-import { arrivalSlots, clockTime, formatRange } from './rules'
+import { arrivalSlots, clockTime } from './rules'
 import { inviteCollector, whatsappText, type Invite } from './tracking'
-import { ReasonPicker } from './TripSheets'
 
 const RELATIONS = ['Driver', 'Grandparent', 'Relative', 'Family friend', 'Neighbour', 'Nanny', 'Other'] as const
 
 /** The one-time link and code, ready to send. The link can't be shown again; Resend makes a new one. */
-function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite; name: string; child: string; at: string; sendTo: string; onDone: () => void }) {
+function LinkReady({ invite, name, child, at, sendTo, direction = 'pickup', onDone }: { invite: Invite; name: string; child: string; at: string; sendTo: string; direction?: 'pickup' | 'dropoff'; onDone: () => void }) {
   const toast = useToast()
   const [copied, setCopied] = useState(false)
   const first = name.split(' ')[0]!
-  const text = whatsappText({ collector: name, child, at, token: invite.token, code: invite.code })
+  const text = whatsappText({ collector: name, child, at, token: invite.token, code: invite.code, direction })
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text)
@@ -38,11 +36,21 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
   }
   return (
     <>
-      <p className="text-body text-ink-2">{first} shows this code at the gate.</p>
-      <div className="mt-5 rounded-xl bg-sunken px-4 py-6">
-        <CodeTiles code={invite.code} size="xl" />
-        <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatMobile(sendTo)}</p>
-      </div>
+      {direction === 'pickup' ? (
+        <>
+          <p className="text-body text-ink-2">{first} shows this code at the gate.</p>
+          <div className="mt-5 rounded-xl bg-sunken px-4 py-6">
+            <CodeTiles code={invite.code} size="xl" />
+            <p className="mt-4 text-center text-small font-bold text-ink-2">Arriving about {at} · {formatMobile(sendTo)}</p>
+          </div>
+        </>
+      ) : (
+        // A drop-off needs no code: the gate team checks the child in (D58).
+        <div className="rounded-xl bg-sunken px-4 py-5">
+          <p className="text-h4">{first} is dropping {child} off, about {at}</p>
+          <p className="mt-1 text-small font-semibold text-ink-2">The gate team knows who is coming and checks {child} in. No code needed. {formatMobile(sendTo)}</p>
+        </div>
+      )}
       <Notice tone="info" className="mt-4">Send it now: the link is shown only once.</Notice>
       <SheetFooter>
         <p className="kicker mb-2.5">Send it to {first}</p>
@@ -64,21 +72,22 @@ function LinkReady({ invite, name, child, at, sendTo, onDone }: { invite: Invite
 }
 
 /**
- * "Someone else is collecting" (TRIP-3, D3–D5): for a person the school hasn't added as family. They get a link and a
- * 4-digit code for the gate; no app or sign-in. The school's family never needs a link (they're handed over by name).
+ * "Someone else is collecting" or "dropping off" (TRIP-3, D3–D5, D58): for a person the school hasn't added as family.
+ * They get a one-time link; no app or sign-in. Collecting, they show a 4-digit code at the gate; dropping off, the gate
+ * checks the child in. The school's family never needs a link (they're known by name).
  */
-export function SomeoneElseSheet({ open, onClose, childId, first, programme, nowMs }: {
-  open: boolean; onClose: () => void; childId: string; first: string; programme: Programme; nowMs: number
+export function SomeoneElseSheet({ open, onClose, childId, first, nowMs, direction = 'pickup' }: {
+  open: boolean; onClose: () => void; childId: string; first: string; nowMs: number; direction?: 'pickup' | 'dropoff'
 }) {
   const nowMin = indiaClock(new Date(nowMs)).minutes
-  const slots = arrivalSlots(programme, 'pickup', nowMin)
+  // Any time today (D56), within the 3 hours a trip can be booked ahead.
+  const slots = arrivalSlots(nowMin, { to: nowMin + 180 })
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [wa, setWa] = useState('')
   const [relation, setRelation] = useState<string>('Driver')
   const [otherRel, setOtherRel] = useState('')
-  const [at, setAt] = useState<number | null>(slots.find((s) => s.state === 'inside')?.at ?? slots[0]?.at ?? null)
-  const [reason, setReason] = useState('')
+  const [at, setAt] = useState<number | null>(slots[0] ?? null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -97,9 +106,6 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
     else { setRelation('Other'); setOtherRel(p.relation) }
   }
 
-  const slot = slots.find((s) => s.at === at)
-  const needsReason = !!slot && slot.state !== 'inside'
-
   async function create() {
     const e: Record<string, string> = {}
     const mobile = normalizeMobile(phone)
@@ -110,13 +116,12 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
     if (wa.trim() && !whatsapp) e.wa = 'Enter a mobile number, or leave this empty.'
     if (!rel) e.rel = 'Say how they know the child.'
     if (at === null) e.at = 'Choose when they will arrive.'
-    if (needsReason && !reason.trim()) e.reason = 'Tell the school why it is outside the usual time.'
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     setError(null)
     try {
-      const invite = await inviteCollector(childId, Math.max(0, at! - indiaClock(new Date(now())).minutes), name.trim(), mobile!, rel, needsReason ? reason.trim() : null)
+      const invite = await inviteCollector(childId, Math.max(0, at! - indiaClock(new Date(now())).minutes), name.trim(), mobile!, rel, null, direction)
       setSent({ invite, sendTo: whatsapp! })
       if (who === 'new' && remember && me) void savePerson(me, { full_name: name.trim(), phone: mobile!, relation: rel }).then(() => saved.reload(), () => {})
     } catch (err) {
@@ -129,15 +134,14 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
   if (sent) {
     return (
       <Sheet open={open} onClose={onClose} title={`Link ready for ${name.trim().split(' ')[0]}`}>
-        <LinkReady invite={sent.invite} name={name.trim()} child={first} at={formatTime(at!)} sendTo={sent.sendTo} onDone={onClose} />
+        <LinkReady invite={sent.invite} name={name.trim()} child={first} at={formatTime(at!)} sendTo={sent.sendTo} direction={direction} onDone={onClose} />
       </Sheet>
     )
   }
 
-  const win = formatRange(windowFor(programme, 'pickup'))
   return (
-    <Sheet open={open} onClose={onClose} title={`Someone else is collecting ${first}`}
-      description="A one-time link with a 4-digit gate code. No app needed.">
+    <Sheet open={open} onClose={onClose} title={direction === 'pickup' ? `Someone else is collecting ${first}` : `Someone else is dropping ${first} off`}
+      description={direction === 'pickup' ? 'A one-time link with a 4-digit gate code. No app needed.' : 'A one-time link so the gate knows who is coming. No app or code needed.'}>
       {!!saved.rows?.length && (
         <fieldset className="mb-5">
           <legend className="kicker mb-2.5">Who</legend>
@@ -174,26 +178,18 @@ export function SomeoneElseSheet({ open, onClose, childId, first, programme, now
 
       <fieldset className="mt-6">
         <legend className="kicker">Arriving about</legend>
-        <p className="mt-1 text-caption font-semibold text-ink-2">{first}'s pickup window is {win}.</p>
         {slots.length ? (
           <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Arrival time">
-            {slots.map((s) => (
-              <button key={s.at} type="button" role="radio" aria-checked={s.at === at} onClick={() => setAt(s.at)}
-                className="choice grid justify-items-center gap-0.5 px-2 py-2.5 text-center">
-                <span className="text-h4 tabular-nums">{formatTime(s.at)}</span>
-                <span className={`text-caption font-semibold ${s.state === 'inside' ? 'text-ink-2' : 'text-warning'}`}>{s.state === 'inside' ? 'In window' : s.state === 'early' ? 'Early' : 'Late'}</span>
+            {slots.map((t) => (
+              <button key={t} type="button" role="radio" aria-checked={t === at} onClick={() => setAt(t)}
+                className="choice grid min-h-12 place-items-center px-2 py-2.5 text-center">
+                <span className="text-h4 tabular-nums">{formatTime(t)}</span>
               </button>
             ))}
           </div>
         ) : <Notice tone="warning" className="mt-3">There are no times left today. Please call the school.</Notice>}
         {errors.at && <p className="mt-2 text-small font-bold text-danger" role="alert">{errors.at}</p>}
       </fieldset>
-      {needsReason && (
-        <div className="mt-5 grid gap-2">
-          <ReasonPicker onChange={setReason} />
-          {errors.reason && <p className="text-small font-bold text-danger" role="alert">{errors.reason}</p>}
-        </div>
-      )}
       {error && <Notice tone="danger" className="mt-5">{error}</Notice>}
       <SheetFooter>
         <Button size="xl" className="w-full" icon={<Link2 />} loading={busy} disabled={!slots.length} onClick={() => void create()}>Create the link</Button>
@@ -218,7 +214,7 @@ export function ResendSheet({ open, onClose, trip, first, nowMs }: { open: boole
     setError(null)
     try {
       const minutes = Math.max(0, Math.ceil((Date.parse(trip.arrive_at) - nowMs) / 60_000))
-      setInvite(await inviteCollector(trip.child_id, minutes, who, phone, trip.traveller_relation ?? 'Other', trip.off_schedule ? trip.reason : null))
+      setInvite(await inviteCollector(trip.child_id, minutes, who, phone, trip.traveller_relation ?? 'Other', trip.off_schedule ? trip.reason : null, trip.direction))
     } catch (err) {
       setError(explainTripError(err as { code?: string; message?: string }))
     } finally {
@@ -227,9 +223,9 @@ export function ResendSheet({ open, onClose, trip, first, nowMs }: { open: boole
   }
   return (
     <Sheet open={open} onClose={onClose} title={invite ? `New link for ${who.split(' ')[0]}` : `Resend ${who.split(' ')[0]}'s link?`}
-      description={invite ? undefined : `${who} gets a new link and code for the same time. The old link and code stop working at once.`}>
+      description={invite ? undefined : trip.direction === 'pickup' ? `${who} gets a new link and code for the same time. The old link and code stop working at once.` : `${who} gets a new link for the same time. The old link stops working at once.`}>
       {invite ? (
-        <LinkReady invite={invite} name={who} child={first} at={clockTime(trip.arrive_at)} sendTo={phone} onDone={onClose} />
+        <LinkReady invite={invite} name={who} child={first} at={clockTime(trip.arrive_at)} sendTo={phone} direction={trip.direction} onDone={onClose} />
       ) : (
         <>
           {error && <Notice tone="danger" className="mb-4">{error}</Notice>}

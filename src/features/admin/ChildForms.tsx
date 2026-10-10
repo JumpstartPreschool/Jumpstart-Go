@@ -14,7 +14,7 @@ import { addGuardian, explainDbError, saveChild, updatePerson, type Child, type 
 import { ROLE } from './roles'
 import { blankPerson, kindOf, linkByMobile, personErrors, RELATION_GROUPS, relationLabel, SIDED, someoneHere, toInput, type PersonDraft, type Side } from './family'
 import { formatAge, levelOf, suggestedLevel } from './programmeCatalogue'
-import { levelIcon, ProgrammePicker } from './ProgrammePicker'
+import { AlsoInSheet, levelIcon, ProgrammePicker } from './ProgrammePicker'
 import { GenderChoice } from '../../ui/GenderChoice'
 
 const RELATION_ICON: Record<string, ReactNode> = {
@@ -159,8 +159,9 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'boy' | 'girl' | null>(null)
   const [programmeId, setProgrammeId] = useState<string | null>(null)
+  const [also, setAlso] = useState<string[]>([])
   const [people, setPeople] = useState<PersonDraft[]>([blankPerson('Mother')])
-  const [picker, setPicker] = useState<null | 'programme' | { relationFor: number | 'new' }>(null)
+  const [picker, setPicker] = useState<null | 'programme' | 'also' | { relationFor: number | 'new' }>(null)
   const [linking, setLinking] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const [busy, setBusy] = useState(false)
@@ -201,7 +202,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     setBusy(true)
     setFormError(null)
     try {
-      const id = await saveChild({ full_name: words.join(' '), preferred_name: '', date_of_birth: dob, programme_id: programmeId!, gender }, list.map(toInput))
+      const id = await saveChild({ full_name: words.join(' '), preferred_name: '', date_of_birth: dob, programme_id: programmeId!, also, gender }, list.map(toInput))
       onSaved(id, who)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
@@ -250,6 +251,18 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
           <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
         </button>
         {errors.programme && <p id="programme-msg" className="-mt-2 px-0.5 text-small font-bold text-danger" role="alert">{errors.programme}</p>}
+        {programme && (
+          <button type="button" onClick={() => setPicker('also')} className="choice flex w-full items-center gap-3.5 p-3.5 text-left">
+            <span className={`grid size-11 shrink-0 place-items-center rounded-sm [&_svg]:size-[22px] ${also.length ? 'bg-accent-soft text-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>
+              {(() => { const p = dir.programmes.find((x) => x.id === also[0]); return p ? levelIcon(levelOf(p).level) : <Plus /> })()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-h4">{also.length ? `Also in ${also.map((id) => dir.programmes.find((p) => p.id === id)?.name).filter(Boolean).join(' + ')}` : 'Other programmes'}</span>
+              <span className="block text-small font-semibold text-ink-2">{also.length ? 'Change' : 'Optional: After School, Learning Center and more'}</span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
+          </button>
+        )}
 
         {section(<UserRound />, 'Parents', 'Mother, father or legal guardian')}
         {parents.length ? parents.map(([p, i]) => <PersonCard key={p.key} p={p} i={i} errors={errors} onChange={(x) => update(i, x)} onRemove={people.length > 1 ? () => remove(i) : undefined} onRelation={() => setPicker({ relationFor: i })} />)
@@ -292,7 +305,11 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
 
       {picker === 'programme' && (
         <ProgrammePicker open onClose={() => setPicker(null)} programmes={dir.programmes} childName={who} dateOfBirth={dob} initial={programmeId}
-          onPick={(id) => { setProgrammeId(id); setPicker(null); setErrors(({ programme: _, ...rest }) => rest) }} />
+          onPick={(id) => { setProgrammeId(id); setAlso((a) => a.filter((x) => x !== id)); setPicker(null); setErrors(({ programme: _, ...rest }) => rest) }} />
+      )}
+      {picker === 'also' && programmeId && (
+        <AlsoInSheet onClose={() => setPicker(null)} programmes={dir.programmes} mainId={programmeId} initial={also} childName={who}
+          onSave={(ids) => { setAlso(ids); setPicker(null) }} />
       )}
       {picker && typeof picker === 'object' && (
         <RelationPicker open onClose={() => setPicker(null)} childName={who} initial={picker.relationFor === 'new' ? undefined : people[picker.relationFor]?.relation}

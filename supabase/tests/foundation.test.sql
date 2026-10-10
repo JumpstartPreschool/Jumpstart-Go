@@ -142,9 +142,10 @@ reset role;
 insert into public.child_schedules values
   ('00000000-0000-0000-0000-0000000c0001', 1, '09:15', '12:45'),
   ('00000000-0000-0000-0000-0000000c0002', 6, '10:00', '17:30');
+-- Any time in the gate's day (D56: programme windows don't limit times), but never after it closes.
 do $$ begin
-  insert into public.child_schedules values ('00000000-0000-0000-0000-0000000c0001', 2, '09:15', '13:15');
-  raise exception 'FAIL: pickup outside the window was accepted';
+  insert into public.child_schedules values ('00000000-0000-0000-0000-0000000c0001', 2, '09:15', '19:30');
+  raise exception 'FAIL: pickup after the gate closes was accepted';
 exception when check_violation then null;
 end $$;
 do $$ begin
@@ -168,11 +169,8 @@ do $$ begin
   raise exception 'FAIL: drop-off before the gate opens accepted';
 exception when check_violation then null;
 end $$;
--- The core team moves the pickup window; Aarav's 12:45 no longer fits and is listed (SCH-9).
+-- The core team moves the pickup window; Aarav's regular 12:45 stays as it is (D56).
 update public.programmes set pickup_from = '12:50', pickup_to = '13:00' where name = 'Jr KG · Half day';
-do $$ begin
-  assert (select count(*) from public.schedules_outside_windows) = 1, 'schedule outside the new window is listed';
-end $$;
 insert into public.holidays values ('2026-10-20', 'Dussehra');
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000c1"}';
 set role authenticated;

@@ -35,6 +35,8 @@ export interface Directory {
   guardianships: Guardianship[]
   classes: ClassRow[]
   programmes: ProgrammeRow[]
+  /** The programmes each child is in besides the main one (D56). */
+  childProgrammes: Array<{ child_id: string; programme_id: string }>
   coordinatorClasses: Array<{ profile_id: string; class_id: string }>
   schedules: Array<{ child_id: string; weekday: number; dropoff: string; pickup: string }>
 }
@@ -52,17 +54,18 @@ export function explainDbError(e: { code?: string; message?: string } | null): s
 }
 
 export async function loadDirectory(): Promise<Directory> {
-  const [profiles, roles, children, guardianships, classes, programmes, coordinatorClasses, schedules] = await Promise.all([
+  const [profiles, roles, children, guardianships, classes, programmes, childProgrammes, coordinatorClasses, schedules] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, phone, active, app_access, abroad, user_id, invited_at, invited_via, email_sign_in, temp_password_expires_at, locked_until').order('full_name'),
     supabase.from('staff_roles').select('profile_id, role'),
     supabase.from('children').select('id, full_name, preferred_name, date_of_birth, class_id, programme_id, active, gender').order('full_name'),
     supabase.from('guardianships').select('child_id, guardian_id, relation, kind'),
     supabase.from('classes').select('id, name, active, sort').order('sort'),
     supabase.from('programmes').select('id, name, class_id, extended, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to').eq('active', true).order('name'),
+    supabase.from('child_programmes').select('child_id, programme_id'),
     supabase.from('coordinator_classes').select('profile_id, class_id'),
     supabase.from('child_schedules').select('child_id, weekday, dropoff, pickup'),
   ])
-  const failed = [profiles, roles, children, guardianships, classes, programmes, coordinatorClasses, schedules].find((r) => r.error)
+  const failed = [profiles, roles, children, guardianships, classes, programmes, childProgrammes, coordinatorClasses, schedules].find((r) => r.error)
   if (failed?.error) throw failed.error
   const roleMap = new Map<string, StaffRole[]>()
   for (const r of roles.data ?? []) roleMap.set(r.profile_id, [...(roleMap.get(r.profile_id) ?? []), r.role as StaffRole])
@@ -73,6 +76,7 @@ export async function loadDirectory(): Promise<Directory> {
     guardianships: guardianships.data ?? [],
     classes: classes.data ?? [],
     programmes: programmes.data ?? [],
+    childProgrammes: childProgrammes.data ?? [],
     coordinatorClasses: coordinatorClasses.data ?? [],
     schedules: schedules.data ?? [],
   }
@@ -96,8 +100,20 @@ export type PersonInput =
   | { id: string; relation: string; kind: GuardianKind; app_access?: true }
   | { full_name: string; phone: string | null; abroad: boolean; app_access: boolean; relation: string; kind: GuardianKind }
 
+/** A child's programmes, the main one (which gives the class) first, then the others (D56). */
+export function programmesOf(dir: Pick<Directory, 'programmes' | 'childProgrammes'>, child: Pick<Child, 'id' | 'programme_id'>): ProgrammeRow[] {
+  const ids = [child.programme_id, ...dir.childProgrammes.filter((x) => x.child_id === child.id).map((x) => x.programme_id)]
+  return ids.map((id) => dir.programmes.find((p) => p.id === id)).filter((p): p is ProgrammeRow => !!p)
+}
+
+/** The admin sets a child's main programme and the others together (D56). */
+export async function setProgrammes(childId: string, main: string, also: string[]): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_programmes', { p_child: childId, p_main: main, p_also: also })
+  if (error) throw error
+}
+
 /** A child with everyone on their record, saved together or not at all (0012). Returns the child's id. */
-export async function saveChild(child: { full_name: string; preferred_name: string; date_of_birth: string; programme_id: string; gender?: 'boy' | 'girl' | null }, people: PersonInput[]): Promise<string> {
+export async function saveChild(child: { full_name: string; preferred_name: string; date_of_birth: string; programme_id: string; also?: string[]; gender?: 'boy' | 'girl' | null }, people: PersonInput[]): Promise<string> {
   const { data, error } = await supabase.rpc('admin_save_child', { p_child: child, p_people: people })
   if (error) throw error
   return data as string

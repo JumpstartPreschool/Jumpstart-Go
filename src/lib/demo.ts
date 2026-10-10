@@ -11,7 +11,7 @@ interface Person {
 }
 
 const people: Person[] = [
-  { id: 'p-admin', user_id: 'u-admin', full_name: 'Anita Kapoor', email: 'anita.kapoor@jumpstart.test', phone: '+919800000001', roles: ['admin'], email_sign_in: 'own', password: 'AdminDemo#2026' },
+  { id: 'p-admin', user_id: 'u-admin', full_name: 'Anita Kapoor', email: 'anita.kapoor@jumpstart.test', phone: '+919800000001', roles: ['admin', 'core'], email_sign_in: 'own', password: 'AdminDemo#2026' },
   { id: 'p-parent', user_id: 'u-parent', full_name: 'Meera Shah', email: 'meera.shah@gmail.com', phone: '+919800000002', roles: [], email_sign_in: 'temporary', password: 'meerQK4827#', temp_password_expires_at: new Date(Date.now() + 48 * 3600_000).toISOString() },
   { id: 'p-dad', user_id: 'u-dad', full_name: 'Rohan Shah', email: 'rohan.shah92@outlook.com', phone: '+919800000003', roles: [], email_sign_in: 'none', password: null },
   { id: 'p-gran', user_id: 'u-gran', full_name: 'Sunita Rao', email: null, phone: '+919800000004', roles: [], email_sign_in: 'none', password: null },
@@ -28,7 +28,13 @@ const patternFor = (p: Person) =>
 const now = () => new Date().toISOString()
 
 const programme = { id: 'g-nur', name: 'Nursery · Morning', class_id: 'c-nur', extended: false, flexible: false, starts: '09:00', ends: '12:30', weekdays: [1, 2, 3, 4, 5], saturday_rule: 'except_2nd_and_last', term_start: null, term_end: null, dropoff_from: '08:45', dropoff_to: '09:15', pickup_from: '12:15', pickup_to: '12:45' }
-const classes = [{ id: 'c-pg', name: 'Playgroup', active: true, sort: 1 }, { id: 'c-nur', name: 'Nursery', active: true, sort: 2 }, { id: 'c-jr', name: 'Jr KG', active: true, sort: 3 }, { id: 'c-sr', name: 'Sr KG', active: true, sort: 4 }]
+// Programmes of their own, to try a child in more than one programme (D56): Aarav also goes to After School.
+const learningCenter = { ...programme, id: 'g-lc', name: 'Learning Center', class_id: 'c-lc', flexible: true, starts: '09:00', ends: '19:00', weekdays: [1, 2, 3, 4, 5, 6], dropoff_from: null, dropoff_to: null, pickup_from: null, pickup_to: null }
+const afterSchool = { ...programme, id: 'g-as', name: 'After School Program', class_id: 'c-as', saturday_rule: 'every', starts: '16:00', ends: '19:00', dropoff_from: '15:45', dropoff_to: '16:00', pickup_from: '19:00', pickup_to: '19:15' }
+const programmes = [programme, learningCenter, afterSchool]
+let childProgrammes = [{ child_id: 'k-aarav', programme_id: 'g-as' }]
+const classes = [{ id: 'c-pg', name: 'Playgroup', active: true, sort: 1 }, { id: 'c-nur', name: 'Nursery', active: true, sort: 2 }, { id: 'c-jr', name: 'Jr KG', active: true, sort: 3 }, { id: 'c-sr', name: 'Sr KG', active: true, sort: 4 },
+  { id: 'c-lc', name: 'Learning Center', active: true, sort: 5 }, { id: 'c-as', name: 'After School Program', active: true, sort: 6 }]
 const guardianships = [
   { child_id: 'k-aarav', guardian_id: 'p-parent', relation: 'Mother', kind: 'parent' },
   { child_id: 'k-aarav', guardian_id: 'p-dad', relation: 'Father', kind: 'parent' },
@@ -38,7 +44,7 @@ const guardianships = [
 ]
 const child = (over: Record<string, unknown>) => ({ class_id: 'c-nur', programme_id: 'g-nur', date_of_birth: '2022-04-12', active: true, gender: 'boy', preferred_name: null, programmes: programme, classes: { name: 'Nursery' }, child_schedules: [], ...over })
 const children = [
-  child({ id: 'k-aarav', full_name: 'Aarav Shah', preferred_name: 'Aaru', guardianships: guardianships.filter((g) => g.child_id === 'k-aarav') }),
+  child({ id: 'k-aarav', full_name: 'Aarav Shah', guardianships: guardianships.filter((g) => g.child_id === 'k-aarav') }),
   child({ id: 'k-kiara', full_name: 'Kiara Mehta', gender: 'girl', guardianships: guardianships.filter((g) => g.child_id === 'k-kiara') }),
   child({ id: 'k-rohan', full_name: 'Rohan Kapoor', guardianships: guardianships.filter((g) => g.child_id === 'k-rohan') }),
 ]
@@ -91,6 +97,55 @@ function changeTrip(id: unknown, patch: (t: DemoTrip) => Partial<DemoTrip>): Dem
 
 const profileRow = (p: Person) => ({ id: p.id, full_name: p.full_name, email: p.email, phone: p.phone, active: true, app_access: true, abroad: false, user_id: p.user_id, invited_at: null, invited_via: null, email_sign_in: p.email_sign_in, temp_password_expires_at: p.temp_password_expires_at ?? null, locked_until: p.locked_until ?? null })
 
+// Messages and announcements (0013), shared by every demo tab like the trips, so one tab's message pops up in another
+// (D57). Seeded so the badges show at once: the school wrote to Aarav's family, Kiara's father wrote to the school, and
+// there is one announcement nobody has read.
+const TALK_KEY = 'jumpstart.demo.talk'
+interface DemoMsg { id: number; child_id: string; sender: string; sender_name: string; sender_role: string; body: string; created_at: string }
+interface DemoAnn { id: string; title: string; body: string; class_id: string | null; sent_by: string; sender_name: string; sender_role: string; created_at: string }
+interface Talk { messages: DemoMsg[]; reads: Record<string, Record<string, string>>; announcements: DemoAnn[]; annReads: Record<string, string[]> }
+function seedTalk(): Talk {
+  const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
+  return {
+    messages: [
+      { id: 1, child_id: 'k-aarav', sender: 'p-lead', sender_name: 'Lata Joshi', sender_role: 'core', body: 'Aarav painted a lovely sunflower today. Please send an old T-shirt for art tomorrow.', created_at: ago(40) },
+      { id: 2, child_id: 'k-kiara', sender: 'p-vikram', sender_name: 'Vikram Mehta', sender_role: 'parent', body: 'Kiara has a mild cold. Please keep her inside at play time.', created_at: ago(25) },
+    ],
+    reads: {},
+    announcements: [{ id: 'ann-1', title: 'Sports day on Friday', body: 'Children can come in sports clothes. Parents are welcome from 10 AM.', class_id: null, sent_by: 'p-admin', sender_name: 'Anita Kapoor', sender_role: 'admin', created_at: ago(90) }],
+    annReads: {},
+  }
+}
+function readTalk(): Talk {
+  try { const t = JSON.parse(localStorage.getItem(TALK_KEY) ?? 'null') as Talk | null; if (t?.messages) return t } catch { /* fresh start */ }
+  const t = seedTalk()
+  writeTalk(t, false)
+  return t
+}
+/** Saves, then tells every screen to look again (stands in for the realtime message the real database sends). */
+function writeTalk(t: Talk, nudge = true) {
+  try { localStorage.setItem(TALK_KEY, JSON.stringify(t)) } catch { /* this tab only */ }
+  if (nudge) setTimeout(() => document.dispatchEvent(new Event('visibilitychange')), 0)
+}
+if (typeof window !== 'undefined') window.addEventListener('storage', (e) => { if (e.key === TALK_KEY) document.dispatchEvent(new Event('visibilitychange')) })
+const OFFICE_ROLE = (p: Person) => (p.roles.includes('core') || p.roles.includes('leader') ? 'core' : p.roles.includes('pro') ? 'pro' : 'admin')
+function sendDemoMessage(childId: string, who: Person, body: string): DemoMsg {
+  const t = readTalk()
+  const g = guardianships.find((x) => x.child_id === childId && x.guardian_id === who.id)
+  const m = { id: Math.max(0, ...t.messages.map((x) => x.id)) + 1, child_id: childId, sender: who.id, sender_name: who.full_name, sender_role: g ? g.kind : OFFICE_ROLE(who), body, created_at: new Date().toISOString() }
+  t.messages.push(m)
+  ;(t.reads[who.id] ??= {})[childId] = m.created_at
+  writeTalk(t)
+  return m
+}
+function sendDemoAnnouncement(title: string, body: string, who: Person | undefined) {
+  const t = readTalk()
+  const a = { id: `ann-${Date.now()}`, title, body, class_id: null, sent_by: who?.id ?? 'p-admin', sender_name: who?.full_name ?? 'Anita Kapoor', sender_role: who ? OFFICE_ROLE(who) : 'admin', created_at: new Date().toISOString() }
+  t.announcements.unshift(a)
+  writeTalk(t)
+  return a
+}
+
 // Gate announcements (0042): null wording means the default, like the real table.
 let gate: Record<string, unknown> = { id: true, early_min: 15, ready_min: 10, urgent_min: 5, reminder_min: 2, updated_at: '2026-10-03T06:30:00Z' }
 
@@ -100,10 +155,12 @@ const TABLES: Record<string, () => unknown[]> = {
   coordinator_classes: () => [{ profile_id: 'p-lead', class_id: 'c-nur' }, { profile_id: 'p-coord', class_id: 'c-nur' }],
   profiles: () => people.map(profileRow),
   staff_roles: () => people.flatMap((p) => p.roles.map((role) => ({ profile_id: p.id, role }))),
-  children: () => children,
+  // Each child with their other programmes embedded, as PostgREST returns child_programmes(programmes(...)).
+  children: () => children.map((c: Record<string, unknown>) => ({ ...c, child_programmes: childProgrammes.filter((x) => x.child_id === c.id).map((x) => ({ programmes: programmes.find((p) => p.id === x.programme_id) ?? null })) })),
+  child_programmes: () => childProgrammes,
   guardianships: () => guardianships,
   classes: () => classes,
-  programmes: () => [programme],
+  programmes: () => programmes,
   settings: () => [{ id: true, get_ready_lead_min: 10, late_threshold_min: 10, school_phone: '+912025451234', app_url: 'http://localhost:5173' }],
   password_policy: () => [policy],
   password_patterns: () => Object.values(patterns),
@@ -294,6 +351,51 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
       children.push(child({ id, full_name: String(c.full_name), preferred_name: c.preferred_name ?? null, date_of_birth: c.date_of_birth ?? null, gender: c.gender ?? null, guardianships: links }))
       return json(id)
     }
+    // Several programmes per child (0053): the main one gives the class; the others are programmes of their own.
+    if (rpc === 'admin_set_programmes' || rpc === 'admin_save_child') {
+      if (!me?.roles.includes('admin')) return json({ code: '42501', message: "Only the admin can change a child's programmes." }, 403)
+      let kid = String(body?.p_child ?? '')
+      let main = String(body?.p_main ?? '')
+      let also = (body?.p_also ?? []) as string[]
+      if (rpc === 'admin_save_child') {
+        const c = (body?.p_child ?? {}) as Record<string, unknown>
+        kid = `k-${crypto.randomUUID().slice(0, 8)}`
+        main = String(c.programme_id ?? '')
+        also = (c.also ?? []) as string[]
+        const links = ((body?.p_people ?? []) as Array<Record<string, string>>).map((x) => {
+          let who = people.find((q) => q.id === x.id || (x.phone && q.phone === x.phone))
+          if (!who) {
+            who = { id: `p-${crypto.randomUUID().slice(0, 8)}`, user_id: '', full_name: x.full_name!, email: null, phone: x.phone ?? '', roles: [], email_sign_in: 'none', password: null }
+            people.push(who)
+          }
+          return { child_id: kid, guardian_id: who.id, relation: x.relation!, kind: x.kind ?? 'parent' }
+        })
+        guardianships.push(...links)
+        children.push(child({ id: kid, full_name: String(c.full_name), preferred_name: c.preferred_name || null, date_of_birth: c.date_of_birth ?? null, gender: c.gender ?? null, guardianships: links }))
+      }
+      const k = children.find((c: Record<string, unknown>) => c.id === kid) as Record<string, unknown> | undefined
+      const p = programmes.find((x) => x.id === main)
+      if (!k || !p) return json({ code: 'P0001', message: 'programme_required: Choose the class and programme.' }, 400)
+      if (also.some((id) => programmes.find((x) => x.id === id)?.name.includes(' · '))) return json({ code: 'P0001', message: 'one_class: A child is in one class programme. Make it the main programme instead.' }, 400)
+      Object.assign(k, { programme_id: p.id, class_id: p.class_id, programmes: p, classes: { name: classes.find((c) => c.id === p.class_id)?.name } })
+      childProgrammes = [...childProgrammes.filter((x) => x.child_id !== kid), ...[...new Set(also)].filter((id) => id !== main).map((id) => ({ child_id: kid, programme_id: id }))]
+      return json(rpc === 'admin_save_child' ? kid : null)
+    }
+    if (rpc === 'send_message') {
+      if (!me) return json({ code: '42501', message: 'Sign in first.' }, 401)
+      return json(sendDemoMessage(String(body?.p_child), me, String(body?.p_body ?? '').trim()))
+    }
+    if (rpc === 'mark_read') {
+      if (me) { const t = readTalk(); (t.reads[me.id] ??= {})[String(body?.p_child)] = new Date().toISOString(); writeTalk(t, false) }
+      return json(null)
+    }
+    if (rpc === 'send_announcement') return json(sendDemoAnnouncement(String(body?.p_title ?? ''), String(body?.p_body ?? ''), me ?? undefined))
+    if (rpc === 'mark_announcement_read') {
+      if (me) { const t = readTalk(); const r = (t.annReads[me.id] ??= []); if (!r.includes(String(body?.p_announcement))) r.push(String(body?.p_announcement)); writeTalk(t, false) }
+      return json(null)
+    }
+    if (rpc === 'announcement_stats') return json(readTalk().announcements.map((a) => ({ announcement_id: a.id, recipients: 6, reads: Object.values(readTalk().annReads).filter((r) => r.includes(a.id)).length })))
+    if (rpc === 'recipient_count') return json(6)
     if (rpc === 'admin_save_gate_announcements') {
       if (!me?.roles.includes('admin')) return json({ code: '42501', message: 'Only the admin can change gate announcements.' }, 403)
       const p = (body?.p ?? {}) as Record<string, unknown>
@@ -310,7 +412,19 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
   const table = /\/rest\/v1\/([a-z_]+)$/.exec(path)?.[1]
   if (table) {
     if (req.method !== 'GET') return json(null)
-    const rows = TABLES[table]?.() ?? []
+    // The conversation tables answer per person and per child, as row-level security and the query's filter would.
+    const talk = ['messages', 'message_reads', 'announcements', 'announcement_reads'].includes(table) ? readTalk() : null
+    const childEq = url.searchParams.get('child_id')?.replace(/^eq\./, '')
+    const rows = table === 'messages' ? talk!.messages.filter((m) => !childEq || m.child_id === childEq).sort((x, y) => (url.searchParams.get('order')?.includes('desc') ? y.created_at.localeCompare(x.created_at) : x.created_at.localeCompare(y.created_at)))
+      : table === 'message_reads' ? Object.entries(talk!.reads[me?.id ?? ''] ?? {}).map(([child_id, read_at]) => ({ profile_id: me?.id, child_id, read_at }))
+      : table === 'announcements' ? talk!.announcements
+      : table === 'announcement_reads' ? (talk!.annReads[me?.id ?? ''] ?? []).map((announcement_id) => ({ announcement_id, profile_id: me?.id }))
+      // Children as row-level security and the query's filter allow: a parent sees only their own, never another family's.
+      : table === 'children' ? (TABLES.children!() as Array<Record<string, unknown>>).filter((c) => {
+          const mineOnly = url.searchParams.get('guardianships.guardian_id')?.replace(/^eq\./, '') ?? (me && !me.roles.length ? me.id : null)
+          return !mineOnly || guardianships.some((g) => g.child_id === c.id && g.guardian_id === mineOnly)
+        })
+      : TABLES[table]?.() ?? []
     const one = (req.headers.get('Accept') ?? '').includes('vnd.pgrst.object')
     return one ? (rows[0] ? json(rows[0]) : json({ code: 'PGRST116', message: 'no rows' }, 406)) : json(rows)
   }
@@ -346,6 +460,10 @@ function controls(): HTMLElement {
     ["Kiara's father taps I've arrived", () => void changeTrip('trip-kiara', () => ({ arrived_at: new Date().toISOString() }))],
     ["Cancel Rohan's pickup", () => void changeTrip('trip-rohan', () => ({ status: 'cancelled', closed_at: new Date().toISOString() }))],
     ['Start all three trips again', () => writeTrips(seedTrips())],
+    ['The school messages Aarav\'s family', () => void sendDemoMessage('k-aarav', people.find((p) => p.id === 'p-lead')!, 'Please pack a raincoat for Aarav tomorrow.')],
+    ["Aarav's mother messages the school", () => void sendDemoMessage('k-aarav', people.find((p) => p.id === 'p-parent')!, 'Aarav will be picked up by his grandmother today.')],
+    ['The school sends an announcement', () => void sendDemoAnnouncement('Holiday on Monday', 'The school is closed on Monday for Diwali. See you on Tuesday!', undefined)],
+    ['Reset messages and announcements', () => writeTalk(seedTalk())],
   ]
   for (const [label, run] of actions) {
     const b = document.createElement('button')

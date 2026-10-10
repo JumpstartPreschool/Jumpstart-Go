@@ -8,7 +8,9 @@ const jrkg: Programme = { name: 'Jr KG · Half day', weekdays: [1, 2, 3, 4, 5], 
   windows: { dropoff: { from: toMinutes('08:45'), to: toMinutes('09:00') }, pickup: { from: toMinutes('13:00'), to: toMinutes('13:15') } } }
 const trip = (over: Partial<Trip>): Trip => ({ id: 't', child_id: 'k', direction: 'pickup', day: '2026-09-24', status: 'en_route', arrive_at: '2026-09-24T07:30:00Z', off_schedule: false, reason: null,
   created_by: 'g', traveller_name: 'Neha', traveller_relation: 'Mother', created_at: '', updated_at: '', acknowledged_by: null, acknowledged_at: null, ready_at: null, closed_at: null, handed_to: null, ...over })
-const base = { programme: jrkg, regular: null, trips: [], attendance: null, times: [] }
+const base = { programmes: [jrkg], regular: null, trips: [], attendance: null, times: [] }
+const afterSchool: Programme = { ...jrkg, name: 'After School Program', hours: { from: toMinutes('16:00'), to: toMinutes('19:00') },
+  windows: { dropoff: { from: toMinutes('15:45'), to: toMinutes('16:00') }, pickup: { from: toMinutes('19:00'), to: toMinutes('19:15') } } }
 
 describe("a child's day", () => {
   it('expects the regular time, a changed time over it, or the start of the window', () => {
@@ -16,6 +18,10 @@ describe("a child's day", () => {
     expect(childDay({ ...base, regular: { dropoff: '08:50:00', pickup: '13:10:00' } }).next).toEqual({ at: toMinutes('08:50'), label: 'drop-off' })
     const d = childDay({ ...base, regular: { dropoff: '08:50:00', pickup: '13:10:00' }, times: [{ child_id: 'k', day: '', direction: 'pickup', at: '12:40:00', reason: 'Doctor', set_by: 'g' }] })
     expect(d.expected.pickup).toBe(toMinutes('12:40'))
+  })
+  it('with several programmes, expects the first drop-off and the last pickup of the day (D56)', () => {
+    expect(childDay({ ...base, programmes: [jrkg, afterSchool] }).expected).toEqual({ dropoff: toMinutes('08:45'), pickup: toMinutes('19:00') })
+    expect(childDay({ ...base, programmes: [] }).expected).toEqual({ dropoff: null, pickup: null })
   })
   it('goes expected, on the way, at school, collected; away overrides everything', () => {
     expect(childDay({ ...base, trips: [trip({ direction: 'dropoff' })] }).state).toBe('otw')

@@ -144,7 +144,7 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
 
       {step === 2 && (
         <div key="plans" className="page-in grid gap-3" role="radiogroup" aria-label="Programme">
-          <p className="text-body text-ink-2">Each programme has its own drop-off and pickup times.</p>
+          <p className="text-body text-ink-2">The times are a guide: parents can drop off and pick up at any time.</p>
           {plans.map((p) => {
             const info = planInfo(levelOf(p).plan ?? '')
             return (
@@ -176,6 +176,59 @@ export function ProgrammePicker({ open, onClose, onPick, programmes, childName, 
           </Button>
         </SheetFooter>
       )}
+    </Sheet>
+  )
+}
+
+/** A programme of its own, not a class plan: the name has no plan ("After School Program", not "Jr KG · Half day"). */
+export const isStandalone = (p: ProgrammeRow) => !p.name.includes(' · ')
+
+/**
+ * The programmes a child is in besides the main one (D56): only programmes of their own (Learning Center, After School,
+ * Preschool Readiness), since a child is in one class. Tap to add or remove; nothing changes until Save.
+ */
+export function AlsoInSheet({ onClose, onSave, programmes, mainId, initial, childName, busy = false, error }: {
+  onClose: () => void
+  onSave: (ids: string[]) => void
+  programmes: ProgrammeRow[]
+  mainId: string
+  initial: string[]
+  childName: string
+  busy?: boolean
+  error?: string | null
+}) {
+  const [chosen, setChosen] = useState<string[]>(initial)
+  const options = programmes.filter((p) => isStandalone(p) && p.id !== mainId)
+  const firstName = childName.trim().split(' ')[0] || 'the child'
+  const toggle = (id: string) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  const same = chosen.length === initial.length && chosen.every((id) => initial.includes(id))
+  return (
+    <Sheet open onClose={onClose} title={`Other programmes for ${firstName}`} description="Add any programmes besides the class, like After School or the Learning Center. Times are a guide only.">
+      {options.length ? (
+        <div className="grid gap-3">
+          {options.map((p) => {
+            const { level } = levelOf(p)
+            return (
+              <button key={p.id} type="button" aria-pressed={chosen.includes(p.id)} onClick={() => toggle(p.id)} className="choice flex items-center gap-3.5 p-4">
+                <span className="grid size-12 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-6" aria-hidden>{levelIcon(level)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-h4">{levelInfo(level, programmes).label}</span>
+                  <span className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1">
+                    <Fact icon={<Clock />}>{range(p.starts, p.ends)}</Fact>
+                    <Fact icon={<CalendarDays />}>{days(p)}</Fact>
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      ) : <Notice>There are no other programmes to add. The admin adds them under Classes.</Notice>}
+      {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
+      <SheetFooter>
+        <Button size="xl" className="w-full" icon={<Check />} loading={busy} disabled={same} onClick={() => onSave(chosen)}>
+          {chosen.length ? `Save ${chosen.length} ${chosen.length === 1 ? 'programme' : 'programmes'}` : 'Save without other programmes'}
+        </Button>
+      </SheetFooter>
     </Sheet>
   )
 }

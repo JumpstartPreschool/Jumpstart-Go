@@ -120,7 +120,7 @@ export async function readXlsx(b: Uint8Array): Promise<string[][]> {
 
 // ---- Understanding the rows ----------------------------------------------------------------------------------------
 
-type Field = 'child' | 'called' | 'dob' | 'gender' | 'programme' | 'childPhone'
+type Field = 'child' | 'dob' | 'gender' | 'programme' | 'childPhone'
   | 'p1Name' | 'p1Relation' | 'p1Mobile' | 'p2Name' | 'p2Relation' | 'p2Mobile'
   | 'fName' | 'fRelation' | 'fMobile'
 
@@ -137,7 +137,6 @@ export const COLUMNS: Array<{ field: Field; header: string; aliases?: string[]; 
 ]
 /** Columns older templates had: read when present, never asked for. */
 const EXTRA: typeof COLUMNS = [
-  { field: 'called', header: 'Called', aliases: ['preferredname', 'nickname', 'calledas'] },
   { field: 'gender', header: 'Boy or girl', aliases: ['gender', 'sex', 'boygirl'] },
   { field: 'programme', header: 'Programme', aliases: ['program', 'classandprogramme', 'classprogramme', 'class', 'plan'] },
   { field: 'childPhone', header: 'Child contact number', aliases: ['childmobile', 'childphone'] },
@@ -276,7 +275,7 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
 
     out.push({
       line, cells: r, childName: name, programmeName: programme?.name ?? null, people, problems, warnings,
-      child: name.length >= 2 ? { full_name: name, preferred_name: get(r, 'called') || null, date_of_birth: dobOk ? dob : null, programme_id: programme?.id ?? null, gender } : null,
+      child: name.length >= 2 ? { full_name: name, preferred_name: null, date_of_birth: dobOk ? dob : null, programme_id: programme?.id ?? null, gender } : null,
     })
   })
   return { rows: out, missing: [], header }

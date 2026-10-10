@@ -10,9 +10,9 @@ import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
 import { formatMobile } from '../../domain/contact'
 import { formatTime } from '../../domain/time'
-import { windowFor, type Direction } from '../../domain/programme'
+import type { Direction } from '../../domain/programme'
 import { explainDbError } from '../admin/api'
-import { clockTime, formatRange } from '../trips/rules'
+import { clockTime } from '../trips/rules'
 import { todayInIndia } from '../trips/api'
 import { setAttendance, type AttendanceStatus } from './api'
 import { AWAY_LABEL, boardOrder, busyAt, type DayState } from './dayModel'
@@ -84,14 +84,14 @@ function KidSheet({ c, all, nowMs, onClose, onChanged }: { c: SchoolChild; all: 
       <div className="rounded-lg bg-sunken px-3.5 py-2.5">
         <p className="kicker">{label}</p>
         <p className="mt-0.5 text-h4 tabular-nums">{closed ? clockTime(closed.closed_at!) : c.day.expected[d] !== null ? formatTime(c.day.expected[d]!) : 'Not set'}</p>
-        <p className="text-caption font-semibold text-ink-2">{closed ? (d === 'pickup' ? 'Collected' : 'Checked in') : c.day.changed[d] ? 'Changed for today' : c.programme ? `Window ${formatRange(windowFor(c.programme, d))}` : ''}</p>
+        <p className="text-caption font-semibold text-ink-2">{closed ? (d === 'pickup' ? 'Collected' : 'Checked in') : c.day.changed[d] ? 'Changed for today' : c.regular ? 'Regular time' : c.programme ? 'From the programmes' : ''}</p>
       </div>
     )
   }
 
   return (
     <>
-      <Sheet open onClose={onClose} title={c.fullName} description={c.programmeRow?.name}>
+      <Sheet open onClose={onClose} title={c.fullName} description={c.programmeNames || undefined}>
         <div className="grid grid-cols-2 gap-2.5">{fact('Drop-off', 'dropoff')}{fact('Pickup', 'pickup')}</div>
         <fieldset className="mt-5">
           <legend className="kicker mb-2.5">Attendance today</legend>
@@ -116,7 +116,7 @@ function KidSheet({ c, all, nowMs, onClose, onChanged }: { c: SchoolChild; all: 
         </SheetFooter>
       </Sheet>
       {timeFor && c.programme && (
-        <TimeSheet open onClose={() => setTimeFor(null)} childId={c.id} first={c.first} direction={timeFor} programme={c.programme} current={c.day.changed[timeFor] ? c.day.expected[timeFor] : null}
+        <TimeSheet open onClose={() => setTimeFor(null)} childId={c.id} first={c.first} direction={timeFor} current={c.day.changed[timeFor] ? c.day.expected[timeFor] : null}
           usual={c.regular ? c.day.expected[timeFor] : null} nowMs={nowMs} onSaved={() => { onChanged(); onClose() }}
           onBehalfOf={c.guardians[0]?.full_name.split(' ')[0]} busy={(at) => busyAt(all.map((x) => ({ id: x.id, day: x.day })), c.id, timeFor, at)} />
       )}
@@ -127,7 +127,7 @@ function KidSheet({ c, all, nowMs, onClose, onChanged }: { c: SchoolChild; all: 
 /** The front desk's read-only sheet: where the child is, and the family's numbers to call. */
 function InfoSheet({ c, onClose, onLogCall, onMessages }: { c: SchoolChild; onClose: () => void; onLogCall?: () => void; onMessages?: () => void }) {
   return (
-    <Sheet open onClose={onClose} title={c.fullName} description={c.programmeRow?.name}>
+    <Sheet open onClose={onClose} title={c.fullName} description={c.programmeNames || undefined}>
       <div className="flex flex-wrap items-center gap-2.5 rounded-lg bg-sunken px-3.5 py-3">
         <StatePill c={c} />
         <span className="text-small font-bold">{c.day.next.at !== null ? `${formatTime(c.day.next.at)} ${c.day.next.label}` : c.day.next.label}</span>
@@ -182,7 +182,7 @@ export function Board({ children, editable, nowMs, onChanged, onLogCall, onMessa
                 <Avatar name={c.first} color={childColor(c.id)} />
                 <span className="min-w-0 flex-1 basis-[150px]">
                   <span className="block truncate text-h4">{c.fullName}</span>
-                  <span className="block truncate text-small font-semibold text-ink-2">{c.programmeRow?.name ?? 'No programme'}</span>
+                  <span className="block truncate text-small font-semibold text-ink-2">{c.programmeNames || 'No programme'}</span>
                 </span>
                 <StatePill c={c} />
                 <span className="grid min-w-[72px] justify-items-end text-right">

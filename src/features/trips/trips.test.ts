@@ -1,37 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import type { Programme } from '../../domain/programme'
 import { toMinutes } from '../../domain/time'
 import { arrivalSlots } from './rules'
 import { distanceM, formatDistance, positionOf, SCHOOL } from './geo'
 
-const halfDay: Programme = {
-  name: 'Jr KG · Half day', weekdays: [1, 2, 3, 4, 5, 6], saturdayRule: 'every', term: null, hours: { from: toMinutes('09:00'), to: toMinutes('13:00') },
-  windows: { dropoff: { from: toMinutes('08:45'), to: toMinutes('09:00') }, pickup: { from: toMinutes('13:00'), to: toMinutes('13:15') } },
-}
-const plus: Programme = { ...halfDay, name: 'Jr KG · 360°+', windows: { dropoff: { from: toMinutes('08:45'), to: toMinutes('09:00') }, pickup: { from: toMinutes('16:30'), to: toMinutes('19:00') } } }
-
 describe('arrivalSlots', () => {
-  it('steps 5 minutes for a short window, starting 10 minutes from now, marking where each falls', () => {
-    const s = arrivalSlots(halfDay, 'pickup', toMinutes('12:52'), 6)
-    expect(s.map((x) => x.at)).toEqual(['13:05', '13:10', '13:15', '13:20', '13:25', '13:30'].map(toMinutes))
-    expect(s.map((x) => x.state)).toEqual(['inside', 'inside', 'inside', 'late', 'late', 'late'])
+  it('steps 15 minutes from 10 minutes from now, whatever the programme (D56)', () => {
+    expect(arrivalSlots(toMinutes('12:52'), { to: toMinutes('13:45') })).toEqual(['13:15', '13:30', '13:45'].map(toMinutes))
   })
-  it('offers the window and 15 minutes either side, even when it is hours away', () => {
-    const s = arrivalSlots({ ...halfDay, windows: { dropoff: { from: toMinutes('11:30'), to: toMinutes('11:45') }, pickup: { from: toMinutes('17:30'), to: toMinutes('17:45') } } }, 'pickup', toMinutes('12:10'))
-    expect(s[0]).toEqual({ at: toMinutes('17:15'), state: 'early' })
-    expect(s.filter((x) => x.state === 'inside').map((x) => x.at)).toEqual(['17:30', '17:35', '17:40', '17:45'].map(toMinutes))
-    expect(s.at(-1)).toEqual({ at: toMinutes('18:00'), state: 'late' })
+  it('keeps to the limit of what is booked: a trip within 3 hours, today\'s time inside the gate day', () => {
+    const now = toMinutes('12:10')
+    expect(arrivalSlots(now, { to: now + 180 }).at(-1)).toBe(toMinutes('15:00'))
+    expect(arrivalSlots(toMinutes('07:00'), { from: toMinutes('08:45'), to: toMinutes('19:15') })[0]).toBe(toMinutes('08:45'))
+    expect(arrivalSlots(toMinutes('19:00'), { from: toMinutes('08:45'), to: toMinutes('19:15') })).toEqual([toMinutes('19:15')])
   })
-  it('steps 15 minutes inside a long window', () => {
-    expect(arrivalSlots(plus, 'pickup', toMinutes('18:40')).map((x) => x.at)).toEqual([toMinutes('19:00')])
-  })
-  it('after the window, offers later times marked late', () => {
-    const s = arrivalSlots(halfDay, 'pickup', toMinutes('14:00'), 3)
-    expect(s).toEqual(['14:10', '14:15', '14:20'].map((t) => ({ at: toMinutes(t), state: 'late' })))
-  })
-  it('keeps offering late times after the usual hours (0026), and nothing past midnight', () => {
-    expect(arrivalSlots(plus, 'pickup', toMinutes('19:10'))[0]).toEqual({ at: toMinutes('19:30'), state: 'late' }) // a long window steps by 15 minutes
-    expect(arrivalSlots(plus, 'pickup', toMinutes('23:52'))).toEqual([])
+  it('offers nothing past midnight', () => {
+    expect(arrivalSlots(toMinutes('23:52'))).toEqual([])
   })
 })
 

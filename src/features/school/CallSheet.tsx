@@ -4,11 +4,10 @@ import { Button } from '../../ui/Button'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { formatTime, indiaClock, type Minutes } from '../../domain/time'
-import { windowFor, type Direction } from '../../domain/programme'
+import { formatTime, GATE_CLOSES, GATE_OPENS, indiaClock, type Minutes } from '../../domain/time'
+import type { Direction } from '../../domain/programme'
 import { explainDbError } from '../admin/api'
-import { arrivalSlots, checkArrival, formatRange } from '../trips/rules'
-import { ReasonPicker } from '../trips/TripSheets'
+import { arrivalSlots } from '../trips/rules'
 import { logCall, type CallWhat } from './api'
 import type { SchoolChild } from './useSchoolDay'
 
@@ -38,7 +37,6 @@ export function CallSheet({ open, onClose, children, initialChild, nowMs, onLogg
   const [what, setWhat] = useState<What>('otw')
   const [minutes, setMinutes] = useState(15)
   const [at, setAt] = useState<Minutes | null>(null)
-  const [reason, setReason] = useState('')
   const [absent, setAbsent] = useState<string>('Unwell')
   const [other, setOther] = useState('')
   const [note, setNote] = useState('')
@@ -48,15 +46,13 @@ export function CallSheet({ open, onClose, children, initialChild, nowMs, onLogg
   const direction: Direction = c && (c.day.state === 'here' || c.day.trip?.direction === 'pickup') ? 'pickup' : 'dropoff'
 
   const pickChild = (id: string) => { setChildId(id); setGuardian(children.find((x) => x.id === id)?.guardians[0]?.id ?? ''); setAt(null); setError(null) }
-  const arrival = c?.programme ? checkArrival(c.programme, direction, what === 'otw' ? nowMin + minutes : at ?? nowMin) : 'inside'
-  const needsReason = (what === 'otw' || (what === 'time' && at !== null)) && (arrival === 'early' || arrival === 'late')
-  const slots = c?.programme ? arrivalSlots(c.programme, direction, nowMin, 12) : []
+  // A new time today: any time in the gate's day (D56).
+  const slots = arrivalSlots(nowMin, { from: GATE_OPENS, to: GATE_CLOSES })
 
   async function save() {
     if (!c || !guardian) return
-    const r = needsReason ? reason.trim() : null
-    const call: CallWhat | null = what === 'otw' ? { what, direction, minutes, reason: r }
-      : what === 'time' ? (at === null ? null : { what, direction, at: hhmm(at), reason: r })
+    const call: CallWhat | null = what === 'otw' ? { what, direction, minutes, reason: null }
+      : what === 'time' ? (at === null ? null : { what, direction, at: hhmm(at), reason: null })
       : what === 'absent' ? { what, reason: absent === 'Something else' ? other.trim() : absent }
       : { what, note: note.trim() }
     if (!call) return setError('Choose the new time.')
@@ -77,7 +73,7 @@ export function CallSheet({ open, onClose, children, initialChild, nowMs, onLogg
   const chip = (on: boolean, label: ReactNode, onClick: () => void, key: string) => (
     <button key={key} type="button" role="radio" aria-checked={on} onClick={onClick} className="choice flex h-11 items-center gap-1.5 px-3.5 text-small font-bold [&_svg]:size-4">{label}</button>
   )
-  const disabled = !c || !guardian || (what === 'time' && at === null) || (needsReason && !reason.trim()) || (what === 'absent' && absent === 'Something else' && !other.trim()) || (what === 'note' && !note.trim())
+  const disabled = !c || !guardian || (what === 'time' && at === null) || (what === 'absent' && absent === 'Something else' && !other.trim()) || (what === 'note' && !note.trim())
 
   return (
     <Sheet open={open} onClose={onClose} title="Log a call" description="Sent to the gate at once.">
@@ -100,18 +96,18 @@ export function CallSheet({ open, onClose, children, initialChild, nowMs, onLogg
             </fieldset>
           )}
           {c && what === 'time' && (
-            <fieldset><legend className="kicker mb-2">New {WORD[direction]} time{c.programme ? `, window ${formatRange(windowFor(c.programme, direction))}` : ''}</legend>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="New time">
-                {slots.map((s) => (
-                  <button key={s.at} type="button" role="radio" aria-checked={s.at === at} onClick={() => setAt(s.at)} className="choice grid justify-items-center px-2 py-2 text-center">
-                    <span className="text-h4 tabular-nums">{formatTime(s.at)}</span>
-                    <span className={`text-caption font-semibold ${s.state === 'inside' ? 'text-ink-2' : 'text-warning'}`}>{s.state === 'inside' ? 'In window' : 'Outside'}</span>
-                  </button>
-                ))}
-              </div>
+            <fieldset><legend className="kicker mb-2">New {WORD[direction]} time</legend>
+              {slots.length ? (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="New time">
+                  {slots.map((t) => (
+                    <button key={t} type="button" role="radio" aria-checked={t === at} onClick={() => setAt(t)} className="choice grid min-h-12 place-items-center px-2 py-2 text-center">
+                      <span className="text-h4 tabular-nums">{formatTime(t)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : <Notice tone="warning">The gate has closed for today.</Notice>}
             </fieldset>
           )}
-          {needsReason && <ReasonPicker onChange={setReason} />}
           {c && what === 'absent' && (
             <fieldset><legend className="kicker mb-2">Why</legend>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Why">{ABSENT.map((r) => chip(r === absent, r, () => setAbsent(r), r))}</div>

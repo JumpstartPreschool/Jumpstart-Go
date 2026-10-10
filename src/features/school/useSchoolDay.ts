@@ -18,8 +18,10 @@ export interface SchoolChild {
   gender?: string | null
   classId: string
   className: string
-  programmeRow: ProgrammeRow | null
+  /** The main programme: it gives the class. */
   programme: Programme | null
+  /** Every programme the child is in, the main one first (D56), for showing. */
+  programmeNames: string
   regular: { dropoff: string; pickup: string } | null
   guardians: Guardian[]
   day: ChildDay
@@ -29,8 +31,10 @@ export interface SchoolChild {
 type Row = {
   id: string; full_name: string; preferred_name: string | null; gender: string | null; class_id: string; classes: { name: string } | null; programmes: ProgrammeRow | null
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>; guardianships: Array<{ guardian_id: string; relation: string; kind: 'parent' | 'family' }>
+  child_programmes: Array<{ programmes: ProgrammeRow | null }>
 }
-const FIELDS = 'id, full_name, preferred_name, gender, class_id, classes(name), programmes(id, name, class_id, flexible, extended, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships(guardian_id, relation, kind)'
+const PROGRAMME = 'id, name, class_id, flexible, extended, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to'
+const FIELDS = `id, full_name, preferred_name, gender, class_id, classes(name), programmes(${PROGRAMME}), child_programmes(programmes(${PROGRAMME})), child_schedules(weekday, dropoff, pickup), guardianships(guardian_id, relation, kind)`
 
 /**
  * Every child's day for the office (the board, the front desk): children with their programme, regular times and
@@ -54,7 +58,7 @@ export function useSchoolDay() {
   }, [])
   useEffect(() => {
     void load()
-    const stops = ['children', 'guardianships', 'child_schedules', 'programmes', 'profiles'].map((t) => onTableChange(t, () => void load()))
+    const stops = ['children', 'child_programmes', 'guardianships', 'child_schedules', 'programmes', 'profiles'].map((t) => onTableChange(t, () => void load()))
     return () => stops.forEach((s) => s())
   }, [load])
 
@@ -62,13 +66,16 @@ export function useSchoolDay() {
   const ready = rows && people && trips.trips && attendance.rows && times.rows
   const children: SchoolChild[] | null = ready ? rows!.map((c) => {
     const programme = c.programmes ? programmeOf(c.programmes) : null
+    const rows = [c.programmes, ...c.child_programmes.map((x) => x.programmes)].filter((p): p is ProgrammeRow => !!p)
+    const all = rows.map(programmeOf)
+    const todays = all.filter((p) => p.weekdays.includes(weekday))
     const regular = c.child_schedules.find((s) => s.weekday === weekday) ?? null
     const mine = trips.trips!.filter((t) => t.child_id === c.id)
     return {
       id: c.id, fullName: c.full_name, first: c.preferred_name ?? c.full_name.split(' ')[0]!, gender: c.gender, classId: c.class_id, className: c.classes?.name ?? '',
-      programmeRow: c.programmes, programme, regular, trips: mine,
+      programme, programmeNames: rows.map((p) => p.name).join(' + '), regular, trips: mine,
       guardians: c.guardianships.map((g) => ({ ...(people!.get(g.guardian_id) ?? { id: g.guardian_id, full_name: 'Someone no longer listed', phone: null, email: null, abroad: false, app_access: false }), relation: g.relation, kind: g.kind ?? 'parent' })),
-      day: childDay({ programme, regular, trips: mine, attendance: attendance.rows!.find((a) => a.child_id === c.id) ?? null, times: times.rows!.filter((t) => t.child_id === c.id) }),
+      day: childDay({ programmes: todays.length ? todays : all, regular, trips: mine, attendance: attendance.rows!.find((a) => a.child_id === c.id) ?? null, times: times.rows!.filter((t) => t.child_id === c.id) }),
     }
   }) : null
   return {

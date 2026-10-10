@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarX, Check, ChevronRight, CircleCheck, Clock, House, KeyRound, MapPin, Megaphone, MessageSquare, Navigation, Phone, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { CalendarX, Check, ChevronLeft, ChevronRight, CircleCheck, Clock, House, KeyRound, MapPin, Megaphone, MessageSquare, Navigation, Phone, School, Send, Sunrise, Timer, Users } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -33,11 +33,14 @@ interface ChildRow {
   preferred_name: string | null
   gender?: string | null
   programmes: ProgrammeRow | null
+  /** The other programmes the child is in (D56). */
+  child_programmes: Array<{ programmes: ProgrammeRow | null }>
   child_schedules: Array<{ weekday: number; dropoff: string; pickup: string }>
 }
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
-const FIELDS = 'id, full_name, preferred_name, gender, programmes(id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)'
+const PROGRAMME = 'id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to'
+const FIELDS = `id, full_name, preferred_name, gender, programmes(${PROGRAMME}), child_programmes(programmes(${PROGRAMME})), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)`
 
 /** The signed-in parent's own children (row-level security allows no more; a staff member who is also a parent sees only theirs). */
 function useMyChildren(guardianId: string | null) {
@@ -54,17 +57,25 @@ function useMyChildren(guardianId: string | null) {
 }
 
 /** A drop-off or pickup time. With onClick it's a button: "I'm on my way" for that one, at any time of day. */
-function Tile({ icon, label, value, detail, done, onClick }: { icon: ReactNode; label: string; value: string; detail: string; done?: boolean; onClick?: () => void }) {
+/** `tall`: filling the card while choosing drop-off or pickup, the words centred and the time a little larger. */
+function Tile({ icon, label, value, detail, done, onClick, tall = false }: { icon: ReactNode; label: string; value: string; detail: string; done?: boolean; onClick?: () => void; tall?: boolean }) {
   const body = (
     <>
       <p className={`kicker flex items-center gap-1.5 [&_svg]:size-4 ${done ? 'text-live!' : ''}`}>{icon}{label}{onClick && <ChevronRight className="ml-auto text-ink-3" aria-hidden />}</p>
-      <p className="text-numeral tabular-nums">{value}</p>
+      <p className={`text-numeral tabular-nums ${tall ? '[--text-numeral:1.875rem] sm:[--text-numeral:2rem] md:[--text-numeral:1.75rem]' : '[--text-numeral:1.5rem] sm:[--text-numeral:1.625rem]'}`}>{value}</p>
       <p className={`text-caption font-semibold ${done ? '' : 'text-ink-2'}`}>{detail}</p>
     </>
   )
   return onClick
-    ? <button type="button" onClick={onClick} aria-label={`I'm on my way for ${label.toLowerCase()}, ${detail.toLowerCase()}`} className="choice grid content-start gap-1 p-3.5 text-left">{body}</button>
-    : <div className={`grid content-start gap-1 rounded-lg p-3.5 ${done ? 'bg-live-soft text-live' : 'bg-sunken'}`}>{body}</div>
+    ? <button type="button" onClick={onClick} aria-label={`I'm on my way for ${label.toLowerCase()}, ${detail.toLowerCase()}`} className={`choice grid min-h-[124px] gap-1.5 p-4 text-left sm:p-5 ${tall ? 'h-full content-center md:h-auto md:min-h-[152px]' : 'content-start'}`}>{body}</button>
+    : <div className={`grid min-h-[124px] gap-1.5 rounded-lg p-4 sm:p-5 ${done ? 'bg-live-soft text-live' : 'bg-sunken'} ${tall ? 'h-full content-center md:h-auto md:min-h-[152px]' : 'content-start'}`}>{body}</div>
+}
+
+/** Moves focus to the first choice when the card turns into "drop-off or pickup?", for keyboards and screen readers. */
+function ChooseFocus({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => { box.current?.querySelector<HTMLElement>('button')?.focus() }, [])
+  return <div ref={box} className="h-full md:mx-auto md:h-auto md:w-full md:max-w-[640px]">{children}</div>
 }
 
 /** Sent → Seen → Ready → Collected, each with its time (the Screen Book's trip steps). */
@@ -88,7 +99,8 @@ function Steps({ items }: { items: Array<{ label: string; at: string | null }> }
 /** The collector's code, for the parent to read out again if needed (collector_code: guardians and planners only). */
 function useCollectorCode(trip: Trip) {
   const [code, setCode] = useState<string | null>(null)
-  const third = trip.traveller_kind === 'third_person'
+  // Only a pickup has a gate code; a drop-off by someone else is checked in without one (D58).
+  const third = trip.traveller_kind === 'third_person' && trip.direction === 'pickup'
   useEffect(() => {
     if (!third) return
     void collectorCode(trip.id).then(setCode).catch(() => setCode(null))
@@ -119,7 +131,7 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
   }
   const steps = pickup
     ? [{ label: third ? `Link sent to ${who}` : 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: `${first} is ready at the gate`, at: trip.ready_at }, { label: third ? `Collected by ${who}` : 'Collected', at: trip.closed_at }]
-    : [{ label: 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: `${first} checked in`, at: trip.closed_at }]
+    : [{ label: third ? `Link sent to ${who}` : 'Sent to the school', at: trip.created_at }, { label: 'Seen by the school', at: trip.acknowledged_at }, { label: third ? `${first} checked in, brought by ${who}` : `${first} checked in`, at: trip.closed_at }]
   return (
     <div className="mt-4 rounded-xl border border-line bg-canvas p-4" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
@@ -135,9 +147,10 @@ function TripBlock({ trip, first, meId, onLate, onChange, onCancel, onResend }: 
           {trip.off_schedule && trip.reason && !trip.late_at && (
             <Pill tone="warning" icon={<Timer />}><span className="sr-only">Outside the usual time: </span>{trip.reason}</Pill>
           )}
-          {third && (
+          {third && pickup && (
             <Pill icon={<KeyRound />}>{code ? <>Gate code <b className="ml-1 tracking-[0.12em] tabular-nums text-ink">{code}</b></> : 'Gate code sent'}</Pill>
           )}
+          {third && !pickup && <Pill icon={<Users />}>Dropping off with a link{trip.traveller_relation ? `, ${trip.traveller_relation.toLowerCase()}` : ''}</Pill>}
         </div>
       ) : null}
       {/* Location only for someone collecting with a link, and only for the parent who sent it (D38). */}
@@ -163,10 +176,15 @@ type Sheet = { kind: 'otw' | 'late' | 'cancel' | 'else' | 'resend' | 'absence'; 
 function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: { child: ChildRow; trips: Trip[]; nowMs: number; meId: string | null; attendance: Attendance | null; times: DayTime[]; onChanged: () => void }) {
   const toast = useToast()
   const [sheet, setSheet] = useState<Sheet>(null)
+  // "I'm on my way" turns this card into a choice of drop-off or pickup, in place and at the same size.
+  const [choosing, setChoosing] = useState(false)
   const first = child.preferred_name ?? child.full_name.split(' ')[0]!
   const row = child.programmes
   const programme: Programme | null = row ? programmeOf(row) : null
+  const rows = [row, ...child.child_programmes.map((x) => x.programmes)].filter((p): p is ProgrammeRow => !!p)
   const today = indiaClock(new Date(nowMs))
+  // The child's programmes running today (D56), for the times shown on the tiles.
+  const todays = rows.map(programmeOf).filter((p) => p.weekdays.includes(today.weekday))
   const mine = trips.filter((t) => t.child_id === child.id)
   const open = mine.find((t) => t.status === 'en_route') ?? null
   // Any number of drop-offs and pickups a day (0050): the latest handover says where the child is now.
@@ -186,16 +204,22 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
     if (c) return { value: formatTime(toMinutes(c.at.slice(0, 5))), detail: c.reason ? `Changed for today: ${c.reason.toLowerCase()}` : 'Changed for today', today: true }
     if (regular) return { value: formatTime(toMinutes((d === 'pickup' ? regular.pickup : regular.dropoff).slice(0, 5))), detail: 'Regular time' }
     if (!programme) return { value: 'Not set', detail: 'No programme yet' }
-    const w = windowFor(programme, d)
-    return programme.windows === 'flexible' ? { value: d === 'pickup' ? `By ${formatTime(programme.hours.to)}` : `From ${formatTime(programme.hours.from)}`, detail: 'Any time in the hours' }
-      : { value: formatTime(w.from), detail: `Window ${formatRange(w)}` }
+    // The programme's own times as a guide (D56: a parent can still come at any time): the day's first drop-off and last
+    // pickup across the child's programmes, today's if any run today.
+    const shown = (todays.length ? todays : rows.map(programmeOf))
+      .sort((a, b) => (d === 'dropoff' ? windowFor(a, d).from - windowFor(b, d).from : windowFor(b, d).to - windowFor(a, d).to))
+    const p = shown[0]!
+    const w = windowFor(p, d)
+    const when = p.windows === 'flexible' ? (d === 'pickup' ? `By ${formatTime(p.hours.to)}` : `From ${formatTime(p.hours.from)}`) : formatTime(w.from)
+    const range = p.windows === 'flexible' ? `${formatRange(p.hours)}, any time` : formatRange(w)
+    return { value: when, detail: todays.length ? `${p.name}, ${range}` : `${range}, no class today` }
   }
   // Drop-off first; after it (or once its time has clearly passed) the pickup.
   const dropoffOver = programme ? today.minutes > (programme.windows === 'flexible' ? programme.hours.from + 180 : windowFor(programme, 'dropoff').to + 30) : true
   const away = attendance && attendance.status !== 'present' ? attendance : null
   const next: Direction | null = !school || away ? null : pickDone ? 'dropoff' : !dropDone && !dropoffOver ? 'dropoff' : 'pickup'
   // The window only picks which one the big button offers: either tile opens "I'm on my way" whenever it can happen next.
-  const otw = (d: Direction) => (!open && next && !(d === 'dropoff' && dropDone) && !(d === 'pickup' && pickDone) ? () => setSheet({ kind: 'otw', direction: d }) : undefined)
+  const otw = (d: Direction) => (!open && next && !(d === 'dropoff' && dropDone) && !(d === 'pickup' && pickDone) ? () => { setChoosing(false); setSheet({ kind: 'otw', direction: d }) } : undefined)
   async function undo() {
     try { await undoAbsence(child.id, today.date); toast(`${first} is expected today again.`); onChanged() } catch (e) { toast(explainDbError(e as { code?: string; message?: string })) }
   }
@@ -203,6 +227,15 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
   const status = open ? null : pickDone ? <Pill icon={<House />}>Home time</Pill> : dropDone ? <Pill tone="live" icon={<School />}>At school</Pill> : null
   const drop = usual('dropoff')
   const pick = usual('pickup')
+  // The drop-off and pickup tiles: on the card, and the same two filling the card in "I'm on my way" (each opens its time).
+  const tiles = (tall = false) => (
+    <div className={`grid grid-cols-2 gap-3 ${tall ? 'h-full md:h-auto' : ''}`}>
+      {dropDone ? <Tile done icon={<Sunrise />} label="Drop-off" value={clockTime(dropDone.closed_at!)} detail="Checked in" tall={tall} />
+        : <Tile icon={<Sunrise />} label={'today' in drop ? 'Drop-off, today' : 'Drop-off'} value={drop.value} detail={drop.detail} onClick={otw('dropoff')} tall={tall} />}
+      {pickDone ? <Tile done icon={<House />} label="Pickup" value={clockTime(pickDone.closed_at!)} detail={pickDone.traveller_kind === 'third_person' ? `By ${pickDone.traveller_name.split(' ')[0]}` : 'Collected'} tall={tall} />
+        : <Tile icon={<House />} label={'today' in pick ? 'Pickup, today' : 'Pickup'} value={pick.value} detail={pick.detail} onClick={otw('pickup')} tall={tall} />}
+    </div>
+  )
 
   return (
     <li className="card rounded-2xl p-5 sm:p-6">
@@ -210,17 +243,16 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
         <Avatar name={first} color={childColor(child.id)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-h2">{first}</h2>
-          <p className="truncate text-small font-semibold text-ink-2">{row?.name ?? 'No programme yet'}</p>
+          <p className="truncate text-small font-semibold text-ink-2">{rows.map((p) => p.name).join(' + ') || 'No programme yet'}</p>
         </div>
         {status}
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        {dropDone ? <Tile done icon={<Sunrise />} label="Drop-off" value={clockTime(dropDone.closed_at!)} detail="Checked in" />
-          : <Tile icon={<Sunrise />} label={'today' in drop ? 'Drop-off, today' : 'Drop-off'} value={drop.value} detail={drop.detail} onClick={otw('dropoff')} />}
-        {pickDone ? <Tile done icon={<House />} label="Pickup" value={clockTime(pickDone.closed_at!)} detail={pickDone.traveller_kind === 'third_person' ? `By ${pickDone.traveller_name.split(' ')[0]}` : 'Collected'} />
-          : <Tile icon={<House />} label={'today' in pick ? 'Pickup, today' : 'Pickup'} value={pick.value} detail={pick.detail} onClick={otw('pickup')} />}
-      </div>
+      {/* The card's day: normally the tiles and actions; while choosing, the same space holds only the two choices, so the
+          card keeps its size. The normal view stays laid out underneath (invisible) to hold that size. */}
+      <div className="mt-5 grid [&>*]:col-start-1 [&>*]:row-start-1" onKeyDown={(e) => { if (choosing && e.key === 'Escape') setChoosing(false) }}>
+      <div className={choosing ? 'invisible' : ''} aria-hidden={choosing || undefined} inert={choosing || undefined}>
+      {tiles()}
 
       {/* The way home with the person who collected (TRK-7): until they say they're home, at most an hour. */}
       {pickDone?.traveller_kind === 'third_person' && pickDone.created_by === meId && !pickDone.home_at && nowMs - Date.parse(pickDone.closed_at!) < 60 * 60_000 && (
@@ -240,9 +272,12 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
         </div>
       ) : next && programme ? (
         <div className="mt-4">
-          <Button size="xl" className="w-full [--fs:22px] [--h:80px] [--r:24px]" icon={<Navigation />} onClick={() => setSheet({ kind: 'otw', direction: next })}>I'm on my way</Button>
-          <p className="mt-2 text-center text-caption font-semibold text-ink-3">For {first}'s {WORD[next]}, {next === 'pickup' ? pick.detail.toLowerCase() : drop.detail.toLowerCase()}</p>
-          {next === 'pickup' && <Button size="md" variant="secondary" icon={<Users />} className="mt-3 w-full" onClick={() => setSheet({ kind: 'else', direction: 'pickup' })}>Someone else is collecting</Button>}
+          <Button size="xl" className="w-full [--fs:22px] [--h:80px] [--r:24px]" icon={<Navigation />} onClick={() => setChoosing(true)}>I'm on my way</Button>
+          <p className="mt-2 text-center text-caption font-semibold text-ink-3">Choose drop-off or pickup, then the time. Any time is fine.</p>
+          {/* A driver, grandparent or neighbour with a one-time link, for a drop-off as well as a pickup (D58). */}
+          <Button size="md" variant="secondary" icon={<Users />} className="mt-3 w-full" onClick={() => setSheet({ kind: 'else', direction: next })}>
+            {next === 'pickup' ? 'Someone else is collecting' : 'Someone else is dropping off'}
+          </Button>
         </div>
       ) : away ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-4 py-3">
@@ -254,13 +289,25 @@ function ChildCard({ child, trips, nowMs, meId, attendance, times, onChanged }: 
         <p className="mt-4 text-body text-ink-2">{!school ? `No school for ${first} today.` : 'All done for today.'}</p>
       )}
       {school && !away && !pickDone && <Button size="md" variant="secondary" icon={<CalendarX />} className="mt-2.5 w-full" onClick={() => setSheet({ kind: 'absence', direction: 'dropoff' })}>{first} won't come today</Button>}
-
-      {programme && sheet?.kind === 'otw' && (
-        <OnMyWaySheet open onClose={() => setSheet(null)} onChanged={onChanged} childId={child.id} first={first} direction={sheet.direction} programme={programme} trip={open} nowMs={nowMs} />
+      </div>
+      {choosing && (
+        // Phones: the two choices fill the card. Wider screens: a clear heading and normal-sized choices, centred in it.
+        <section className="page-in grid grid-rows-[auto_minmax(0,1fr)_auto] gap-3 md:grid-rows-none md:content-center md:gap-5" aria-label={`On my way for ${first}: drop-off or pickup`}>
+          <div className="md:text-center">
+            <p className="text-h3">Drop-off or pickup?</p>
+            <p className="text-small font-semibold text-ink-2 max-md:hidden">Choose one, then the time. Any time is fine.</p>
+          </div>
+          <ChooseFocus>{tiles(true)}</ChooseFocus>
+          <Button variant="quiet" size="md" icon={<ChevronLeft />} className="justify-self-center" onClick={() => setChoosing(false)}>Back</Button>
+        </section>
       )}
-      {programme && open && sheet?.kind === 'late' && <LateSheet open onClose={() => setSheet(null)} onChanged={onChanged} trip={open} first={first} programme={programme} nowMs={nowMs} />}
+      </div>
+      {programme && sheet?.kind === 'otw' && (
+        <OnMyWaySheet open onClose={() => setSheet(null)} onChanged={onChanged} childId={child.id} first={first} direction={sheet.direction} trip={open} nowMs={nowMs} />
+      )}
+      {programme && open && sheet?.kind === 'late' && <LateSheet open onClose={() => setSheet(null)} onChanged={onChanged} trip={open} nowMs={nowMs} />}
       {open && sheet?.kind === 'cancel' && <CancelSheet open onClose={() => setSheet(null)} onChanged={onChanged} trip={open} first={first} />}
-      {programme && sheet?.kind === 'else' && <SomeoneElseSheet open onClose={() => setSheet(null)} childId={child.id} first={first} programme={programme} nowMs={nowMs} />}
+      {programme && sheet?.kind === 'else' && <SomeoneElseSheet open onClose={() => setSheet(null)} childId={child.id} first={first} nowMs={nowMs} direction={sheet.direction} />}
       {open && sheet?.kind === 'resend' && <ResendSheet open onClose={() => setSheet(null)} trip={open} first={first} nowMs={nowMs} />}
       {sheet?.kind === 'absence' && <AbsenceSheet kids={[child]} initialChild={child.id} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); onChanged() }} />}
     </li>
