@@ -16,7 +16,8 @@ const BUCKET = 'voice-audio'
 // A pronunciation preview waits this long for a live clip; the gate never does (sound.ts uses the tablet's voice).
 const MAKE_TIMEOUT_MS = 10_000
 const FAILED_RETRY_MS = 60_000
-const WARM_AT_ONCE = 4
+// ponytail: one request per clip, so a whole school is thousands of requests; a single manifest download if this is still slow.
+const WARM_AT_ONCE = 12
 // Refused for the monthly cap or the hourly limit: no live clips for a while, instead of asking on every announcement.
 const RATE_PAUSE_MS = 60_000
 const PAUSE_KEY = 'jumpstart.voicePausedUntil'
@@ -152,6 +153,9 @@ async function make(sentence: string): Promise<ArrayBuffer> {
 // Decoded clips for this session; the same sentence asked for twice shares one request. ponytail: 120 newest, about
 // two busy gate hours; decoded speech is ~0.5 MB a clip, so this caps memory near 60 MB.
 const memory = new Map<string, Promise<AudioBuffer>>()
+// Clips an announcement is waiting for right now. Copying the whole school's clips steps aside for them, so it never
+// delays what the gate is about to say.
+let live = 0
 
 /** The sentence as playable audio: kept, or made live if nobody made it ahead. Rejects when it can't be had. */
 export function clipAudio(ctx: BaseAudioContext, sentence: string): Promise<AudioBuffer> {
@@ -161,8 +165,10 @@ export function clipAudio(ctx: BaseAudioContext, sentence: string): Promise<Audi
     memory.set(sentence, hit)
     return hit
   }
+  live++
   const made = stored(sentence)
     .then((bytes) => bytes ?? (debug('made live'), make(sentence)))
+    .finally(() => { live-- })
     .then((bytes) => { markVoice(sentence, 'response'); return ctx.decodeAudioData(bytes) })
     .then((buf) => { markVoice(sentence, 'decoded'); voiceLog('clip-ready', { seconds: secs(buf.duration) }); return buf })
   made.catch((e: unknown) => voiceLog('clip-failed', { reason: e instanceof Error ? e.message : String(e) }))
@@ -199,6 +205,7 @@ export async function warmClips(list: readonly string[], signal?: AbortSignal): 
   const queue = [...new Set(list)]
   const worker = async () => {
     for (let s = queue.shift(); s !== undefined && !signal?.aborted; s = queue.shift()) {
+      while (live > 0 && !signal?.aborted) await new Promise((r) => setTimeout(r, 100))
       const ok = await stored(s).catch(() => null)
       if (ok) ready++
       else missing++
