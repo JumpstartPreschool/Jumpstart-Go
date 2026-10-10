@@ -16,10 +16,11 @@ import { ROLE } from '../admin/roles'
 import { useSession, type Area } from '../auth/session'
 import { explainDbError, loadDirectory, type ClassRow, type Directory, type Profile } from '../admin/api'
 import { StaffSheet } from '../admin/StaffSheet'
-import { loadCoordinators, removeCoordinator, setCoordinator, type CoordinatorData } from './api'
+import { GATE_ROLES, gateRolesOf, loadCoordinators, removeCoordinator, setCoordinator, type CoordinatorData, type GateRole } from './api'
 
-const contact = (p: Profile) => [p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(' · ') || 'No contact details'
+const contact = (p: Profile) => p.phone ? formatMobile(p.phone) : 'No contact details'
 const firstName = (p: Profile) => p.full_name.split(' ')[0]
+const roleNames = (roles: readonly GateRole[]) => roles.map((r) => ROLE[r].name.toLowerCase()).join(' and ')
 
 /** Multi-select class chips. */
 function ClassPicker({ classes, value, onChange }: { classes: ClassRow[]; value: string[]; onChange: (ids: string[]) => void }) {
@@ -40,9 +41,28 @@ function ClassPicker({ classes, value, onChange }: { classes: ClassRow[]; value:
   )
 }
 
+/** Center coordinator and/or Center leader: what each does, chosen with one tap (at least one). */
+function RolePicker({ value, onChange }: { value: GateRole[]; onChange: (roles: GateRole[]) => void }) {
+  return (
+    <div className="grid gap-2.5 sm:grid-cols-2" role="group" aria-label="Gate role">
+      {GATE_ROLES.map((r) => {
+        const on = value.includes(r)
+        return (
+          <button key={r} type="button" role="checkbox" aria-checked={on} className="choice flex items-center gap-3 p-3.5 text-left"
+            onClick={() => onChange(on ? value.filter((x) => x !== r) : [...value, r])}>
+            <span className={`grid size-11 shrink-0 place-items-center rounded-sm [&_svg]:size-[22px] ${on ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'}`} aria-hidden>{ROLE[r].icon}</span>
+            <span className="min-w-0"><span className="block text-h4">{ROLE[r].name}</span><span className="block text-small font-semibold text-ink-2">{ROLE[r].does}</span></span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /**
- * Who works the gate, and which classes each coordinator hears (PRD D11, D23). Open to the core team and the admin;
- * the database allows the core team to give or remove only the Coordinator role.
+ * The gate team (PRD D11, D23; 0038): Center coordinators run the gate (check-ins, handovers, codes); Center leaders hear
+ * it, acknowledge and mark children Ready. Both hear the classes chosen here. Open to the head office and the admin; the
+ * database lets the head office give or remove only these two roles.
  */
 export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core'> }) {
   const { state } = useSession()
@@ -63,24 +83,24 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
   }, [])
   useEffect(() => { void reload() }, [reload])
 
-  const coordinators = useMemo(() => data?.people.filter((p) => data.roles.get(p.id)?.includes('coordinator')) ?? [], [data])
+  const team = useMemo(() => data?.people.filter((p) => gateRolesOf(data.roles.get(p.id)).length > 0) ?? [], [data])
   const classesOf = (id: string) => data?.classes.filter((c) => data.assignments.get(id)?.includes(c.id)) ?? []
-  const coordinatorsOf = (classId: string) => coordinators.filter((p) => p.active && data?.assignments.get(p.id)?.includes(classId))
+  const teamOf = (classId: string) => team.filter((p) => p.active && data?.assignments.get(p.id)?.includes(classId))
   // Refresh first, so the list already shows the change when the sheet closes and the toast confirms it.
   const done = async (message: string) => { await reload(); setEditing(null); setAdding(false); toast(message) }
-  // Someone not at the school yet: the admin's staff form, with Center leader already chosen (only the admin adds people).
-  const [newLeader, setNewLeader] = useState<Directory | null>(null)
+  // Someone not at the school yet: the admin's staff form, with Center coordinator already chosen (only the admin adds people).
+  const [newPerson, setNewPerson] = useState<Directory | null>(null)
   // Opens over the Add sheet (Cancel goes back to the list; saving closes both), so two sheets never pass each other.
   async function addNew() {
-    try { setNewLeader(await loadDirectory()) } catch (e) { toast(explainDbError(e as { code?: string; message?: string }), { tone: 'danger' }) }
+    try { setNewPerson(await loadDirectory()) } catch (e) { toast(explainDbError(e as { code?: string; message?: string }), { tone: 'danger' }) }
   }
 
   return (
-    <AreaShell area={area} title="Center leaders"
-      subtitle="Who works the gate, and which classes they hear."
-      actions={data && <Button icon={<Plus />} onClick={() => setAdding(true)}>Add center leader</Button>}>
+    <AreaShell area={area} title="Gate team"
+      subtitle="Center coordinators run the gate. Center leaders hear it, acknowledge and mark children ready."
+      actions={data && <Button icon={<Plus />} onClick={() => setAdding(true)}>Add to the gate team</Button>}>
       {loadError ? (
-        <div className="mt-6"><ErrorState title="Couldn't load center leaders" onRetry={() => void reload()}>{loadError}</ErrorState></div>
+        <div className="mt-6"><ErrorState title="Couldn't load the gate team" onRetry={() => void reload()}>{loadError}</ErrorState></div>
       ) : !data ? (
         <div className="mt-6"><SkeletonList /></div>
       ) : (
@@ -95,16 +115,20 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
             ) : (
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {data.classes.map((c) => {
-                  const who = coordinatorsOf(c.id)
+                  const who = teamOf(c.id)
+                  const runs = who.some((p) => data.roles.get(p.id)?.includes('coordinator'))
                   return (
                     <li key={c.id} className="card flex items-center gap-3 rounded-xl p-3.5">
                       <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-sunken text-ink-2 [&_svg]:size-5" aria-hidden><School /></span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-h4">{c.name}</p>
                         {who.length ? (
-                          <p className="truncate text-small font-semibold text-ink-2">{who.map(firstName).join(', ')}</p>
+                          <>
+                            <p className="truncate text-small font-semibold text-ink-2">{who.map(firstName).join(', ')}</p>
+                            {!runs && <p className="text-caption font-bold text-warning">No center coordinator: every coordinator on duty hears it</p>}
+                          </>
                         ) : (
-                          <p className="flex items-center gap-1.5 text-small font-bold text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />No center leader: goes to everyone on duty</p>
+                          <p className="flex items-center gap-1.5 text-small font-bold text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />Nobody assigned: goes to everyone on duty</p>
                         )}
                       </div>
                       {who.length > 0 && <Pill icon={<UsersRound />}>{who.length}</Pill>}
@@ -115,22 +139,23 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
             )}
           </section>
 
-          <section className="mt-10" aria-labelledby="coordinators-title">
-            <h2 id="coordinators-title" className="kicker px-0.5">Center leaders · {coordinators.length}</h2>
-            {coordinators.length === 0 ? (
+          <section className="mt-10" aria-labelledby="team-title">
+            <h2 id="team-title" className="kicker px-0.5">Gate team · {team.length}</h2>
+            {team.length === 0 ? (
               <div className="mt-3">
-                <EmptyState title="No center leaders yet" action={<Button icon={<Plus />} onClick={() => setAdding(true)}>Add center leader</Button>}>
+                <EmptyState title="Nobody on the gate team yet" action={<Button icon={<Plus />} onClick={() => setAdding(true)}>Add to the gate team</Button>}>
                   Add the people who work the gate, and choose their classes.
                 </EmptyState>
               </div>
             ) : (
               <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {coordinators.map((p) => {
+                {team.map((p) => {
                   const classes = classesOf(p.id)
                   return (
                     <ListRow key={p.id} avatar={<Avatar name={p.full_name} color={childColor(p.id)} />} title={p.id === myId ? `${p.full_name} (you)` : p.full_name}
                       detail={contact(p)}
                       badges={<>
+                        {gateRolesOf(data.roles.get(p.id)).map((r) => <Pill key={r} tone={r === 'coordinator' ? 'accent' : undefined} icon={ROLE[r].icon}>{ROLE[r].name}</Pill>)}
                         {!p.active && <Pill tone="warning">Access off</Pill>}
                         {classes.length ? classes.map((c) => <Pill key={c.id} icon={<School />}>{c.name}</Pill>) : <Pill tone="warning">No classes yet</Pill>}
                       </>}
@@ -143,18 +168,19 @@ export function CoordinatorsPage({ area }: { area: Extract<Area, 'admin' | 'core
         </>
       )}
 
-      <Sheet open={!!editing} onClose={() => setEditing(null)} title={editing ? `${firstName(editing)}'s classes` : 'Classes'}
+      <Sheet open={!!editing} onClose={() => setEditing(null)} title={editing ? `${firstName(editing)} on the gate` : 'Gate team'}
         description={editing ? `${editing.full_name} hears pickups and drop-offs for these classes while on duty.` : undefined}>
         {editing && data && (
-          <EditCoordinator key={editing.id} person={editing} classes={data.classes} initial={data.assignments.get(editing.id) ?? []} onDone={done} />
+          <EditMember key={editing.id} person={editing} classes={data.classes} initialRoles={gateRolesOf(data.roles.get(editing.id))}
+            lastRoles={(data.roles.get(editing.id) ?? []).every((r) => r === 'coordinator' || r === 'leader')} initialClasses={data.assignments.get(editing.id) ?? []} onDone={done} />
         )}
       </Sheet>
-      <Sheet open={adding} onClose={() => setAdding(false)} title="Add a center leader">
-        {adding && data && <AddCoordinator data={data} area={area} onDone={done} onNew={area === 'admin' ? () => void addNew() : undefined} />}
+      <Sheet open={adding} onClose={() => setAdding(false)} title="Add to the gate team">
+        {adding && data && <AddMember data={data} area={area} onDone={done} onNew={area === 'admin' ? () => void addNew() : undefined} />}
       </Sheet>
-      {newLeader && (
-        <StaffSheet open dir={newLeader} initialRoles={['coordinator']} onClose={() => setNewLeader(null)}
-          onSaved={(m) => void reload().then(() => { setNewLeader(null); setAdding(false); toast(m) })} />
+      {newPerson && (
+        <StaffSheet open dir={newPerson} initialRoles={['coordinator']} onClose={() => setNewPerson(null)}
+          onSaved={(m) => void reload().then(() => { setNewPerson(null); setAdding(false); toast(m) })} />
       )}
     </AreaShell>
   )
@@ -177,13 +203,34 @@ function useSave() {
   return { busy, error, run }
 }
 
-function EditCoordinator({ person, classes, initial, onDone }: { person: Profile; classes: ClassRow[]; initial: string[]; onDone: (message: string) => void | Promise<void> }) {
-  const [picked, setPicked] = useState(initial)
+const sameSet = <T,>(a: readonly T[], b: readonly T[]) => a.length === b.length && a.every((x) => b.includes(x))
+
+/**
+ * Saves gate roles and classes: roles added first (so the classes always have a gate role to belong to), then the classes,
+ * then roles taken away. Never leaves the person without a role mid-way.
+ */
+async function saveMember(person: Profile, roles: GateRole[], before: GateRole[], classes: string[]) {
+  const added = roles.filter((r) => !before.includes(r))
+  for (const r of added) await setCoordinator(person.id, classes, r)
+  if (!added.length) await setCoordinator(person.id, classes, roles[0]!)
+  const removed = before.filter((r) => !roles.includes(r))
+  if (removed.length) await removeCoordinator(person.id, removed)
+}
+
+function EditMember({ person, classes, initialRoles, lastRoles, initialClasses, onDone }: {
+  person: Profile; classes: ClassRow[]; initialRoles: GateRole[]; lastRoles: boolean; initialClasses: string[]; onDone: (message: string) => void | Promise<void>
+}) {
+  const [roles, setRoles] = useState<GateRole[]>(initialRoles)
+  const [picked, setPicked] = useState(initialClasses)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const save = useSave()
-  const unchanged = picked.length === initial.length && picked.every((id) => initial.includes(id))
+  const unchanged = sameSet(picked, initialClasses) && sameSet(roles, initialRoles)
   return (
     <>
+      <p className="kicker mb-2.5">Role</p>
+      <RolePicker value={roles} onChange={setRoles} />
+      {roles.length === 0 && <Notice tone="warning" className="mt-3">Choose a role, or use Remove from the gate team below.</Notice>}
+      <p className="kicker mb-2.5 mt-6">Classes</p>
       {classes.length ? <ClassPicker classes={classes} value={picked} onChange={setPicked} /> : <Notice>No class groups yet.</Notice>}
       {picked.length === 0 && <Notice tone="warning" className="mt-4">With no classes, they hear only requests nobody else has answered.</Notice>}
       {save.error && <Notice tone="danger" className="mt-4">{save.error}</Notice>}
@@ -191,36 +238,39 @@ function EditCoordinator({ person, classes, initial, onDone }: { person: Profile
       <div className="mt-8 border-t border-line pt-5">
         {confirmRemove ? (
           <>
-            <p className="text-body font-bold">Remove {firstName(person)} as a center leader? They stop hearing announcements and can no longer run the gate. Their other roles stay.</p>
+            <p className="text-body font-bold">Remove {firstName(person)} from the gate team? They stop hearing announcements and can no longer act at the gate. {lastRoles
+              ? 'This is their only role: they stay under People → Staff as "No role" until you give them one.'
+              : 'Their other roles stay.'}</p>
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <Button variant="secondary" onClick={() => setConfirmRemove(false)}>Keep</Button>
-              <Button variant="danger" icon={<UserMinus />} loading={save.busy} onClick={() => void save.run(() => removeCoordinator(person.id), () => onDone(`${firstName(person)} is no longer a center leader.`))}>Remove</Button>
+              <Button variant="danger" icon={<UserMinus />} loading={save.busy} onClick={() => void save.run(() => removeCoordinator(person.id), () => onDone(`${firstName(person)} is no longer on the gate team.`))}>Remove</Button>
             </div>
           </>
         ) : (
-          <Button variant="quiet" className="w-full" icon={<UserMinus />} onClick={() => setConfirmRemove(true)}>Remove Center leader role</Button>
+          <Button variant="quiet" className="w-full" icon={<UserMinus />} onClick={() => setConfirmRemove(true)}>Remove from the gate team</Button>
         )}
       </div>
       <SheetFooter>
-        <Button size="xl" className="w-full" icon={<Check />} loading={save.busy && !confirmRemove} disabled={unchanged}
-          onClick={() => void save.run(() => setCoordinator(person.id, picked), () => onDone(`${firstName(person)}'s classes saved.`))}>
-          Save classes
+        <Button size="xl" className="w-full" icon={<Check />} loading={save.busy && !confirmRemove} disabled={unchanged || roles.length === 0}
+          onClick={() => void save.run(() => saveMember(person, roles, initialRoles, picked), () => onDone(`${firstName(person)} is a ${roleNames(roles)}. Saved.`))}>
+          Save
         </Button>
       </SheetFooter>
     </>
   )
 }
 
-function AddCoordinator({ data, area, onDone, onNew }: { data: CoordinatorData; area: 'admin' | 'core'; onDone: (message: string) => void | Promise<void>; onNew?: () => void }) {
+function AddMember({ data, area, onDone, onNew }: { data: CoordinatorData; area: 'admin' | 'core'; onDone: (message: string) => void | Promise<void>; onNew?: () => void }) {
   const [query, setQuery] = useState('')
   const [person, setPerson] = useState<Profile | null>(null)
+  const [roles, setRoles] = useState<GateRole[]>(['coordinator'])
   const [picked, setPicked] = useState<string[]>([])
   const save = useSave()
 
   const q = query.trim().toLowerCase()
   const candidates = data.people
-    .filter((p) => p.active && !data.roles.get(p.id)?.includes('coordinator'))
-    .filter((p) => !q || [p.full_name, p.email, p.phone].some((v) => v?.toLowerCase().includes(q)))
+    .filter((p) => p.active && gateRolesOf(data.roles.get(p.id)).length === 0)
+    .filter((p) => !q || [p.full_name, p.phone].some((v) => v?.toLowerCase().includes(q)))
     // Staff first: they are the usual choice; parents are listed after them.
     .sort((a, b) => Number(!data.roles.get(a.id)?.length) - Number(!data.roles.get(b.id)?.length))
 
@@ -237,14 +287,17 @@ function AddCoordinator({ data, area, onDone, onNew }: { data: CoordinatorData; 
           <Button size="md" variant="quiet" onClick={() => setPerson(null)}>Change</Button>
         </div>
         {isParent && (
-          <Notice tone="warning" className="mt-3">{firstName(person)} is also a parent here. As a center leader they will see every child's pickup details.</Notice>
+          <Notice tone="warning" className="mt-3">{firstName(person)} is also a parent here. On the gate team they will see every child's pickup details.</Notice>
         )}
+        <p className="kicker mb-2.5 mt-6">Role</p>
+        <RolePicker value={roles} onChange={setRoles} />
         <p className="kicker mt-6">Their classes</p>
         <div className="mt-3">{data.classes.length ? <ClassPicker classes={data.classes} value={picked} onChange={setPicked} /> : <Notice>No class groups yet. You can choose classes later.</Notice>}</div>
         {save.error && <Notice tone="danger" className="mt-4">{save.error}</Notice>}
         <SheetFooter>
-          <Button size="xl" className="w-full" icon={<BellRing />} loading={save.busy} onClick={() => void save.run(() => setCoordinator(person.id, picked), () => onDone(`${firstName(person)} is now a center leader.`))}>
-            Make center leader
+          <Button size="xl" className="w-full" icon={<BellRing />} loading={save.busy} disabled={roles.length === 0}
+            onClick={() => void save.run(() => saveMember(person, roles, [], picked), () => onDone(`${firstName(person)} is now a ${roleNames(roles)}.`))}>
+            {roles.length === 1 ? `Make ${ROLE[roles[0]!].name.toLowerCase()}` : 'Add to the gate team'}
           </Button>
         </SheetFooter>
       </>
@@ -258,17 +311,17 @@ function AddCoordinator({ data, area, onDone, onNew }: { data: CoordinatorData; 
           <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-[22px]" aria-hidden><UserPlus /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-h4">Add someone new</span>
-            <span className="block text-small font-semibold text-ink-2">Their name, email and classes. They get an invitation.</span>
+            <span className="block text-small font-semibold text-ink-2">Their name, mobile, role and classes. They get an invitation.</span>
           </span>
           <ChevronRight className="size-5 shrink-0 text-ink-3" aria-hidden />
         </button>
       )}
       <p className={`text-body text-ink-2 ${onNew ? 'mt-5' : ''}`}>
-        {onNew ? 'Or choose someone already at the school.' : 'Choose someone the admin has already added.'} {area === 'core' && 'The head office can give the Center leader role; only the admin gives Admin or Head office.'}
+        {onNew ? 'Or choose someone already at the school.' : 'Choose someone the admin has already added.'} {area === 'core' && 'The head office can give the two gate roles; only the admin gives Admin or Head office.'}
       </p>
-      <SearchField label="Search people" className="mt-4" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, email or phone" autoFocus />
+      <SearchField label="Search people" className="mt-4" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone" autoFocus />
       {candidates.length === 0 ? (
-        <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : (onNew ? 'Everyone here is already a center leader. Use Add someone new above.' : 'Everyone registered is already a center leader. The admin adds new staff in People.')}</p>
+        <p className="mt-6 text-center text-body text-ink-2">{q ? 'Nobody matches your search.' : (onNew ? 'Everyone here is already on the gate team. Use Add someone new above.' : 'Everyone registered is already on the gate team. The admin adds new staff in People.')}</p>
       ) : (
         <ul className="mt-4 grid gap-2">
           {candidates.map((p) => (

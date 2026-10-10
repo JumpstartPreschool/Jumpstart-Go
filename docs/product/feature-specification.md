@@ -21,8 +21,8 @@ This is the UX stage output: every screen, what it's for, its main action, and e
 | **Today** | Each child's day at a glance: status, drop-off and pickup time, who is going | Depends on context: **Change time / Who's picking up? / Running late / Track** | Before drop-off · On the way to school (live mini-map) · Checked in · Ready · Pickup on the way (live mini-map) · Collected · Reached home · Absent / on leave / off · Holiday · Skeleton · Offline |
 | Change time (sheet) | Pick today's time inside the programme window (for flexible programmes, any time within the programme's hours), showing how busy each slot is | **Save time** | Inside window (default; only window slots shown) · **Other time** (outside the window, reason required, off-schedule warning) · Short notice (warning) · Outside school hours 9 AM–7 PM (disabled, with **Call school**) · Saving · Error |
 | Running late (sheet) | Tell the school the adult will be late | **+10 / +20 / +30 min** | Normal · Goes past the window (off-schedule warning) · Past 7 PM (disabled, with **Call school**) · Saving · Error |
-| Who's going (sheet) | Me / saved person / new person | **Confirm** | List · Empty ("No saved people yet") · Adding new (name, phone with +91 keypad, relation; "WhatsApp on a different number" switch; optional email) · Invalid phone or email |
-| Trip confirmation | Send the link and show the code | **Send on WhatsApp** (secondary: **Copy link**) | Email sending · Email sent ✓ · Email failed (resend) · Not sent yet (reminder) · Confirmed by the person · Link cancelled or replaced |
+| Who's going (sheet) | Me / saved person / new person | **Confirm** | List · Empty ("No saved people yet") · Adding new (name, phone with +91 keypad, relation; "WhatsApp on a different number" switch) · Invalid phone |
+| Trip confirmation | Send the link and show the code | **Send on WhatsApp** (secondary: **Copy link**) | Not sent yet (reminder) · Confirmed by the person · Link cancelled or replaced |
 | **Live trip** | Uber-style tracking | **Call** (the person) / **Cancel** | LIVE · RECENT · STALE (marker stops and fades, "Last update 3 min ago") · UNAVAILABLE (no map dot; status and timeline only) · Arriving · Handed over · Reached · Cancelled |
 | Trip history + replay | Last 30 days, own children only | **Replay** | List · Empty · Replay: slider, gaps shown as gaps |
 | **Updates** | Announcements and notifications | Open an item | Unread first · Empty ("You're all caught up") |
@@ -96,4 +96,4 @@ Coordinators carry iPads between the gate and the classrooms, so this area is de
 | Settings | Reminder lead time, running-late threshold, 08:00 reminder, wording templates (with preview and **Play**), arrival radius, holidays. School hours (9 AM–7 PM) are shown but fixed | **Save** |
 
 ## 7. Shared: login and consent
-Phone or email → 6-digit code (auto-filled from SMS or email where the device supports it) → consent (parents, first time) → role home. States: unregistered number, wrong code, code expired (resend available after 30 seconds), too many attempts (locked for 15 minutes).
+Mobile number → 6-digit code sent on WhatsApp → consent (parents, first time) → role home. States: same message for a registered or unregistered number, wrong code, code expired (resend available after 30 seconds), too many attempts (locked for 15 minutes).

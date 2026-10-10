@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { CalendarDays, CalendarX, Check, MessageSquare, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Trash2, UserPlus, X } from '../../ui/icons'
+import { CalendarDays, CalendarX, Check, MessageSquare, ChevronLeft, CircleCheck, Eye, Globe, House, LogOut, Megaphone, Navigation, Phone, Plus, School, Timer, Trash2, UserPlus, X } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField, TextField } from '../../ui/Field'
@@ -42,6 +42,7 @@ function tripUpdates(t: Trip, kid: Kid, me: string | null): Update[] {
   const who = t.created_by === me ? 'You' : t.traveller_name.split(' ')[0]!
   const word = t.direction === 'pickup' ? 'pickup' : 'drop-off'
   const out: Update[] = [{ key: `${t.id}-sent`, at: t.created_at, icon: <Navigation />, tone: 'bg-accent-soft text-accent-ink', title: `${first(kid)}'s ${word}: on the way`, text: `${who}, about ${clockTime(t.arrive_at)}${t.phoned_in_by ? ', phoned in to the school' : ''}.` }]
+  if (t.late_at && t.late_from) out.push({ key: `${t.id}-late`, at: t.late_at, icon: <Timer />, tone: 'bg-warning-soft text-warning', title: `${first(kid)}'s ${word} time changed`, text: `Now about ${clockTime(t.arrive_at)} (was ${clockTime(t.late_from)}).` })
   if (t.acknowledged_at) out.push({ key: `${t.id}-seen`, at: t.acknowledged_at, icon: <Eye />, tone: 'bg-accent-soft text-accent-ink', title: 'The school has seen it', text: `They're getting ${first(kid)} ready.` })
   if (t.ready_at) out.push({ key: `${t.id}-ready`, at: t.ready_at, icon: <CircleCheck />, tone: 'bg-live-soft text-live', title: `${first(kid)} is ready at the gate`, text: `Ready at ${clockTime(t.ready_at)}.` })
   if (t.closed_at && t.status === 'handed_over') out.push({ key: `${t.id}-done`, at: t.closed_at, icon: <House />, tone: 'bg-live-soft text-live', title: `${first(kid)} has been collected`, text: `At ${clockTime(t.closed_at)}${t.handed_to_name ? `, by ${t.handed_to_name.split(' ')[0]}` : ''}.` })
@@ -274,14 +275,13 @@ export function AbsenceSheet({ kids, initialChild, onClose, onSaved }: { kids: K
 
 const RELATIONS = ['Grandmother', 'Grandfather', 'Aunt', 'Uncle', 'Older sibling', 'Other relative'] as const
 
-/** A parent adds a relative (D45): they collect from the gate like a parent, and with an email they can use the app. */
+/** A parent adds a relative (D45): they collect from the gate like a parent, and they sign in to the app with this mobile. */
 function RelativeSheet({ kids, onClose, onSaved }: { kids: Kid[]; onClose: () => void; onSaved: () => void }) {
   const toast = useToast()
   const [child, setChild] = useState(kids[0]?.id ?? '')
   const [name, setName] = useState('')
   const [relation, setRelation] = useState<string>('Grandmother')
   const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   async function save() {
@@ -289,12 +289,11 @@ function RelativeSheet({ kids, onClose, onSaved }: { kids: Kid[]; onClose: () =>
     const mobile = normalizeMobile(phone)
     if (name.trim().length < 2) e.name = 'Enter their first and last name.'
     if (!mobile) e.phone = 'Enter a 10-digit mobile number, or + and the country code.'
-    if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) e.email = "That email doesn't look right."
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
     try {
-      await addRelative(child, { full_name: name.trim(), relation, phone: mobile!, email: email.trim() || null })
+      await addRelative(child, { full_name: name.trim(), relation, phone: mobile! })
       toast(`${name.trim().split(' ')[0]} is added. The school can see them now.`)
       onSaved()
     } catch (err) {
@@ -313,9 +312,8 @@ function RelativeSheet({ kids, onClose, onSaved }: { kids: Kid[]; onClose: () =>
           <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" error={errors.name} />
           <SelectField label="Relation" value={relation} onValue={(v) => setRelation(v)}>{RELATIONS.map((r) => <option key={r}>{r}</option>)}</SelectField>
         </div>
-        <TextField label="Mobile" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone} />
-        <TextField label="Email (optional)" type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email}
-          hint="With an email they can sign in to the app. Leave it empty if they only collect." />
+        <TextField label="Mobile" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" error={errors.phone}
+          hint="They can sign in with this mobile number." />
         {errors.form && <Notice tone="danger">{errors.form}</Notice>}
       </div>
       <SheetFooter><Button size="xl" className="w-full" icon={<UserPlus />} loading={busy} disabled={!child} onClick={() => void save()}>Add {name.trim().split(' ')[0] || 'them'}</Button></SheetFooter>
@@ -332,7 +330,7 @@ export function ParentAccount() {
   const classes = useMyClasses(me)
   const people = useLive<SavedPerson>('saved_people', () => supabase.from('saved_people').select('id, full_name, phone, relation').order('created_at'), [])
   const [family, setFamily] = useState<FamilyMember[] | null>(null)
-  const [mine, setMine] = useState<{ email: string | null; notify_morning: boolean; notify_family: boolean } | null>(null)
+  const [mine, setMine] = useState<{ phone: string | null; notify_morning: boolean; notify_family: boolean } | null>(null)
   const [schoolPhone, setSchoolPhone] = useState<string | null>(null)
   const [sheet, setSheet] = useState<null | 'person' | 'relative' | 'absence' | 'signout'>(null)
   const loadFamily = () => void myFamily().then(setFamily, () => setFamily([]))
@@ -348,7 +346,7 @@ export function ParentAccount() {
   }
   useEffect(() => {
     if (!me) return
-    void supabase.from('profiles').select('email, notify_morning, notify_family').eq('id', me).single().then(({ data }) => setMine(data as typeof mine))
+    void supabase.from('profiles').select('phone, notify_morning, notify_family').eq('id', me).single().then(({ data }) => setMine(data as typeof mine))
     void supabase.from('settings').select('school_phone').single().then(({ data }) => setSchoolPhone((data as { school_phone: string | null } | null)?.school_phone ?? null))
   }, [me])
 
@@ -379,7 +377,7 @@ export function ParentAccount() {
             <div className="min-w-0 flex-1">
               <p className="kicker">Signed in as a parent</p>
               <p className="text-h2 text-balance">{name}</p>
-              <p className="truncate text-small font-semibold text-ink-2">{mine?.email}</p>
+              <p className="truncate text-small font-semibold text-ink-2">{mine?.phone ? formatMobile(mine.phone) : ''}</p>
             </div>
             {kids.rows && kids.rows.length > 0 && (
               <ul className="flex flex-wrap gap-2" aria-label="Your children">
@@ -440,7 +438,7 @@ export function ParentAccount() {
       {sheet === 'person' && me && <PersonSheet me={me} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); void people.reload() }} />}
       {sheet === 'relative' && kids.rows && <RelativeSheet kids={kids.rows} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); loadFamily() }} />}
       {sheet === 'absence' && kids.rows && <AbsenceSheet kids={kids.rows} onClose={() => setSheet(null)} onSaved={() => setSheet(null)} />}
-      <Sheet open={sheet === 'signout'} onClose={() => setSheet(null)} title="Sign out?" description="You'll need a new email code to sign in again on this device.">
+      <Sheet open={sheet === 'signout'} onClose={() => setSheet(null)} title="Sign out?" description="You'll need a new code, sent on WhatsApp, to sign in again on this device.">
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Button variant="secondary" onClick={() => setSheet(null)}>Stay signed in</Button>
           <Button variant="danger" icon={<LogOut />} onClick={() => void signOut()}>Sign out</Button>

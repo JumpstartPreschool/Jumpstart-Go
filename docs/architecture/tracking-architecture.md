@@ -6,7 +6,7 @@
 
 Related: [prd.md](../product/prd.md) (D2, D4, D8, D12–D14, D19–D21) · [requirements.md](../product/requirements.md) (TRIP, TRK, ANN) · [user-journeys.md](../product/user-journeys.md)
 
-Provider choices (map tiles, routing, real-time transport, email) are **provisional** here and are decided in `system-architecture.md` and `docs/infrastructure/services.md`. Everything in this document works through the interfaces in §11, so any provider can be swapped.
+Provider choices (map tiles, routing, real-time transport) are **provisional** here and are decided in `system-architecture.md` and `docs/infrastructure/services.md`. Everything in this document works through the interfaces in §11, so any provider can be swapped.
 
 ## 1. Principles
 1. **The handover check is the safety control; GPS is supporting information.** A lost or wrong location never blocks or authorises a handover.
@@ -22,7 +22,7 @@ Each trip carries:
 - **readiness**, set by the school (`not_ready` → `ready`), pickup only;
 - **flags:** `short_notice`, `off_schedule` (with reason), `acknowledged_by/at`, `late_band` (0, 10, 20… minutes), `entered_by` (staff on a parent's behalf);
 - **scheduled_time** (from the regular times, replaced by today's change);
-- **traveller:** a guardian (default) or a third person (name, phone, relation, optional WhatsApp number and email);
+- **traveller:** a guardian (default) or a third person (name, phone, relation, optional WhatsApp number);
 - **tracking_source:** `none`, `guardian_app`, `third_person_link`;
 - **version** (a number used for optimistic locking; a write with an old version is rejected and the screen refreshes).
 
@@ -44,7 +44,7 @@ Any state before HANDED_OVER ──(parent or staff cancels)──▶ CANCELLED
 | From | To | Who | Server rule |
 |---|---|---|---|
 | — | EXPECTED | System (00:05 job), parent ("Pickup now"), staff (on a parent's behalf) | Inside school hours 09:00–19:00; reason required outside the programme window; one open trip per child and direction |
-| EXPECTED | INVITED | Parent | Creates the link token and handoff code; sends the email if an address is given |
+| EXPECTED | INVITED | Parent | Creates the link token and handoff code |
 | INVITED | INVITED | Parent (replace link / change person) | Old token and code revoked at once; new ones issued |
 | INVITED | CONFIRMED | Third person (Confirm) | Token valid; binds the link to this device (§4.1) |
 | EXPECTED, CONFIRMED | EN_ROUTE | Traveller (Start trip, or guardian turns sharing on) | Location permission granted, or the trip continues as UNAVAILABLE |
@@ -69,7 +69,7 @@ Every transition writes a **trip event** (who, role, when, from which device/IP,
 | Guardian | Parent app, **Share my location** switch on the trip | Parent session; the user must be the trip's traveller |
 | Third person | `/t/{token}` page | The link token **plus a device key** created when they tap Confirm. The device key is a random secret kept in that browser's storage and sent with every request. Another phone with the same link gets "already in use" (TRIP-4) |
 
-Opening the link (a GET) never changes anything, so WhatsApp link previews and email security scanners can't lock or use it.
+Opening the link (a GET) never changes anything, so WhatsApp link previews can't lock or use it.
 
 ### 4.2 On the phone
 - `navigator.geolocation.watchPosition` with high accuracy, `maximumAge: 0`, `timeout: 20 s`.
@@ -122,7 +122,7 @@ Freshness is shown with a colour **and** an icon and text everywhere (parent map
 - **Labelled** "Estimate · no live traffic". Hidden when STALE, UNAVAILABLE or coarse.
 
 ## 9. Timeline and replay (TRK-4)
-- **Timeline:** trip events in order with their times (Requested, Link sent / emailed, Confirmed, Started, Ready, Arriving, Running late 10 min, Handed over to Ramesh at 1:01 PM, Reached home), plus tracking events (Location off, Updates stopped, Position jump).
+- **Timeline:** trip events in order with their times (Requested, Link sent, Confirmed, Started, Ready, Arriving, Running late 10 min, Handed over to Ramesh at 1:01 PM, Reached home), plus tracking events (Location off, Updates stopped, Position jump).
 - **Replay:** points ordered by `fix_at`; a gap of more than 60 s between points breaks the line and is labelled with its length. There is never a straight line drawn through a gap.
 - **Who sees what:** guardians see the whole trip; coordinators see today's trips up to handover; core team and admin see up to handover for 30 days; the admin can open the part after handover only by entering a reason, which is audit-logged (TRK-9).
 

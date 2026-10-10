@@ -61,63 +61,68 @@ describe('bulk upload: understanding rows', () => {
     expect(matchProgramme('Sr KG', PROGRAMMES)).toBeNull()
   })
 
-  it('checks every row and says what is wrong in words', () => {
-    const header = COLUMNS.map((c) => c.header)
-    const row = (over: Partial<Record<string, string>>) => header.map((h) => over[h] ?? '')
+  it('needs only four columns: child, date of birth, parent and contact number', () => {
+    expect(COLUMNS.map((c) => c.header)).toEqual(['Child full name', 'Date of birth', 'Parent name', 'Contact number'])
     const { rows, missing } = checkRows([
-      header,
-      row({ 'Child full name': 'Aarav  Kulkarni', 'Date of birth': '04/03/2022', 'Boy or girl': 'M', Programme: 'nursery 360', 'Parent 1 name': 'Priya Kulkarni', 'Parent 1 relation': 'Mother', 'Parent 1 mobile': '98765 43210', 'Parent 1 email': 'Priya@Example.com', 'Family member name': 'Suresh Kulkarni', 'Family member mobile': '98765 43212' }),
-      row({ 'Child full name': 'Aarav Kulkarni', 'Date of birth': '04/03/2022', Programme: 'nursery 360', 'Parent 1 name': 'P K', 'Parent 1 mobile': '12345' }),
-      row({}),
-      row({ 'Child full name': 'Zoya', 'Boy or girl': 'maybe', 'Date of birth': '01/01/2030', Programme: 'Sr KG', 'Child contact number': '98765 00000', 'Parent 1 name': 'Sana Khan' }),
+      ['Child full name', 'Date of birth', 'Parent name', 'Contact number'],
+      ['Aarav  Kulkarni', '04/03/2022', 'Priya Kulkarni', '98765 43210'],
+      ['Aarav Kulkarni', '04/03/2022', 'Rahul Kulkarni', '98765 43211'],
+      [],
+      ['Zoya Khan', '01/01/2030', 'Sana Khan', '98765 00000'],
+      ['Ira Joshi', '', 'Neha Joshi', '98765 11111'],
+      ['Kabir Rao', '12/08/2021', '', '98765 22222'],
+      ['Diya Shah', '12/08/2021', 'Meera Shah', ''],
+      ['Reyansh Iyer', '12/08/2021', 'Asha Iyer', '12345'],
     ], PROGRAMMES, TODAY)
     expect(missing).toEqual([])
-    expect(rows).toHaveLength(3)
-    const [ok, dup, bad] = rows as [typeof rows[0], typeof rows[0], typeof rows[0]]
-    expect(ok.problems).toEqual([])
-    expect(ok.child).toEqual({ full_name: 'Aarav Kulkarni', preferred_name: null, date_of_birth: '2022-03-04', programme_id: 'n360', gender: 'boy' })
-    expect(ok.people).toEqual([
-      { full_name: 'Priya Kulkarni', relation: 'Mother', kind: 'parent', email: 'priya@example.com', phone: '+919876543210', app_access: true },
-      { full_name: 'Suresh Kulkarni', relation: 'Family', kind: 'family', email: null, phone: '+919876543212', app_access: false },
-    ])
-    expect(dup.line).toBe(3)
-    expect(dup.problems).toContain('The same child is on row 2.')
-    expect(dup.warnings.some((p) => p.includes('"12345" isn\'t a mobile number'))).toBe(true)
-    // Only the programme stops this row; the impossible date and the unclear gender are left empty with a warning.
-    expect(bad.problems).toEqual(['"Sr KG" isn\'t one of the school\'s programmes.'])
-    expect(bad.warnings).toEqual(expect.arrayContaining(['01/01/2030 can\'t be right for a preschool child, so the date of birth is left empty.', '"maybe" isn\'t Boy or Girl, so it\'s left empty.']))
-    expect(bad.people[0]!.phone).toBe('+919876500000') // the child's contact number stands in for Parent 1's mobile
+    const [ok, dup, future, noDob, noParent, noContact, badContact] = rows
+    expect(ok!.problems).toEqual([])
+    // The programme is chosen in the app after the upload.
+    expect(ok!.child).toEqual({ full_name: 'Aarav Kulkarni', preferred_name: null, date_of_birth: '2022-03-04', programme_id: null, gender: null })
+    expect(ok!.people).toEqual([{ full_name: 'Priya Kulkarni', relation: 'Parent', kind: 'parent', phone: '+919876543210', app_access: true }])
+    expect(dup!.line).toBe(3)
+    expect(dup!.problems).toContain('The same child is on row 2.')
+    expect(future!.problems).toEqual(["01/01/2030 can't be right for a preschool child."])
+    expect(noDob!.problems).toEqual(['The date of birth is missing.'])
+    expect(noParent!.problems).toEqual(["The parent's name is missing."])
+    expect(noContact!.problems).toEqual(['The contact number is missing.'])
+    expect(badContact!.problems).toEqual(['"12345" isn\'t a mobile number. Use 10 digits, or + and the country code.'])
+  })
+
+  it('still reads an older sheet with more columns, using what it fills in', () => {
+    const { rows } = checkRows([
+      ['Child full name', 'Date of birth', 'Boy or girl', 'Programme', 'Parent 1 name', 'Parent 1 relation', 'Parent 1 mobile', 'Family member name', 'Family member mobile'],
+      ['Aarav Kulkarni', '04/03/2022', 'M', 'nursery 360', 'Priya Kulkarni', 'Mother', '98765 43210', 'Suresh Kulkarni', '98765 43212'],
+      ['Ira Joshi', '04/03/2022', '', 'Sr KG', 'Neha Joshi', '', '98765 11111', '', ''],
+    ], PROGRAMMES, TODAY)
+    expect(rows[0]!.problems).toEqual([])
+    expect(rows[0]!.child).toMatchObject({ programme_id: 'n360', gender: 'boy' })
+    expect(rows[0]!.people.map((p) => p.relation)).toEqual(['Mother', 'Family'])
+    // A programme the school doesn't have no longer stops the row: it's chosen in the app instead.
+    expect(rows[1]!.problems).toEqual([])
+    expect(rows[1]!.child!.programme_id).toBeNull()
+    expect(rows[1]!.warnings).toEqual(['"Sr KG" isn\'t one of the school\'s programmes: choose it here.'])
   })
 
   it('finds the column names below a title row, and keeps the sheet row numbers', () => {
     const header = COLUMNS.map((c) => c.header)
-    const row = ['Aarav Kulkarni', '', '2022/03/04', 'Boy', 'nursery 360', '', 'Priya Kulkarni', 'Mother', '98765 43210']
-    const { rows, missing, header: found } = checkRows([['Jumpstart children 2026'], [], header, row], PROGRAMMES, TODAY)
+    const { rows, missing, header: found } = checkRows([['Jumpstart children 2026'], [], header, ['Aarav Kulkarni', '2022/03/04', 'Priya Kulkarni', '98765 43210']], PROGRAMMES, TODAY)
     expect(missing).toEqual([])
     expect(found).toEqual(header)
     expect(rows[0]).toMatchObject({ line: 4, childName: 'Aarav Kulkarni', problems: [] })
     expect(rows[0]!.child!.date_of_birth).toBe('2022-03-04')
   })
 
-  it('names the columns a sheet is missing', () => {
-    expect(checkRows([['Name', 'Class']], PROGRAMMES, TODAY).missing).toEqual(['Parent 1 name'])
-  })
-
-  it('imports a row with only the name, programme and a parent', () => {
-    const [row, noContact] = checkRows([['Child full name', 'Programme', 'Parent 1 name', 'Parent 1 mobile'], ['Ira Joshi', 'nursery 360', 'Neha Joshi', '98765 11111'], ['Kabir Rao', 'nursery 360', 'Anil Rao', '']], PROGRAMMES, TODAY).rows
-    expect(row!.problems).toEqual([])
-    expect(row!.child).toMatchObject({ full_name: 'Ira Joshi', date_of_birth: null, programme_id: 'n360' })
-    expect(row!.warnings).toEqual(["No date of birth. Add it later on the child's page."])
-    // Nobody the school can reach: that row waits.
-    expect(noContact!.problems).toEqual(['A parent with a mobile or email is needed, so the school can reach the family.'])
+  it('takes the column names schools commonly use, and names the ones a sheet is missing', () => {
+    expect(checkRows([['Student name', 'DOB', 'Mother name', 'Mobile']], PROGRAMMES, TODAY).missing).toEqual([])
+    expect(checkRows([['Name', 'Class']], PROGRAMMES, TODAY).missing).toEqual(['Date of birth', 'Parent name', 'Contact number'])
   })
 
   it('offers a template that reads back cleanly', () => {
-    const rows = parseCsv(templateCsv('Nursery · 360°'))
-    const { rows: checked, missing } = checkRows(rows, PROGRAMMES, TODAY)
+    const { rows: checked, missing } = checkRows(parseCsv(templateCsv()), PROGRAMMES, TODAY)
     expect(missing).toEqual([])
     expect(checked[0]!.problems).toEqual([])
-    expect(checked[0]!.people).toHaveLength(3)
+    expect(checked[0]!.people).toHaveLength(1)
   })
 })
 

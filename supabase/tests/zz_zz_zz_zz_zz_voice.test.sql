@@ -1,7 +1,7 @@
 -- 0030 and 0035: the gate voice. People from foundation.test.sql: a1 admin, c1 core, d1 coordinator; child c0001.
 -- Earlier files give the first parent staff roles, so this file adds its own parent-only account (v1).
-insert into public.profiles (id, full_name, email) values ('00000000-0000-0000-0000-0000000000f7', 'Voice Parent', 'voice.parent@example.test');
-insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f7', 'voice.parent@example.test');
+insert into public.profiles (id, full_name, email, phone) values ('00000000-0000-0000-0000-0000000000f7', 'Voice Parent', 'voice.parent@example.test', '+919000000010');
+insert into auth.users (id, email, raw_app_meta_data) values ('00000000-0000-0000-0000-0000000000f7', 'voice.parent@example.test', '{"provisioned":"school"}');
 insert into public.guardianships values ('00000000-0000-0000-0000-0000000c0001', '00000000-0000-0000-0000-0000000000f7', 'Mother');
 
 -- 1. Every child has a pronunciation row, queued for its clips (adding a guardian above queued it again).

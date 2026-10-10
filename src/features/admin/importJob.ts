@@ -35,18 +35,19 @@ export const clearImport = () => { if (!job || job.finished) set(null) }
 /** Imports the rows that are ready, one by one; a row the database turns down never stops the rest. */
 export async function startImport(file: string, header: string[], rows: ImportRow[]) {
   if (job && !job.finished) return
-  const ready = rows.filter((r) => !r.problems.length && r.child)
+  // Every child goes in with the programme chosen in the app (BulkImportSheet).
+  const ready = rows.filter((r) => !r.problems.length && r.child?.programme_id)
   set({ file, header, rows, total: ready.length, done: 0, added: 0, failed: new Map(), finished: false })
   for (const r of ready) {
     const failed = new Map(job!.failed)
     let added = job!.added
     try {
-      await importChild(r.child!, r.people)
+      await importChild({ ...r.child!, programme_id: r.child!.programme_id! }, r.people)
       added++
     } catch (e) {
       const err = e as { code?: string; message?: string }
       failed.set(r.line, err.code === '23505'
-        ? 'An email or mobile on this row belongs to someone whose access is turned off. Turn them back on in People, or use another number.'
+        ? 'A mobile on this row belongs to someone whose access is turned off. Turn them back on in People, or use another number.'
         : explainDbError(err))
     }
     set({ ...job!, done: job!.done + 1, added, failed })

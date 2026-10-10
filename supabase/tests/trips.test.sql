@@ -19,20 +19,20 @@ begin
   assert t.traveller_name = 'Parent A' and t.traveller_relation = 'Mother', 'names who is coming';
 end $$;
 
--- Early (12:20, before the 12:30 window) needs a reason, then updates the same open trip and flags it.
-do $$ begin
-  perform public.start_trip('00000000-0000-0000-0000-0000000c0001', 'pickup', 10);
-  raise exception 'FAIL: early pickup without a reason';
-exception when raise_exception then
-  if sqlerrm like 'FAIL%' then raise; end if;
-  assert sqlerrm like 'reason_required%', sqlerrm;
+-- Early (12:20, before the 12:30 window) is fine too (D56: any time, never flagged); it updates the same open trip,
+-- and a reason, when given, is kept for the gate.
+do $$
+declare t public.trips;
+begin
+  t := public.start_trip('00000000-0000-0000-0000-0000000c0001', 'pickup', 15);
+  assert not t.off_schedule and t.reason is null, 'early pickup, no reason needed';
 end $$;
 do $$
 declare t public.trips;
 begin
   perform public.gate_step((select id from public.trips where child_id = '00000000-0000-0000-0000-0000000c0001'), 'acknowledge');
   t := public.start_trip('00000000-0000-0000-0000-0000000c0001', 'pickup', 10, '  Doctor''s visit ');
-  assert t.off_schedule and t.reason = 'Doctor''s visit', 'flagged with the reason';
+  assert not t.off_schedule and t.reason = 'Doctor''s visit', 'the reason is kept, not flagged';
   assert t.acknowledged_at is null, 'a new time is announced again';
   assert (select count(*) from public.trips where child_id = '00000000-0000-0000-0000-0000000c0001') = 1, 'one open trip per child and direction';
 end $$;
@@ -78,22 +78,22 @@ reset role;
 -- The gate day (08:45–19:15, D24) and school days.
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
 set role authenticated;
--- 0026: the gate hours and school days no longer block a trip; a time outside the window still asks why.
+-- 0026: the gate hours and school days no longer block a trip; D56: nor does the programme's window, and no reason is asked.
 set app.now = '2026-09-24 18:50:00+05:30';
-do $$ begin
-  perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'pickup', 30);
-  raise exception 'FAIL: a pickup outside the window went through without a reason';
-exception when raise_exception then
-  if sqlerrm like 'FAIL%' then raise; end if;
-  assert sqlerrm like 'reason_required%', sqlerrm;
+do $$
+declare t public.trips;
+begin
+  t := public.start_trip('00000000-0000-0000-0000-0000000c0002', 'pickup', 30);
+  assert not t.off_schedule and t.reason is null, 'pickup after the programme ends, no reason';
+  perform public.cancel_trip(t.id);
 end $$;
 set app.now = '2026-09-24 08:30:00+05:30';
-do $$ begin
-  perform public.start_trip('00000000-0000-0000-0000-0000000c0002', 'dropoff', 10);
-  raise exception 'FAIL: a drop-off outside the window went through without a reason';
-exception when raise_exception then
-  if sqlerrm like 'FAIL%' then raise; end if;
-  assert sqlerrm like 'reason_required%', sqlerrm;
+do $$
+declare t public.trips;
+begin
+  t := public.start_trip('00000000-0000-0000-0000-0000000c0002', 'dropoff', 10);
+  assert not t.off_schedule and t.reason is null, 'drop-off before the programme starts, no reason';
+  perform public.cancel_trip(t.id);
 end $$;
 -- A trip still can't roll past midnight into tomorrow.
 set app.now = '2026-09-24 23:50:00+05:30';

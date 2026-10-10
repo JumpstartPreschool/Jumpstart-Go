@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Baby, Check, Clock, FileSpreadsheet, GraduationCap, Lock, TriangleAlert } from '../../ui/icons'
+import { Baby, Check, Clock, FileSpreadsheet, GraduationCap, Lock } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { SelectField } from '../../ui/Field'
@@ -9,10 +9,10 @@ import { ErrorState, Notice, SkeletonList } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
-import { formatTime, toMinutes, type Minutes } from '../../domain/time'
+import { formatTime, GATE_CLOSES, GATE_OPENS, toMinutes, type Minutes } from '../../domain/time'
 import { windowFor } from '../../domain/programme'
 import { AreaShell } from '../auth/AreaShell'
-import { explainDbError, loadDirectory, type Child, type Directory, type ProgrammeRow } from '../admin/api'
+import { explainDbError, loadDirectory, programmesOf, type Child, type Directory, type ProgrammeRow } from '../admin/api'
 import { levelOf, planInfo } from '../admin/programmeCatalogue'
 import { levelIcon } from '../admin/ProgrammePicker'
 import { formatRange, programmeOf } from '../trips/rules'
@@ -25,17 +25,21 @@ const m = (t?: string | null) => (t ? toMinutes(t.slice(0, 5)) : 0)
 const hhmm = (x: Minutes) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`
 const locked = (p: ProgrammeRow) => p.name.startsWith('Learning Center')
 
-function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: ProgrammeRow; current: { dropoff: string; pickup: string } | null; onClose: () => void; onSaved: () => void }) {
+/** Regular times: any time in the gate's day (D56), every day any of the child's programmes runs. */
+const GATE_DAY = Array.from({ length: (GATE_CLOSES - GATE_OPENS) / 15 + 1 }, (_, i) => GATE_OPENS + i * 15)
+
+function RegularSheet({ c, programmes, current, onClose, onSaved }: { c: Child; programmes: ProgrammeRow[]; current: { dropoff: string; pickup: string } | null; onClose: () => void; onSaved: () => void }) {
   const toast = useToast()
-  const programme = programmeOf(p)
-  const opts = (d: 'dropoff' | 'pickup') => { const w = windowFor(programme, d); const step = w.to - w.from > 60 ? 15 : 5; return Array.from({ length: Math.floor((w.to - w.from) / step) + 1 }, (_, i) => w.from + i * step) }
+  const progs = programmes.map(programmeOf)
+  const snap = (x: Minutes) => Math.min(GATE_CLOSES, Math.max(GATE_OPENS, Math.round(x / 15) * 15))
   const first = c.preferred_name ?? c.full_name.split(' ')[0]!
-  const [drop, setDrop] = useState<Minutes>(current ? m(current.dropoff) : opts('dropoff')[0]!)
-  const [pick, setPick] = useState<Minutes>(current ? m(current.pickup) : opts('pickup')[0]!)
+  // Starts from the day's first drop-off and last pickup across the child's programmes.
+  const [drop, setDrop] = useState<Minutes>(current ? m(current.dropoff) : snap(Math.min(...progs.map((p) => windowFor(p, 'dropoff').from))))
+  const [pick, setPick] = useState<Minutes>(current ? m(current.pickup) : snap(Math.max(...progs.map((p) => windowFor(p, 'pickup').from))))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const withCurrent = (list: Minutes[], cur: Minutes) => (list.includes(cur) ? list : [cur, ...list])
-  const bad = !opts('dropoff').includes(drop) || !opts('pickup').includes(pick)
+  const withCurrent = (cur: Minutes) => (GATE_DAY.includes(cur) ? GATE_DAY : [cur, ...GATE_DAY])
+  const bad = pick <= drop
 
   async function save() {
     setBusy(true)
@@ -52,16 +56,16 @@ function RegularSheet({ c, p, current, onClose, onSaved }: { c: Child; p: Progra
   }
 
   return (
-    <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${p.name} runs.`}>
+    <Sheet open onClose={onClose} title={`${first}'s regular times`} description={`Every day ${programmes.map((p) => p.name).join(' or ')} runs. Parents can still choose a different time on any day.`}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label={`Drop-off, ${formatRange(windowFor(programme, 'dropoff'))}`} value={drop} onValue={(v) => setDrop(Number(v))}>
-          {withCurrent(opts('dropoff'), drop).map((t) => <option key={t} value={t}>{formatTime(t)}{opts('dropoff').includes(t) ? '' : ' (outside the window)'}</option>)}
+        <SelectField label="Drop-off" value={drop} onValue={(v) => setDrop(Number(v))}>
+          {withCurrent(drop).map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
         </SelectField>
-        <SelectField label={`Pickup, ${formatRange(windowFor(programme, 'pickup'))}`} value={pick} onValue={(v) => setPick(Number(v))}>
-          {withCurrent(opts('pickup'), pick).map((t) => <option key={t} value={t}>{formatTime(t)}{opts('pickup').includes(t) ? '' : ' (outside the window)'}</option>)}
+        <SelectField label="Pickup" value={pick} onValue={(v) => setPick(Number(v))}>
+          {withCurrent(pick).map((t) => <option key={t} value={t}>{formatTime(t)}</option>)}
         </SelectField>
       </div>
-      <Notice tone={bad ? 'warning' : 'success'} className="mt-4">{bad ? 'Regular times must be inside the windows. Parents can still ask for a different time on a given day.' : 'Both times are inside the windows.'}</Notice>
+      {bad && <Notice tone="warning" className="mt-4">The pickup has to be after the drop-off.</Notice>}
       {error && <Notice tone="danger" className="mt-4">{error}</Notice>}
       <SheetFooter>
         <Button size="xl" className="w-full" icon={<Check />} loading={busy} disabled={bad || (!!current && drop === m(current.dropoff) && pick === m(current.pickup))} onClick={() => void save()}>Save regular times</Button>
@@ -92,8 +96,8 @@ export function Schedules() {
     <div className="card flex items-start gap-3 rounded-xl p-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-accent-soft text-accent [&_svg]:size-5" aria-hidden><Clock /></span>
       <div>
-        <p className="text-h4">Each programme has its own drop-off and pickup times.</p>
-        <p className="text-small font-semibold text-ink-2">Timings start at 15 minutes either side of class. Change them as needed.</p>
+        <p className="text-h4">Each programme's drop-off and pickup times are a guide.</p>
+        <p className="text-small font-semibold text-ink-2">Parents can drop off and pick up at any time. Timings start at 15 minutes either side of class.</p>
       </div>
     </div>
   )
@@ -142,20 +146,17 @@ export function Schedules() {
             ) : (
               <ul className="grid gap-2.5 lg:grid-cols-2">
                 {dir.children.filter((c) => c.active).map((c) => {
-                  const p = dir.programmes.find((x) => x.id === c.programme_id)
+                  const ps = programmesOf(dir, c)
                   const s = dir.schedules.find((x) => x.child_id === c.id) ?? null
-                  const prog = p ? programmeOf(p) : null
-                  const out = !!(s && prog && (m(s.dropoff) < windowFor(prog, 'dropoff').from || m(s.dropoff) > windowFor(prog, 'dropoff').to || m(s.pickup) < windowFor(prog, 'pickup').from || m(s.pickup) > windowFor(prog, 'pickup').to))
                   return (
                     <li key={c.id} className="card flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl p-3.5">
                       <Avatar name={c.preferred_name ?? c.full_name} color={childColor(c.id)} />
                       <span className="min-w-0 flex-1 basis-[150px]">
                         <span className="block truncate text-h4">{c.full_name}</span>
-                        <span className="block truncate text-small font-semibold text-ink-2">{p?.name}</span>
+                        <span className="block truncate text-small font-semibold text-ink-2">{ps.map((p) => p.name).join(' + ')}</span>
                       </span>
-                      {out && <Pill tone="warning" icon={<TriangleAlert />}>Outside the window</Pill>}
-                      {s ? <>{kv('Drop-off', formatTime(m(s.dropoff)))}{kv('Pickup', formatTime(m(s.pickup)))}</> : <span className="text-small font-semibold text-ink-3">Not set: the window's start</span>}
-                      {p && <Button size="md" variant="secondary" onClick={() => setEditing({ child: c })}>Edit</Button>}
+                      {s ? <>{kv('Drop-off', formatTime(m(s.dropoff)))}{kv('Pickup', formatTime(m(s.pickup)))}</> : <span className="text-small font-semibold text-ink-3">Not set</span>}
+                      {ps.length > 0 && <Button size="md" variant="secondary" onClick={() => setEditing({ child: c })}>Edit</Button>}
                     </li>
                   )
                 })}
@@ -168,8 +169,7 @@ export function Schedules() {
           onClose={() => setEditing(null)} onSaved={(msg) => { toast(msg); saved() }} />
       )}
       {dir && editing && 'child' in editing && (() => {
-        const p = dir.programmes.find((x) => x.id === editing.child.programme_id)!
-        return <RegularSheet c={editing.child} p={p} current={dir.schedules.find((x) => x.child_id === editing.child.id) ?? null} onClose={() => setEditing(null)} onSaved={saved} />
+        return <RegularSheet c={editing.child} programmes={programmesOf(dir, editing.child)} current={dir.schedules.find((x) => x.child_id === editing.child.id) ?? null} onClose={() => setEditing(null)} onSaved={saved} />
       })()}
       {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} />}
     </AreaShell>

@@ -24,20 +24,20 @@ update public.classes set id = '00000000-0000-0000-0000-00000000c001' where name
 update public.classes set id = '00000000-0000-0000-0000-00000000c002' where name = 'Learning Center';
 -- People are invited first (profiles), then sign in (auth.users); the trigger links them by email.
 -- Test profiles reuse their auth ids, so the JWT subject below is also the profile id.
-insert into public.profiles (id, full_name, email, active) values
-  ('00000000-0000-0000-0000-0000000000a1', 'Admin', 'admin@example.test', true),
-  ('00000000-0000-0000-0000-0000000000c1', 'Core Team', 'core@example.test', true),
-  ('00000000-0000-0000-0000-0000000000d1', 'Priya', 'priya@example.test', true),
-  ('00000000-0000-0000-0000-0000000000e1', 'Parent A', 'parent.a@example.test', true),
-  ('00000000-0000-0000-0000-0000000000e2', 'Parent B', 'parent.b@example.test', true),
-  ('00000000-0000-0000-0000-0000000000f1', 'Former Admin', 'former.admin@example.test', true);
-insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-0000000000a1', 'admin@example.test'),
-  ('00000000-0000-0000-0000-0000000000c1', 'core@example.test'),
-  ('00000000-0000-0000-0000-0000000000d1', 'priya@example.test'),
-  ('00000000-0000-0000-0000-0000000000e1', 'parent.a@example.test'),
-  ('00000000-0000-0000-0000-0000000000e2', 'Parent.B@Example.test'),
-  ('00000000-0000-0000-0000-0000000000f1', 'former.admin@example.test');
+insert into public.profiles (id, full_name, email, active, phone) values
+  ('00000000-0000-0000-0000-0000000000a1', 'Admin', 'admin@example.test', true, '+919000000001'),
+  ('00000000-0000-0000-0000-0000000000c1', 'Core Team', 'core@example.test', true, '+919000000002'),
+  ('00000000-0000-0000-0000-0000000000d1', 'Priya', 'priya@example.test', true, '+919000000003'),
+  ('00000000-0000-0000-0000-0000000000e1', 'Parent A', 'parent.a@example.test', true, '+919000000004'),
+  ('00000000-0000-0000-0000-0000000000e2', 'Parent B', 'parent.b@example.test', true, '+919000000005'),
+  ('00000000-0000-0000-0000-0000000000f1', 'Former Admin', 'former.admin@example.test', true, '+919000000006');
+insert into auth.users (id, email, raw_app_meta_data) values
+  ('00000000-0000-0000-0000-0000000000a1', 'admin@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-0000000000c1', 'core@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-0000000000d1', 'priya@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-0000000000e1', 'parent.a@example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-0000000000e2', 'Parent.B@Example.test', '{"provisioned":"school"}'),
+  ('00000000-0000-0000-0000-0000000000f1', 'former.admin@example.test', '{"provisioned":"school"}');
 insert into auth.sessions (user_id) values ('00000000-0000-0000-0000-0000000000f1');
 insert into public.staff_roles values
   ('00000000-0000-0000-0000-0000000000a1', 'admin'),
@@ -142,9 +142,10 @@ reset role;
 insert into public.child_schedules values
   ('00000000-0000-0000-0000-0000000c0001', 1, '09:15', '12:45'),
   ('00000000-0000-0000-0000-0000000c0002', 6, '10:00', '17:30');
+-- Any time in the gate's day (D56: programme windows don't limit times), but never after it closes.
 do $$ begin
-  insert into public.child_schedules values ('00000000-0000-0000-0000-0000000c0001', 2, '09:15', '13:15');
-  raise exception 'FAIL: pickup outside the window was accepted';
+  insert into public.child_schedules values ('00000000-0000-0000-0000-0000000c0001', 2, '09:15', '19:30');
+  raise exception 'FAIL: pickup after the gate closes was accepted';
 exception when check_violation then null;
 end $$;
 do $$ begin
@@ -168,11 +169,8 @@ do $$ begin
   raise exception 'FAIL: drop-off before the gate opens accepted';
 exception when check_violation then null;
 end $$;
--- The core team moves the pickup window; Aarav's 12:45 no longer fits and is listed (SCH-9).
+-- The core team moves the pickup window; Aarav's regular 12:45 stays as it is (D56).
 update public.programmes set pickup_from = '12:50', pickup_to = '13:00' where name = 'Jr KG · Half day';
-do $$ begin
-  assert (select count(*) from public.schedules_outside_windows) = 1, 'schedule outside the new window is listed';
-end $$;
 insert into public.holidays values ('2026-10-20', 'Dussehra');
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000c1"}';
 set role authenticated;

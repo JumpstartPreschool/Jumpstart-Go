@@ -1,4 +1,4 @@
--- 0020: only the admin invites; only someone with app access who hasn't signed in; the app's address comes from settings.
+-- 0020, as changed by 0039 (invitations go to a mobile by WhatsApp or text): only the admin invites; only someone with app access who hasn't signed in; the app's address comes from settings.
 -- People from foundation.test.sql: a1 admin (signed in), c1 core. A new parent is added here without a sign-in account.
 insert into public.profiles (id, full_name, email, phone) values
   ('00000000-0000-0000-0000-0000000000f9', 'Priya Invitee', 'priya@example.com', '+919876501234');
@@ -35,11 +35,11 @@ begin
   update public.settings set app_url = 'https://app.jumpstartpreschool.in' where id;
 
   d := public.invite_details('00000000-0000-0000-0000-0000000000f9');
-  assert d->>'email' = 'priya@example.com' and d->>'app_url' = 'https://app.jumpstartpreschool.in' and not (d->>'staff')::boolean, 'details';
+  assert d->>'phone' = '+919876501234' and d->>'app_url' = 'https://app.jumpstartpreschool.in' and not (d->>'staff')::boolean, 'details';
   assert d->'children' = '["Aarav"]'::jsonb, d->>'children';
 
-  perform public.mark_invited('00000000-0000-0000-0000-0000000000f9', 'email');
-  assert (select invited_via = 'email' and invited_at is not null from public.profiles where id = '00000000-0000-0000-0000-0000000000f9'), 'recorded';
+  perform public.mark_invited('00000000-0000-0000-0000-0000000000f9', 'whatsapp');
+  assert (select invited_via = 'whatsapp' and invited_at is not null from public.profiles where id = '00000000-0000-0000-0000-0000000000f9'), 'recorded';
   begin
     perform public.mark_invited('00000000-0000-0000-0000-0000000000f9', 'pigeon');
     raise exception 'FAIL: an unknown channel';

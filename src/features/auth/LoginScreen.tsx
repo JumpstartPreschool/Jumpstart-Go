@@ -1,35 +1,47 @@
 import { Link } from 'react-router'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowLeft, ArrowRight, KeyRound, LockLine, LogIn, MailCheck, MailLine, MapPin, UserCheck, PencilLine, RotateCcw } from '../../ui/icons'
+import { ArrowLeft, ArrowRight, KeyRound, LogIn, Mail, MapPin, PencilLine, RotateCcw, Smartphone, UserCheck, WhatsApp } from '../../ui/icons'
 import { BorderBeam } from '../../ui/BorderBeam'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
-import { PasswordField, TextField } from '../../ui/Field'
-import { useToast } from '../../ui/Toast'
-import { normalizeEmail } from '../../domain/contact'
+import { TextField } from '../../ui/Field'
+import { formatMobile, normalizeMobile } from '../../domain/contact'
+import { formatRest, fullNumber, INDIA, splitNumber } from '../../domain/countries'
+import { PhoneField } from './PhoneField'
 import { supabase } from '../../lib/supabase'
-import { authMessage } from './messages'
-import { chooseArea, passwordStep } from './session'
+import { authMessage, passwordMessage, wrongPassword } from './messages'
+import { PasswordField } from './PasswordField'
+import { chooseArea } from './session'
+import { demoCode, isDemoNumber } from './demoLogins'
 
-// Six digits, matching Supabase → Authentication → Email → Email OTP Length (environments.md).
+// Six digits, matching Supabase → Authentication → Providers → Phone → OTP Length (environments.md).
 const CODE_LENGTH = 6
-// Supabase sends one code per email a minute; the Send-a-new-code timer waits the same.
+
+/**
+ * The code from what was typed or pasted. A whole pasted message ("Your code is 482913…") gives the 6-digit code in it,
+ * not its first 6 digits, which may belong to another number in the message.
+ */
+export function codeFrom(typed: string): string {
+  const digits = typed.replace(/\D/g, '')
+  return (digits.length > CODE_LENGTH && /(?<!\d)\d{6}(?!\d)/.exec(typed)?.[0]) || digits.slice(0, CODE_LENGTH)
+}
+// Supabase sends one code per number a minute; the Send-a-new-code timer waits the same.
 const RESEND_AFTER_S = 60
 
-/** The address an invitation link carries after the #, read once and then cleared from the address bar. */
+/** The number an invitation link carries after the #, read once and then cleared from the address bar. */
 let invited: string | null = null
-function invitedEmail(): string {
+function invitedPhone(): string {
   if (invited === null) {
-    const found = new URLSearchParams(location.hash.slice(1)).get('email') ?? ''
+    const found = new URLSearchParams(location.hash.slice(1)).get('phone') ?? ''
     if (found) history.replaceState(null, '', location.pathname + location.search)
-    invited = normalizeEmail(found) ?? ''
+    invited = normalizeMobile(found) ?? ''
   }
   return invited
 }
 
 const PROMISES = [
   { icon: <UserCheck />, title: 'Invite only', text: 'The school adds every account.' },
-  { icon: <KeyRound />, title: 'Your own password', text: 'Codes by email only when you need one.' },
+  { icon: <KeyRound />, title: 'Code on WhatsApp', text: 'Stay signed in.' },
   { icon: <MapPin />, title: 'Private location', text: "Only you see who's collecting." },
 ]
 
@@ -79,49 +91,29 @@ export function SignInFrame({ children }: { children: ReactNode }) {
   )
 }
 
-/** Why someone is getting an email code: their first sign-in (then they create a password), or a forgotten password. */
-type Intent = 'first' | 'reset'
-/** Where the sign-in card is. Busy and error are separate: they apply to whichever step is showing. */
-type Step = { name: 'password' } | { name: 'request'; intent: Intent } | { name: 'code'; intent: Intent }
-
-const REQUEST_COPY: Record<Intent, { title: string; text: string }> = {
-  first: { title: 'First time here?', text: "Enter the email the school has for you. We'll email you a 6-digit code, then you'll create your password." },
-  reset: { title: 'Reset your password', text: "Enter your email. We'll send you a 6-digit code, then you'll choose a new password." },
-}
-
-/** What the code step says. A first-sign-in code only goes to accounts without a password, so it says so. */
-const CODE_SENT: Record<Intent, string> = {
-  first: "If this email is registered and has no password yet, we've sent it a 6-digit code. It works for 5 minutes.",
-  reset: "If this email is registered with Jumpstart, we've sent it a 6-digit code. It works for 5 minutes.",
-}
-
 function FormError({ id, children }: { id: string; children: ReactNode }) {
   return <p id={id} className="text-center text-small font-bold text-danger" role="alert">{children}</p>
 }
 
-function BackToSignIn({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" className="linkbtn -ml-2 inline-flex items-center gap-1.5 self-start [&_svg]:size-4" onClick={onClick}>
-      <ArrowLeft aria-hidden />Back to sign in
-    </button>
-  )
-}
-
 /**
- * Invite-only sign-in (AUTH-1, J11). Everyday: email and password, no email sent. First time or a forgotten password:
- * a 6-digit code by email, then the password step (SetPasswordScreen, opened by AreaRoute once the code signs them in).
- * Every answer to a code request reads the same whether or not the email is registered, so nobody can probe for accounts.
+ * Invite-only sign-in: a mobile number, then the 6-digit code that arrives on WhatsApp. Anyone whose record has an
+ * email can instead sign in with it and a password (0041). Whoever signs in stays signed in until they tap Sign out.
+ * Every answer reads the same whether or not the number or email is registered, so nobody can probe for accounts.
  */
 export function LoginScreen() {
-  const toast = useToast()
-  // From the invitation email's button (/#email=…): someone new, so straight to getting their first code.
-  const [step, setStep] = useState<Step>(() => (invitedEmail() ? { name: 'request', intent: 'first' } : { name: 'password' }))
-  const [email, setEmail] = useState(invitedEmail)
-  const [password, setPassword] = useState('')
+  const [step, setStep] = useState<'number' | 'code' | 'email'>('number')
+  // From an invitation link (/#phone=…): the number is already filled in, with its country.
+  const [invite] = useState(() => (invitedPhone() ? splitNumber(invitedPhone()) : { country: INDIA, rest: '' }))
+  const [country, setCountry] = useState(invite.country)
+  const [phone, setPhone] = useState(() => formatRest(invite.country, invite.rest))
+  // The number the code went to, as stored (+ and the country code).
+  const [sentTo, setSentTo] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resendIn, setResendIn] = useState(0)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   // Guards against a double tap or Enter pressed twice before the busy state has rendered.
   const inFlight = useRef(false)
   const codeInput = useRef<HTMLInputElement>(null)
@@ -132,8 +124,8 @@ export function LoginScreen() {
     return () => clearTimeout(t)
   }, [resendIn])
 
-  function go(next: Step) {
-    setStep(next)
+  function changeNumber() {
+    setStep('number')
     setError(null)
     setCode('')
   }
@@ -153,71 +145,42 @@ export function LoginScreen() {
     }
   }
 
-  function readEmail(): string | null {
-    const address = normalizeEmail(email)
-    if (!address) setError('Enter a full email address, like name@example.com.')
-    else setEmail(address)
-    return address
-  }
-
-  async function onPassword(e: FormEvent) {
-    e.preventDefault()
-    const address = readEmail()
-    if (!address) return
-    if (!password) return setError('Enter your password.')
+  async function sendCode(e164: string) {
     await run(async () => {
-      passwordStep.done()
-      // Asked before the session arrives, so the area chooser is ready the moment the app switches over.
-      chooseArea.ask()
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: address, password })
-      // On success the session provider takes over and routes the person to their area.
-      if (signInError) {
-        chooseArea.done()
-        setError(authMessage(signInError))
-      }
-    })
-  }
-
-  async function sendCode(address: string, intent: Intent) {
-    await run(async () => {
-      // Registered, active, under 10 codes an hour, and for a first sign-in no password yet (0034). Refused: no email is
-      // sent, but the screen reads the same, so nobody learns who has an account.
-      let check = await supabase.rpc('login_allowed', { p_email: address, p_purpose: intent })
-      // ponytail: a database without 0034 has only the one-argument check (any code allowed), so the app works whichever
-      // ships first. Delete this line once 0034 is live.
-      if (check.error?.code === 'PGRST202') check = await supabase.rpc('login_allowed', { p_email: address })
-      const { data: allowed, error: checkError } = check
+      // Registered, active and under 10 codes an hour. Demo numbers send nothing, so the team never hits the limit.
+      const demo = isDemoNumber(e164)
+      const { data: allowed, error: checkError } = demo ? { data: true, error: null } : await supabase.rpc('phone_login_allowed', { p_phone: e164 })
       if (checkError) return setError(authMessage(checkError))
       if (allowed) {
-        // shouldCreateUser: someone's first code creates their account, which the database links to the invite (0002).
-        const { error: otpError } = await supabase.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } })
+        // shouldCreateUser: someone's first code creates their account, which the database links to the invite.
+        const { error: otpError } = await supabase.auth.signInWithOtp({ phone: e164, options: { shouldCreateUser: true } })
         // Asked again within the minute: the code already sent still works, so carry on to it.
         if (otpError && !/after \d+ seconds?/i.test(otpError.message)) return setError(authMessage(otpError))
       }
-      setStep({ name: 'code', intent })
-      setCode('')
+      setSentTo(e164)
+      setStep('code')
+      setCode(demo ? await demoCode(e164) : '')
       setResendIn(RESEND_AFTER_S)
-      toast('If this email is registered with Jumpstart, a code is on its way.', { tone: 'info' })
       setTimeout(() => codeInput.current?.focus(), 50)
     })
   }
 
-  async function onRequest(e: FormEvent, intent: Intent) {
+  async function onNumber(e: FormEvent) {
     e.preventDefault()
-    const address = readEmail()
-    if (address) await sendCode(address, intent)
+    const e164 = fullNumber(country, phone)
+    if (!e164) return setError(country.iso === 'IN' ? 'Enter the 10-digit mobile number, like 98765 43210.' : `Enter the ${country.name} mobile number, without +${country.dial}.`)
+    await sendCode(e164)
   }
 
-  async function onCode(e: FormEvent, intent: Intent) {
+  async function onCode(e: FormEvent) {
     e.preventDefault()
     if (code.length !== CODE_LENGTH) return setError(`Enter all ${CODE_LENGTH} digits of the code.`)
     await run(async () => {
-      // Read by AreaRoute once the session arrives: it opens the password step before anything else.
-      passwordStep.ask(intent)
+      // Asked before the session arrives, so the area chooser is ready the moment the app switches over.
       chooseArea.ask()
-      const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+      const { error: verifyError } = await supabase.auth.verifyOtp({ phone: sentTo, token: code, type: 'sms' })
+      // On success the session provider takes over and routes the person to their area.
       if (verifyError) {
-        passwordStep.done()
         chooseArea.done()
         setCode('')
         setError(authMessage(verifyError))
@@ -226,107 +189,74 @@ export function LoginScreen() {
     })
   }
 
+  function showEmail(on: boolean) {
+    setStep(on ? 'email' : 'number')
+    setError(null)
+    setPassword('')
+  }
+
+  async function onPassword(e: FormEvent) {
+    e.preventDefault()
+    const address = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return setError('Enter the email address the school has for you.')
+    if (!password) return setError('Enter your password.')
+    await run(async () => {
+      chooseArea.ask()
+      const { error: signError } = await supabase.auth.signInWithPassword({ email: address, password })
+      if (signError) {
+        chooseArea.done()
+        setPassword('')
+        setError(passwordMessage(signError))
+        // Counted toward the lock (0048). Says nothing back, and never blocks the message.
+        if (wrongPassword(signError)) await supabase.rpc('password_sign_in_failed', { p_email: address }).then(() => {}, () => {})
+      } else {
+        await supabase.rpc('password_sign_in_ok').then(() => {}, () => {})
+      }
+    })
+  }
+
   return (
     <SignInFrame>
       <div className="card relative overflow-hidden rounded-[28px] p-6 shadow-[var(--shadow-lift)] sm:p-8">
         <BorderBeam />
-        {step.name === 'password' && (
-          <form key="password" onSubmit={onPassword} noValidate className="page-in grid gap-4" aria-describedby={error ? 'signin-error' : undefined}>
+        {step === 'number' && (
+          <form key="number" onSubmit={(e) => void onNumber(e)} noValidate className="page-in grid gap-4">
             <div className="text-center">
               <p className="text-caption font-extrabold uppercase tracking-[0.14em] text-accent-ink">Welcome</p>
               <h1 className="mt-1 text-h1">Sign in to Jumpstart Go</h1>
-              <p className="mt-2 text-body text-ink-2">Use the email the school has for you.</p>
+              <p className="mt-2 text-body text-ink-2">Enter the mobile number the school has for you. We'll send a 6-digit code on WhatsApp.</p>
             </div>
-            <TextField
-              label="Email"
-              name="email"
-              icon={<MailLine aria-hidden />}
-              type="email"
-              inputMode="email"
-              // username, not email: what password managers look for beside a current-password field.
-              autoComplete="username"
-              autoCapitalize="none"
-              enterKeyHint="next"
-              spellCheck={false}
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(null) }}
-              autoFocus={!email}
-            />
-            <div className="grid gap-1">
-              <PasswordField
-                label="Password"
-                name="password"
-                icon={<LockLine aria-hidden />}
-                autoComplete="current-password"
-                enterKeyHint="go"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(null) }}
-                autoFocus={!!email}
-              />
-              <button type="button" className="linkbtn justify-self-end" onClick={() => go({ name: 'request', intent: 'reset' })}>
-                Forgot password?
-              </button>
-            </div>
-            {error && <FormError id="signin-error">{error}</FormError>}
-            <Button type="submit" className="w-full" icon={<LogIn />} loading={busy}>
-              {busy ? 'Signing in…' : 'Sign in'}
+            <PhoneField country={country} onCountry={(c) => { setCountry(c); setError(null) }} value={phone}
+              onChange={(v) => { setPhone(v); setError(null) }} error={error} />
+            <Button type="submit" className="w-full" icon={<WhatsApp />} loading={busy}>
+              {busy ? 'Sending code…' : 'Send code on WhatsApp'}<ArrowRight aria-hidden />
             </Button>
-            <div className="mt-1 grid gap-1 border-t border-line pt-4 text-center">
-              <p className="text-small font-semibold text-ink-2">First time here, or never set a password?</p>
-              <Button variant="quiet" size="md" className="mx-auto" icon={<MailLine />} onClick={() => go({ name: 'request', intent: 'first' })}>
-                Get a sign-in code by email
-              </Button>
-            </div>
-          </form>
-        )}
-        {step.name === 'request' && (
-          <form key={`request-${step.intent}`} onSubmit={(e) => void onRequest(e, step.intent)} noValidate className="page-in grid gap-4">
-            <BackToSignIn onClick={() => go({ name: 'password' })} />
-            <div className="text-center">
-              <h1 className="text-h2">{REQUEST_COPY[step.intent].title}</h1>
-              <p className="mt-2 text-body text-ink-2">{REQUEST_COPY[step.intent].text}</p>
-            </div>
-            <TextField
-              label="Email"
-              name="email"
-              icon={<MailLine aria-hidden />}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              enterKeyHint="send"
-              spellCheck={false}
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(null) }}
-              error={error}
-              autoFocus
-            />
-            <Button type="submit" className="w-full" loading={busy}>
-              {busy ? 'Sending code…' : 'Email me a code'}<ArrowRight aria-hidden />
+            <div className="signin-or" role="presentation"><span>or</span></div>
+            <Button variant="secondary" className="w-full" icon={<Mail />} onClick={() => showEmail(true)}>
+              Sign in with email and password
             </Button>
           </form>
         )}
-        {step.name === 'code' && (
-          <form key="code" onSubmit={(e) => void onCode(e, step.intent)} noValidate className="page-in grid gap-4">
+        {step === 'code' && (
+          <form key="code" onSubmit={(e) => void onCode(e)} noValidate className="page-in grid gap-4">
             <div className="text-center">
               <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(155deg,#8a161b,#c8262c)] text-white shadow-[0_12px_24px_-12px_rgb(200_38_44/0.7)]">
-                <MailCheck className="size-8" strokeWidth={1.75} aria-hidden />
+                <WhatsApp className="size-8" aria-hidden />
               </span>
-              <h1 className="mt-4 text-h2">Check your email</h1>
-              <p className="mt-1.5 text-body text-ink-2">{CODE_SENT[step.intent]}</p>
-              {/* The address the code went to, with Change right on it: where people look when it's the wrong one. */}
-              <button type="button" className="email-chip mt-3" aria-label={`Change email, now ${email}`}
-                onClick={() => go({ name: 'request', intent: step.intent })}>
-                <MailLine className="email-chip__mail" aria-hidden />
-                <span className="min-w-0 truncate">{email}</span>
-                <span className="email-chip__edit"><PencilLine aria-hidden />Change</span>
+              <h1 className="mt-4 text-h2">{isDemoNumber(sentTo) ? 'Demo sign-in' : 'Check WhatsApp'}</h1>
+              <p className="mt-1.5 text-body text-ink-2" role="status">
+                {isDemoNumber(sentTo) ? 'This is a demo number: the code is filled in below. Tap Continue.' : 'If this number is registered with Jumpstart, a 6-digit code is on its way on WhatsApp.'}
+              </p>
+              {/* The number the code went to, with Change right on it: where people look when it's the wrong one. */}
+              <button type="button" className="phone-chip mt-3" aria-label={`Change number, now ${formatMobile(sentTo)}`} onClick={changeNumber}>
+                <Smartphone className="phone-chip__icon" aria-hidden />
+                <span className="min-w-0 truncate">{formatMobile(sentTo)}</span>
+                <span className="phone-chip__edit"><PencilLine aria-hidden />Change</span>
               </button>
             </div>
             <div className="grid gap-1.5">
               <label htmlFor="code" className="px-0.5 text-center text-small font-bold text-ink-2">6-digit code</label>
-              {/* One real, visible input: phones offer the code from the email, and it can be pasted, selected and copied. */}
+              {/* One real, visible input: phones offer the code from the message, and it can be pasted, selected and copied. */}
               <input
                 ref={codeInput}
                 id="code"
@@ -334,7 +264,7 @@ export function LoginScreen() {
                 className="code-input"
                 value={code}
                 onChange={(e) => {
-                  setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))
+                  setCode(codeFrom(e.target.value))
                   setError(null)
                 }}
                 inputMode="numeric"
@@ -350,16 +280,58 @@ export function LoginScreen() {
             <Button type="submit" className="w-full" icon={<LogIn />} loading={busy} disabled={code.length !== CODE_LENGTH}>
               {busy ? 'Verifying…' : 'Continue'}
             </Button>
-            <Button variant="quiet" size="md" className="mx-auto tabular-nums" icon={<RotateCcw />} disabled={resendIn > 0 || busy} onClick={() => void sendCode(email, step.intent)}>
+            <Button variant="quiet" size="md" className="mx-auto tabular-nums" icon={<RotateCcw />} disabled={resendIn > 0 || busy} onClick={() => void sendCode(sentTo)}>
               {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
             </Button>
-            {step.intent === 'first' && (
-              <p className="flex flex-wrap items-center justify-center gap-x-1 text-center text-small font-semibold text-ink-2">
-                Already created a password?
-                <button type="button" className="linkbtn" onClick={() => go({ name: 'request', intent: 'reset' })}>Forgot password?</button>
-              </p>
-            )}
-            <div className="justify-self-center"><BackToSignIn onClick={() => go({ name: 'password' })} /></div>
+            <div className="justify-self-center">
+              <button type="button" className="linkbtn -ml-2 inline-flex items-center gap-1.5 [&_svg]:size-4" onClick={changeNumber}>
+                <ArrowLeft aria-hidden />Use a different number
+              </button>
+            </div>
+          </form>
+        )}
+        {step === 'email' && (
+          <form key="email" onSubmit={(e) => void onPassword(e)} noValidate className="page-in grid gap-4">
+            <div className="text-center">
+              <span className="signin-badge mx-auto" aria-hidden><KeyRound /></span>
+              <h1 className="mt-4 text-h2">Sign in with email</h1>
+              <p className="mt-1.5 text-body text-ink-2">Use the email the school has for you and your password.</p>
+            </div>
+            <TextField
+              label="Email"
+              name="email"
+              icon={<Mail aria-hidden />}
+              type="email"
+              inputMode="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="next"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(null) }}
+              autoFocus
+            />
+            <PasswordField
+              label="Password"
+              name="password"
+              autoComplete="current-password"
+              enterKeyHint="go"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(null) }}
+              error={error}
+            />
+            <Button type="submit" className="w-full" icon={<LogIn />} loading={busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </Button>
+            <p className="text-center text-caption font-semibold text-ink-2 text-pretty">
+              Forgot your password? Sign in with your mobile number, or ask the school to reset it.
+            </p>
+            <div className="justify-self-center">
+              <button type="button" className="linkbtn -ml-2 inline-flex items-center gap-1.5 [&_svg]:size-4" onClick={() => showEmail(false)}>
+                <ArrowLeft aria-hidden />Use my mobile number instead
+              </button>
+            </div>
           </form>
         )}
       </div>

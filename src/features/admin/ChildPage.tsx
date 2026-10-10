@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronLeft, Globe, Heart, LogOut, Lock, Pencil, PencilLine, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
+import { ChevronLeft, Globe, Heart, KeyRound, LogOut, Lock, Pencil, PencilLine, Plus, Send, Trash2, UserPlus, UserRound } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { TextField } from '../../ui/Field'
@@ -12,26 +12,43 @@ import { useToast } from '../../ui/Toast'
 import { childColor } from '../../ui/childColor'
 import { formatMobile } from '../../domain/contact'
 import { formatTime, toMinutes } from '../../domain/time'
-import { childLeft, explainDbError, removeGuardian, setAppAccess, updateChild, type Child, type Directory, type Profile } from './api'
+import { childLeft, explainDbError, programmesOf, removeGuardian, setAppAccess, setProgrammes, updateChild, type Child, type Directory, type Profile } from './api'
 import { AddGuardianSheet, EditGuardianSheet } from './ChildForms'
 import { GenderChoice } from '../../ui/GenderChoice'
 import { InviteSheet, invitedLine } from './InviteSheet'
+import { PasswordSheet } from './PasswordSheet'
 import { formatAge, levelOf } from './programmeCatalogue'
-import { levelIcon, ProgrammePicker } from './ProgrammePicker'
+import { AlsoInSheet, levelIcon, ProgrammePicker } from './ProgrammePicker'
 import { PronunciationCard } from './PronunciationCard'
 
 const hm = (t?: string | null) => (t ? formatTime(toMinutes(t.slice(0, 5))) : '')
 
-/** Signed in, invited (not yet signed in), or no app access: said in words and colour. */
-/** Where someone's app access stands (D36), with Invite for someone who hasn't signed in yet. */
-export function AccessState({ person, onInvite }: { person: Profile; onInvite?: (p: Profile) => void }) {
+/** Where someone's app access stands (D36): the full words, a short form for cards, and its colour. */
+export function accessStatus(p: Profile): { label: string; short: string; cls: string } {
+  const invited = invitedLine(p)
+  return !p.app_access ? { label: 'No app access', short: 'No app', cls: 'text-ink-3' }
+    : p.user_id ? { label: 'Signed in', short: 'Signed in', cls: 'text-live' }
+    : invited ? { label: invited, short: 'Invited', cls: 'text-info' }
+    : { label: 'Not invited yet', short: 'Not invited', cls: 'text-warning' }
+}
+
+/**
+ * Where someone's app access stands, said in words and colour, with Invite for someone who hasn't signed in yet
+ * and, for anyone with an email, their email password (0041). onChanged reloads the list after a change.
+ */
+export function AccessState({ person, onInvite, onChanged }: { person: Profile; onInvite?: (p: Profile) => void; onChanged?: () => void }) {
+  const [password, setPassword] = useState(false)
   const invited = invitedLine(person)
-  const [label, cls] = !person.app_access ? ['No app access', 'text-ink-3'] : person.user_id ? ['Signed in', 'text-live'] : invited ? [invited, 'text-info'] : ['Not invited yet', 'text-warning']
+  const { label, cls } = accessStatus(person)
   const canInvite = !!onInvite && person.active && person.app_access && !person.user_id
   return (
     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <span className={`inline-flex items-center gap-1.5 text-caption font-bold ${cls}`}><span className="size-2 rounded-full bg-current" aria-hidden />{label}</span>
       {canInvite && <Button size="md" variant="secondary" icon={<Send />} aria-label={`${invited ? 'Invite again' : 'Invite'} ${person.full_name}`} onClick={() => onInvite(person)}>{invited ? 'Invite again' : 'Invite'}</Button>}
+      {onChanged && person.active && person.app_access && person.email && (
+        <button type="button" className="iconbtn" aria-label={`Email password for ${person.full_name}`} title="Email password" onClick={() => setPassword(true)}><KeyRound /></button>
+      )}
+      {password && <PasswordSheet person={person} onClose={() => setPassword(false)} onDone={() => onChanged?.()} />}
     </span>
   )
 }
@@ -59,17 +76,18 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
   const toast = useToast()
   const first = child.preferred_name ?? child.full_name.split(' ')[0]!
   const programme = dir.programmes.find((p) => p.id === child.programme_id)
+  const extras = programmesOf(dir, child).filter((p) => p.id !== child.programme_id)
   const klass = dir.classes.find((c) => c.id === child.class_id)
   const coordinators = dir.coordinatorClasses.filter((a) => a.class_id === child.class_id).map((a) => dir.profiles.find((p) => p.id === a.profile_id)).filter((p): p is Profile => !!p?.active)
   const regular = dir.schedules.filter((s) => s.child_id === child.id)
   const people = dir.guardianships.filter((g) => g.child_id === child.id).map((g) => ({ g, p: dir.profiles.find((x) => x.id === g.guardian_id) })).filter((x): x is { g: typeof x.g; p: Profile } => !!x.p)
-  const [sheet, setSheet] = useState<null | 'programme' | 'add' | 'edit'>(null)
+  const [sheet, setSheet] = useState<null | 'programme' | 'also' | 'add' | 'edit'>(null)
   const [pending, setPending] = useState<Pending>(null)
   const [inviting, setInviting] = useState<Profile | null>(null)
   const [editing, setEditing] = useState<{ person: Profile; relation: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [edit, setEdit] = useState({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth ?? '', gender: child.gender ?? null })
+  const [edit, setEdit] = useState({ name: child.full_name, dob: child.date_of_birth ?? '', gender: child.gender ?? null })
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
   /** Runs a change, refreshes the page and says so; true when it worked (the error shows in the open sheet otherwise). */
@@ -93,8 +111,8 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
 
   function toggleAccess(p: Profile) {
     if (p.app_access) return setPending({ kind: 'access', person: p })
-    if (!p.email) return toast(`${p.full_name.split(' ')[0]} has no email yet. Add them again with an email to give app access.`)
-    void run(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent to ${p.email}.`)
+    if (!p.phone) return toast(`${p.full_name.split(' ')[0]} has no mobile yet. Edit them and add one to give app access.`)
+    void run(() => setAppAccess(p.id, true), `${p.full_name.split(' ')[0]} can sign in with a code sent on WhatsApp to ${formatMobile(p.phone)}.`)
   }
 
   function saveEdit() {
@@ -103,7 +121,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
     if (!edit.dob || edit.dob > new Date().toISOString().slice(0, 10)) e.dob = 'Check the date of birth.'
     setEditErrors(e)
     if (Object.keys(e).length) return
-    void run(() => updateChild(child.id, { full_name: edit.name.trim().replace(/\s+/g, ' '), preferred_name: edit.called.trim() || null, date_of_birth: edit.dob, gender: edit.gender }), 'Saved.')
+    void run(() => updateChild(child.id, { full_name: edit.name.trim().replace(/\s+/g, ' '), date_of_birth: edit.dob, gender: edit.gender }), 'Saved.')
   }
 
   const row = ({ g, p }: (typeof people)[number]) => (
@@ -112,10 +130,10 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       <div className="min-w-0 flex-1 basis-[160px]">
         <p className="truncate text-h4">{p.full_name}</p>
         <p className="truncate text-small font-semibold text-ink-2">
-          {g.relation}{p.abroad ? ', lives outside India' : ''}{p.email || p.phone ? `, ${[p.email, p.phone && formatMobile(p.phone)].filter(Boolean).join(', ')}` : ''}
+          {g.relation}{p.abroad ? ', lives outside India' : ''}{p.phone ? `, ${formatMobile(p.phone)}` : ''}
         </p>
       </div>
-      <AccessState person={p} onInvite={setInviting} />
+      <AccessState person={p} onInvite={setInviting} onChanged={() => void onChanged()} />
       <Switch on={p.app_access} label={`App access for ${p.full_name}`} busy={busy} onChange={() => toggleAccess(p)} />
       <button type="button" className="iconbtn" aria-label={`Edit ${p.full_name}`} onClick={() => setEditing({ person: p, relation: g.relation })}><PencilLine /></button>
       <Button size="md" variant="quiet" icon={<Trash2 />} aria-label={`Remove ${p.full_name}`} onClick={() => { setError(null); setPending({ kind: 'remove', person: p }) }} />
@@ -131,9 +149,9 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         <Avatar name={first} color={childColor(child.id)} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-h1 text-balance">{child.full_name}</h2>
-          <p className="text-body text-ink-2">Called {first}, {child.date_of_birth
-            ? `born ${new Date(`${child.date_of_birth}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}, ${formatAge(child.date_of_birth)}`
-            : <span className="font-bold text-warning">date of birth not added yet</span>}</p>
+          <p className="text-body text-ink-2">{child.date_of_birth
+            ? `Born ${new Date(`${child.date_of_birth}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}, ${formatAge(child.date_of_birth)}`
+            : <span className="font-bold text-warning">Date of birth not added yet</span>}</p>
         </div>
       </div>
 
@@ -148,23 +166,37 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
             </div>
             <Button size="md" variant="secondary" onClick={() => setSheet('programme')}>Change</Button>
           </div>
-          {programme && (
-            <div className="grid grid-cols-2 gap-2.5">
-              {(['dropoff', 'pickup'] as const).map((d) => {
-                const [from, to] = programme.flexible ? [programme.starts, programme.ends] : d === 'dropoff' ? [programme.dropoff_from, programme.dropoff_to] : [programme.pickup_from, programme.pickup_to]
-                const usual = regular[0]?.[d]
-                return (
-                  <div key={d} className="rounded-lg bg-sunken px-3.5 py-2.5">
-                    <p className="kicker">{d === 'dropoff' ? 'Drop-off' : 'Pickup'}</p>
-                    <p className="mt-0.5 text-h4 tabular-nums">{hm(from)} to {hm(to)}</p>
-                    {usual && <p className="text-caption font-semibold text-ink-2">Usually {hm(usual)}</p>}
-                  </div>
-                )
-              })}
+          {/* Programmes besides the class (D56): information only, they never limit when a child can come or go. */}
+          <div className="grid gap-2.5 border-t border-line pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="kicker">Other programmes</p>
+              <Button size="md" variant="secondary" icon={extras.length ? undefined : <Plus />} onClick={() => { setError(null); setSheet('also') }}>{extras.length ? 'Change' : 'Add'}</Button>
             </div>
-          )}
+            {extras.length ? (
+              <ul className="grid gap-2.5">
+                {extras.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 rounded-lg bg-sunken px-3.5 py-2.5">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-sm bg-surface text-accent [&_svg]:size-5" aria-hidden>{levelIcon(levelOf(p).level)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-h4">{p.name}</span>
+                      <span className="block text-small font-semibold text-ink-2 tabular-nums">{hm(p.starts)} to {hm(p.ends)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="text-small font-semibold text-ink-2">None. Add After School or the Learning Center here.</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {(['dropoff', 'pickup'] as const).map((d) => (
+              <div key={d} className="rounded-lg bg-sunken px-3.5 py-2.5">
+                <p className="kicker">{d === 'dropoff' ? 'Drop-off' : 'Pickup'}</p>
+                <p className="mt-0.5 text-h4 tabular-nums">{regular[0] ? `Usually ${hm(regular[0][d])}` : 'Any time'}</p>
+                <p className="text-caption font-semibold text-ink-2">{regular[0] ? 'Parents can still come at any time' : 'No regular time set'}</p>
+              </div>
+            ))}
+          </div>
           <div>
-            <p className="kicker">Center leaders for {klass?.name ?? 'this class'}</p>
+            <p className="kicker">Gate team for {klass?.name ?? 'this class'}</p>
             <p className={`mt-1 text-small font-bold ${coordinators.length ? '' : 'text-warning'}`}>{coordinators.length ? coordinators.map((c) => c.full_name).join(', ') : 'Nobody yet, so it is announced to everyone'}</p>
           </div>
         </section>
@@ -186,19 +218,23 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
       </div>
 
       <div className="flex flex-wrap gap-2.5 max-sm:[&>*]:flex-1">
-        <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, called: child.preferred_name ?? '', dob: child.date_of_birth ?? '', gender: child.gender ?? null }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
+        <Button size="md" variant="secondary" icon={<Pencil />} onClick={() => { setEdit({ name: child.full_name, dob: child.date_of_birth ?? '', gender: child.gender ?? null }); setEditErrors({}); setError(null); setSheet('edit') }}>Edit details</Button>
         <Button size="md" variant="danger" icon={<LogOut />} className="sm:ml-auto" onClick={() => { setError(null); setPending({ kind: 'left' }) }}>{first} has left the school</Button>
       </div>
 
       {sheet === 'programme' && (
         <ProgrammePicker open onClose={() => setSheet(null)} programmes={dir.programmes} childName={first} dateOfBirth={child.date_of_birth ?? ''} initial={child.programme_id}
-          onPick={(id) => void run(() => updateChild(child.id, { programme_id: id }), `${first} is now in ${dir.programmes.find((p) => p.id === id)?.name}.`)
+          onPick={(id) => void run(() => setProgrammes(child.id, id, extras.map((p) => p.id).filter((x) => x !== id)), `${first} is now in ${dir.programmes.find((p) => p.id === id)?.name}.`)
             .then((ok) => ok || toast("Couldn't change the programme. Check the connection and try again."))} />
+      )}
+      {sheet === 'also' && (
+        <AlsoInSheet onClose={() => setSheet(null)} programmes={dir.programmes} mainId={child.programme_id} initial={extras.map((p) => p.id)} childName={first} busy={busy} error={error}
+          onSave={(ids) => void run(() => setProgrammes(child.id, child.programme_id, ids), ids.length ? `${first}'s programmes are saved.` : `${first} is in ${programme?.name ?? 'the class'} only.`)} />
       )}
       {sheet === 'add' && <AddGuardianSheet open dir={dir} child={child} onClose={() => setSheet(null)} onSaved={(m) => void onChanged().then(() => { setSheet(null); toast(m) })} />}
       <Sheet open={sheet === 'edit'} onClose={() => setSheet(null)} title="Edit details" description="Changes show everywhere at once.">
         <div className="grid gap-4">
-          {/* Same layout as Add a child. A name the child was called before (preferred_name) is kept as it is. */}
+          {/* Same layout as Add a child. There is no "called" name (D59): the child is known by their own name. */}
           <TextField label="Full name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} error={editErrors.name} />
           <div className="grid items-start gap-4 sm:grid-cols-2">
             <DateField label="Date of birth" value={edit.dob} max={new Date().toISOString().slice(0, 10)} onChange={(dob) => setEdit({ ...edit, dob })} error={editErrors.dob} startWith="years"

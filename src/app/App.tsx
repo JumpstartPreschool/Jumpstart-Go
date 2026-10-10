@@ -6,6 +6,7 @@ import { ErrorBoundary } from '../ui/ErrorBoundary'
 import { AreaRoute, Splash } from '../features/auth/AreaRoute'
 import { CoreHome, ParentHome } from '../features/family/FamilyHomes'
 import { UpdatePrompt } from './UpdatePrompt'
+import { UnreadProvider } from '../features/notifications/Unread'
 
 // Each staff area loads on first use, so a parent's phone never downloads the admin or iPad duty screens.
 const AdminPeople = lazy(() => import('../features/admin/AdminPeople').then((m) => ({ default: m.AdminPeople })))
@@ -61,6 +62,7 @@ export function App() {
     <SessionProvider>
       <ToastProvider>
         <BrowserRouter>
+          <UnreadProvider>
           <ErrorBoundary>
           <Suspense fallback={<Splash />}>
             <Routes>
@@ -77,6 +79,7 @@ export function App() {
             </Routes>
           </Suspense>
           </ErrorBoundary>
+          </UnreadProvider>
         </BrowserRouter>
         <UpdatePrompt />
       </ToastProvider>

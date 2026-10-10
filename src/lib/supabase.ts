@@ -9,6 +9,11 @@ if (!url || !key) {
 }
 
 /** The one Supabase client. The publishable key is public; row-level security protects the data. */
+// `npm run dev:demo` only: a made-up school answered in the browser (demo.ts). DEV is false in every build, so this and
+// demo.ts never reach production.
+const demo = import.meta.env.DEV && import.meta.env.VITE_DEMO === '1'
+
 export const supabase = createClient(url, key, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce', ...(demo ? { storageKey: 'jumpstart-demo-auth' } : {}) },
+  ...(demo ? { global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => import('./demo').then((m) => m.demoFetch(input, init)) } } : {}),
 })

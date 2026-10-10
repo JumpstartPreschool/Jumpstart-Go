@@ -60,7 +60,7 @@ exception when raise_exception then
 end $$;
 reset role;
 
--- 3. Today's time: inside the window, outside it with a reason; it moves an open trip; the desk can't set it directly.
+-- 3. Today's time: any time in the gate's day, a reason kept when given (D56); it moves an open trip; the desk can't set it directly.
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000e1"}';
 set role authenticated;
 do $$
@@ -70,15 +70,11 @@ begin
   r := public.change_day_time('00000000-0000-0000-0000-0000000c0001', 'pickup', '12:45');
   assert r.reason is null, 'inside the window';
   assert (select arrive_at = '2026-09-29 12:45:00+05:30' and not off_schedule from public.trips where child_id = '00000000-0000-0000-0000-0000000c0001' and day = '2026-09-29' and direction = 'pickup' and status = 'en_route'), 'trip moved';
-  begin
-    perform public.change_day_time('00000000-0000-0000-0000-0000000c0001', 'pickup', '14:00');
-    raise exception 'FAIL: outside the window without a reason';
-  exception when raise_exception then
-    if sqlerrm like 'FAIL%' then raise; end if;
-    assert sqlerrm like 'reason_required%', sqlerrm;
-  end;
+  r := public.change_day_time('00000000-0000-0000-0000-0000000c0001', 'pickup', '14:00');
+  assert r.at = '14:00' and r.reason is null, 'after the window, no reason needed';
+  assert (select not off_schedule from public.trips where child_id = '00000000-0000-0000-0000-0000000c0001' and day = '2026-09-29' and direction = 'pickup' and status = 'en_route'), 'never flagged';
   r := public.change_day_time('00000000-0000-0000-0000-0000000c0001', 'pickup', '14:00', 'Doctor''s visit');
-  assert r.reason = 'Doctor''s visit', 'flagged with its reason';
+  assert r.reason = 'Doctor''s visit', 'kept with its reason';
   begin
     perform public.change_day_time('00000000-0000-0000-0000-0000000c0001', 'pickup', '11:02', 'Now');
     raise exception 'FAIL: a time in two minutes';
@@ -124,12 +120,15 @@ begin
     assert sqlerrm like 'too_short%', sqlerrm;
   end;
 
-  -- 5. Regular times, every day the programme runs, inside the windows.
+  -- 5. Regular times, every day the programme runs, at any time in the gate's day (D56).
   perform public.set_regular_times('00000000-0000-0000-0000-0000000c0001', '08:50', '13:10');
   assert (select count(*) from public.child_schedules where child_id = '00000000-0000-0000-0000-0000000c0001') = 5, 'Monday to Friday';
+  perform public.set_regular_times('00000000-0000-0000-0000-0000000c0001', '10:00', '13:10');
+  assert (select bool_and(dropoff = '10:00') from public.child_schedules where child_id = '00000000-0000-0000-0000-0000000c0001'), 'outside the window is fine';
+  perform public.set_regular_times('00000000-0000-0000-0000-0000000c0001', '08:50', '13:10');
   begin
-    perform public.set_regular_times('00000000-0000-0000-0000-0000000c0001', '10:00', '13:10');
-    raise exception 'FAIL: regular time outside the window';
+    perform public.set_regular_times('00000000-0000-0000-0000-0000000c0001', '08:30', '13:10');
+    raise exception 'FAIL: regular time before the gate opens';
   exception when check_violation then null;
   end;
 end $$;

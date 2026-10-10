@@ -21,7 +21,7 @@ psql_run -f supabase/tests/auth-shim.sql
 # and in en_US a glob sorts "_" before ".".
 in_order() { printf '%s\n' "$@" | LC_ALL=C sort; }
 for f in $(in_order supabase/migrations/*.sql); do psql_run -f "$f"; done
-for f in $(in_order supabase/tests/*.test.sql); do
+for f in $(in_order ${DB_TESTS:-supabase/tests/*.test.sql}); do
   echo "▶ $f"
   psql_run -f "$f"
 done

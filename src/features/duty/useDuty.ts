@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
-import { SOUND_CHECK } from '../../../supabase/functions/_shared/announce.ts'
-import { chime, deviceOutput, prepare, SOUND_CHECK_BUDGET_MS, soundSupported, speak, stopSound, unlockSound } from './sound'
+import { SOUND_CHECK } from '../../../supabase/functions/_shared/gateAnnounce.ts'
+import { chime, deviceOutput, prepare, releaseSound, SOUND_CHECK_BUDGET_MS, soundReady, soundSupported, speak, stopSound, unlockSound, type Spoken } from './sound'
 import { createWakeLock } from './wakeLock'
 import { now } from '../../lib/clock'
 
 export type DutyPhase = 'idle' | 'check' | 'on'
+/** What the sound check actually played, through the same path as real announcements. */
+export interface SoundResult { chime: boolean; voice: Spoken }
 
 export const MUTE_MS = 5 * 60_000
 const SINCE_KEY = 'jumpstart.dutySince'
@@ -34,6 +36,9 @@ export function useDuty() {
   const [screenHeld, setScreenHeld] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testsPlayed, setTestsPlayed] = useState(0)
+  const [result, setResult] = useState<SoundResult | null>(null)
+  // iOS paused the audio (a call, Siri, the screen locked) and won't give it back without a tap.
+  const [soundBlocked, setSoundBlocked] = useState(false)
   const [announcer] = useState(() => createAnnouncer(deviceOutput))
   const [wake] = useState(() => createWakeLock(setScreenHeld))
   const [ann, setAnn] = useState<AnnouncerState>({ speaking: null, waiting: 0, mutedUntil: null })
@@ -45,9 +50,22 @@ export function useDuty() {
       void wake.stop()
       announcer.clear()
       stopSound()
+      releaseSound()
     },
     [wake, announcer],
   )
+
+  // On duty, coming back to the app (unlock, app switch, restored from memory, back online) checks the sound can still
+  // play; if iOS won't resume it, the screen asks for one tap. Also checked every 15 s, since iOS can pause it silently.
+  useEffect(() => {
+    if (phase !== 'on') return
+    const check = () => { if (document.visibilityState === 'visible') void soundReady().then((ok) => setSoundBlocked(!ok)) }
+    check()
+    const events: Array<[EventTarget, string]> = [[document, 'visibilitychange'], [window, 'pageshow'], [window, 'focus'], [window, 'online']]
+    events.forEach(([t, e]) => t.addEventListener(e, check))
+    const every = setInterval(check, 15_000)
+    return () => { events.forEach(([t, e]) => t.removeEventListener(e, check)); clearInterval(every) }
+  }, [phase])
 
   const playTest = useCallback(async () => {
     setTesting(true)
@@ -55,8 +73,10 @@ export function useDuty() {
     try {
       // Fetch the school voice's clip while the chime plays, and give it time: this is a test, not the busy gate.
       prepare(SOUND_CHECK)
-      await chime('normal')
-      await speak(SOUND_CHECK, undefined, SOUND_CHECK_BUDGET_MS)
+      setResult(null)
+      const chimed = await chime('normal')
+      const voice = await speak(SOUND_CHECK, undefined, SOUND_CHECK_BUDGET_MS)
+      setResult({ chime: chimed, voice })
     } finally {
       setTesting(false)
     }
@@ -82,6 +102,7 @@ export function useDuty() {
     void wake.stop()
     announcer.clear()
     stopSound()
+    releaseSound()
     setPhase('idle')
   }, [wake, announcer])
 
@@ -89,6 +110,7 @@ export function useDuty() {
     void wake.stop()
     announcer.clear()
     stopSound()
+    releaseSound()
     setSince(null)
     writeSince(null)
     setPhase('idle')
@@ -111,6 +133,10 @@ export function useDuty() {
     end,
     playTest,
     retryWake: wake.retry,
+    result,
+    soundBlocked,
+    /** From a tap on "turn sound back on": unlocks again inside the gesture, then confirms it can play. */
+    resumeSound: () => { unlockSound(); void soundReady().then((ok) => setSoundBlocked(!ok)) },
     mute: () => announcer.mute(MUTE_MS),
     unmute: () => announcer.unmute(),
   }

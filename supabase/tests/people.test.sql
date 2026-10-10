@@ -9,7 +9,7 @@ declare
   parent uuid;
   child uuid;
 begin
-  staff := public.admin_add_person('  Asha Gate  ', 'Asha@Example.test', null, '{core,coordinator}');
+  staff := public.admin_add_person('  Asha Gate  ', 'Asha@Example.test', '+919000000021', '{core,coordinator}');
   assert (select full_name from public.profiles where id = staff) = 'Asha Gate', 'name trimmed';
   assert (select email from public.profiles where id = staff) = 'asha@example.test', 'email lower-cased';
   assert (select count(*) from public.staff_roles where profile_id = staff) = 2, 'both roles saved';
@@ -42,7 +42,13 @@ do $$ begin
 exception when check_violation then null;
 end $$;
 do $$ begin
-  perform public.admin_add_person('Dup', 'asha@example.test', null);
+  perform public.admin_add_person('No Mobile', 'nomobile@example.test', null);
+  raise exception 'FAIL: person added without a mobile (0039)';
+exception when raise_exception then
+  if sqlerrm not like 'phone_required%' then raise; end if;
+end $$;
+do $$ begin
+  perform public.admin_add_person('Dup', 'asha@example.test', '+919000000022');
   raise exception 'FAIL: duplicate email accepted';
 exception when unique_violation then null;
 end $$;
@@ -52,7 +58,7 @@ reset role;
 set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-0000000000c1"}';
 set role authenticated;
 do $$ begin
-  perform public.admin_add_person('Sneaky', 'sneaky@example.test', null, '{admin}');
+  perform public.admin_add_person('Sneaky', 'sneaky@example.test', '+919000000023', '{admin}');
   raise exception 'FAIL: core team added a person';
 exception when insufficient_privilege then null;
 end $$;
@@ -61,7 +67,7 @@ reset role;
 -- Nobody signed in cannot call them at all.
 set role anon;
 do $$ begin
-  perform public.admin_add_person('Anon', 'anon@example.test', null);
+  perform public.admin_add_person('Anon', 'anon@example.test', '+919000000024');
   raise exception 'FAIL: anon added a person';
 exception when insufficient_privilege then null;
 end $$;

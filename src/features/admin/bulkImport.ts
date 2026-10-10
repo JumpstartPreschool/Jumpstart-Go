@@ -3,7 +3,7 @@
  * each one for public.import_child (0022). Pure functions, no dependencies: .xlsx is a zip of XML files, which the
  * browser's own DecompressionStream can open.
  */
-import { normalizeEmail, normalizeMobile } from '../../domain/contact'
+import { normalizeMobile } from '../../domain/contact'
 import type { ProgrammeRow } from './api'
 
 // ---- Reading the file --------------------------------------------------------------------------------------------
@@ -120,30 +120,35 @@ export async function readXlsx(b: Uint8Array): Promise<string[][]> {
 
 // ---- Understanding the rows ----------------------------------------------------------------------------------------
 
-type Field = 'child' | 'called' | 'dob' | 'gender' | 'programme' | 'childPhone'
-  | 'p1Name' | 'p1Relation' | 'p1Mobile' | 'p1Email' | 'p2Name' | 'p2Relation' | 'p2Mobile' | 'p2Email'
+type Field = 'child' | 'dob' | 'gender' | 'programme' | 'childPhone'
+  | 'p1Name' | 'p1Relation' | 'p1Mobile' | 'p2Name' | 'p2Relation' | 'p2Mobile'
   | 'fName' | 'fRelation' | 'fMobile'
 
-/** The template's columns, in order, with the other names people commonly give them. */
+/**
+ * The template's four columns, all needed (owner, 2026-10-06): the child's name and date of birth, a parent's name and
+ * contact number. The programme, relation and the rest are chosen in the app. Older sheets with the extra columns below
+ * still work: anything they fill in is used.
+ */
 export const COLUMNS: Array<{ field: Field; header: string; aliases?: string[]; required?: boolean }> = [
   { field: 'child', header: 'Child full name', aliases: ['childname', 'child', 'name', 'fullname', 'studentname'], required: true },
-  { field: 'called', header: 'Called', aliases: ['preferredname', 'nickname', 'calledas'] },
-  { field: 'dob', header: 'Date of birth', aliases: ['dob', 'birthdate', 'childdateofbirth', 'dateofbirthddmmyyyy'] },
+  { field: 'dob', header: 'Date of birth', aliases: ['dob', 'birthdate', 'childdateofbirth', 'dateofbirthddmmyyyy'], required: true },
+  { field: 'p1Name', header: 'Parent name', aliases: ['parent1name', 'parent1fullname', 'parentfullname', 'mothername', 'fathername'], required: true },
+  { field: 'p1Mobile', header: 'Contact number', aliases: ['contact', 'mobile', 'mobilenumber', 'phone', 'phonenumber', 'parentmobile', 'parentcontactnumber', 'parent1mobile', 'parent1phone', 'parent1contactnumber', 'parent1number', 'childcontactnumber'], required: true },
+]
+/** Columns older templates had: read when present, never asked for. */
+const EXTRA: typeof COLUMNS = [
   { field: 'gender', header: 'Boy or girl', aliases: ['gender', 'sex', 'boygirl'] },
-  { field: 'programme', header: 'Programme', aliases: ['program', 'classandprogramme', 'classprogramme', 'class', 'plan'], required: true },
-  { field: 'childPhone', header: 'Child contact number', aliases: ['contactnumber', 'childmobile', 'childphone'] },
-  { field: 'p1Name', header: 'Parent 1 name', aliases: ['parent1fullname', 'parentname'], required: true },
-  { field: 'p1Relation', header: 'Parent 1 relation', aliases: ['parent1relationship'] },
-  { field: 'p1Mobile', header: 'Parent 1 mobile', aliases: ['parent1phone', 'parent1contactnumber', 'parent1number', 'parentmobile'] },
-  { field: 'p1Email', header: 'Parent 1 email', aliases: ['parentemail'] },
+  { field: 'programme', header: 'Programme', aliases: ['program', 'classandprogramme', 'classprogramme', 'class', 'plan'] },
+  { field: 'childPhone', header: 'Child contact number', aliases: ['childmobile', 'childphone'] },
+  { field: 'p1Relation', header: 'Parent 1 relation', aliases: ['parent1relationship', 'parentrelation', 'relation'] },
   { field: 'p2Name', header: 'Parent 2 name', aliases: ['parent2fullname'] },
   { field: 'p2Relation', header: 'Parent 2 relation', aliases: ['parent2relationship'] },
   { field: 'p2Mobile', header: 'Parent 2 mobile', aliases: ['parent2phone', 'parent2contactnumber', 'parent2number'] },
-  { field: 'p2Email', header: 'Parent 2 email' },
   { field: 'fName', header: 'Family member name', aliases: ['familyname', 'othercollectorname', 'collectorname'] },
   { field: 'fRelation', header: 'Family member relation', aliases: ['familyrelation', 'familyrelationship'] },
   { field: 'fMobile', header: 'Family member mobile', aliases: ['familymobile', 'familyphone', 'familycontactnumber'] },
 ]
+const ALL = [...COLUMNS, ...EXTRA]
 
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9+]/g, '')
 
@@ -152,7 +157,7 @@ export function mapHeader(header: string[]): { map: Partial<Record<Field, number
   const map: Partial<Record<Field, number>> = {}
   header.forEach((h, i) => {
     const k = key(h)
-    const col = COLUMNS.find((c) => map[c.field] === undefined && (key(c.header) === k || c.aliases?.includes(k)))
+    const col = ALL.find((c) => map[c.field] === undefined && (key(c.header) === k || c.aliases?.includes(k)))
     if (col) map[col.field] = i
   })
   return { map, missing: COLUMNS.filter((c) => c.required && map[c.field] === undefined).map((c) => c.header) }
@@ -187,13 +192,14 @@ export function matchProgramme(input: string, programmes: ProgrammeRow[]): Progr
   return k ? programmes.find((p) => key(p.name) === k) ?? null : null
 }
 
-export interface Person { full_name: string; relation: string; kind: 'parent' | 'family'; email: string | null; phone: string | null; app_access: boolean }
+export interface Person { full_name: string; relation: string; kind: 'parent' | 'family'; phone: string; app_access: boolean }
 export interface ImportRow {
   /** The row number in the sheet (1 = the header). */
   line: number
   cells: string[]
   childName: string
-  child: { full_name: string; preferred_name: string | null; date_of_birth: string | null; programme_id: string; gender: 'boy' | 'girl' | null } | null
+  /** The programme is chosen in the app (BulkImportSheet) unless the sheet named one: null until then. */
+  child: { full_name: string; preferred_name: string | null; date_of_birth: string | null; programme_id: string | null; gender: 'boy' | 'girl' | null } | null
   programmeName: string | null
   people: Person[]
   /** Stop the row: it can't be imported until they're fixed. */
@@ -203,9 +209,8 @@ export interface ImportRow {
 }
 
 /**
- * Every data row, checked. Only the child's name, the programme and a parent's name are needed: a row missing those isn't
- * imported. Anything else missing or unreadable is a warning, and the row goes in without it. Each is a sentence the
- * school can act on.
+ * Every data row, checked. The child's name and date of birth, and a parent's name and contact number are needed: a row
+ * missing one isn't imported. Anything else missing or unreadable is a warning. Each is a sentence the school can act on.
  */
 export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = new Date()): { rows: ImportRow[]; missing: string[]; header: string[] } {
   // The column names are usually row 1, but a sheet often has a title or a note above them: the first of the top 10 rows
@@ -231,17 +236,16 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
     const dobText = get(r, 'dob')
     const dob = parseDate(dobText)
     const dobOk = !!dob && dob <= todayIso && dob >= '2010-01-02'
-    if (!dobText) warnings.push('No date of birth. Add it later on the child\'s page.')
-    else if (!dob) warnings.push(`"${dobText}" isn't a date, so the date of birth is left empty.`)
-    else if (!dobOk) warnings.push(`${dobText} can't be right for a preschool child, so the date of birth is left empty.`)
+    if (!dobText) problems.push('The date of birth is missing.')
+    else if (!dob) problems.push(`"${dobText}" isn't a date. Write it as DD/MM/YYYY.`)
+    else if (!dobOk) problems.push(`${dobText} can't be right for a preschool child.`)
     // Boy or girl, optional: picks the child's picture (D39).
     const genderText = get(r, 'gender').toLowerCase()
     const gender = /^(boy|b|m|male|son)$/.test(genderText) ? 'boy' as const : /^(girl|g|f|female|daughter)$/.test(genderText) ? 'girl' as const : null
     if (genderText && !gender) warnings.push(`"${get(r, 'gender')}" isn't Boy or Girl, so it's left empty.`)
     const progText = get(r, 'programme')
     const programme = matchProgramme(progText, programmes)
-    if (!progText) problems.push('The programme is missing.')
-    else if (!programme) problems.push(`"${progText}" isn't one of the school's programmes.`)
+    if (progText && !programme) warnings.push(`"${progText}" isn't one of the school's programmes: choose it here.`)
     if (name) {
       const k = `${name.toLowerCase()}|${dobOk ? dob : ''}`
       if (seen.has(k)) problems.push(`The same child is on row ${seen.get(k)}.`)
@@ -249,29 +253,29 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
     }
 
     const people: Person[] = []
-    const person = (label: string, n: string, rel: string, mobile: string, email: string, kind: 'parent' | 'family', fallbackRel: string) => {
-      if (!n && !mobile && !email) return
-      if (n.replace(/\s+/g, ' ').length < 2) { warnings.push(`${label} has contact details but no name, so they're left out.`); return }
+    const person = (label: string, n: string, rel: string, mobile: string, kind: 'parent' | 'family', fallbackRel: string) => {
+      if (!n && !mobile) return
+      if (n.replace(/\s+/g, ' ').length < 2) { warnings.push(`${label} has a mobile but no name, so they're left out.`); return }
       const phone = mobile ? normalizeMobile(mobile) : null
       if (mobile && !phone) warnings.push(`${label}'s mobile "${mobile}" isn't a mobile number, so it's left out.`)
-      const mail = email ? normalizeEmail(email) : null
-      if (email && !mail) warnings.push(`${label}'s email "${email}" isn't an email address, so it's left out.`)
-      if (!phone && !mail) { warnings.push(`${label} has no mobile or email, so they're left out. Add them on the child's page.`); return }
-      people.push({ full_name: n.replace(/\s+/g, ' '), relation: rel || fallbackRel, kind, email: mail, phone, app_access: !!mail })
+      if (!phone) { warnings.push(`${label} has no mobile, so they're left out. Add them on the child's page.`); return }
+      // The mobile is how they sign in, so everyone listed gets app access.
+      people.push({ full_name: n.replace(/\s+/g, ' '), relation: rel || fallbackRel, kind, phone, app_access: true })
     }
     // "Child contact number" (the family's number) stands in for Parent 1's mobile when that's empty.
-    person('Parent 1', get(r, 'p1Name'), get(r, 'p1Relation'), get(r, 'p1Mobile') || get(r, 'childPhone'), get(r, 'p1Email'), 'parent', 'Parent')
-    person('Parent 2', get(r, 'p2Name'), get(r, 'p2Relation'), get(r, 'p2Mobile'), get(r, 'p2Email'), 'parent', 'Parent')
-    person('The family member', get(r, 'fName'), get(r, 'fRelation'), get(r, 'fMobile'), '', 'family', 'Family')
-    if (!people.length) problems.push('A parent with a mobile or email is needed, so the school can reach the family.')
-    const emails = people.map((p) => p.email).filter(Boolean)
-    if (new Set(emails).size < emails.length) problems.push('Two people on this row have the same email.')
-    const phones = people.map((p) => p.phone).filter(Boolean)
+    person('The parent', get(r, 'p1Name'), get(r, 'p1Relation'), get(r, 'p1Mobile') || get(r, 'childPhone'), 'parent', 'Parent')
+    person('Parent 2', get(r, 'p2Name'), get(r, 'p2Relation'), get(r, 'p2Mobile'), 'parent', 'Parent')
+    person('The family member', get(r, 'fName'), get(r, 'fRelation'), get(r, 'fMobile'), 'family', 'Family')
+    const contact = get(r, 'p1Mobile') || get(r, 'childPhone')
+    if (get(r, 'p1Name').replace(/\s+/g, ' ').length < 2) problems.push("The parent's name is missing.")
+    else if (!contact) problems.push('The contact number is missing.')
+    else if (!normalizeMobile(contact)) problems.push(`"${contact}" isn't a mobile number. Use 10 digits, or + and the country code.`)
+    const phones = people.map((p) => p.phone)
     if (new Set(phones).size < phones.length) problems.push('Two people on this row have the same mobile.')
 
     out.push({
       line, cells: r, childName: name, programmeName: programme?.name ?? null, people, problems, warnings,
-      child: name.length >= 2 && programme ? { full_name: name, preferred_name: get(r, 'called') || null, date_of_birth: dobOk ? dob : null, programme_id: programme.id, gender } : null,
+      child: name.length >= 2 ? { full_name: name, preferred_name: null, date_of_birth: dobOk ? dob : null, programme_id: programme?.id ?? null, gender } : null,
     })
   })
   return { rows: out, missing: [], header }
@@ -282,10 +286,7 @@ export function checkRows(rows: string[][], programmes: ProgrammeRow[], today = 
 const csvCell = (s: string) => (/[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)
 export const toCsv = (rows: string[][]) => '﻿' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n'
 
-/** The template: the columns, and one example row the school replaces. */
-export function templateCsv(example: string): string {
-  return toCsv([
-    COLUMNS.map((c) => c.header),
-    ['Aarav Kulkarni', 'Aarav', '04/03/2022', 'Boy', example, '', 'Priya Kulkarni', 'Mother', '98765 43210', 'priya@example.com', 'Rahul Kulkarni', 'Father', '98765 43211', '', 'Suresh Kulkarni', 'Grandfather', '98765 43212'],
-  ])
+/** The template: the four columns, and one example row the school replaces. */
+export function templateCsv(): string {
+  return toCsv([COLUMNS.map((c) => c.header), ['Aarav Kulkarni', '04/03/2022', 'Priya Kulkarni', '98765 43210']])
 }

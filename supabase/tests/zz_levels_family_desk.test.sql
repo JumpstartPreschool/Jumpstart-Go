@@ -1,8 +1,8 @@
 -- 0011: classes are levels (D18), family and parents abroad (D26), two admins only (D27), the PRO team's desk (D25).
 -- Uses the people from foundation.test.sql: a1 admin, c1 core, d1 coordinator, e1 and e2 parents; Aarav c0001 (Jr KG
 -- half day, class c001 Jr KG) and Meera c0002 (Learning Center, c002). Monday 28 Sep 2026.
-insert into public.profiles (id, full_name, email) values ('00000000-0000-0000-0000-0000000000b1', 'Front Desk', 'desk@example.test');
-insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000b1', 'desk@example.test');
+insert into public.profiles (id, full_name, email, phone) values ('00000000-0000-0000-0000-0000000000b1', 'Front Desk', 'desk@example.test', '+919000000008');
+insert into auth.users (id, email, raw_app_meta_data) values ('00000000-0000-0000-0000-0000000000b1', 'desk@example.test', '{"provisioned":"school"}');
 insert into public.staff_roles values ('00000000-0000-0000-0000-0000000000b1', 'pro');
 set app.now = '2026-09-28 10:00:00+05:30';
 

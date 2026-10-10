@@ -679,8 +679,8 @@
     .duty-actions .lux__icon svg, .duty-actions .endduty svg { width: 18px; height: 18px; }
   }
 
-  /* The sign-in code step: the address the code went to, as a pill with Change built in (src/features/auth/LoginScreen.tsx). */
-  .email-chip {
+  /* The sign-in code step: the number the code went to, as a pill with Change built in (src/features/auth/LoginScreen.tsx). */
+  .phone-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -695,8 +695,8 @@
     color: var(--ink);
     transition: background-color var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
   }
-  .email-chip__mail { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
-  .email-chip__edit {
+  .phone-chip__icon { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
+  .phone-chip__edit {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -710,10 +710,10 @@
     font-weight: 750;
     box-shadow: 0 4px 10px -6px rgb(22 25 58 / 0.3), inset 0 0 0 1px var(--line-2);
   }
-  .email-chip__edit svg { width: 15px; height: 15px; }
-  @media (hover: hover) { .email-chip:hover { background: var(--sunken-hover); } }
-  .email-chip:active { transform: scale(0.98); }
-  .email-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .phone-chip__edit svg { width: 15px; height: 15px; }
+  @media (hover: hover) { .phone-chip:hover { background: var(--sunken-hover); } }
+  .phone-chip:active { transform: scale(0.98); }
+  .phone-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
   /* The signed-in person's button in the top bar: the same frosted glass as the buttons, the initials inset inside it. */
   .account-pill {
     background: rgb(255 255 255 / 0.9);
@@ -723,7 +723,7 @@
   @media (hover: hover) { .account-pill:hover { background: #fff; } }
   .account-pill:active { transform: scale(0.97); }
   :root[data-theme='dark'] .account-pill { background: rgb(32 37 74 / 0.62); box-shadow: 0 8px 18px -10px rgb(0 0 0 / 0.6), inset 0 0 0 1px var(--line-2); }
-  /* A text-only action inside a card ("Change email"). */
+  /* A text-only action inside a card ("Change number"). */
   .linkbtn {
     min-height: 44px;
     padding-inline: 8px;
@@ -900,23 +900,7 @@
   .input__value:focus-visible { outline: 0; }
   .input input::placeholder { color: var(--ink-3); font-weight: 500; }
   .input--sm { height: 44px; }
-  /* Show/Hide inside a password field (PasswordField): a 44 pt target flush with the field's right edge. */
-  .input--reveal { padding-right: 4px; }
-  .input__reveal {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-sm);
-    color: var(--ink-2);
-    transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
-  }
-  .input__reveal svg { width: 20px; height: 20px; }
-  @media (hover: hover) { .input__reveal:hover { background: var(--sunken); color: var(--ink); } }
-  .input__reveal:active { background: color-mix(in oklab, var(--ink) 10%, transparent); }
-  .input__reveal:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -2px; }
-  /* The emailed 6-digit code: one real input, large spaced digits, so it can be typed, pasted, selected and filled. */
+  /* The 6-digit code from WhatsApp: one real input, large spaced digits, so it can be typed, pasted, selected and filled. */
   .code-input {
     width: 100%;
     height: 68px;
@@ -994,10 +978,15 @@
     background: var(--elevated);
   }
 
-  /* Toasts (src/ui/Toast.tsx) */
+  /* Toasts (src/ui/Toast.tsx). The position lives here, not in a utility class, so the tab-bar rule below can win. */
   .toast { animation: toast-in var(--dur-slow) var(--ease-spring) both; }
+  .toast-region--bottom { bottom: max(16px, env(safe-area-inset-bottom)); }
+  /* News from someone else, under the floating top bar, like a phone's banner; it drops in from above. */
+  .toast-region--top { top: calc(max(12px, env(safe-area-inset-top)) + 72px); }
+  .toast-region--top .toast { animation-name: toast-drop; }
   /* Above the parent's tab bar on phones, never on top of it. */
-  @media (max-width: 767px) { body:has(nav[aria-label='Parent pages']) .toast-region { bottom: calc(96px + env(safe-area-inset-bottom)); } }
+  /* Above the bottom tab bar on phones (every area with pages has one), never over it. */
+  @media (max-width: 767px) { body:has(nav[aria-label$=' pages']) .toast-region--bottom { bottom: calc(96px + env(safe-area-inset-bottom)); } }
   .toast[data-leaving] { animation: toast-out var(--dur-base) var(--ease-exit) both; }
 
   /* Route changes: the new page settles in; it never waits on the animation to be usable. */
@@ -1057,12 +1046,123 @@
   .speakbtn-bars > span:nth-child(3) { animation-delay: -600ms; }
 
   .float { animation: float 6s ease-in-out infinite; }
+
+  /* Sign-in: "or" between the WhatsApp code and email sign-in, and the badge over a step's heading. */
+  .signin-or { display: flex; align-items: center; gap: 12px; color: var(--ink-3); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+  .signin-or::before, .signin-or::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--line-2), transparent); }
+  .signin-badge {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: linear-gradient(155deg, #8a161b, #c8262c);
+    box-shadow: 0 12px 24px -12px rgb(200 38 44 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  }
+  .signin-badge svg { width: 32px; height: 32px; }
+
+  /* Show or hide a password, inside the field (src/features/auth/PasswordField.tsx). */
+  .input__reveal {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin-right: -10px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-2);
+    transition: background-color var(--dur-fast) var(--ease-standard), transform var(--dur-press) var(--ease-standard);
+  }
+  .input__reveal svg { width: 20px; height: 20px; }
+  .input__reveal[aria-pressed='true'] { background: var(--accent-soft); }
+  @media (hover: hover) { .input__reveal:hover { background: var(--sunken); } }
+  .input__reveal:active { transform: scale(0.94); }
+  .input__reveal:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+
+  /* Settings → Email sign-in: words from the email the admin taps into the pattern. */
+  .token-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 6px 14px 6px 6px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 6px 14px -10px rgb(22 25 58 / 0.4), inset 0 0 0 1px var(--line-2), inset 0 1px 0 rgb(255 255 255 / 0.9);
+    transition: transform var(--dur-press) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+  }
+  .token-chip code {
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font: 750 13px/1.2 ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  @media (hover: hover) { .token-chip:hover { background: color-mix(in oklab, var(--sunken) 55%, var(--surface)); box-shadow: 0 10px 20px -12px rgb(22 25 58 / 0.45), inset 0 0 0 1px var(--line-hover); } }
+  .token-chip:active { transform: scale(0.96); }
+  .token-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  :root[data-theme='dark'] .token-chip { background: rgb(32 37 74 / 0.62); box-shadow: 0 8px 18px -12px rgb(0 0 0 / 0.6), inset 0 0 0 1px var(--line-2); }
+
+  /* The pattern editor's input: the pattern in monospace, so every brace and symbol is easy to check. */
+  .input--mono :is(input, textarea) { font: 650 16px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.01em; }
+
+  /* The vault: a deep ink card with a warm gold edge that shows what a pattern makes. Solid, so it reads on any background. */
+  .vault {
+    --vault-gold: #e9c27a;
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    color: #f6f3ff;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgb(200 38 44 / 0.38), transparent 60%),
+      radial-gradient(90% 80% at 0% 100%, rgb(233 194 122 / 0.16), transparent 55%),
+      linear-gradient(160deg, #1d2150, #12152f 70%);
+    box-shadow: 0 24px 50px -28px rgb(22 25 58 / 0.75), inset 0 0 0 1px rgb(233 194 122 / 0.28), inset 0 1px 0 rgb(255 255 255 / 0.1);
+  }
+  .vault__label { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--vault-gold); }
+  .vault__email { margin-top: 2px; font-size: 14px; font-weight: 600; color: rgb(246 243 255 / 0.72); overflow-wrap: anywhere; }
+  .vault__secret {
+    margin-top: 10px;
+    font: 750 clamp(22px, 5vw, 28px)/1.15 ui-monospace, 'SF Mono', Menlo, monospace;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+    color: #fff;
+    text-shadow: 0 1px 12px rgb(233 194 122 / 0.25);
+  }
+  .vault__secret[data-empty='true'] { color: rgb(246 243 255 / 0.45); font-size: 18px; font-family: inherit; font-weight: 650; letter-spacing: 0; }
+  .vault .input { background: rgb(255 255 255 / 0.06); border-color: rgb(255 255 255 / 0.14); color: #fff; }
+  .vault .input > svg { color: rgb(246 243 255 / 0.6); }
+  .vault .input input::placeholder { color: rgb(246 243 255 / 0.45); }
+  .vault .input:focus-within { border-color: var(--vault-gold); box-shadow: 0 0 0 4px rgb(233 194 122 / 0.18); }
+  .vault__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding-inline: 14px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.08);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 750;
+    box-shadow: inset 0 0 0 1px rgb(233 194 122 / 0.35);
+    transition: background-color var(--dur-fast) var(--ease-standard), transform var(--dur-press) var(--ease-standard);
+  }
+  .vault__copy svg { width: 18px; height: 18px; }
+  @media (hover: hover) { .vault__copy:hover { background: rgb(255 255 255 / 0.14); } }
+  .vault__copy:active { transform: scale(0.96); }
+  .vault__copy:focus-visible { outline: 3px solid var(--vault-gold); outline-offset: 2px; }
 }
 
 @keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes pop-in { from { transform: scale(0); } }
 @keyframes speak-level { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } }
+@keyframes toast-drop { from { opacity: 0; transform: translateY(-16px) scale(0.96); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
 @keyframes shake { 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
 @keyframes float {

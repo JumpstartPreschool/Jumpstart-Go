@@ -15,7 +15,8 @@ group('the audit log in words', () => {
   it('says who changed access, and skips the first sign-in link', () => {
     expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', app_access: true }, { full_name: 'Neha Shah', app_access: false }), names)).toEqual({ what: 'Turned off app access for Neha Shah', detail: 'Signed out everywhere' })
     expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', user_id: null }, { full_name: 'Neha Shah', user_id: 'u' }), names)).toBeNull()
-    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'whatsapp' }), names)?.what).toBe('Invited Neha Shah by WhatsApp')
+    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'whatsapp' }), names)?.what).toBe('Invited Neha Shah on WhatsApp')
+    expect(describe(row('profiles', 'update', { full_name: 'Neha Shah', invited_at: null }, { full_name: 'Neha Shah', invited_at: 'x', invited_via: 'sms' }), names)?.what).toBe('Invited Neha Shah by text message')
   })
   it('names roles and classes the school way', () => {
     expect(describe(row('staff_roles', 'insert', null, { profile_id: 'p1', role: 'pro' }), names)?.what).toBe('Sunita Pawar is now Front desk')
@@ -25,5 +26,21 @@ group('the audit log in words', () => {
     expect(describe(row('classes', 'insert', null, { name: 'Toddlers' }), names)?.what).toBe('Added the class Toddlers')
     expect(describe(row('programmes', 'insert', null, { name: 'Toddlers · Mornings' }), names)?.what).toBe('Added the programme Toddlers · Mornings')
     expect(describe(row('programmes', 'update', { name: 'Toddlers · Mornings' }, { name: 'Toddlers · Mornings' }), names)?.what).toBe('Changed the timings of Toddlers · Mornings')
+  })
+
+  it('says what changed in the gate announcements, and spots a reset', () => {
+    const base = { early_min: 15, ready_min: 10, urgent_min: 5, reminder_min: 2, pickup_eta: null }
+    expect(describe(row('gate_announcement_settings', 'update', base, { ...base, urgent_min: 7, ready_min: 15, early_min: 20 }), names))
+      .toEqual({ what: 'Changed gate announcements', detail: 'Early announcement: 15 → 20 min, Get ready: 10 → 15 min, Urgent: 5 → 7 min' })
+    expect(describe(row('gate_announcement_settings', 'update', base, { ...base, pickup_eta: 'x' }), names)?.detail).toBe('Pickup on the way wording changed')
+    expect(describe(row('gate_announcement_settings', 'update', { ...base, pickup_eta: 'x', urgent_min: 7 }, base), names)?.what).toBe('Reset gate announcements to the defaults')
+    // One wording back to its default while another change stays is not a reset.
+    expect(describe(row('gate_announcement_settings', 'update', { ...base, pickup_eta: 'x', urgent_min: 7 }, { ...base, urgent_min: 7 }), names)?.what).toBe('Changed gate announcements')
+  })
+
+  it('says who ran late, from and to, with the note', () => {
+    const t = { child_id: 'c', direction: 'pickup', arrive_at: '2026-10-05T07:40:00Z', late_from: null }
+    expect(describe(row('trips', 'update', t, { ...t, arrive_at: '2026-10-05T07:50:00Z', late_from: '2026-10-05T07:40:00Z', late_by: 'g1', late_note: 'Traffic near school' }), names))
+      .toEqual({ what: "Neha Shah changed Kabir's pickup arrival from 1:10 PM to 1:20 PM: running late", detail: '“Traffic near school”' })
   })
 })

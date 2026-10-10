@@ -31,13 +31,13 @@ begin
   assert (select not app_access from public.profiles where id = aunt), 'aunt kept as a contact';
   assert (select count(*) from public.guardianships where child_id = kid) = 3, 'three on the record, one linked';
 
-  -- App access for someone new needs an email.
+  -- App access for someone new needs a mobile (person_for_record, 0039:161).
   begin
     perform public.admin_add_guardian(kid, '{"full_name":"Ravi Rao","relation":"Uncle","kind":"family"}');
-    raise exception 'FAIL: app access without an email';
+    raise exception 'FAIL: app access without a mobile';
   exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
-    assert sqlerrm like 'email_required%', sqlerrm;
+    assert sqlerrm like 'phone_required%', sqlerrm;
   end;
 
   -- Removing people: fine until the last one.
@@ -53,7 +53,7 @@ begin
 
   -- Access off: still on the record (the gate can hand over), but can't sign in.
   update public.profiles set app_access = false where id = mum;
-  assert not public.login_allowed('nisha@example.test'), 'no sign-in without app access';
+  assert not public.phone_login_allowed('+14155550123'), 'no sign-in without app access';
   assert (select active from public.profiles where id = mum), 'still on the record';
   update public.profiles set app_access = true where id = mum;
 

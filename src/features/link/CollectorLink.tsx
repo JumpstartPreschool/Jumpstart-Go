@@ -137,9 +137,9 @@ function LateSheet({ open, onClose, token, link, onDone }: { open: boolean; onCl
 }
 
 /**
- * The page the person collecting opens from WhatsApp (J8, TRIP-3, TRIP-4): no sign-in or install. Confirming binds the
- * link to this phone; the code is shown only here and to the parent. Location is optional, only during the trip, and
- * stops at "Reached home" or an hour after the handover.
+ * The page the person collecting, or dropping off (D58), opens from WhatsApp (J8, TRIP-3, TRIP-4): no sign-in or install.
+ * Confirming binds the link to this phone. Collecting, the code is shown only here and to the parent, and location stops
+ * at "Reached home" or an hour after the handover; dropping off, there's no code and the trip ends at the check-in.
  */
 export default function CollectorLink() {
   const { token = '' } = useParams()
@@ -190,13 +190,16 @@ export default function CollectorLink() {
   }
   if (state.kind === 'ended') {
     return state.reason === 'in_use'
-      ? <Ended title="This link is open on another phone">A pickup link works on one phone only. Use that phone, or ask the parent for a new link.</Ended>
+      ? <Ended title="This link is open on another phone">This link works on one phone only. Use that phone, or ask the parent for a new link.</Ended>
       : <Ended title="This link has ended">It was cancelled, replaced or the trip is over. Ask the parent for a new link.</Ended>
   }
 
   const l = state.link
   const nm = l.collector.split(' ')[0]!
   const code = l.code ?? '----'
+  // A drop-off by someone else has no code: the gate checks the child in (D58).
+  const pickup = l.direction === 'pickup'
+  const trip = pickup ? 'pickup' : 'drop-off'
   const callSchool = l.school_phone && (
     <a className="btn btn--quiet btn--md justify-self-center" href={`tel:${l.school_phone}`}><Phone aria-hidden />Call the school</a>
   )
@@ -204,10 +207,10 @@ export default function CollectorLink() {
   // Not confirmed on this phone yet.
   if (!state.mine) {
     return (
-      <Page pill={<Pill icon={<Link2 />}>Pickup link</Pill>}>
+      <Page pill={<Pill icon={<Link2 />}>{pickup ? 'Pickup link' : 'Drop-off link'}</Pill>}>
         <div>
-          <p className="kicker">Pickup link from Jumpstart Go</p>
-          <h1 className="mt-1 text-display text-balance">Hi {nm}, you're collecting {l.child} today</h1>
+          <p className="kicker">{pickup ? 'Pickup' : 'Drop-off'} link from Jumpstart Go</p>
+          <h1 className="mt-1 text-display text-balance">{pickup ? `Hi ${nm}, you're collecting ${l.child} today` : `Hi ${nm}, you're dropping ${l.child} off today`}</h1>
         </div>
         <div className="card grid grid-cols-2 gap-4 rounded-2xl p-5">
           <div><p className="kicker">When</p><p className="mt-1 text-h3 tabular-nums">About {clockTime(l.arrive_at)}</p></div>
@@ -215,8 +218,9 @@ export default function CollectorLink() {
           <div className="col-span-2"><p className="kicker">Where</p><p className="mt-1 text-h4">Jumpstart Preschool, 11/7 Matoshri, Karve Road, Erandwane, Pune</p></div>
         </div>
         <ul className="grid gap-3">
-          <Bullet icon={<KeyRound />}>You'll get a 4-digit code to show at the gate.</Bullet>
-          <Bullet icon={<ShieldCheck />}>This link works only on your phone, and only for this pickup.</Bullet>
+          {pickup ? <Bullet icon={<KeyRound />}>You'll get a 4-digit code to show at the gate.</Bullet>
+            : <Bullet icon={<KeyRound />}>No code needed: the gate team knows you're coming and checks {l.child} in.</Bullet>}
+          <Bullet icon={<ShieldCheck />}>This link works only on your phone, and only for this {trip}.</Bullet>
         </ul>
         <form className="grid gap-3" onSubmit={(e) => {
           e.preventDefault()
@@ -265,7 +269,20 @@ export default function CollectorLink() {
     )
   }
 
-  if (l.status !== 'en_route') return <Ended title="This link has ended">The trip is over. If you still need to collect the child, ask the parent to send a new link.</Ended>
+  // Dropped off: checked in by the gate, and the link closes a few minutes later.
+  if (l.status === 'checked_in') {
+    return (
+      <Page pill={<Pill tone="live" icon={<CircleCheck />}>Checked in</Pill>}>
+        <div className="grid justify-items-center gap-2 pt-4 text-center">
+          <Mascot size={120} />
+          <h1 className="text-display text-balance">{l.child} is at school. Thank you, {nm}!</h1>
+          <p className="text-body text-ink-2">Checked in at {clockTime(l.closed_at!)}. The family has been told. You can close this page.</p>
+        </div>
+      </Page>
+    )
+  }
+
+  if (l.status !== 'en_route') return <Ended title="This link has ended">The trip is over. If you're still on the way, ask the parent to send a new link.</Ended>
 
   // Location choice, once.
   if (local.loc === null) {
@@ -277,8 +294,8 @@ export default function CollectorLink() {
         </div>
         <ul className="card grid gap-3 rounded-2xl p-5">
           <Bullet icon={<Check />}>Only the parent who sent you this link sees where you are. The school doesn't.</Bullet>
-          <Bullet icon={<Check />}>It's only for this trip, and stops when you tap Reached home or an hour after the handover.</Bullet>
-          <Bullet icon={<Check />}>You can say no: you'll still collect {l.child} with the code at the gate.</Bullet>
+          <Bullet icon={<Check />}>{pickup ? "It's only for this trip, and stops when you tap Reached home or an hour after the handover." : `It's only for this trip, and stops when ${l.child} is checked in.`}</Bullet>
+          <Bullet icon={<Check />}>{pickup ? `You can say no: you'll still collect ${l.child} with the code at the gate.` : `You can say no: you can still drop ${l.child} off as planned.`}</Bullet>
         </ul>
         <div className="grid gap-2.5">
           <Button size="xl" icon={<MapPin />} onClick={() => setLocal({ loc: true })}>Allow location</Button>
@@ -288,17 +305,24 @@ export default function CollectorLink() {
     )
   }
 
-  // Ready to leave: the code and Start trip.
+  // Ready to leave: the code (collecting) and Start trip.
   if (!local.started) {
     return (
-      <Page pill={<Pill tone="accent" icon={<KeyRound />}>Ready</Pill>}>
-        <h1 className="text-h1">Your code for {l.child}</h1>
-        <div className="card grid gap-3 rounded-2xl p-6">
-          <p className="kicker text-center">Show this code at the gate</p>
-          <CodeTiles code={code} size="xl" />
-        </div>
+      <Page pill={<Pill tone="accent" icon={pickup ? <KeyRound /> : <Navigation />}>Ready</Pill>}>
+        <h1 className="text-h1">{pickup ? `Your code for ${l.child}` : `Dropping ${l.child} off`}</h1>
+        {pickup ? (
+          <div className="card grid gap-3 rounded-2xl p-6">
+            <p className="kicker text-center">Show this code at the gate</p>
+            <CodeTiles code={code} size="xl" />
+          </div>
+        ) : (
+          <div className="card grid grid-cols-2 gap-4 rounded-2xl p-5">
+            <div><p className="kicker">When</p><p className="mt-1 text-h3 tabular-nums">About {clockTime(l.arrive_at)}</p></div>
+            <div><p className="kicker">Child</p><p className="mt-1 text-h3">{l.child}</p></div>
+          </div>
+        )}
         <ol className="grid gap-2 text-body font-semibold">
-          {['Tap Start trip when you leave', 'Keep this page open on the way', 'Tell the center leader the code'].map((s, i) => (
+          {['Tap Start trip when you leave', 'Keep this page open on the way', pickup ? 'Tell the center coordinator the code' : `Hand ${l.child} to the center coordinator`].map((s, i) => (
             <li key={s} className="flex items-center gap-3"><span className="grid size-7 place-items-center rounded-full bg-sunken text-small font-extrabold tabular-nums" aria-hidden>{i + 1}</span>{s}</li>
           ))}
         </ol>
@@ -312,11 +336,20 @@ export default function CollectorLink() {
   if (local.atGate) {
     return (
       <Page pill={<Pill tone="accent" icon={<Hand />}>At the gate</Pill>}>
-        <h1 className="text-h1">Show this code at the gate</h1>
-        <div className="card rounded-2xl px-4 py-8"><CodeTiles code={code} size="xl" /></div>
-        <p className="text-body text-ink-2">The center leader types it into the gate tablet, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
-        {l.locked ? <Notice tone="danger" icon={<Lock />}>The handover is locked after three wrong codes. Please ask the center leader to call the parent.</Notice>
-          : <Pill tone="accent" className="justify-self-start"><span className="size-2 animate-pulse rounded-full bg-current" aria-hidden />Waiting for the center leader</Pill>}
+        {pickup ? (
+          <>
+            <h1 className="text-h1">Show this code at the gate</h1>
+            <div className="card rounded-2xl px-4 py-8"><CodeTiles code={code} size="xl" /></div>
+            <p className="text-body text-ink-2">The center coordinator types it into the gate tablet, then hands {l.child} over. Three wrong codes lock the handover and the parent is told.</p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-h1">You're at the gate</h1>
+            <p className="text-body text-ink-2">The gate team has been told. Hand {l.child} to the center coordinator, who checks {l.child} in. The family is told straight away.</p>
+          </>
+        )}
+        {pickup && l.locked ? <Notice tone="danger" icon={<Lock />}>The handover is locked after three wrong codes. Please ask the center coordinator to call the parent.</Notice>
+          : <Pill tone="accent" className="justify-self-start"><span className="size-2 animate-pulse rounded-full bg-current" aria-hidden />Waiting for the center coordinator</Pill>}
         <Button variant="quiet" onClick={() => setLocal({ atGate: false })}>Back</Button>
         {callSchool}
       </Page>
@@ -346,14 +379,14 @@ export default function CollectorLink() {
       ) : <Notice tone="info">Location is off. The school still expects you at about {clockTime(l.arrive_at)}.</Notice>}
       <div className="card flex items-center justify-between gap-4 rounded-2xl p-5">
         <div><p className="kicker flex items-center gap-1.5"><Clock className="size-4" aria-hidden />Arriving</p><p className="mt-1 text-h2 tabular-nums">About {clockTime(l.arrive_at)}</p></div>
-        <div className="text-right"><p className="kicker">Your code</p><p className="mt-1 text-h2 tracking-[0.14em] tabular-nums">{code}</p></div>
+        {pickup && <div className="text-right"><p className="kicker">Your code</p><p className="mt-1 text-h2 tracking-[0.14em] tabular-nums">{code}</p></div>}
       </div>
       {l.ready_at && <Notice tone="success">{l.child} is ready at the gate.</Notice>}
-      {/* The code shows at once; the gate is told in the background, and hears "…has arrived for pickup". */}
+      {/* The gate page shows at once; the gate is told in the background, and hears "…has arrived for pickup" (or drop-off). */}
       <Button size="xl" className="w-full" icon={<Hand />} onClick={() => {
         setLocal({ atGate: true })
         void linkArrive(token).then((next) => setState({ kind: 'open', link: next, mine: true }),
-          () => toast("Couldn't tell the gate you're here. Please tell the center leader.", { tone: 'danger' }))
+          () => toast("Couldn't tell the gate you're here. Please tell the gate team.", { tone: 'danger' }))
       }}>I'm at the gate</Button>
       <div className="grid grid-cols-2 gap-2.5">
         <Button variant="sunshine" icon={<Timer />} onClick={() => setLate(true)}>Running late</Button>

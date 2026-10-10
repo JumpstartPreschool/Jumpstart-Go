@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
-import { CircleAlert, CircleCheck, Download, FileSpreadsheet, Info, RotateCcw, TriangleAlert, Upload } from '../../ui/icons'
+import { ChevronRight, CircleAlert, CircleCheck, Download, FileSpreadsheet, Info, RotateCcw, TriangleAlert, Upload } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { Sheet, SheetFooter } from '../../ui/Sheet'
 import { Notice } from '../../ui/States'
@@ -7,6 +7,7 @@ import type { ProgrammeRow } from './api'
 import { checkRows, readSheet, templateCsv, toCsv, COLUMNS, type ImportRow } from './bulkImport'
 import { clearImport, startImport, useImportJob } from './importJob'
 import { Progress } from './ImportBanner'
+import { ProgrammePicker } from './ProgrammePicker'
 
 type Step =
   | { name: 'choose'; error: string | null }
@@ -39,6 +40,9 @@ export function BulkImportSheet({ programmes, onClose }: { programmes: Programme
   const job = useImportJob()
   const [step, setStep] = useState<Step>({ name: 'choose', error: null })
   const [dragging, setDragging] = useState(false)
+  // The programme for each row (by sheet line), chosen here; null opens the picker for every child still without one.
+  const [chosen, setChosen] = useState<Map<number, string>>(new Map())
+  const [picking, setPicking] = useState<ImportRow | 'all' | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const active = programmes.filter((p) => p.name)
 
@@ -52,6 +56,7 @@ export function BulkImportSheet({ programmes, onClose }: { programmes: Programme
       if (!rows.length) return setStep({ name: 'choose', error: 'The sheet has no children in it, only the header row.' })
       if (rows.length > 500) return setStep({ name: 'choose', error: `The sheet has ${rows.length} rows. Upload up to 500 at a time.` })
       clearImport()
+      setChosen(new Map(rows.flatMap((r) => (r.child?.programme_id ? [[r.line, r.child.programme_id] as const] : []))))
       setStep({ name: 'preview', file: file.name, header, rows })
     } catch (e) {
       const why = (e as Error).message
@@ -81,20 +86,18 @@ export function BulkImportSheet({ programmes, onClose }: { programmes: Programme
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-h4">Start from the template</p>
-                <p className="text-small font-semibold text-ink-2">{COLUMNS.length} columns; the ones marked * are needed. Opens in Excel or Google Sheets.</p>
+                <p className="text-small font-semibold text-ink-2">Four columns, all needed. Opens in Excel or Google Sheets.</p>
               </div>
-              <Button size="md" variant="secondary" icon={<Download />} onClick={() => download('jumpstart-children-template.csv', templateCsv(active[0]?.name ?? 'Nursery · 360°'))}>Template</Button>
+              <Button size="md" variant="secondary" icon={<Download />} onClick={() => download('jumpstart-children-template.csv', templateCsv())}>Template</Button>
             </div>
-            <details className="text-small font-semibold text-ink-2">
-              <summary className="cursor-pointer text-accent-ink">See the {COLUMNS.length} columns</summary>
-              <p className="mt-1.5">{COLUMNS.map((c, i) => <span key={c.field}>{c.header}{c.required ? '*' : ''}{i < COLUMNS.length - 1 ? ', ' : ''}</span>)}</p>
-            </details>
-            <details className="text-small font-semibold text-ink-2">
-              <summary className="cursor-pointer py-1 font-bold text-accent-ink">Programme names to use</summary>
-              <ul className="mt-2 grid gap-1 sm:grid-cols-2">{active.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
-              <p className="mt-2">Capitals, spaces and the "·" don't matter: "nursery 360" works.</p>
-            </details>
-            <p className="text-small font-semibold text-ink-2">Dates as DD/MM/YYYY. People already on record are linked, not added twice.</p>
+            <ol className="grid gap-1.5 sm:grid-cols-2">
+              {COLUMNS.map((c, i) => (
+                <li key={c.field} className="flex items-center gap-2.5 rounded-lg bg-sunken px-3 py-2 text-small font-bold">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-caption text-accent-ink tabular-nums" aria-hidden>{i + 1}</span>{c.header}
+                </li>
+              ))}
+            </ol>
+            <p className="text-small font-semibold text-ink-2">Dates as DD/MM/YYYY. After the upload you choose each child's programme here; relation, other family and the rest are added on the child's page. People already on record are linked, not added twice.</p>
           </div>
         </div>
       )}
@@ -104,6 +107,17 @@ export function BulkImportSheet({ programmes, onClose }: { programmes: Programme
         const gaps = step.rows.filter((r) => !r.problems.length && r.warnings.length)
         const bad = step.rows.filter((r) => r.problems.length)
         const going = clean.length + gaps.length
+        const unchosen = step.rows.filter((r) => !r.problems.length && !chosen.has(r.line))
+        const programmeOf = (r: ImportRow) => active.find((p) => p.id === chosen.get(r.line))
+        const pick = (id: string) => {
+          setChosen((m) => {
+            const next = new Map(m)
+            if (picking === 'all') for (const r of unchosen) next.set(r.line, id)
+            else if (picking) next.set(picking.line, id)
+            return next
+          })
+          setPicking(null)
+        }
         const tone = (r: ImportRow) => r.problems.length ? 'bg-danger-soft' : r.warnings.length ? 'bg-warning-soft' : 'bg-sunken'
         return (
           <>
@@ -122,25 +136,48 @@ export function BulkImportSheet({ programmes, onClose }: { programmes: Programme
                     <div className="min-w-0">
                       <p className="text-h4"><span className="sr-only">{r.problems.length ? "Can't add: " : r.warnings.length ? 'Added with gaps: ' : 'Ready: '}</span>{r.childName || 'No name'} <span className="text-small font-semibold text-ink-2">· row {r.line}</span></p>
                       {r.problems.length > 0 && <ul className="mt-0.5 text-small font-semibold text-ink">{r.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
-                      {!r.problems.length && <p className="text-small font-semibold text-ink-2">{r.programmeName} · {r.people.map((p) => `${p.full_name} (${p.relation})`).join(', ')}</p>}
+                      {!r.problems.length && <p className="text-small font-semibold text-ink-2">{r.people.map((p) => p.full_name).join(', ')}</p>}
+                      {!r.problems.length && (
+                        <button type="button" onClick={() => setPicking(r)}
+                          className={`mt-2 flex min-h-11 w-full items-center gap-2 rounded-[10px] border px-3 text-left text-small font-bold transition-colors duration-150 ${programmeOf(r) ? 'border-line bg-surface hover:border-line-hover' : 'border-accent bg-accent-soft text-accent-ink'}`}>
+                          <span className="min-w-0 flex-1 truncate">{programmeOf(r)?.name ?? 'Choose the programme'}</span>
+                          <ChevronRight className="size-4 shrink-0" aria-hidden />
+                        </button>
+                      )}
                       {!r.problems.length && r.warnings.length > 0 && <ul className="mt-0.5 text-small font-semibold text-ink">{r.warnings.map((p) => <li key={p}>{p}</li>)}</ul>}
                     </div>
                   </li>
                 ))}
               </ul>
+              {unchosen.length > 1 && (
+                <Button variant="secondary" size="md" onClick={() => setPicking('all')}>Same programme for the {plural(unchosen.length, 'child', 'children')} without one</Button>
+              )}
               {(gaps.length > 0 || bad.length > 0) && (
                 <Notice tone="info" icon={<Info aria-hidden />}>
                   {gaps.length > 0 && `${plural(gaps.length, 'child', 'children')} go in now; add the missing details later on each child's page. `}
-                  {bad.length > 0 && `${plural(bad.length, 'row')} need a name, programme or parent first: download them after the import, fix and upload again.`}
+                  {bad.length > 0 && `${plural(bad.length, 'row')} ${bad.length === 1 ? 'needs' : 'need'} a name, date of birth, parent or contact number first: download ${bad.length === 1 ? 'it' : 'them'} after the import, fix and upload again.`}
                 </Notice>
               )}
             </div>
             <SheetFooter>
               <div className="flex flex-wrap gap-2.5 [&>*]:grow [&>*]:basis-44">
                 <Button variant="secondary" icon={<RotateCcw />} onClick={() => setStep({ name: 'choose', error: null })}>Choose another file</Button>
-                <Button icon={<Upload />} disabled={!going} onClick={() => { void startImport(step.file, step.header, step.rows); setStep({ name: 'choose', error: null }) }}>Add {plural(going, 'child', 'children')}</Button>
+                <Button icon={<Upload />} disabled={!going || unchosen.length > 0}
+                  onClick={() => {
+                    const rows = step.rows.map((r) => (r.child && chosen.has(r.line) ? { ...r, child: { ...r.child, programme_id: chosen.get(r.line)! } } : r))
+                    void startImport(step.file, step.header, rows)
+                    setStep({ name: 'choose', error: null })
+                  }}>
+                  {unchosen.length ? `Choose ${plural(unchosen.length, 'programme')} first` : `Add ${plural(going, 'child', 'children')}`}
+                </Button>
               </div>
             </SheetFooter>
+            {picking && (
+              <ProgrammePicker open onClose={() => setPicking(null)} programmes={programmes}
+                childName={picking === 'all' ? '' : picking.childName.split(' ')[0] ?? ''}
+                dateOfBirth={picking === 'all' ? '' : picking.child?.date_of_birth ?? ''}
+                initial={picking === 'all' ? null : chosen.get(picking.line) ?? null} onPick={pick} />
+            )}
           </>
         )
       })()}

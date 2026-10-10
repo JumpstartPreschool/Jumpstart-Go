@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AudioLines, Bell, BellOff, PowerLine, Sun, TriangleAlert, Volume2, WifiOff } from '../../ui/icons'
 import { Button, LuxButton } from '../../ui/Button'
 import { Logo } from '../../ui/Logo'
@@ -9,6 +9,8 @@ import { formatTime, indiaClock } from '../../domain/time'
 import type { Duty } from './useDuty'
 import { GateQueue } from './GateQueue'
 import { SpeakerSheet } from './SpeakerSheet'
+import { SoundResultLine } from './StartDuty'
+import { onVoiceUsed, type VoiceUsed } from './sound'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
 const hours = (ms: number) => { const m = Math.max(1, Math.round(ms / 60_000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min` }
@@ -18,6 +20,9 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const [ending, setEnding] = useState(false)
   const [speaker, setSpeaker] = useState(false)
   const { speaking, waiting, mutedUntil } = duty.ann
+  // Which voice the last announcement used, and why when it wasn't the school's Indian voice.
+  const [used, setUsed] = useState<VoiceUsed | null>(null)
+  useEffect(() => onVoiceUsed(setUsed), [])
 
   return (
     <div className="screen-h">
@@ -65,6 +70,19 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             Offline. Announcements are paused until the connection is back.
           </div>
         )}
+        {online && duty.soundBlocked && (
+          <button type="button" onClick={duty.resumeSound}
+            className="mt-3 flex min-h-14 w-full items-center gap-3 rounded-lg bg-danger-strong px-5 py-4 text-left text-h4 text-white shadow-float">
+            <Volume2 className="size-6 shrink-0" aria-hidden />
+            Sound is paused by this device. Tap here to turn announcements back on.
+          </button>
+        )}
+        {!duty.wakeSupported && (
+          <p role="status" className="mt-3 flex items-center gap-3 rounded-lg bg-warning-soft px-5 py-4 text-h4 text-warning shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--warning)_25%,transparent)]">
+            <TriangleAlert className="size-6 shrink-0" aria-hidden />
+            This device can't keep its screen on by itself. If it locks, announcements stop: set Auto-Lock to Never.
+          </p>
+        )}
         {online && duty.wakeSupported && !duty.screenHeld && (
           <button
             type="button"
@@ -85,7 +103,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
               </span>
               <div className="min-w-0">
                 <p className={`kicker ${speaking.urgent ? 'text-white!' : 'text-accent-ink!'}`}>{speaking.urgent ? 'Urgent · now announcing' : 'Now announcing'}</p>
-                <p className="truncate text-h4">{speaking.text}</p>
+                <p className="truncate text-h4">{typeof speaking.text === 'function' ? speaking.text() : speaking.text}</p>
               </div>
               {waiting > 0 && <Pill className="ml-auto">{waiting} waiting</Pill>}
               <span className="rainbow-bar absolute inset-x-0 bottom-0 h-1 animate-pulse" aria-hidden />
@@ -106,15 +124,23 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             </>
           )}
         </div>
+        {used && (
+          <p className={`mt-2 px-1 text-caption font-bold ${used.voice === 'school' ? 'text-live' : 'text-warning'}`} aria-live="polite">
+            {used.voice === 'school' ? `Last announcement at ${clock(used.at)}: the school's Indian voice.`
+              : used.voice === 'device' ? `Last announcement at ${clock(used.at)}: this phone's own voice, because ${used.why}.`
+              : `Last announcement at ${clock(used.at)} wasn't heard, because ${used.why}. It plays again shortly.`}
+          </p>
+        )}
       </header>
 
       <main className="gutter pt-6 pb-[max(32px,calc(env(safe-area-inset-bottom)+16px))]">
-        <GateQueue announcer={duty.announcer} />
+        <GateQueue announcer={duty.announcer} audible={!mutedUntil && !duty.soundBlocked} />
         <section className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-line pt-5" aria-label="Sound">
           <LuxButton size="sm" icon={<Volume2 />} loading={duty.testing} disabled={!!speaking} onClick={() => void duty.playTest()}>
             Test the speaker
           </LuxButton>
           <p className="text-caption font-semibold text-ink-3">Sound plays through this device's speaker, or a Bluetooth speaker when one is connected.</p>
+          {!duty.testing && duty.result && <div className="basis-full"><SoundResultLine result={duty.result} /></div>}
         </section>
       </main>
 

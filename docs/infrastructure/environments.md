@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Singapore (ap-southeast-1); database pooler aws-0-ap-southeast-1.pooler.supabase.com |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0035` live; `0036` (the collector's "I'm at the gate", the voice minute job skipping inactive children) to push with `npx supabase db push` before deploying `pronounce` and the app |
+| Migrations applied | `0001`–`0043` live; `0044`–`0046` (WATI send limits and log-first delivery log, running-late retries and overdue gate wording, push retries) to push with `npx supabase db push` before deploying the functions and the app |
 | App hosting | Cloudflare Workers static assets, `jumpstart-go` at https://jumpstart-go.singhankit91624.workers.dev (production; the old `jumpstart-preschool` address redirects there, see `scripts/old-link-redirect/`) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing
@@ -31,12 +31,19 @@ The direct database address only works over IPv6. Machines without IPv6 (includi
 |---|---|---|
 | `route` | Road route and ETA range from a position to the school, for signed-in users | `ORS_API_KEY` |
 | `push-send` | Delivers queued push notifications (0016) and forgets dead devices; called by the database | `PUSH_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
-| `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional) |
+| `pronounce` | The gate voice (0035, D50): makes each child's announcements ahead with Azure AI Speech (minute job), and a staff member's preview or a sentence not made ahead, within the monthly cap | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `AZURE_SPEECH_VOICE`, `VOICE_CRON_SECRET`, `APP_ORIGIN` (optional), `AZURE_SPEECH_STYLE` and `AZURE_SPEECH_RATE` (optional, see below) |
+| `send-sms` | Supabase Auth's Send SMS hook (0039, D51): sends each sign-in code as a WhatsApp template through WATI; sends nothing for an unregistered number | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `SEND_SMS_HOOK_SECRET`, `WATI_TEMPLATE_SIGNIN_CODE` (optional), `WATI_CHANNEL` (optional) |
+| `password-pattern` | Admin → a person → key button, or adding staff with an email (0048, D55): issues one temporary password from the admin's pattern, shown to the admin once | `APP_ORIGIN` (optional); uses the built-in Supabase keys |
+| `password-change` | The first sign-in with a temporary password (0048, D55): the person sets their own, under the rules and not a recent one, and their other devices are signed out | `APP_ORIGIN` (optional); uses the built-in Supabase keys |
+| `whatsapp-invite` | Admin Settings WhatsApp setup check: reads the token and sign-in template status from WATI; sends nothing | `WATI_API_TOKEN`, `WATI_API_BASE_URL` (optional), `WATI_CHANNEL` (optional), `APP_ORIGIN` (optional) |
+| `wati-webhook` | Records delivered, read and failed statuses from WATI in app.whatsapp_log via webhook | `WATI_WEBHOOK_SECRET` |
 
 Deploying needs a Supabase login on this machine (`npx supabase login`, once):
 ```
-npx supabase secrets set --project-ref <project-ref> ORS_API_KEY=<key>
-npx supabase functions deploy route --project-ref <project-ref> --no-verify-jwt
+npx supabase secrets set --project-ref <project-ref> WATI_API_TOKEN="..." WATI_API_BASE_URL="https://live-server-XXXXX.wati.io"
+npx supabase functions deploy send-sms --project-ref <project-ref> --no-verify-jwt
+npx supabase functions deploy whatsapp-invite --project-ref <project-ref>
+npx supabase functions deploy wati-webhook --project-ref <project-ref> --no-verify-jwt
 ```
 `--no-verify-jwt` because the function checks the user's session itself (and `push-send` checks its secret).
 
@@ -59,11 +66,50 @@ Azure AI Speech, made ahead by `pronounce`; [voice-architecture.md](../architect
 7. On a coordinator's iPad: Start duty; the sound check should be in the new voice. Speaker → Play a test.
 
 ## Auth settings (Supabase dashboard)
-Required before anyone logs in (AUTH-1, AUTH-2, PRD D1):
-- **Sign-ups stay on:** a parent's first code creates their sign-in account (`shouldCreateUser`), and the database refuses anyone the school hasn't added (0002). Turning sign-ups off would stop every first sign-in.
-- **Passwords (0033, D49):** Authentication → Sign In / Providers → Email: keep Email enabled, set Minimum password length to 8 (the app checks the same) and, optionally, Password requirements to "letters and digits". Leave "Secure password change" on: the app sets passwords right after a fresh code, which it allows. Leaked-password protection needs the Pro plan; the app refuses the most common passwords itself. Cloudflare Turnstile (free) under Attack Protection is the next step if the auth logs ever show password guessing.
-- **Codes, not links:** the email templates use `{{ .Token }}` so people receive a 6-digit code.
-- **Sign-in code:** Authentication → Sign In / Providers → Email: Email OTP Length 6 (the app has exactly six boxes) and Email OTP Expiration 300 seconds (the app and the emails say 5 minutes).
-- **Email sender:** custom SMTP (Brevo). The built-in sender is only for testing and delivers only to the project team.
-- **Invitations (0020, D36):** set the app's https address in Admin → Settings. Create a Brevo API key (SMTP & API → API keys) and deploy the function: `npx supabase secrets set BREVO_API_KEY=…` then `npx supabase functions deploy invite-send`. The sender (`INVITE_FROM`, default ai@jumpstartpreschool.in) must be a verified Brevo sender. Once the app has its address, set `APP_ORIGIN` (for example `https://app.jumpstartpreschool.in`) so only the app can call `invite-send` and `route`. Without the key the Invite sheet says email isn't set up and SMS and WhatsApp still work.
-- **Sign-in emails:** `supabase/templates/magic_link.html` (subject "Your Jumpstart sign-in code") and `confirmation.html` (subject "Welcome to Jumpstart: your sign-in code", anyone's first sign-in; Supabase sends it as "Confirm signup"), pasted into Authentication → Emails → Templates. They show the 6-digit `{{ .Token }}` and no link. Codes are sent only for a first sign-in and a forgotten password; everyday sign-in uses the password and sends no email. The "Reset password" template is not used (a forgotten password goes through the same code email). Editing templates needs custom SMTP on. The logo is `jumpstart-email-logo.png` in a public Storage bucket named `brand`. In Brevo, turn off "block unknown IP addresses": Supabase sends from changing IPs.
+Required before anyone logs in (AUTH-1, AUTH-2, PRD D1, D51, D55). The main sign-in is a mobile number and a 6-digit code sent on WhatsApp. Anyone with an email on their record, staff included, can also sign in with it and a password, once the admin issues them a temporary one; they choose their own at that first sign-in. Applying 0048 removes every password made by the old 0041 pattern. Nothing in the app sends email.
+- **Sign-ups stay on:** a person's first code creates their sign-in account (`shouldCreateUser`), and the database refuses anyone the school hasn't added (0002, 0039). Turning sign-ups off would stop every first sign-in.
+- **Phone provider on:** Authentication → Sign In / Providers → Phone: enable it. Phone OTP Length **6** (the app has exactly six boxes), OTP Expiration **300** seconds, and leave the SMS rate limit at its default (one request per number a minute; the app tolerates it). Leave "Enable phone confirmations" on. The SMS provider list can stay empty: the hook below delivers the code.
+- **Send SMS hook:** Authentication → Auth Hooks → Send SMS hook → type **HTTPS** → URL `https://<ref>.supabase.co/functions/v1/send-sms` → Generate secret. Copy the generated secret (`v1,whsec_…`) into the function secret `SEND_SMS_HOOK_SECRET`, then save the hook.
+- **Email provider on, for passwords only:** Sign In / Providers → Email: turn it on and leave **Confirm email** on (the school's accounts are made already confirmed; anyone else's sign-up is refused by the database, 0041). Remove any custom SMTP (Project Settings → Authentication → SMTP settings): nothing sends email. Leave **Secure password change** off; the app changes passwords through the `password-change` function.
+- **Password rules:** Authentication → Sign In / Providers → Email → Minimum password length **10**, and require lower case, upper case, digits and symbols. That matches the app's floor (Admin → Settings → Password rules can be stricter, never looser) and also covers a password changed outside the app.
+- **Custom Access Token hook (0048, D55; free plan):** Authentication → Auth Hooks → Customize Access Token (JWT) Claims hook → type **Postgres** → schema `public`, function `access_token_hook` → save. Until it is on, a lock, an expired temporary password and email sign-in being off are not enforced when Supabase Auth issues a session, and recovery or magic links aren't refused. Check: a wrong password five times, then the right one, is refused; a WhatsApp code still signs in.
+- **Password functions:** `npx supabase functions deploy password-pattern --project-ref <ref>` and `npx supabase functions deploy password-change --project-ref <ref>` (JWT verification on for both). They use only the built-in Supabase keys. Then check the pattern in Admin → Settings → Temporary passwords.
+- **Stay signed in:** Authentication → Sessions: leave **Time-box user sessions** and **Inactivity timeout** unset (both are Pro-plan options and default to off). People stay signed in until they tap Sign out; the app keeps the session fresh by itself.
+- **Invitations (0020, D51):** set the app's https address in Admin → Settings. Once the app has its address, set `APP_ORIGIN` (for example `https://app.jumpstartpreschool.in`) so only the app can call `password-pattern`, `password-change` and `route`. Invitations go from the admin's own phone, on WhatsApp or by SMS.
+
+### Turning on WhatsApp through WATI
+1. **Templates.** In WATI → Broadcast → Template Messages → New, create the sign-in template with a *positional* parameter (`{{1}}`) and submit it to Meta. Use these names exactly, or set the matching secret.
+
+   | Name (secret that overrides it) | Category | Parameters |
+   |---|---|---|
+   | `jumpstart_signin_code` (`WATI_TEMPLATE_SIGNIN`) | Authentication, or Utility if WATI doesn't offer a code button | 1 = the 6-digit code |
+
+   Wait until it shows APPROVED.
+2. **Secrets.** WATI → API Docs shows the API endpoint and Bearer token. Then:
+   `npx supabase secrets set --project-ref <ref> WATI_API_TOKEN=<token> SEND_SMS_HOOK_SECRET=<v1,whsec_… from the hook> WATI_WEBHOOK_SECRET=$(openssl rand -hex 32) APP_ORIGIN=<https address>`
+   Optional: `WATI_API_BASE_URL` (default `https://live-mt-server.wati.io`; use the endpoint WATI shows for your account if it differs), `WATI_CHANNEL` (only if the account has several WhatsApp numbers), and `WATI_TEMPLATE_SIGNIN` above. `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are built in. None of these ever goes in the app, `.env.local` copies in git, or chat.
+3. **Deploy.** `npx supabase db push` (0039), then:
+   ```
+   npx supabase functions deploy send-sms --project-ref <ref> --no-verify-jwt
+   npx supabase functions deploy password-pattern --project-ref <ref>
+   npx supabase functions deploy wati-webhook --project-ref <ref> --no-verify-jwt
+   ```
+   `send-sms` and `wati-webhook` take no user session, so they check their own secret (the hook signature, and `?key=`). `password-pattern` keeps JWT verification on and only works for an admin.
+4. **Webhook.** WATI → Webhooks → Add: URL `https://<ref>.supabase.co/functions/v1/wati-webhook?key=<the same WATI_WEBHOOK_SECRET>`, status Enabled. WATI doesn't sign webhooks, so the key in the URL is the check. Tick these events: **Template Message Sent**, **Message Delivered** (sent message), **Message Read** (sent message) and **Template Message Failed**. They fill the delivery log that Admin → Settings summarises.
+5. **Check.** Admin → Settings → WhatsApp: "Check WhatsApp setup" confirms the token and shows each template's status without sending anything. Then sign in with a registered number and confirm the code arrives on WhatsApp.
+
+**Testing sign-in while WATI is inactive (no code change).** Supabase → Authentication → Sign In / Providers → Phone → **Test phone numbers and OTPs**: add a registered staff member's number with a fixed 6-digit code, and an expiry date. Supabase then signs that number in with that code and sends nothing: the Send SMS hook and WATI are never called, and no row is written to the delivery log. Every other step is real (invite-only check, session, role, area). It is a test, not a delivery: remove the entry once WATI works. The send path itself is covered by mocked tests (`send-sms/handler.test.ts`, `_shared/wati.test.ts`: sent, refused, no credit, rate limited, down, timeout).
+
+**Demo sign-ins for the team (temporary).** Ten demo parents, +91 90000 00001 to +91 90000 00010, each with one demo child (`scripts/demo/add-demo-logins.sql`). The Send SMS hook keeps their code instead of sending it on WhatsApp (0050) and the sign-in screen fills it in, so anyone with the app's address can open these ten parent accounts: they see only the demo children. Never give a demo number a staff role. To remove: `scripts/demo/remove-demo-logins.sql`, then delete `src/features/auth/demoLogins.ts` and its uses.
+
+**After WATI is recharged** (configuration only): the secrets above are already read on every request, so nothing is redeployed. Check Admin → Settings → "Check WhatsApp setup" (token and template APPROVED), sign in with a real number, and confirm `app.whatsapp_log` moves from `accepted` to `sent`, `delivered` and `read`. A refusal shows WATI's reason in `error_category` (for example `rejected: Not enough credits to send the message`); a failed code never counts toward the hourly limit (0047).
+
+Delivery log: `app.whatsapp_log` holds the number, template, status and failure category for each message, never a code. Rows older than 90 days are purged daily (pg_cron).
+
+### Choosing the gate voice by ear
+The gate speaks in Azure's `en-IN-NeerjaNeural` (Indian English, woman). Three optional secrets change how it sounds; each change re-records every clip on the next minute job, and the iPads pick up the new voice on their next Start duty.
+- `AZURE_SPEECH_VOICE`: another Indian English woman's voice, for example `en-IN-AartiNeural`, `en-IN-KavyaNeural`, `en-IN-AnanyaNeural`, `en-IN-AashiNeural`, or an HD voice such as `en-IN-Neerja:DragonHDLatestNeural` (HD voices cost more per character and are offered in fewer regions).
+- `AZURE_SPEECH_STYLE`: Neerja only, `empathetic` (softer, warmer), `cheerful` or `newscast`. Empty for her standard voice.
+- `AZURE_SPEECH_RATE`: from `-20%` to `+10%`; `-5%` is a touch slower.
+
+To compare: set one, then Admin → Settings → Gate announcements → Play preview, on the gate iPad and its speaker.

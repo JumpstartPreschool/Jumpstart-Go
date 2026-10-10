@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeMobile } from '../../domain/contact'
+import { normalizeMobile } from '../../domain/contact'
 import type { GuardianKind, PersonInput } from './api'
 
 /**
@@ -32,40 +32,48 @@ export interface PersonDraft {
   /** Set when linking someone already here (then only the relation is ours to choose). */
   linkedId?: string
   linkedNote?: string
+  /** Linked by typing their mobile: app access as chosen here (back on for a parent whose child had left). */
+  access?: boolean
   name: string
-  email: string
   phone: string
   abroad: boolean
   appAccess: boolean
   relation: string
 }
 
-export const blankPerson = (relation: string): PersonDraft => ({ key: crypto.randomUUID(), name: '', email: '', phone: '', abroad: false, appAccess: true, relation })
+export const blankPerson = (relation: string): PersonDraft => ({ key: crypto.randomUUID(), name: '', phone: '', abroad: false, appAccess: true, relation })
 
 /**
- * Field errors for one person (keys: name, email, phone), with the email already taken by someone else on the list or
- * at the school reported as "link them instead".
+ * Field errors for one person (keys: name, phone). The mobile is their sign-in, so app access needs one; a number
+ * already taken by someone else on the list or at the school is reported as "link them instead".
  */
-export function personErrors(p: PersonDraft, emailTaken: (email: string) => boolean): Partial<Record<'name' | 'email' | 'phone', string>> {
+export function personErrors(p: PersonDraft, phoneTaken: (e164: string) => boolean): Partial<Record<'name' | 'phone', string>> {
   if (p.linkedId) return {}
-  const e: Partial<Record<'name' | 'email' | 'phone', string>> = {}
+  const e: Partial<Record<'name' | 'phone', string>> = {}
   if (p.name.trim().split(/\s+/).filter(Boolean).length < 2) e.name = 'First and last name.'
-  const email = p.email.trim() ? normalizeEmail(p.email) : null
-  if (p.appAccess && !email) e.email = p.email.trim() ? 'Check the email address.' : 'An email is needed for app access.'
-  else if (p.email.trim() && !email) e.email = 'Check the email address.'
-  else if (email && emailTaken(email)) e.email = 'Already here. Use Link someone already here.'
-  if (p.phone.trim() && !normalizeMobile(p.phone)) e.phone = p.abroad ? 'Start with + and the country code.' : '10-digit mobile, or + and a country code.'
-  if (!p.appAccess && !p.phone.trim()) e.phone = 'Add a mobile, or turn on app access.'
+  const phone = p.phone.trim() ? normalizeMobile(p.phone) : null
+  if (p.phone.trim() && !phone) e.phone = p.abroad ? 'Start with + and the country code.' : '10-digit mobile, or + and a country code.'
+  else if (!phone) e.phone = p.appAccess ? 'A mobile is needed for app access.' : 'Add a mobile, or turn on app access.'
+  else if (phoneTaken(phone)) e.phone = 'Already here. Use Link someone already here.'
   return e
+}
+
+/**
+ * A mobile is one person's sign-in, so a new person typed with a mobile someone at the school already has is that
+ * person: they're linked, keeping their roles. That's how a staff member is also a parent, with both areas.
+ */
+export function linkByMobile(p: PersonDraft, profiles: Array<{ id: string; full_name: string; phone: string | null; active: boolean }>): PersonDraft {
+  const n = !p.linkedId && p.phone.trim() ? normalizeMobile(p.phone) : null
+  const o = n ? profiles.find((x) => x.active && x.phone === n) : undefined
+  return o ? { ...p, name: o.full_name, linkedId: o.id, linkedNote: 'Already at the school with this mobile', access: p.appAccess } : p
 }
 
 /** The record as the database takes it (admin_save_child, admin_add_guardian). */
 export function toInput(p: PersonDraft): PersonInput {
   const kind = kindOf(p.relation)
-  if (p.linkedId) return { id: p.linkedId, relation: p.relation, kind }
+  if (p.linkedId) return { id: p.linkedId, relation: p.relation, kind, ...(p.access && { app_access: true }) }
   return {
     full_name: p.name.trim().replace(/\s+/g, ' '),
-    email: p.email.trim() ? normalizeEmail(p.email) : null,
     phone: p.phone.trim() ? normalizeMobile(p.phone) : null,
     abroad: kind === 'parent' && p.abroad,
     app_access: p.appAccess,

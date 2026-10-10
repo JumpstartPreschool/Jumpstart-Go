@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { turnOffPush } from '../notifications/push'
 
 export type Area = 'admin' | 'core' | 'pro' | 'coordinator' | 'parent'
-export type StaffRole = 'admin' | 'core' | 'coordinator' | 'pro'
+/** 'coordinator' is the Center Coordinator (check-ins and handovers); 'leader' the Center Leader (hears, acknowledges, Ready). */
+export type StaffRole = 'admin' | 'core' | 'coordinator' | 'leader' | 'pro'
 
 /** What public.whoami() returns for the signed-in person. */
 export interface Me {
@@ -13,8 +15,24 @@ export interface Me {
   consent_version: string | null
   roles: StaffRole[]
   children: number
-  /** Whether they've set a password (0033). Missing before that migration, null when the database can't tell. */
-  has_password?: boolean | null
+  /** The mobile number they sign in with, as stored (+ and the country code). */
+  phone?: string | null
+  /** The email they can sign in with, when their record has one (0041). */
+  email?: string | null
+  /** Their email password: none, a temporary one the admin issued (D55), or one they chose. */
+  email_sign_in?: 'none' | 'temporary' | 'own'
+  temp_password_expires_at?: string | null
+}
+
+/** Whether this sign-in used a password (the token's amr), as opposed to a WhatsApp code. */
+export function signedInWithPassword(session: Session): boolean {
+  try {
+    const part = session.access_token.split('.')[1] ?? ''
+    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as { amr?: Array<{ method?: string }> }
+    return !!claims.amr?.some((a) => a.method === 'password')
+  } catch {
+    return false
+  }
 }
 
 const CHOOSE_KEY = 'jumpstart.chooseArea'
@@ -25,27 +43,9 @@ export const chooseArea = {
   done() { try { sessionStorage.removeItem(CHOOSE_KEY) } catch { /* nothing to clear */ } },
 }
 
-const PASSWORD_KEY = 'jumpstart.passwordStep'
-/**
- * Set just before an email code is checked: 'first' asks for a password when the account has none, 'reset' always
- * asks for a new one. Per tab, so a refresh mid-step still asks, and nothing sensitive is stored.
- */
-export const passwordStep = {
-  ask(intent: 'first' | 'reset') { try { sessionStorage.setItem(PASSWORD_KEY, intent) } catch { /* storage blocked: no prompt */ } },
-  pending(): 'first' | 'reset' | null {
-    try {
-      const v = sessionStorage.getItem(PASSWORD_KEY)
-      return v === 'first' || v === 'reset' ? v : null
-    } catch { return null }
-  },
-  done() { try { sessionStorage.removeItem(PASSWORD_KEY) } catch { /* nothing to clear */ } },
-}
-
 /** Bump when the consent notice changes; everyone is asked again (AUTH-6). */
-// Raised when what parents agree to changes, so everyone is asked again: gate announcements, names included, are now
-// made by Microsoft Azure AI Speech (D50).
 // Must be a plain YYYY-MM-DD date: public.accept_consent rejects anything else, and parents would be stuck here.
-export const CONSENT_VERSION = '2026-09-29'
+export const CONSENT_VERSION = '2026-10-02'
 
 /** The areas a person may open, most senior first (their home is the first one). */
 export function areasFor(me: Me): Area[] {
@@ -53,7 +53,8 @@ export function areasFor(me: Me): Area[] {
   if (me.roles.includes('admin')) areas.push('admin')
   if (me.roles.includes('core')) areas.push('core')
   if (me.roles.includes('pro')) areas.push('pro')
-  if (me.roles.includes('coordinator')) areas.push('coordinator')
+  // One gate area for both gate roles; what each may do there is decided by the database (0038).
+  if (me.roles.includes('coordinator') || me.roles.includes('leader')) areas.push('coordinator')
   if (me.children > 0) areas.push('parent')
   return areas
 }
@@ -71,9 +72,12 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null)
 
-/** The database refused the sign-in pass (expired or not valid), as opposed to the network failing. */
+/**
+ * The database refused the sign-in pass (expired or not valid), as opposed to the network failing or some other error.
+ * The words must be about the pass itself: an unrelated message that merely mentions a "token" must not end a session.
+ */
 export const isAuthError = (e: { code?: string; message?: string; status?: number } | null | undefined) =>
-  !!e && (e.code === 'PGRST301' || e.code === 'PGRST303' || e.status === 401 || /jwt|token/i.test(e.message ?? ''))
+  !!e && (e.code === 'PGRST301' || e.code === 'PGRST303' || e.status === 401 || /\bjwt\b|refresh[ _]token/i.test(e.message ?? ''))
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 // A phone waking up needs a moment for Wi-Fi or data; three tries over about 3 s ride out that gap.
@@ -81,7 +85,8 @@ const RETRY_MS = [0, 800, 2500]
 
 /**
  * Who is signed in, sturdily. An expired pass (a phone or iPad reopened after an hour) is renewed and asked again; a
- * network blip is retried; a pass that can't be renewed any more (signed out elsewhere) means signed out, not an error.
+ * network blip is retried. The person stays signed in until they tap Sign out, or the server refuses to renew the pass
+ * (signed out elsewhere), which means signed out, not an error.
  */
 async function whoami(): Promise<{ me: Me | null; error: string | null; ended: boolean }> {
   let error: string | null = null
@@ -144,8 +149,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [load])
 
   const signOut = useCallback(async () => {
-    passwordStep.done()
     chooseArea.done()
+    // This device stops getting the signed-out person's alerts. Needs the session, so it comes first; never blocks sign-out.
+    await Promise.race([turnOffPush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))])
     await supabase.auth.signOut()
     setState({ status: 'signed-out' })
   }, [])

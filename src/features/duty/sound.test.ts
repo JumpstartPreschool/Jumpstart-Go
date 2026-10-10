@@ -14,16 +14,23 @@ class FakeSource extends EventTarget {
 }
 // `paused` stands for iOS pausing Web Audio (iPad locked, another app took the sound) where resume() can't bring it back.
 let paused = false
-class FakeAudioContext {
+// `comesBack`: iOS gives the audio back when asked (an interruption that has ended), as after the unlock sentence.
+let comesBack = false
+let liveCtx: FakeAudioContext | null = null
+class FakeAudioContext extends EventTarget {
   currentTime = 0
   destination = {}
+  constructor() { super(); liveCtx = this }
   get state() { return paused ? 'interrupted' : 'running' }
-  resume() { return Promise.resolve() }
+  resume() { if (comesBack) paused = false; return Promise.resolve() }
   createBufferSource() { return new FakeSource() }
   createOscillator() { return new FakeSource() }
   createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (n: unknown) => n } }
 }
-const deviceVoice = { speak: vi.fn((u: { text: string }) => heard.push(`device:${u.text}`)), cancel: vi.fn(), getVoices: () => [{ name: 'Isha', lang: 'en-IN' }] }
+type FakeUtterance = { text: string; volume?: number; onstart?: () => void; onend?: () => void }
+// The silent unlock sentence ends at once, as a real voice ends a one-word sentence; it is not something the gate hears.
+const unlockEnds = (u: FakeUtterance) => { if (u.volume === 0) { u.onend?.(); return true } return false }
+const deviceVoice = { speak: vi.fn((u: FakeUtterance): unknown => unlockEnds(u) || heard.push(`device:${u.text}`)), cancel: vi.fn(), getVoices: () => [{ name: 'Isha', lang: 'en-IN' }] }
 
 // The clips: each test decides when (and whether) a sentence's audio arrives.
 const pending = new Map<string, { resolve: (b: { label: string }) => void; reject: (e: Error) => void }>()
@@ -31,6 +38,10 @@ vi.mock('./voiceClips', () => ({
   clearRetiredVoiceCaches: async () => {},
   voiceChild: () => null,
   markVoice: () => {},
+  voiceLog: () => {},
+  lastVoiceProblem: () => null,
+  storedClipAudio: async () => null,
+  secs: () => null,
   loadVoiceVersion: async () => null,
   clipAudio: (_ctx: unknown, line: string) => new Promise((resolve, reject) => pending.set(line, { resolve, reject })),
 }))
@@ -56,6 +67,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   paused = false
+  comesBack = false
   sound.stopSound()
   vi.useRealTimers()
 })
@@ -121,8 +133,9 @@ describe('gate sound', () => {
     }
   })
 
-  it('waits no more than 300 ms after the chime for the school voice', () => {
-    expect(sound.CLIP_BUDGET_MS).toBeLessThanOrEqual(300)
+  it("waits long enough for the school's Indian woman's voice that the gate nearly always hears it, but never long", () => {
+    expect(sound.CLIP_BUDGET_MS).toBeGreaterThanOrEqual(2000)
+    expect(sound.CLIP_BUDGET_MS).toBeLessThanOrEqual(3000)
   })
 
   it('says nothing after Stop (End duty or Mute), even when a clip arrives later', async () => {
@@ -189,16 +202,197 @@ describe('gate sound', () => {
   })
 })
 
+describe('what the sound check can report (it uses the same path as real announcements)', () => {
+  const speaksAloud = (on: boolean) => deviceVoice.speak.mockImplementation((u: FakeUtterance) => {
+    if (unlockEnds(u)) return true
+    heard.push(`device:${u.text}`)
+    if (on) { u.onstart?.(); setTimeout(() => u.onend?.(), 10) }
+  })
+  afterEach(() => speaksAloud(false))
+
+  it('unlocked the device voice with a real (silent) sentence: iOS drops an empty one', () => {
+    sound.unlockSound()
+    const first = deviceVoice.speak.mock.calls.at(-1)![0] as { text: string; volume?: number }
+    expect(first.text.trim().length).toBeGreaterThan(0)
+    expect(first.volume).toBe(0)
+  })
+
+  it("reports the school's voice when the clips played", async () => {
+    const said = sound.speak('Sound check.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    arrive('Sound check.')
+    await vi.advanceTimersByTimeAsync(0)
+    finish()
+    expect(await said).toBe('school')
+  })
+
+  it("reports the device voice only when it actually started speaking, and never plays the late clip after it", async () => {
+    speaksAloud(true)
+    const said = sound.speak('Reason: dentist.')
+    await vi.advanceTimersByTimeAsync(sound.CLIP_BUDGET_MS + 20)
+    arrive('Reason: dentist.') // the school's clip turns up after the device voice took over
+    await vi.advanceTimersByTimeAsync(50)
+    expect(await said).toBe('device')
+    expect(heard).toEqual(['device:Reason: dentist.'])
+  })
+
+  it('reports silence when the device voice never started (blocked), so a silent tablet is never called working', async () => {
+    const said = sound.speak('Reason: dentist.')
+    await vi.advanceTimersByTimeAsync(sound.CLIP_BUDGET_MS + 10_000)
+    expect(await said).toBe('silent')
+  })
+
+  it("reports a chime that couldn't sound because iOS paused the audio", async () => {
+    paused = true
+    const chimed = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(600)
+    expect(await chimed).toBe(false)
+    paused = false
+    const again = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(await again).toBe(true)
+  })
+})
+
 describe("the tablet's own voice", () => {
   const v = (name: string, lang = 'en-IN') => ({ name, lang })
-  it('picks a clear Indian English woman’s voice first, a clear man’s voice next, and Tara (which garbles announcements) last', async () => {
+  it("picks only an Indian English woman's voice: a clear one first, Tara (which garbles announcements) last, never a man's", async () => {
     const { pickIndianVoice } = await import('./sound')
-    expect(pickIndianVoice([v('Tara (English (India))'), v('Aman'), v('Rishi'), v('Samantha', 'en-US')])?.name).toBe('Rishi')
-    expect(pickIndianVoice([v('Tara (English (India))'), v('Aman')])?.name).toBe('Aman')
-    expect(pickIndianVoice([v('Rishi'), v('Microsoft Neerja Online (Natural) - English (India)', 'en_IN')])?.name).toContain('Neerja')
-    expect(pickIndianVoice([v('Tara (English (India))')])?.name).toContain('Tara')
     expect(pickIndianVoice([v('Rishi'), v('Aman'), v('Isha')])?.name).toBe('Isha')
     expect(pickIndianVoice([v('Isha'), v('Isha (Enhanced)')])?.name).toBe('Isha (Enhanced)')
-    expect(pickIndianVoice([v('Samantha', 'en-US')])).toBeNull()
+    expect(pickIndianVoice([v('Rishi'), v('Microsoft Neerja Online (Natural) - English (India)', 'en_IN')])?.name).toContain('Neerja')
+    expect(pickIndianVoice([v('Tara (English (India))'), v('Veena')])?.name).toBe('Veena')
+    expect(pickIndianVoice([v('Tara (English (India))'), v('Rishi')])?.name).toContain('Tara')
+    expect(pickIndianVoice([v('Rishi'), v('Aman'), v('Prabhat')])).toBeNull()
+    expect(pickIndianVoice([v('Samantha', 'en-US'), v('Isha', 'en-GB')])).toBeNull()
+  })
+
+  it("falls back to another English woman's voice, never a man's or an unknown one, when there's no Indian woman's voice", async () => {
+    const { pickFallbackVoice } = await import('./sound')
+    // This Mac's Chrome (2026-10-04): Rishi is the only Indian English voice, and it is a man's.
+    expect(pickFallbackVoice([v('Rishi'), v('Daniel', 'en-GB'), v('Samantha', 'en-US')])?.name).toBe('Samantha')
+    expect(pickFallbackVoice([v('Rishi'), v('Samantha', 'en-US'), v('Google UK English Female', 'en-GB')])?.name).toBe('Google UK English Female')
+    // An iPhone without Isha: never Apple's robotic Kathy; Martha (British) or Samantha instead.
+    expect(pickFallbackVoice([v('Rishi'), v('Kathy', 'en-US'), v('Samantha', 'en-US')])?.name).toBe('Samantha')
+    expect(pickFallbackVoice([v('Rishi'), v('Kathy', 'en-US'), v('Daniel', 'en-GB'), v('Martha', 'en-GB'), v('Samantha', 'en-US')])?.name).toBe('Martha')
+    expect(pickFallbackVoice([v('Isha'), v('Samantha', 'en-US')])?.name).toBe('Isha')
+    expect(pickFallbackVoice([v('Rishi'), v('Google UK English Male', 'en-GB'), v('Alex', 'en-US'), v('en-in-x-ahp-local')])).toBeNull()
+    expect(pickFallbackVoice([v('Amélie', 'fr-FR'), v('Karen', 'fr-FR')])).toBeNull()
+  })
+
+  it("says the unlock word in a woman's voice (iOS ignores its volume), and says nothing when the device has none", async () => {
+    deviceVoice.speak.mockClear()
+    sound.unlockSound()
+    const u = deviceVoice.speak.mock.calls.at(-1)![0] as { voice?: { name: string } }
+    expect(u.voice?.name).toBe('Isha')
+    const original = deviceVoice.getVoices
+    deviceVoice.getVoices = () => [{ name: 'Rishi', lang: 'en-IN' }]
+    deviceVoice.speak.mockClear()
+    sound.unlockSound()
+    expect(deviceVoice.speak).not.toHaveBeenCalled()
+    deviceVoice.getVoices = original
+  })
+})
+
+describe('a sentence is never cut short (the sound check stopped after "This is a…")', () => {
+  const clip = (label: string, duration: number) => ({ label, duration }) as { label: string }
+  /** iOS takes the audio away mid-clip: the context leaves "running" and says so. */
+  const interrupt = () => { paused = true; liveCtx!.dispatchEvent(new Event('statechange')) }
+
+  it('waits for the silent unlock sentence to end before the chime, since its end interrupts Web Audio on iOS', async () => {
+    let endUnlock: (() => void) | undefined
+    deviceVoice.speak.mockImplementationOnce((u: FakeUtterance) => { endUnlock = u.onend })
+    sound.unlockSound()
+    const chimed = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(heard).toEqual([])
+    endUnlock!()
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(heard.filter((h) => h === 'start:note')).toHaveLength(2)
+    expect(await chimed).toBe(true)
+  })
+
+  it('never lets an unlock sentence that reports no end hold the gate for more than 1.5 s', async () => {
+    deviceVoice.speak.mockImplementationOnce(() => undefined)
+    sound.unlockSound()
+    const chimed = sound.chime('normal')
+    await vi.advanceTimersByTimeAsync(1400)
+    expect(heard).toEqual([])
+    await vi.advanceTimersByTimeAsync(1100)
+    expect(await chimed).toBe(true)
+  })
+
+  it('says the whole sentence again when iOS cut it off and gives the audio back, and reports the school voice', async () => {
+    comesBack = true
+    const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    pending.get('This is a sound check. Jump Start Go gate announcements are working correctly.')!.resolve(clip('check', 4))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(heard).toEqual(['start:check'])
+    interrupt()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(heard).toEqual(['start:check', 'stop:check', 'start:check'])
+    liveCtx!.currentTime += 4
+    finish()
+    expect(await said).toBe('school')
+    expect(heard.some((h) => h.startsWith('device'))).toBe(false)
+  })
+
+  it("hands the rest to the tablet's voice when iOS won't give the audio back, instead of reporting it played", async () => {
+    const said = sound.speak('This is a reminder. Aarav Sharma. Pickup by his mother in about ten minutes.')
+    pending.get('This is a reminder.')!.resolve(clip('opening', 1.2))
+    await vi.advanceTimersByTimeAsync(0)
+    interrupt()
+    await vi.advanceTimersByTimeAsync(600)
+    expect(heard.at(-1)).toBe('device:This is a reminder. Aarav Sharma. Pickup by his mother in about ten minutes.')
+    sound.stopSound()
+    expect(await said).not.toBe('school')
+  })
+
+  it('counts a clip that ends well before its length as cut, and plays it again', async () => {
+    const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    pending.get('This is a sound check. Jump Start Go gate announcements are working correctly.')!.resolve(clip('check', 4))
+    await vi.advanceTimersByTimeAsync(0)
+    liveCtx!.currentTime += 0.7 // "This is a…"
+    finish()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(heard).toEqual(['start:check', 'start:check'])
+    liveCtx!.currentTime += 4
+    finish()
+    expect(await said).toBe('school')
+  })
+
+  it('plays a clip that ran its full length only once', async () => {
+    const said = sound.speak('This is a sound check. Jumpstart Go gate announcements are working correctly.', undefined, sound.SOUND_CHECK_BUDGET_MS)
+    pending.get('This is a sound check. Jump Start Go gate announcements are working correctly.')!.resolve(clip('check', 4))
+    await vi.advanceTimersByTimeAsync(0)
+    liveCtx!.currentTime += 4
+    finish()
+    expect(await said).toBe('school')
+    expect(heard).toEqual(['start:check'])
+  })
+
+  it("reports a device-voice sentence that iOS stopped part-way as cut, so it is never called heard", async () => {
+    deviceVoice.speak.mockImplementation((u: FakeUtterance & { onerror?: () => void }) => {
+      if (unlockEnds(u)) return true
+      heard.push(`device:${u.text}`)
+      u.onstart?.()
+      setTimeout(() => u.onerror?.(), 600)
+    })
+    const said = sound.speak('Reason: dentist.')
+    await vi.advanceTimersByTimeAsync(sound.CLIP_BUDGET_MS + 700)
+    expect(await said).toBe('cut')
+    deviceVoice.speak.mockImplementation((u: FakeUtterance) => unlockEnds(u) || heard.push(`device:${u.text}`))
+  })
+})
+
+describe('why the phone used its own voice', () => {
+  it('says the reason in plain words', async () => {
+    const { explainVoiceProblem } = await import('./sound')
+    const at = 1_000_000
+    expect(explainVoiceProblem(null, 6000, at)).toBe("the school's voice didn't arrive within 6 seconds")
+    expect(explainVoiceProblem({ stage: 'clip-failed', detail: { reason: 'voice paused' }, at }, 2500, at)).toMatch(/too many new recordings/)
+    expect(explainVoiceProblem({ stage: 'clip-failed', detail: { reason: 'TimeoutError: signal timed out' }, at }, 2500, at)).toMatch(/connection/)
+    expect(explainVoiceProblem({ stage: 'audio-paused', detail: {}, at }, 2500, at)).toBe('this phone had paused its sound')
+    // An old problem isn't blamed for a new announcement.
+    expect(explainVoiceProblem({ stage: 'audio-paused', detail: {}, at }, 2500, at + 60_000)).toBe("the school's voice didn't arrive within 2.5 seconds")
   })
 })

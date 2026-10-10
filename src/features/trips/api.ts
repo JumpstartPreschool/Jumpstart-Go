@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { onTableChange } from '../../lib/live'
 import { now } from '../../lib/clock'
@@ -29,6 +29,10 @@ export interface Trip {
   handed_to: string | null
   /** 0035: the parent tapped "I've arrived" (absent before that migration is applied). */
   arrived_at?: string | null
+  /** 0043: the parent's latest Running late: when, the time it replaced, and an optional note (shown, never spoken). */
+  late_at?: string | null
+  late_from?: string | null
+  late_note?: string | null
   // 0008: someone else collecting, and location sharing (absent before that migration is applied)
   traveller_kind?: 'guardian' | 'third_person'
   traveller_phone?: string | null
@@ -51,6 +55,17 @@ export async function startTrip(childId: string, direction: Direction, minutes: 
 
 export async function cancelTrip(tripId: string): Promise<Trip> {
   const { data, error } = await supabase.rpc('cancel_trip', { p_trip: tripId })
+  if (error) throw error
+  return data as Trip
+}
+
+/** Running late (0043): +5, +10, +15 minutes, or a later time today, with an optional note. The gate hears it at once. */
+export async function runningLate(tripId: string, change: { minutes: 5 | 10 | 15 } | { at: Date }, note: string | null, expectedFrom?: string): Promise<Trip> {
+  const { data, error } = await supabase.rpc('running_late', {
+    p_trip: tripId, p_minutes: 'minutes' in change ? change.minutes : null, p_at: 'at' in change ? change.at.toISOString() : null, p_note: note?.trim() || null,
+    // The arrival the parent saw: if it has moved since (a retry after a lost reply, another parent), the server says so.
+    p_expected_from: expectedFrom ?? null,
+  })
   if (error) throw error
   return data as Trip
 }
@@ -81,8 +96,13 @@ export function explainTripError(e: { code?: string; message?: string } | null):
 export function useTodayTrips() {
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [error, setError] = useState(false)
+  // Loads overlap (live change, poll, return to the app): only the newest answer counts, so an older one can't bring
+  // back a trip as it was before it was acknowledged.
+  const latest = useRef(0)
   const load = useCallback(async () => {
+    const mine = ++latest.current
     const { data, error: e } = await supabase.from('trips').select('*').eq('day', todayInIndia()).order('arrive_at')
+    if (mine !== latest.current) return
     if (e) return setError(true)
     setError(false)
     setTrips((data ?? []) as Trip[])
@@ -91,12 +111,14 @@ export function useTodayTrips() {
     void load()
     const stop = onTableChange('trips', () => void load())
     const poll = setInterval(() => void load(), 20_000)
-    const onVisible = () => document.visibilityState === 'visible' && void load()
-    document.addEventListener('visibilitychange', onVisible)
+    // The database is the truth: restored from memory by iOS fetches today's trips again. (Unlocked, switched back and
+    // back online are covered by onTableChange, which also re-joins a dropped live connection.)
+    const onShow = () => void load()
+    window.addEventListener('pageshow', onShow)
     return () => {
       stop()
       clearInterval(poll)
-      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onShow)
     }
   }, [load])
   return { trips, error, reload: load }

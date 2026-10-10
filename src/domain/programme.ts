@@ -21,11 +21,6 @@ export interface Programme {
   windows: { dropoff: TimeWindow; pickup: TimeWindow } | 'flexible'
 }
 
-/** Short notice: a change less than this many minutes before the time (PRD D2). */
-export const SHORT_NOTICE_MIN = 15
-
-const inside = (t: Minutes, w: TimeWindow) => t >= w.from && t <= w.to
-
 /** Everything wrong with a programme, as sentences for the form. Empty when valid. */
 export function programmeErrors(p: Programme): string[] {
   const errors: string[] = []
@@ -60,25 +55,7 @@ export function runsOn(p: Programme, isoDate: string, holidays: ReadonlySet<stri
   return true
 }
 
-/** The window a time is normally chosen from: the fixed window, or the whole programme for flexible ones. */
+/** A programme's drop-off or pickup window, shown as information (D56: it never limits a time). */
 export function windowFor(p: Programme, direction: Direction): TimeWindow {
   return p.windows === 'flexible' ? p.hours : p.windows[direction]
-}
-
-export type TimeCheck =
-  | { ok: false; reason: 'in_the_past' }
-  | { ok: true; offSchedule: boolean; shortNotice: boolean }
-
-/**
- * Checks a requested time for a trip (SCH-3, SCH-4, TRIP-2).
- * `now` is the current India time in minutes when the trip is today, or null for a future day.
- * Off-schedule and short-notice times are allowed but flagged; the server asks for a reason when off-schedule.
- */
-export function checkTime(p: Programme, direction: Direction, requested: Minutes, now: Minutes | null): TimeCheck {
-  if (now !== null && requested < now) return { ok: false, reason: 'in_the_past' }
-  return {
-    ok: true,
-    offSchedule: !inside(requested, windowFor(p, direction)),
-    shortNotice: now !== null && requested - now < SHORT_NOTICE_MIN,
-  }
 }

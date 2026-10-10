@@ -1,6 +1,6 @@
 -- 0029: the admin edits someone's details. Its own parent (g7), signed in, on Meera's record (c0002).
-insert into public.profiles (id, full_name, email) values ('00000000-0000-0000-0000-0000000000a7', 'Edit Parent', 'edit.parent@example.test');
-insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000a7', 'edit.parent@example.test');
+insert into public.profiles (id, full_name, email, phone) values ('00000000-0000-0000-0000-0000000000a7', 'Edit Parent', 'edit.parent@example.test', '+919000000009');
+insert into auth.users (id, email, raw_app_meta_data) values ('00000000-0000-0000-0000-0000000000a7', 'edit.parent@example.test', '{"provisioned":"school"}');
 insert into public.guardianships values ('00000000-0000-0000-0000-0000000c0002', '00000000-0000-0000-0000-0000000000a7', 'Mother');
 
 -- 1. Only the admin: the head office is refused.
@@ -27,14 +27,15 @@ do $$ begin
   assert (select relation = 'Grandmother' and kind = 'family' from public.guardianships where guardian_id = '00000000-0000-0000-0000-0000000000a7'), 'relation saved';
 end $$;
 
--- 3. Mistakes are refused in words: someone else's email, app access without an email, no contact at all.
+-- 3. Mistakes are refused in words: someone else's email, app access without a mobile (0039:224), no contact at all.
 set role authenticated;
 do $$
 declare bad jsonb;
 begin
   foreach bad in array array[
-    '{"full_name":"Edited Mehta","email":"admin@example.test","app_access":true}'::jsonb,
-    '{"full_name":"Edited Mehta","phone":"+919812300007","app_access":true}'::jsonb,
+    '{"full_name":"Edited Mehta","email":"admin@example.test","phone":"+919812300007","app_access":true}'::jsonb,
+    '{"full_name":"Edited Mehta","phone":"+919000000001","app_access":true}'::jsonb,
+    '{"full_name":"Edited Mehta","email":"edited@example.test","app_access":true}'::jsonb,
     '{"full_name":"Edited Mehta","app_access":false}'::jsonb
   ] loop
     begin
@@ -42,7 +43,7 @@ begin
       raise exception 'FAIL: accepted %', bad;
     exception when raise_exception then
       if sqlerrm like 'FAIL%' then raise; end if;
-      assert sqlerrm ~ '^(taken|email_required|contact_required):', sqlerrm;
+      assert sqlerrm ~ '^(taken|phone_required|contact_required):', sqlerrm;
     end;
   end loop;
 end $$;
