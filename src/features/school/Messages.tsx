@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { ChevronLeft, MessageSquare, Send } from '../../ui/icons'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
@@ -90,7 +91,10 @@ export function OfficeMessages({ area }: { area: Area }) {
   const { state } = useSession()
   const myId = state.status === 'signed-in' ? state.me?.profile_id : undefined
   const [kids, setKids] = useState<Kid[] | null>(null)
-  const [open, setOpen] = useState<string | null>(() => new URLSearchParams(window.location.search).get('child'))
+  // The open conversation lives in the address (?child=), so a notification or a pop-up can open any conversation.
+  const [params, setParams] = useSearchParams()
+  const open = params.get('child')
+  const setOpen = (id: string | null) => setParams(id ? { child: id } : {}, { replace: true })
   const messages = useLive<Message>('messages', () => supabase.from('messages').select('*').order('created_at'), [])
   const reads = useLive<{ child_id: string; read_at: string }>('message_reads', () => supabase.from('message_reads').select('child_id, read_at'), [open])
   useEffect(() => { void supabase.from('children').select('id, full_name, preferred_name, gender').eq('active', true).order('full_name').then(({ data }) => setKids((data ?? []) as Kid[])) }, [])

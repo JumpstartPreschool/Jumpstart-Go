@@ -1,4 +1,15 @@
 // Web push for Jumpstart Go (loaded into the app's service worker). Shows what push-send sends; a tap opens that page.
+
+// The number on the installed app's icon while it's closed, like WhatsApp: how many notifications are waiting. The open
+// app sets the exact unread count itself (notifications/Unread.tsx). Not every device supports it; that's fine.
+async function syncBadge() {
+  try {
+    const n = (await self.registration.getNotifications()).length
+    if (n > 0) await self.navigator.setAppBadge?.(n)
+    else await self.navigator.clearAppBadge?.()
+  } catch { /* no badge on this device */ }
+}
+
 self.addEventListener('push', (event) => {
   let d = {}
   try { d = event.data ? event.data.json() : {} } catch { d = { body: event.data ? event.data.text() : '' } }
@@ -9,11 +20,12 @@ self.addEventListener('push', (event) => {
     data: { url: typeof d.url === 'string' && d.url.startsWith('/') && !d.url.startsWith('//') ? d.url : '/' },
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-  }))
+  }).then(syncBadge))
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+  event.waitUntil(syncBadge())
   const url = new URL(event.notification.data?.url || '/', self.location.origin).href
   event.waitUntil((async () => {
     const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })

@@ -10,6 +10,8 @@ import { areasFor, useSession, type Area, type StaffRole } from './session'
 import { PARENT_PAGES, ParentTabBar, ParentTopNav } from '../family/ParentNav'
 import { PushSwitch } from '../notifications/PushSwitch'
 import { ImportBanner } from '../admin/ImportBanner'
+import { CountBadge } from '../../ui/CountBadge'
+import { useUnread } from '../notifications/Unread'
 
 export const AREA_LABEL: Record<Area, string> = { admin: 'Admin', core: 'Head office', pro: 'Front desk', coordinator: 'Center coordinator', parent: 'Parent' }
 /** Roles are told apart by icon, never by colour alone (owner, 2026-09-24). Same icons as the Screen Book. */
@@ -130,6 +132,11 @@ export function OfflineNotice() {
 export function AreaShell({ area, title, subtitle, actions, children }: { area: Area; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   const pages = AREA_PAGES[area]
   const label = useAreaLabel(area)
+  // Unread on each tab (D57): a family's messages and announcements; the office's families' messages.
+  const unread = useUnread()
+  const count = (to: string) => (area === 'parent'
+    ? (to.endsWith('/updates') ? unread.announcements : to.endsWith('/messages') ? unread.familyMessages : 0)
+    : to.endsWith('/messages') ? unread.officeMessages : 0)
   const { pathname } = useLocation()
   // An area's first page stays selected on the pages it opens (a child's page under People, a parent's conversation).
   const isActive = (to: string) => pathname === to || (to === `/${area}` ? pathname.startsWith(`/${area}/child/`) : pathname.startsWith(`${to}/`))
@@ -146,7 +153,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
           <div className="flex min-w-0 flex-1 justify-center">
             {area === 'parent' ? <ParentTopNav /> : pages && (
               <nav aria-label={`${label} pages`} className={`topnav ${pages.length > 3 ? 'max-xl:hidden' : 'max-lg:hidden'}`}>
-                {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
+                {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}<CountBadge n={count(page.to)} /></Link>)}
               </nav>
             )}
           </div>
@@ -158,7 +165,7 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
         {pages && (
           // Under the top bar on tablets; in the top bar itself on wide screens; parents use the bottom bar on phones.
           <nav aria-label={`${label} pages`} className={`topnav mb-6 w-fit max-w-full overflow-x-auto [scrollbar-width:none] ${area === 'parent' ? 'max-md:hidden lg:hidden' : pages.length > 3 ? 'max-md:hidden xl:hidden' : 'max-md:hidden lg:hidden'}`}>
-            {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}</Link>)}
+            {pages.map((page) => <Link key={page.to} to={page.to} aria-current={isActive(page.to) ? 'page' : undefined}>{page.icon}{page.label}<CountBadge n={count(page.to)} /></Link>)}
           </nav>
         )}
         <div className="page-in">
@@ -182,10 +189,11 @@ export function AreaShell({ area, title, subtitle, actions, children }: { area: 
               {pages.map((page) => {
                 const active = isActive(page.to)
                 return (
-                  <Link key={page.to} to={page.to} aria-current={active ? 'page' : undefined} aria-label={page.label}
-                    className={`grid h-14 min-w-0 place-items-center content-center gap-0.5 rounded-[20px] px-0.5 text-[11.5px] font-bold transition-colors duration-150 [&_svg]:size-[22px] ${active ? 'bg-surface text-accent-ink shadow-[0_2px_0_var(--line-2)]' : 'text-ink-2'}`}>
+                  <Link key={page.to} to={page.to} aria-current={active ? 'page' : undefined} aria-label={count(page.to) ? `${page.label}, ${count(page.to)} new` : page.label}
+                    className={`relative grid h-14 min-w-0 place-items-center content-center gap-0.5 rounded-[20px] px-0.5 text-[11.5px] font-bold transition-colors duration-150 [&_svg]:size-[22px] ${active ? 'bg-surface text-accent-ink shadow-[0_2px_0_var(--line-2)]' : 'text-ink-2'}`}>
                     {page.icon}
                     <span className="max-w-full truncate">{page.short ?? page.label}</span>
+                    <CountBadge n={count(page.to)} corner />
                   </Link>
                 )
               })}

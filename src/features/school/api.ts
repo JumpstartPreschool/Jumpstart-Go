@@ -37,9 +37,12 @@ export const saveProgramme = (programme: string | null, t: ProgrammeTimes, about
 export const addClass = (name: string) => call<{ id: string; name: string }>('admin_add_class', { p_name: name })
 export const setRegularTimes = (child: string, dropoff: string | null, pickup: string | null) => call<null>('set_regular_times', { p_child: child, p_dropoff: dropoff, p_pickup: pickup })
 export const sendMessage = (child: string, body: string) => call<Message>('send_message', { p_child: child, p_body: body })
-export const markRead = (child: string) => call<null>('mark_read', { p_child: child })
+/** Fired after anything is marked read, so the unread counts (notifications/Unread.tsx) update at once. */
+export const READ_EVENT = 'jumpstart:read'
+const announceRead = <T,>(p: Promise<T>) => p.then((r) => { window.dispatchEvent(new Event(READ_EVENT)); return r })
+export const markRead = (child: string) => announceRead(call<null>('mark_read', { p_child: child }))
 export const sendAnnouncement = (title: string, body: string, classId: string | null) => call<Announcement>('send_announcement', { p_title: title, p_body: body, p_class: classId })
-export const markAnnouncementRead = (id: string) => call<null>('mark_announcement_read', { p_announcement: id })
+export const markAnnouncementRead = (id: string) => announceRead(call<null>('mark_announcement_read', { p_announcement: id }))
 export const announcementStats = () => call<Array<{ announcement_id: string; recipients: number; reads: number }>>('announcement_stats', {})
 export const recipientCount = (classId: string | null) => call<number>('recipient_count', { p_class: classId })
 export const gateWalkIn = (child: string, direction: Direction, handedTo: string | null) => call<unknown>('gate_walk_in', { p_child: child, p_direction: direction, p_handed_to: handedTo })

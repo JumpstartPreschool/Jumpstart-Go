@@ -978,11 +978,15 @@
     background: var(--elevated);
   }
 
-  /* Toasts (src/ui/Toast.tsx) */
+  /* Toasts (src/ui/Toast.tsx). The position lives here, not in a utility class, so the tab-bar rule below can win. */
   .toast { animation: toast-in var(--dur-slow) var(--ease-spring) both; }
+  .toast-region--bottom { bottom: max(16px, env(safe-area-inset-bottom)); }
+  /* News from someone else, under the floating top bar, like a phone's banner; it drops in from above. */
+  .toast-region--top { top: calc(max(12px, env(safe-area-inset-top)) + 72px); }
+  .toast-region--top .toast { animation-name: toast-drop; }
   /* Above the parent's tab bar on phones, never on top of it. */
   /* Above the bottom tab bar on phones (every area with pages has one), never over it. */
-  @media (max-width: 767px) { body:has(nav[aria-label$=' pages']) .toast-region { bottom: calc(96px + env(safe-area-inset-bottom)); } }
+  @media (max-width: 767px) { body:has(nav[aria-label$=' pages']) .toast-region--bottom { bottom: calc(96px + env(safe-area-inset-bottom)); } }
   .toast[data-leaving] { animation: toast-out var(--dur-base) var(--ease-exit) both; }
 
   /* Route changes: the new page settles in; it never waits on the animation to be usable. */
@@ -1158,6 +1162,7 @@
 @keyframes pop-in { from { transform: scale(0); } }
 @keyframes speak-level { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } }
+@keyframes toast-drop { from { opacity: 0; transform: translateY(-16px) scale(0.96); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
 @keyframes shake { 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
 @keyframes float {
