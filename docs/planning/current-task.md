@@ -1,6 +1,6 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-04
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-10
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).
@@ -131,6 +131,23 @@
 - Fix: looking ahead uses only clips already made (`storedClipAudio`, `warm`); after a 429 the phone tries again in 1 minute; without an Indian woman's voice on the device it waits up to 6 s for the school's voice.
 - Live check (2026-10-07): voice-drain runs every minute (1,440 successful runs a day), all 13 active children ready, Azure en-IN-NeerjaNeural, 37,881 of 450,000 characters, 3 live requests in the last hour: the server side is healthy. The duty screen now says after each announcement which voice was used and, when it was the device's, why (`onVoiceUsed`, `explainVoiceProblem`), to find the phone-side cause on a real iPhone.
 - `scripts/voice-check.sql` (read-only): whether pg_cron's voice-drain job runs, each active child's recordings, live requests in the last hour and this month's characters.
+
+## Done on 2026-10-10: several programmes per child, any-time drop-off and pickup (D56)
+- **Admin → People:** parents and family show on each child's card (mobile and app status); the separate Parents and family tab is gone, since everything about a parent is managed inside the child.
+- **Programmes:** a child keeps one main programme (it gives the class and the gate team) and can be in any programmes of their own besides it (After School, Learning Center, Preschool Readiness), from Add child and the child's page (`ProgrammePicker.tsx` → `AlsoInSheet`).
+- **Any time:** nothing checks a time against a programme's windows any more (parents, the front desk, third-person links, regular times); no reason is asked and nothing is flagged off-schedule. School days are the days any of the child's programmes runs.
+- **Migration 0053** (`child_programmes`, `admin_set_programmes`, the timing functions rewritten, `last_handover` tie-break) with `…many_programmes.test.sql`. **Not applied to the live database yet:** run `supabase db push`, then deploy the app.
+
+## Done on 2026-10-10: unread numbers and pop-ups for messages and announcements (D57)
+- Red unread numbers on Messages and Updates (phone tab bar and top bar) for families, Head office and the Front desk; the total on the app icon and in the tab title (`notifications/Unread.tsx`, `ui/CountBadge.tsx`).
+- New messages and announcements drop in as a banner at the top with Open or View while the app is open; the office inbox keeps the open conversation in the address (`?child=`).
+- Toasts on phones no longer cover the bottom tab bar (the lift rule was being overridden by a utility class).
+- **Migration 0054**: a family's message now pushes to Head office and the Front desk. **Not applied to the live database yet.**
+
+## Done on 2026-10-10: someone else drops off; I'm on my way asks which (D58)
+- Parents can send someone else for a drop-off as well as a pickup (one-time link, no code for drop-off; the gate checks the child in). The link page, the gate queue and the parent's card follow the direction.
+- Parent's Today: larger Drop-off and Pickup tiles; I'm on my way opens a choice of the two, then the time.
+- **Migration 0055** (`invite_collector` takes the direction; a drop-off link stays open 15 minutes after check-in). **Not applied to the live database yet.**
 
 ## Remaining work (in order)
 0. **Apply `0023`, `0024` and `0025` to the live database** (dry run first; up to `0022` is live), and publish the app so `_headers`, `robots.txt` and the new screens take effect. When `pg_cron` is on, re-run the schedule block in `0021`.
