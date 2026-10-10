@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { Check, ChevronDown, CircleAlert, Search } from '../../ui/icons'
 import { Sheet } from '../../ui/Sheet'
-import { COUNTRIES, type Country } from '../../domain/countries'
+import { COUNTRIES, formatRest, nationalPart, type Country } from '../../domain/countries'
 
 /**
  * The sign-in mobile number: the country code fixed at +91, with a picker of every country for numbers outside India,
@@ -27,8 +27,9 @@ export function PhoneField({ country, onCountry, value, onChange, error }: {
         <input id={id} name="phone" type="tel" inputMode="numeric" autoComplete="tel-national" enterKeyHint="send" autoFocus
           placeholder={india ? '98765 43210' : 'Mobile number'} value={value}
           onChange={(e) => {
-            const digits = e.target.value.replace(/\D/g, '')
-            onChange(india ? (digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5, 10)}` : digits) : digits.slice(0, 14))
+            // A leading 0 or the country code is taken off as they type or paste (nationalPart): never "retype it".
+            const digits = nationalPart(country, e.target.value)
+            onChange(india && digits.length <= 10 ? formatRest(country, digits) : digits)
           }}
           className="tabular-nums tracking-[0.02em]"
           aria-invalid={!!error || undefined} aria-describedby={`${id}-msg`} />

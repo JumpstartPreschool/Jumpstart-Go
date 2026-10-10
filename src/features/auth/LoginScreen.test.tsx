@@ -70,6 +70,31 @@ it('sends a registered number its code on WhatsApp, as a full international numb
   expect(screen.getByRole('button', { name: /Change number, now \+91 98765 43210/ })).toBeInTheDocument()
 })
 
+it('drops a leading 0 as it is typed, and never asks for the number again', async () => {
+  const user = await open()
+  await user.type(screen.getByLabelText('Mobile number'), '09876543210')
+  expect(screen.getByLabelText('Mobile number')).toHaveValue('98765 43210')
+  await user.click(screen.getByRole('button', { name: /Send code on WhatsApp/ }))
+  await screen.findByRole('heading', { name: 'Check WhatsApp' })
+  expect(auth.signInWithOtp).toHaveBeenCalledWith({ phone: '+919876543210', options: { shouldCreateUser: true } })
+})
+
+it('takes a pasted or autofilled number with +91 in front', async () => {
+  const user = await open()
+  await user.click(screen.getByLabelText('Mobile number'))
+  await user.paste('+91 98765 43210')
+  expect(screen.getByLabelText('Mobile number')).toHaveValue('98765 43210')
+})
+
+it('picks the code out of a whole pasted message', async () => {
+  const { codeFrom } = await import('./LoginScreen')
+  expect(codeFrom('482913')).toBe('482913')
+  expect(codeFrom('48 29 13')).toBe('482913')
+  expect(codeFrom('1 code: 482913 for Jumpstart Go')).toBe('482913')
+  expect(codeFrom('Your code is 482913. It expires in 10 minutes.')).toBe('482913')
+  expect(codeFrom('4829')).toBe('4829')
+})
+
 it('takes numbers from other countries', async () => {
   const user = await open()
   await user.click(screen.getByRole('button', { name: /Country code/ }))

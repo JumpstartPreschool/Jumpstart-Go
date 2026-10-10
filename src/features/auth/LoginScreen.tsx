@@ -16,6 +16,15 @@ import { demoCode, isDemoNumber } from './demoLogins'
 
 // Six digits, matching Supabase → Authentication → Providers → Phone → OTP Length (environments.md).
 const CODE_LENGTH = 6
+
+/**
+ * The code from what was typed or pasted. A whole pasted message ("Your code is 482913…") gives the 6-digit code in it,
+ * not its first 6 digits, which may belong to another number in the message.
+ */
+export function codeFrom(typed: string): string {
+  const digits = typed.replace(/\D/g, '')
+  return (digits.length > CODE_LENGTH && /(?<!\d)\d{6}(?!\d)/.exec(typed)?.[0]) || digits.slice(0, CODE_LENGTH)
+}
 // Supabase sends one code per number a minute; the Send-a-new-code timer waits the same.
 const RESEND_AFTER_S = 60
 
@@ -255,7 +264,7 @@ export function LoginScreen() {
                 className="code-input"
                 value={code}
                 onChange={(e) => {
-                  setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))
+                  setCode(codeFrom(e.target.value))
                   setError(null)
                 }}
                 inputMode="numeric"

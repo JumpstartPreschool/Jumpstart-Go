@@ -32,9 +32,26 @@ export const COUNTRIES: readonly Country[] = CODES.split(' ')
 
 export const INDIA: Country = COUNTRIES.find((c) => c.iso === 'IN')!
 
+/**
+ * What someone typed, pasted or autofilled in the number box, as the digits after the country code, so they never have
+ * to retype it: the national 0 ("09876543210"), or the country's own code ("+91 98765 43210", "0091…", "91 98765 43210"
+ * for India), is taken off. India keeps up to 12 digits while typing, so "919876543210" typed key by key is read whole
+ * rather than cut to a wrong 10.
+ */
+export function nationalPart(country: Country, raw: string): string {
+  let d = raw.replace(/\D/g, '')
+  if (/^\s*(\+|00)/.test(raw)) {
+    d = d.replace(/^00/, '')
+    if (d.startsWith(country.dial)) d = d.slice(country.dial.length)
+  }
+  d = d.replace(/^0+/, '')
+  if (country.iso === 'IN' && d.length === 12 && d.startsWith('91')) d = d.slice(2).replace(/^0+/, '')
+  return d.slice(0, country.iso === 'IN' ? 12 : 14)
+}
+
 /** The full number (+ and digits) from a country and the digits typed after its code, or null if it can't be one. */
 export function fullNumber(country: Country, typed: string): string | null {
-  const digits = typed.replace(/\D/g, '').replace(/^0+/, '')
+  const digits = nationalPart(country, typed)
   if (country.iso === 'IN') return /^[6-9][0-9]{9}$/.test(digits) ? `+91${digits}` : null
   const all = country.dial + digits
   return digits.length >= 4 && /^[1-9][0-9]{7,14}$/.test(all) ? `+${all}` : null

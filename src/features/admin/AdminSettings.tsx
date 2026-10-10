@@ -5,7 +5,7 @@ import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
 import { ErrorState, Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import { formatMobile } from '../../domain/contact'
+import { formatMobile, normalizeIndianPhone } from '../../domain/contact'
 import { supabase } from '../../lib/supabase'
 import { AreaShell } from '../auth/AreaShell'
 import { checkWhatsAppSetup, explainDbError, type WhatsAppSetup } from './api'
@@ -115,8 +115,7 @@ export function AdminSettings() {
 
   function savePhone() {
     // The number parents and the person collecting call: any Indian number, landline or mobile, stored as +91 and 10 digits.
-    const d = phone.replace(/\D/g, '').replace(/^(0091|91(?=\d{10}$)|0)/, '')
-    const v = /^[1-9]\d{9}$/.test(d) ? `+91${d}` : null
+    const v = normalizeIndianPhone(phone)
     if (!v) return setPhoneError('Enter a 10-digit Indian number, for example 020 2545 1234.')
     setPhoneError(null)
     void save({ school_phone: v }, 'phone')
