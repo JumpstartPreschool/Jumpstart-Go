@@ -40,7 +40,7 @@ interface ChildRow {
 
 const WORD: Record<Direction, string> = { dropoff: 'drop-off', pickup: 'pickup' }
 const PROGRAMME = 'id, name, flexible, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to'
-const FIELDS = `id, full_name, preferred_name, gender, programmes(${PROGRAMME}), child_programmes(programmes(${PROGRAMME})), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)`
+const FIELDS = `id, full_name, preferred_name, gender, programmes!children_programme_id_fkey(${PROGRAMME}), child_programmes(programmes(${PROGRAMME})), child_schedules(weekday, dropoff, pickup), guardianships!inner(guardian_id)`
 
 /** The signed-in parent's own children (row-level security allows no more; a staff member who is also a parent sees only theirs). */
 function useMyChildren(guardianId: string | null) {

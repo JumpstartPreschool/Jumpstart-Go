@@ -81,7 +81,7 @@ function useGateData() {
   const [error, setError] = useState(false)
   const load = useCallback(async () => {
     const [kids, people, assigned, voices, gateRoles] = await Promise.all([
-      supabase.from('children').select('id, full_name, preferred_name, gender, class_id, classes(name), programmes(name), guardianships(guardian_id, relation, kind)').eq('active', true),
+      supabase.from('children').select('id, full_name, preferred_name, gender, class_id, classes(name), programmes!children_programme_id_fkey(name), guardianships(guardian_id, relation, kind)').eq('active', true),
       supabase.from('profiles').select('id, full_name, active, abroad'),
       supabase.from('coordinator_classes').select('profile_id, class_id'),
       // Separate, and its failure ignored: the gate works without pronunciations (names are then said as registered).

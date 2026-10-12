@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:db": "bash scripts/db-test.sh",
     "check:routing": "node --env-file=.env.local scripts/check-routing.ts",
-    "deploy": "npm run build && env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID npx wrangler@4 deploy --env-file /dev/null"
+    "check:queries": "node --env-file=.env.local scripts/check-queries.ts",
+    "deploy": "npm run check:queries && npm run build && env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID npx wrangler@4 deploy --env-file /dev/null"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",

@@ -34,7 +34,7 @@ type Row = {
   child_programmes: Array<{ programmes: ProgrammeRow | null }>
 }
 const PROGRAMME = 'id, name, class_id, flexible, extended, starts, ends, weekdays, saturday_rule, term_start, term_end, dropoff_from, dropoff_to, pickup_from, pickup_to'
-const FIELDS = `id, full_name, preferred_name, gender, class_id, classes(name), programmes(${PROGRAMME}), child_programmes(programmes(${PROGRAMME})), child_schedules(weekday, dropoff, pickup), guardianships(guardian_id, relation, kind)`
+const FIELDS = `id, full_name, preferred_name, gender, class_id, classes(name), programmes!children_programme_id_fkey(${PROGRAMME}), child_programmes(programmes(${PROGRAMME})), child_schedules(weekday, dropoff, pickup), guardianships(guardian_id, relation, kind)`
 
 /**
  * Every child's day for the office (the board, the front desk): children with their programme, regular times and
