@@ -13,8 +13,11 @@ async function syncBadge() {
 self.addEventListener('push', (event) => {
   let d = {}
   try { d = event.data ? event.data.json() : {} } catch { d = { body: event.data ? event.data.text() : '' } }
+  // A gate alert stays on screen until someone acts on it, and buzzes in a pattern that is hard to sleep through.
+  const gate = typeof d.tag === 'string' && (d.tag.startsWith('trip-') || d.tag.startsWith('duty-'))
   event.waitUntil(self.registration.showNotification(d.title || 'Jumpstart Go', {
     body: d.body || '',
+    ...(gate ? { requireInteraction: true, vibrate: [300, 150, 300, 150, 600] } : {}),
     tag: d.tag,
     renotify: Boolean(d.tag),
     data: { url: typeof d.url === 'string' && d.url.startsWith('/') && !d.url.startsWith('//') ? d.url : '/' },

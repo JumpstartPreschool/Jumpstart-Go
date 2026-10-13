@@ -10,10 +10,55 @@
 // Without the VAPID secrets it answers 503 and leaves the queue untouched, so nothing is lost or marked sent.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
-import { payloadFor, type Claimed } from '../_shared/push.ts'
+import { fcmAssertion, fcmMessageFor, fcmTokenGone, payloadFor, webTtl, type Claimed, type ServiceAccount } from '../_shared/push.ts'
 
 const secret = Deno.env.get('PUSH_SECRET') ?? ''
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
+
+// Phones with the native app go through Firebase Cloud Messaging. FCM_SERVICE_ACCOUNT is the Firebase service-account JSON;
+// without it their rows are recorded 'skipped no fcm' (not an error, so not retried) and web delivery carries on.
+const fcmSecret = Deno.env.get('FCM_SERVICE_ACCOUNT')
+// A malformed secret must not take web delivery down with it: treat it as not set, and say so in the log.
+const fcm: ServiceAccount | null = (() => {
+  if (!fcmSecret) return null
+  try {
+    const sa = JSON.parse(fcmSecret) as ServiceAccount
+    if (sa.client_email && sa.private_key && sa.project_id) return sa
+  } catch { /* falls through */ }
+  console.error('FCM_SERVICE_ACCOUNT is not a Firebase service-account JSON; native phones are skipped')
+  return null
+})()
+let fcmToken: { value: string; until: number } | null = null
+
+// A Google access token lasts an hour; keep it for 50 minutes.
+async function fcmAccessToken(sa: ServiceAccount): Promise<string> {
+  if (fcmToken && fcmToken.until > Date.now()) return fcmToken.value
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: await fcmAssertion(sa, Math.floor(Date.now() / 1000)) }),
+  })
+  const j = (await res.json()) as { access_token?: string }
+  if (!res.ok || !j.access_token) throw new Error(`google token ${res.status}`)
+  fcmToken = { value: j.access_token, until: Date.now() + 50 * 60_000 }
+  return j.access_token
+}
+
+async function sendNative(r: Claimed, sa: ServiceAccount): Promise<'sent' | 'gone' | string> {
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await fcmAccessToken(sa)}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(fcmMessageFor(r)),
+  })
+  if (res.ok) return 'sent'
+  const text = await res.text()
+  if (res.status === 401) fcmToken = null
+  if (fcmTokenGone(res.status, text)) {
+    await db.rpc('push_forget_token', { p_token: r.token })
+    return 'gone'
+  }
+  return `error ${res.status} ${text}`
+}
 
 Deno.serve(async (req) => {
   if (!secret || req.headers.get('Authorization') !== `Bearer ${secret}`) return new Response('unauthorized', { status: 401 })
@@ -30,8 +75,23 @@ Deno.serve(async (req) => {
     const rows = (data ?? []) as Claimed[]
     if (!rows.length) break
     await Promise.all(rows.map(async (r) => {
+      if (r.platform !== 'web') {
+        if (!fcm) {
+          await db.rpc('push_result', { p_outbox: r.outbox_id, p_result: 'skipped no fcm' })
+          return
+        }
+        try {
+          const result = await sendNative(r, fcm)
+          if (result === 'sent') sent += 1
+          else if (result === 'gone') gone += 1
+          await db.rpc('push_result', { p_outbox: r.outbox_id, p_result: result })
+        } catch (e) {
+          await db.rpc('push_result', { p_outbox: r.outbox_id, p_result: `error ${String((e as Error).message ?? e)}`.slice(0, 200) })
+        }
+        return
+      }
       try {
-        await webpush.sendNotification({ endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } }, payloadFor(r), { TTL: 3600, urgency: 'high', topic: r.tag?.slice(0, 32).replace(/[^A-Za-z0-9_-]/g, '_') })
+        await webpush.sendNotification({ endpoint: r.endpoint!, keys: { p256dh: r.p256dh!, auth: r.auth! } }, payloadFor(r), { TTL: webTtl(r.tag), urgency: 'high', topic: r.tag?.slice(0, 32).replace(/[^A-Za-z0-9_-]/g, '_') })
         sent += 1
         await db.rpc('push_result', { p_outbox: r.outbox_id, p_result: 'sent' })
       } catch (e) {

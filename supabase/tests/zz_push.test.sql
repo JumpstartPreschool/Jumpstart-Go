@@ -24,7 +24,7 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 do $$ begin
-  assert (select count(*) from app.push_outbox where profile_id = '00000000-0000-0000-0000-0000000000d1' and title like 'Meera Joshi, pickup at 10:30 AM') = 1, 'the coordinator is alerted';
+  assert (select count(*) from app.push_outbox where profile_id = '00000000-0000-0000-0000-0000000000d1' and title like 'Meera, pickup at 10:30 AM') = 1, 'the coordinator is alerted';
   assert (select count(*) from app.push_outbox where profile_id = '00000000-0000-0000-0000-0000000000e2') = 0, 'not told about his own trip';
 end $$;
 
