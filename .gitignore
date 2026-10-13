@@ -8,3 +8,13 @@ dist
 
 # Supabase CLI cache
 supabase/.temp
+
+# Android app: Firebase config and build outputs
+android/app/google-services.json
+android/local.properties
+android/build/
+android/app/build/
+android/.gradle/
+android/capacitor-cordova-android-plugins/
+*.jks
+*.keystore

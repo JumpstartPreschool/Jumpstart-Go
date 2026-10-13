@@ -4,6 +4,7 @@ import { SOUND_CHECK } from '../../../supabase/functions/_shared/gateAnnounce.ts
 import { chime, deviceOutput, prepare, releaseSound, SOUND_CHECK_BUDGET_MS, soundReady, soundSupported, speak, stopSound, unlockSound, type Spoken } from './sound'
 import { createWakeLock } from './wakeLock'
 import { now } from '../../lib/clock'
+import { nativeAlive, nativeDutyStart, nativeDutyStop, requestNativeNotifications } from '../../native/duty'
 
 export type DutyPhase = 'idle' | 'check' | 'on'
 /** What the sound check actually played, through the same path as real announcements. */
@@ -46,11 +47,16 @@ export function useDuty() {
   useEffect(() => announcer.subscribe(setAnn), [announcer])
   // Leaving the duty screen any way at all (End duty, signing out, another page) silences this device at once.
   useEffect(
-    () => () => {
-      void wake.stop()
-      announcer.clear()
-      stopSound()
-      releaseSound()
+    () => {
+      // A reloaded page starts idle; a duty service left over from before the reload has nothing to announce.
+      void nativeDutyStop()
+      return () => {
+        void nativeDutyStop()
+        void wake.stop()
+        announcer.clear()
+        stopSound()
+        releaseSound()
+      }
     },
     [wake, announcer],
   )
@@ -59,12 +65,18 @@ export function useDuty() {
   // play; if iOS won't resume it, the screen asks for one tap. Also checked every 15 s, since iOS can pause it silently.
   useEffect(() => {
     if (phase !== 'on') return
-    const check = () => { if (document.visibilityState === 'visible') void soundReady().then((ok) => setSoundBlocked(!ok)) }
+    const run = () => void soundReady().then((ok) => setSoundBlocked(!ok))
+    const check = () => { if (document.visibilityState === 'visible') run() }
     check()
     const events: Array<[EventTarget, string]> = [[document, 'visibilitychange'], [window, 'pageshow'], [window, 'focus'], [window, 'online']]
     events.forEach(([t, e]) => t.addEventListener(e, check))
     const every = setInterval(check, 15_000)
-    return () => { events.forEach(([t, e]) => t.removeEventListener(e, check)); clearInterval(every) }
+    // Android app: the duty service pokes the page every 5 s, also with the screen off (page hidden), so the check runs then too.
+    const tick = () => { run(); void nativeAlive() }
+    window.addEventListener('jumpstart-native-tick', tick)
+    const alive = setInterval(() => void nativeAlive(), 10_000)
+    void nativeAlive()
+    return () => { events.forEach(([t, e]) => t.removeEventListener(e, check)); clearInterval(every); window.removeEventListener('jumpstart-native-tick', tick); clearInterval(alive) }
   }, [phase])
 
   const playTest = useCallback(async () => {
@@ -86,6 +98,8 @@ export function useDuty() {
   const start = useCallback(() => {
     unlockSound()
     void wake.start()
+    void nativeDutyStart()
+    void requestNativeNotifications()
     setTestsPlayed(0)
     setPhase('check')
     void playTest()
@@ -99,6 +113,7 @@ export function useDuty() {
   }, [since])
 
   const back = useCallback(() => {
+    void nativeDutyStop()
     void wake.stop()
     announcer.clear()
     stopSound()
@@ -107,6 +122,7 @@ export function useDuty() {
   }, [wake, announcer])
 
   const end = useCallback(() => {
+    void nativeDutyStop()
     void wake.stop()
     announcer.clear()
     stopSound()

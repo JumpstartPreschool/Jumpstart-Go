@@ -10,6 +10,8 @@ import type { Duty } from './useDuty'
 import { GateQueue } from './GateQueue'
 import { SpeakerSheet } from './SpeakerSheet'
 import { SoundResultLine } from './StartDuty'
+import { NativeHealth } from '../../native/NativeHealth'
+import { isNativeAndroid } from '../../native/duty'
 import { onVoiceUsed, type VoiceUsed } from './sound'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
@@ -77,13 +79,14 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             Sound is paused by this device. Tap here to turn announcements back on.
           </button>
         )}
-        {!duty.wakeSupported && (
+        {/* The Android app keeps announcing with the screen off (its duty service), so these screen warnings are for the web app only. */}
+        {!duty.wakeSupported && !isNativeAndroid() && (
           <p role="status" className="mt-3 flex items-center gap-3 rounded-lg bg-warning-soft px-5 py-4 text-h4 text-warning shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--warning)_25%,transparent)]">
             <TriangleAlert className="size-6 shrink-0" aria-hidden />
             This device can't keep its screen on by itself. If it locks, announcements stop: set Auto-Lock to Never.
           </p>
         )}
-        {online && duty.wakeSupported && !duty.screenHeld && (
+        {online && duty.wakeSupported && !duty.screenHeld && !isNativeAndroid() && (
           <button
             type="button"
             onClick={() => void duty.retryWake()}
@@ -93,6 +96,8 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
             The screen may turn off. Tap here to keep it on.
           </button>
         )}
+
+        <NativeHealth />
 
         {/* Now playing: what the iPad is saying, so a coordinator who missed it can read it. */}
         <div className={`relative mt-3 flex min-h-[72px] items-center gap-4 overflow-hidden rounded-xl px-4 py-3 sm:px-5 ${speaking?.urgent ? 'bg-danger-strong text-white shadow-float' : 'glass'}`} aria-live="polite">

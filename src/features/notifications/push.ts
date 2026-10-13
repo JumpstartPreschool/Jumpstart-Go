@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { isNativeAndroid, nativeStatus, registerNativePushToken, requestNativeNotifications, unregisterNativePushToken } from '../../native/duty'
 
 const KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
 
@@ -23,7 +24,28 @@ function basicState(): PushState | null {
   return null
 }
 
+// The Android app's WebView has no Push API: notifications go through the app's own Firebase token instead.
+const OFF_KEY = 'jumpstart.nativePushOff'
+function nativeOff(set?: boolean): boolean {
+  try {
+    if (set === undefined) return localStorage.getItem(OFF_KEY) === '1'
+    if (set) localStorage.setItem(OFF_KEY, '1')
+    else localStorage.removeItem(OFF_KEY)
+  } catch {
+    /* storage blocked */
+  }
+  return set === true
+}
+
+async function nativeState(): Promise<PushState> {
+  const s = await nativeStatus()
+  if (!s?.firebase) return 'not-configured'
+  if (!s.notificationsAllowed || nativeOff()) return 'off'
+  return (await registerNativePushToken()) ? 'on' : 'off'
+}
+
 export async function pushState(): Promise<PushState> {
+  if (isNativeAndroid()) return nativeState()
   const basic = basicState()
   if (basic) return basic
   const reg = await navigator.serviceWorker.getRegistration()
@@ -49,6 +71,13 @@ const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.e
 
 /** Asks the browser (call from a tap), subscribes this device and saves it for the signed-in person. */
 export async function turnOnPush(): Promise<PushState> {
+  if (isNativeAndroid()) {
+    nativeOff(false)
+    const granted = await requestNativeNotifications()
+    if (!(await nativeStatus())?.firebase) return 'not-configured'
+    if (!granted) return 'denied'
+    return (await registerNativePushToken()) ? 'on' : 'off'
+  }
   // Only quick checks before the question: iOS shows the permission prompt only while the tap is fresh, so nothing that
   // waits on the network may come first.
   const state = basicState()
@@ -72,6 +101,11 @@ export async function turnOnPush(): Promise<PushState> {
 
 /** Stops notifications on this device (the database forgets it; other devices keep theirs). */
 export async function turnOffPush(): Promise<PushState> {
+  if (isNativeAndroid()) {
+    nativeOff(true)
+    await unregisterNativePushToken()
+    return 'off'
+  }
   const reg = await navigator.serviceWorker.getRegistration()
   const sub = await reg?.pushManager.getSubscription()
   if (sub) {
