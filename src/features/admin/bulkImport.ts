@@ -133,7 +133,7 @@ export const COLUMNS: Array<{ field: Field; header: string; aliases?: string[]; 
   { field: 'child', header: 'Child full name', aliases: ['childname', 'child', 'name', 'fullname', 'studentname'], required: true },
   { field: 'dob', header: 'Date of birth', aliases: ['dob', 'birthdate', 'childdateofbirth', 'dateofbirthddmmyyyy'], required: true },
   { field: 'p1Name', header: 'Parent name', aliases: ['parent1name', 'parent1fullname', 'parentfullname', 'mothername', 'fathername'], required: true },
-  { field: 'p1Mobile', header: 'Contact number', aliases: ['contact', 'mobile', 'mobilenumber', 'phone', 'phonenumber', 'parentmobile', 'parentcontactnumber', 'parent1mobile', 'parent1phone', 'parent1contactnumber', 'parent1number', 'childcontactnumber'], required: true },
+  { field: 'p1Mobile', header: 'Contact number', aliases: ['contact', 'contactno', 'mobile', 'mobileno', 'mobilenumber', 'phone', 'phoneno', 'phonenumber', 'parentmobile', 'parentcontactnumber', 'parent1mobile', 'parent1phone', 'parent1contactnumber', 'parent1number', 'childcontactnumber'], required: true },
 ]
 /** Columns older templates had: read when present, never asked for. */
 const EXTRA: typeof COLUMNS = [
