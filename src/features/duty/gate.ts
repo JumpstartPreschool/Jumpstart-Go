@@ -87,13 +87,16 @@ export function cancelledText(trip: Trip, child: GateChild, s: GateSettings): st
   return messageFor(s, { kind: trip.direction, state: 'cancelled' }, announced(child), who(trip))
 }
 
+/** Handled: closed, cancelled, or acknowledged with no arrival since. Its lock-screen alerts are out of date. */
+export const settled = (trip: Trip): boolean =>
+  trip.status !== 'en_route' || (!!trip.acknowledged_at && !(trip.arrived_at && Date.parse(trip.arrived_at) > Date.parse(trip.acknowledged_at)))
+
 /**
  * Should this iPad announce the trip now? Its own classes at once; a class nobody covers at once; anything else only
  * after the fallback time with no answer. Once acknowledged it stays quiet, until the parent taps "I've arrived".
  */
 export function shouldAnnounce(trip: Trip, classId: string, myClasses: ReadonlySet<string>, covered: ReadonlySet<string>, nowMs: number): boolean {
-  if (trip.status !== 'en_route') return false
-  if (trip.acknowledged_at && !(trip.arrived_at && Date.parse(trip.arrived_at) > Date.parse(trip.acknowledged_at))) return false
+  if (settled(trip)) return false
   return myClasses.has(classId) || !covered.has(classId) || nowMs - Date.parse(trip.updated_at) >= FALLBACK_MS
 }
 

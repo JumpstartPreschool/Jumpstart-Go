@@ -17,7 +17,7 @@ vi.mock('../../native/duty', () => ({
   unregisterNativePushToken: () => unregister(),
 }))
 
-const { pushState, turnOnPush, turnOffPush } = await import('./push')
+const { pushState, pushTurnedOff, turnOnPush, turnOffPush } = await import('./push')
 
 describe('push in the Android app', () => {
   beforeEach(() => {
@@ -48,11 +48,21 @@ describe('push in the Android app', () => {
     expect(await pushState()).toBe('off')
   })
 
-  it('turning off deletes the token and stays off after a reload; turning on undoes it', async () => {
-    expect(await turnOffPush()).toBe('off')
+  it('switching off deletes the token and stays off after a reload; switching on undoes it', async () => {
+    expect(await turnOffPush(true)).toBe('off')
     expect(unregister).toHaveBeenCalled()
+    expect(pushTurnedOff()).toBe(true)
     expect(await pushState()).toBe('off')
     expect(await turnOnPush()).toBe('on')
+    expect(pushTurnedOff()).toBe(false)
+    expect(await pushState()).toBe('on')
+  })
+
+  it('signing out deletes the token but is not a choice: the next person on a shared phone gets alerts', async () => {
+    await turnOffPush(true)
+    expect(await turnOffPush()).toBe('off')
+    expect(unregister).toHaveBeenCalledTimes(2)
+    expect(pushTurnedOff()).toBe(false)
     expect(await pushState()).toBe('on')
   })
 

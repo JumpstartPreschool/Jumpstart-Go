@@ -48,6 +48,10 @@ export function onTableChange(table: string, onChange: () => void): () => void {
   window.addEventListener('online', refresh)
   // Android app on duty: its service pokes the page every 5 s, also with the screen off. Read afresh every 30 s then, so a
   // connection that died quietly while the phone slept can't hide a pickup.
+  // A push reached this device (public/push-sw.js): something changed, and the live connection may have died while the
+  // device slept, so read afresh.
+  const onPush = (e: MessageEvent) => { if ((e.data as { type?: string } | null)?.type === 'jumpstart-push') onChange() }
+  navigator.serviceWorker?.addEventListener('message', onPush)
   let polled = Date.now()
   const nativeTick = () => { if (Date.now() - polled >= NATIVE_POLL_MS) { polled = Date.now(); onChange() } }
   window.addEventListener('jumpstart-native-tick', nativeTick)
@@ -57,6 +61,7 @@ export function onTableChange(table: string, onChange: () => void): () => void {
     document.removeEventListener('visibilitychange', refresh)
     window.removeEventListener('online', refresh)
     window.removeEventListener('jumpstart-native-tick', nativeTick)
+    navigator.serviceWorker?.removeEventListener('message', onPush)
     if (channel) void supabase.removeChannel(channel)
   }
 }

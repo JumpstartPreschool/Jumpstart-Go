@@ -56,10 +56,11 @@ Other makers: see dontkillmyapp.com.
 3. Turn the screen off. Create a pickup request from another device. Expect the chime and the school voice within a few seconds.
 4. Repeat after 10 minutes and after 1 hour with the screen off, on battery, Wi-Fi and mobile data.
 5. Silent mode and media volume zero: note what is heard. Layer 1 plays on the media stream; layer 2 speaks on the alarm stream.
-6. Force-stop the app, then send a pickup (needs Firebase): expect a heads-up notification and a spoken alert.
-7. Tap a notification: the app opens at the right page.
-8. End duty: the notification disappears and `adb shell dumpsys activity services in.jumpstartpreschool.go` lists no `DutyService`.
-9. `adb logcat -s JumpstartDuty` shows a `tick` line about every minute while duty is on (logged every 12th tick).
+6. Swipe the app away from recent apps (do not force-stop it), then send a pickup (needs Firebase): expect a heads-up notification and a spoken alert. On Xiaomi, Vivo and Oppo a swipe can count as a force stop; repeat after the battery steps above.
+7. Force-stop the app in Settings, then send a pickup: expect nothing until the app is opened again. Android does not deliver push to a force-stopped app.
+8. Tap a notification: the app opens at the right page.
+9. End duty: the notification disappears and `adb shell dumpsys activity services in.jumpstartpreschool.go` lists no `DutyService`.
+10. `adb logcat -s JumpstartDuty` shows a `tick` line about every minute while duty is on (logged every 12th tick).
 
 ## Known limits
 

@@ -258,3 +258,39 @@ describe('looking ahead', () => {
     expect(prepare).not.toHaveBeenCalled()
   })
 })
+
+describe('announcer heard reports (0059)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('reports an announcement once it has been said in full', async () => {
+    const out = { ...fakeOutput(), heard: vi.fn() }
+    const ann = createAnnouncer(out)
+    ann.announce(a('trip:1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(out.heard).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(out.heard).toHaveBeenCalledWith('trip:1')
+  })
+
+  it('does not report speech that was silent or cut off', async () => {
+    for (const result of ['silent', 'cut'] as const) {
+      const heard = vi.fn()
+      const ann = createAnnouncer({ chime: async () => {}, speak: async () => result, heard })
+      ann.announce(a('trip:2', PRIORITY.newRequest))
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(heard).not.toHaveBeenCalled()
+      ann.clear()
+    }
+  })
+
+  it('does not report speech that Mute cut short', async () => {
+    const out = { ...fakeOutput(), heard: vi.fn(), stop: vi.fn() }
+    const ann = createAnnouncer(out)
+    ann.announce(a('trip:3', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1_000)
+    ann.mute(60_000)
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(out.heard).not.toHaveBeenCalled()
+  })
+})

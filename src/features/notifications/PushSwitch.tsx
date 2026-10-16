@@ -6,7 +6,7 @@ import { explainDbError } from '../admin/api'
 import { pushState, turnOffPush, turnOnPush, type PushState } from './push'
 
 const SAYS: Record<PushState, string> = {
-  on: 'On. Alerts arrive even when the app is closed.',
+  on: 'On for this device. A test alert shows whether they really reach it.',
   off: 'Off. Turn on to hear about pickups, check-ins and school news.',
   denied: 'Blocked in the browser settings for this site. Allow notifications there, then come back.',
   'needs-install': 'Add Jumpstart Go to the Home Screen first (on an iPhone or iPad: Share, then Add to Home Screen), then open it from there.',
@@ -24,7 +24,7 @@ export function PushSwitch({ label = 'Notifications on this device' }: { label?:
   async function change(on: boolean) {
     setBusy(true)
     try {
-      const next = on ? await turnOnPush() : await turnOffPush()
+      const next = on ? await turnOnPush() : await turnOffPush(true)
       setState(next)
       toast(next === 'on' ? 'Notifications are on for this device.' : next === 'denied' ? 'Notifications are blocked in the browser settings.' : 'Notifications are off for this device.')
     } catch (e) {

@@ -61,6 +61,8 @@ let unlocking: Promise<void> | null = null
 // playing media element moves the page into the "playback" audio category, which the switch doesn't mute, so on those
 // devices a silent loop plays for the whole duty. It is pure silence; nothing is ever heard from it.
 let keepAlive: HTMLAudioElement | null = null
+// On duty (unlockSound) until End duty (releaseSound): a paused loop is started again on return only while this holds.
+let keepAliveWanted = false
 const isApple = () => typeof navigator !== 'undefined' && (/iPhone|iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
 function silentWav(seconds = 1, rate = 8000): string {
   const n = seconds * rate
@@ -78,6 +80,7 @@ export function unlockSound(): void {
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
   if (session) session.type = 'playback'
   else if (isApple() && typeof Audio !== 'undefined') {
+    keepAliveWanted = true
     keepAlive ??= Object.assign(new Audio(silentWav()), { loop: true })
     keepAlive.setAttribute('playsinline', '')
     void keepAlive.play().catch(() => {})
@@ -117,6 +120,7 @@ export function unlockSound(): void {
 
 /** Ends the duty's audio session: the silent keep-alive stops, so the device's own sound rules apply again. */
 export function releaseSound(): void {
+  keepAliveWanted = false
   keepAlive?.pause()
 }
 
@@ -136,8 +140,13 @@ export function audioContext(): AudioContext {
     globalThis.document?.addEventListener('visibilitychange', back)
     globalThis.addEventListener?.('pageshow', back)
     globalThis.addEventListener?.('focus', back)
-    // The silent keep-alive is paused by iOS with the rest of the page's media; start it again on return.
-    globalThis.document?.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && keepAlive && keepAlive.paused) void keepAlive.play().catch(() => {}) })
+    // The silent loop plays only while the page is on screen: it exists to beat the ring/silent switch, never to keep a
+    // hidden or locked app running in the background. Paused when hidden, started again on return.
+    globalThis.document?.addEventListener('visibilitychange', () => {
+      if (!keepAlive) return
+      if (document.visibilityState === 'hidden') keepAlive.pause()
+      else if (keepAlive.paused && keepAliveWanted) void keepAlive.play().catch(() => {})
+    })
   }
   void ctx.resume()
   return ctx

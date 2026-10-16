@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BellOff, TriangleAlert, Volume2 } from '../ui/icons'
+import { pushTurnedOff } from '../features/notifications/push'
 import { isNativeAndroid, nativeDutyStart, nativeStatus, openBatterySettings, openNotificationSettings, type NativeStatus } from './duty'
 
 // From dontkillmyapp.com: the extra switch these makers hide behind the standard battery setting.
@@ -28,10 +29,13 @@ export function NativeHealth() {
   if (!s) return null
 
   const advice = makerAdvice(s.manufacturer)
-  const quiet = s.mediaVolume === 0 || (s.alarmMax > 0 && s.alarmVolume === 0)
+  // Below half is too quiet for a busy gate. The web voice follows the media volume; the phone's own voice (screen off)
+  // turns the alarm volume up itself while it speaks.
+  const low = (v: number, max: number) => max > 0 && v < max / 2
+  const quiet = low(s.mediaVolume, s.mediaMax)
   return (
     <>
-      {!s.running && (
+      {!s.running && !pushTurnedOff() && (
         <div role="status" className={row}>
           <TriangleAlert className="size-6 shrink-0" aria-hidden />
           <span className="min-w-0 flex-1">The duty voice is not running, so announcements stop when the screen turns off.</span>
@@ -58,7 +62,7 @@ export function NativeHealth() {
       {quiet && (
         <p role="status" className={row}>
           <Volume2 className="size-6 shrink-0" aria-hidden />
-          Turn the volume up: {s.mediaVolume === 0 ? 'the media volume' : 'the alarm volume'} is at zero on this phone.
+          Turn the media volume up with the volume buttons: it is below half, so announcements may be hard to hear.
         </p>
       )}
     </>

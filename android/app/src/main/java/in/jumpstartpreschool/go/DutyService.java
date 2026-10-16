@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
@@ -106,7 +108,9 @@ public class DutyService extends Service {
     }
 
     private void speak(String text) {
-        main.postDelayed(() -> { if (!dutyMode) stopSelf(); }, 30_000);
+        // A one-shot speaker never outlives its announcements: stopped once silent, and after two minutes whatever happens.
+        main.postDelayed(() -> { if (!dutyMode && speaking == 0) stopSelf(); }, 30_000);
+        main.postDelayed(() -> { if (!dutyMode) stopSelf(); }, 120_000);
         if (tts != null && ttsReady) { say(text); return; }
         pending = text;
         if (tts != null) return;
@@ -118,7 +122,12 @@ public class DutyService extends Service {
             pickVoice();
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String id) {}
-                @Override public void onDone(String id) { main.post(() -> { if (!dutyMode) stopSelf(); }); }
+                @Override public void onDone(String id) {
+                    main.post(() -> {
+                        if (--speaking <= 0) { speaking = 0; quieten(); }
+                        if (!dutyMode && speaking == 0) stopSelf();
+                    });
+                }
                 @Override public void onError(String id) { onDone(id); }
             });
             ttsReady = true;
@@ -127,7 +136,52 @@ public class DutyService extends Service {
     }
 
     private void say(String text) {
-        tts.speak(text, TextToSpeech.QUEUE_ADD, null, "gate-" + System.nanoTime());
+        loud();
+        speaking++;
+        if (tts.speak(text, TextToSpeech.QUEUE_ADD, null, "gate-" + System.nanoTime()) != TextToSpeech.SUCCESS && --speaking <= 0) {
+            speaking = 0;
+            quieten();
+        }
+    }
+
+    // While an announcement plays with the screen off: the alarm volume at full (it plays in silent mode too) and other
+    // sound turned down. Both go back as they were once the last one finishes.
+    private int speaking = 0;
+    private int alarmBefore = -1;
+    private AudioFocusRequest focus;
+
+    private void loud() {
+        AudioManager am = getSystemService(AudioManager.class);
+        if (am == null) return;
+        try {
+            if (alarmBefore < 0) {
+                alarmBefore = am.getStreamVolume(AudioManager.STREAM_ALARM);
+                am.setStreamVolume(AudioManager.STREAM_ALARM, am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
+            }
+            if (focus == null && Build.VERSION.SDK_INT >= 26) {
+                focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                    .build();
+                am.requestAudioFocus(focus);
+            }
+        } catch (RuntimeException e) {
+            // Do Not Disturb or a device policy can refuse; the announcement still plays at the volume there is.
+            Log.w(TAG, "could not raise the volume", e);
+        }
+    }
+
+    private void quieten() {
+        AudioManager am = getSystemService(AudioManager.class);
+        if (am == null) return;
+        try {
+            if (alarmBefore >= 0) am.setStreamVolume(AudioManager.STREAM_ALARM, alarmBefore, 0);
+            if (focus != null && Build.VERSION.SDK_INT >= 26) am.abandonAudioFocusRequest(focus);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "could not restore the volume", e);
+        }
+        alarmBefore = -1;
+        focus = null;
     }
 
     /** An en-IN female voice if there is one, else any offline en-IN voice, else en-IN by locale, else the device default. */
@@ -153,6 +207,7 @@ public class DutyService extends Service {
         main.removeCallbacksAndMessages(null);
         if (dutyMode) running = false;
         if (tts != null) { tts.stop(); tts.shutdown(); }
+        quieten();
         if (wake != null && wake.isHeld()) wake.release();
         if (wifi != null && wifi.isHeld()) wifi.release();
         super.onDestroy();

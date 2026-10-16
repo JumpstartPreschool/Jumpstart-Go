@@ -39,6 +39,8 @@ export interface AnnouncerOutput {
   prepare?(text: string, childId?: string): void
   /** Get a later message ready only from clips already made: looking ahead never makes one live. */
   warm?(text: string, childId?: string): void
+  /** It was said in full on this device (the school's voice or the device's own), not cut off, muted or silent. */
+  heard?(id: string): void
 }
 
 export interface AnnouncerState {
@@ -126,6 +128,7 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
         // Heard unless Mute or an acknowledgement cut it short.
         else if (items.get(next.id) === next && Date.now() >= mutedUntil) {
           next.heard = true
+          output.heard?.(next.id)
           if (next.once) items.delete(next.id)
           else output.prepare?.(spokenFor(next), next.childId)
         }

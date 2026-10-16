@@ -83,7 +83,7 @@ select app.notify(array['00000000-0000-0000-0000-000000058a01']::uuid[], 'Both',
 do $$ declare c int; begin
   select count(*) into c from public.push_claim(10);
   assert c = 2, 'one row for the web subscription and one for the phone, got ' || c;
-  assert (select count(*) from app.push_outbox where sent_at is not null and result = 'sending') = 1, 'one outbox row claimed';
+  assert (select count(*) from app.push_outbox where sent_at is not null and result = 'sending') = 2, 'one outbox row per device (0059)';
 end $$;
 update app.push_outbox set sent_at = null, attempts = 0, result = null;
 do $$ begin

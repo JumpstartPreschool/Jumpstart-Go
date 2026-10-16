@@ -16,6 +16,12 @@ do $$ declare o bigint; begin
     assert (select count(*) from public.push_claim(10)) = 1, 'claimed try ' || i;
     perform public.push_result(o, 'error 503 unavailable');
     assert (select sent_at is null from app.push_outbox where id = o) = (i < 3), 'requeued until the third try';
+    -- 0059: each retry waits longer (15 s, then 30 s) before it can be claimed again.
+    assert (select not_before between now() + (i * 15 - 1) * interval '1 second' and now() + (i * 15 + 1) * interval '1 second' from app.push_outbox where id = o), 'backs off try ' || i;
+    if i < 3 then
+      assert (select count(*) from public.push_claim(10)) = 0, 'not claimed during the wait ' || i;
+      update app.push_outbox set not_before = now() - interval '1 second' where id = o;
+    end if;
   end loop;
   assert (select attempts from app.push_outbox where id = o) = 3, 'three attempts counted';
   assert (select count(*) from public.push_claim(10)) = 0, 'not retried a fourth time';
@@ -23,7 +29,7 @@ end $$;
 
 -- Sent is final; gone deletes the device and is not retried.
 do $$ declare o bigint; s uuid; begin
-  update app.push_outbox set sent_at = null, attempts = 0, result = null;
+  update app.push_outbox set sent_at = null, attempts = 0, result = null, not_before = null;
   select id into o from app.push_outbox;
   perform public.push_claim(10);
   perform public.push_result(o, 'sent');
