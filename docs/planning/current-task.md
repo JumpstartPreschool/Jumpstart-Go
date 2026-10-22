@@ -15,8 +15,9 @@
   rollback check, `deno check` of push-send and pronounce, Java compiled against Android 16 with stubs and JUnit,
   Playwright on the demo build (reports, downloads, correction, duty lifecycle, phone and iPad widths), axe-core,
   npm audit (0 production advisories), secret scan. Not run here: Gradle/APK build, Swift build, real devices.
-- **Next:** owner follows [deployment.md](../infrastructure/deployment.md) (database first), then acceptance tests on
-  an Android phone and tablet.
+- **Deployed 2026-10-22 by the owner:** backups taken, migrations 0060–0063 applied, web app live (version
+  `5dba5c32`, CSP `frame-src blob:` confirmed). Still to confirm: push-send and pronounce function deploys, the
+  clip re-queue, smoke tests, the database password change, the Android APK and device acceptance tests.
 
 ## Background announcements in the school's voice (2026-10-22, branch `claude/jumpstart-background-voice-jkomjf`, PRD D61)
 - **Built and tested:** push-send works out the duty screen's words for each gate alert to a phone (`_shared/gateTrip.ts`, moved out of `duty/gate.ts` so both share it; `_shared/phoneVoice.ts`) and sends the matching pre-made Azure recording as a link signed for that alert. Android's `GateVoice` plays the duty screen's chime and that recording with the screen off, one at a time, most urgent first, each alert once, nothing expired, Android's voice only as a fallback. Receipts `displayed` and `spoken` (migration `0060`). A parent's trip alert is no longer spoken on a phone with the app. Test alerts play the school's sound check through the background path. Duty screen: "Speak alerts with the screen off" switch and an honest last-spoken status.
