@@ -1,5 +1,5 @@
 /**
- * Chart geometry, shared by the dashboard (React SVG, Charts.tsx) and the PDFs (jsPDF, exports/pdf.ts): scales, ticks,
+ * Chart geometry, shared by the dashboard (React SVG, ChartCards.tsx) and the PDFs (jsPDF, exports/pdf.ts): scales, ticks,
  * bar and line positions in any box, so a chart looks and reads the same on screen and on paper. Marks follow the house
  * specs: bars at most 24 units thick with a 2-unit gap between neighbours, lines 2 units, recessive hairline grid.
  */
