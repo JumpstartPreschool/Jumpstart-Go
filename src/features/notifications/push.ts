@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { isNativeAndroid, nativeStatus, registerNativePushToken, requestNativeNotifications, unregisterNativePushToken } from '../../native/duty'
 
 const KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
 
@@ -23,7 +24,33 @@ function basicState(): PushState | null {
   return null
 }
 
+// Someone on this device switched alerts off on purpose (the switch, not signing out). The Android app needs it to stay
+// off, since its Firebase token outlives the switch; everywhere, Start duty then stops asking for alerts each morning.
+const OFF_KEY = 'jumpstart.nativePushOff'
+function chosenOff(set?: boolean): boolean {
+  try {
+    if (set === undefined) return localStorage.getItem(OFF_KEY) === '1'
+    if (set) localStorage.setItem(OFF_KEY, '1')
+    else localStorage.removeItem(OFF_KEY)
+  } catch {
+    /* storage blocked */
+  }
+  return set === true
+}
+
+/** Alerts on this device were switched off on purpose (they stay off until switched on again). */
+export const pushTurnedOff = (): boolean => chosenOff()
+
+// The Android app's WebView has no Push API: notifications go through the app's own Firebase token instead.
+async function nativeState(): Promise<PushState> {
+  const s = await nativeStatus()
+  if (!s?.firebase) return 'not-configured'
+  if (!s.notificationsAllowed || chosenOff()) return 'off'
+  return (await registerNativePushToken()) ? 'on' : 'off'
+}
+
 export async function pushState(): Promise<PushState> {
+  if (isNativeAndroid()) return nativeState()
   const basic = basicState()
   if (basic) return basic
   const reg = await navigator.serviceWorker.getRegistration()
@@ -35,6 +62,13 @@ export async function pushState(): Promise<PushState> {
   if (data) return 'on'
   if (error) return 'off'
   return (await saveSubscription(sub)) ? 'on' : 'off'
+}
+
+/** This browser's push endpoint, or null (no subscription, no service worker, or the Android app). */
+export async function currentEndpoint(): Promise<string | null> {
+  if (isNativeAndroid() || !('serviceWorker' in navigator)) return null
+  const reg = await navigator.serviceWorker.getRegistration()
+  return (await reg?.pushManager.getSubscription())?.endpoint ?? null
 }
 
 async function saveSubscription(sub: PushSubscription): Promise<boolean> {
@@ -49,6 +83,13 @@ const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.e
 
 /** Asks the browser (call from a tap), subscribes this device and saves it for the signed-in person. */
 export async function turnOnPush(): Promise<PushState> {
+  chosenOff(false)
+  if (isNativeAndroid()) {
+    const granted = await requestNativeNotifications()
+    if (!(await nativeStatus())?.firebase) return 'not-configured'
+    if (!granted) return 'denied'
+    return (await registerNativePushToken()) ? 'on' : 'off'
+  }
   // Only quick checks before the question: iOS shows the permission prompt only while the tap is fresh, so nothing that
   // waits on the network may come first.
   const state = basicState()
@@ -70,8 +111,16 @@ export async function turnOnPush(): Promise<PushState> {
   return 'on'
 }
 
-/** Stops notifications on this device (the database forgets it; other devices keep theirs). */
-export async function turnOffPush(): Promise<PushState> {
+/**
+ * Stops notifications on this device (the database forgets it; other devices keep theirs). `chosen`: the person switched
+ * them off, so they stay off. Signing out is not a choice: the next person on a shared device starts afresh.
+ */
+export async function turnOffPush(chosen = false): Promise<PushState> {
+  chosenOff(chosen)
+  if (isNativeAndroid()) {
+    await unregisterNativePushToken()
+    return 'off'
+  }
   const reg = await navigator.serviceWorker.getRegistration()
   const sub = await reg?.pushManager.getSubscription()
   if (sub) {

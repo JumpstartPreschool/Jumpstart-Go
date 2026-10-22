@@ -15,13 +15,15 @@
 | Absence reported by one parent | Other guardians who chose it | `abs-<child>` |
 | 08:00 reminder (D17) | Guardians with it on, per child with school today and not away | `morning-<child>` |
 
-Nobody is told about their own action. Only people on the record, with app access and at least one registered device, are queued.
+Nobody is told about their own action. Only people on the record, with app access and at least one registered device (a web subscription or a phone token), are queued.
+
+Gate alerts also repeat; see Repeating gate alerts below.
 
 ## How it flows
-1. Triggers on `trips`, `app.trip_links`, `announcements`, `messages` and `attendance` call `app.notify`, which writes one row per person to `app.push_outbox` (not readable through the API).
-2. An insert statement asks `push-send` to run now (`pg_net`), and a once-a-minute job catches anything missed (`pg_cron`).
-3. `push-send` (secret-checked) claims a batch with `push_claim` (`for update skip locked`, so two runs never send twice), sends each to every device with `web-push`, and records the result with `push_result`. A 404 or 410 from the push service deletes that device.
-4. The service worker (`public/push-sw.js`, loaded into the app's worker) shows it; a tap opens the page it names, inside the app only.
+1. Triggers on `trips`, `app.trip_links`, `announcements`, `messages` and `attendance` call `app.notify`, which writes one row per alert and device (web subscription or phone token) to `app.push_outbox` (not readable through the API). Each row has an expiry: 10 minutes for gate alerts (`trip-` and `duty-` tags), an hour for the rest.
+2. An insert statement asks `push-send` to run now (`pg_net`, after the transaction commits, so an alert is always persisted before it is dispatched). A job every 10 seconds (`push-flush`, pg_cron 1.5+) catches anything missed and sends retries once their wait is over.
+3. `push-send` (secret-checked) claims a batch with `push_claim` (`for update skip locked`, so two runs never send twice; `platform` is `web`, `android` or `ios`), sends each to its device (web with `web-push`; phones through Firebase Cloud Messaging), and records the result with `push_result`. Before claiming it marks rows `expired` (past their expiry), `gone` (device forgotten since) or `skipped closed` (a gate alert whose trip is no longer on the way). A gate alert queued before someone acknowledged the trip is also skipped (unless the collector arrived after that). A failed send is retried on that device only, after 15 s then 30 s, at most 3 tries and only before the expiry. The push service's time to live is what is left of the expiry. A 404 or 410 from the push service deletes that device. A web alert about a trip (`trip-` tag) is held by the push service for 10 minutes at most, any other for an hour.
+4. The service worker (`public/push-sw.js`, loaded into the app's worker) shows it and posts a receipt to `push-send/receipt` (`displayed`, and `opened` on a tap). The receipt id travels only inside that device's encrypted push, so no sign-in is needed and it can mark only that row. It also tells any open window to read its data afresh. A gate alert is shown without its own sound only on a device whose duty screen is focused, visible, sound on, and has told the worker it is announcing that very request (`jumpstart-announcing`); everything else always sounds, including tests and `duty-` alerts. A queued alert is never delivered to a device that has since moved to someone else (a shared iPad); that device also starts with no test evidence. A gate alert opens `/coordinator?trip=<id>`; on a duty screen that is already open it selects the request without reloading (a reload would end the duty session). A tap never reloads a duty screen at all: a test alert, an office message or any other page only brings the open window forward, so a test in progress and the duty's sound survive. The receipt endpoint reads at most 1 KB for at most 3 seconds, whether or not the request states its length, since a proxy may forward it without one. Its rate limit (60 a minute per address, per function instance) counts only bad receipts and is checked before the body is read, so junk cannot crowd out real devices that share an address. Only the child's gate team or a Center Leader can report a request as heard (`gate_heard`). A gate alert for an unusual time says "Outside the usual time." and never the parent's reason, because it stays on a shared tablet's lock screen. When the duty screen sees that a request has been handled (closed, cancelled, or acknowledged with no arrival since), it takes that request's alerts off this device's lock screen.
 5. The outbox keeps 14 days.
 
 ## Devices
@@ -29,5 +31,75 @@ Nobody is told about their own action. Only people on the record, with app acces
 - Turned on from **Account** (parents), **Start duty** (coordinators) or the account sheet (other staff), always from a tap. iPhone and iPad need the Home Screen app (iOS 16.4+); the switch says so.
 - No VAPID key in the build means the switch says notifications aren't set up yet, rather than failing.
 
+- `device_tokens`: one row per phone running the native app (`platform` android or ios), saved with `save_device_token`, moved to whoever signs in on it, removed with `delete_device_token` or when Firebase reports it unregistered (`push_forget_token`). Each person keeps their 10 newest.
+- Android phones get a data-only FCM message (`kind`, `tag`, `title`, `body`, `url`, `speak`, `outbox_id`, high priority, collapse key = tag, 10 minutes to live for a trip). The app's own service shows it and speaks `speak` aloud, so the screen can be off. iOS gets a normal time-sensitive alert. `push-send` signs into Firebase with the `FCM_SERVICE_ACCOUNT` secret; without it native rows are recorded `skipped no fcm` and not retried, and web delivery carries on.
+- Start duty asks the coordinator to turn notifications on first, because a locked screen is reached only by push; a small "Start without notifications" button keeps duty possible.
+
+## Repeating gate alerts
+- Duty is kept on the server: `app.gate_duty` records `started_at` and `seen_at` (the 30-second `gate_heartbeat`). Tapping End duty deletes the row.
+- `app.send_gate_reminders()` runs every minute (job `gate-reminders`). For each open trip today that the gate has not acknowledged (or whose collector arrived after the last acknowledgement), once the latest news is `reminder_min` minutes old (Gate announcement settings: 2, 3 or 5), it sends "Reminder: Arnav, pickup at 4:15 PM" (or "Reminder: Meera has arrived for Arnav") under the trip's tag, so it replaces the earlier alert. At most 30 reminders per cycle; `app.gate_reminders` holds the count. Acknowledging ends the cycle, and a late update or a new arrival starts a fresh count.
+- It tells the coordinators and leaders who cover the child and are on duty today; when none of them is on duty, all who cover the child. After two unanswered reminders (one for an arrival or a request outside the usual time) it escalates: everyone who covers the child and every Center Leader, with "Nobody has answered yet."
+- Acknowledging ends the cycle. A later "I've arrived" starts a new one.
+- `app.alert_silent_duty()` (same job) tells every Center Leader and the person themselves, once, when a device on duty has not checked in for 2 minutes between 08:00 and 19:30: "No signal from Kavita's device. Announcements may not play on it. Open Jumpstart Go on that device." It fires again only when the device came back and went silent again, at most once every 30 minutes per person (a web app on an iPad goes silent whenever its screen locks).
+
+## What is recorded, and what each word means
+Five separate facts, never inferred from one another:
+
+| Fact | Where | Set by |
+|---|---|---|
+| Accepted | `push_outbox.result = 'sent'` | the push service answered 2xx to `push-send` |
+| Displayed | `push_outbox.displayed_at` | the device's service worker, after `showNotification` resolved |
+| Opened | `push_outbox.opened_at` | the service worker, on a tap |
+| Spoken | `app.gate_heard` | the duty screen, after the announcer finished a sentence (not cut off, muted or silent) |
+| Acknowledged | `trips.acknowledged_at` | a person tapping Acknowledge |
+
+Displayed means the system was asked to show it; whether it made a sound depends on the device's settings (Silent, Focus, notification settings), which no web page can read. **Who gets alerts** on the duty screen (`gate_delivery_report`, gate team and Head office only) lists gate staff with no device, failures today, and each open request's counts.
+
+## Announce when the screen is off
+
+Start duty has one switch for Center Coordinators and Center Leaders, "Announce when the screen is off" (`ScreenOffSwitch`). On, this device is registered for alerts, and in the Android app the duty service keeps the announcements speaking with the screen off or the app in the background. Off, the device gets no alerts and announcements play only while Jumpstart Go is open on screen. What "on" does depends on the device, and the switch says so:
+
+- **Android app:** speaks every announcement aloud. While the page can play sound, the page speaks it with the school's voice at media volume. When it can't (screen off and the page suspended or silenced), the phone's own en-IN voice speaks each alert at full alarm volume, even in silent mode, ducking other sound, then puts the alarm volume back. The page tells the phone it is speaking (`nativeAlive`) only while its sound really plays, so a running but silenced page never stops the phone's voice.
+- **iPhone and iPad (Home Screen app):** an alert with the notification sound. iOS gives a web app no way to speak while locked; the full announcement plays when the alert is opened.
+- **Other browsers:** an alert with the notification sound and vibration.
+
+A deliberate Off is remembered on the device (`pushTurnedOff`), so Start duty stops asking for notifications. Signing out clears it, so the next person on a shared phone starts with alerts on. A device that is off appears in the delivery report without a device, and unanswered requests escalate to the others as usual.
+
+## Device readiness
+Start duty (once notifications are on) and **Who gets alerts** show this device's state: Ready, Setup required, Notifications blocked, Unsupported or Needs attention (`readiness.ts`). Ready needs evidence from the last 7 days: this device displayed a test alert, and the person said they heard it. Permission and a saved subscription alone are Needs attention.
+
+**Send a test alert** (`send_test_push`, staff only, one a minute) queues a real alert to all the person's devices, sent 10 seconds later so the screen can be locked first. The panel follows this device's own row (`test_push_status`): accepted, then displayed. The person then answers "Did you hear its sound?" (`confirm_test_heard`, only within 10 minutes of a displayed test on that device). The report lists each web device's last test, whether it was heard and its last displayed alert. The Android app's phones report no receipts, so their readiness stays a check by ear.
+
+## What a web app can and cannot do
+- **Open, sound on (after Start duty):** the announcer speaks every request in the school's voice. Reminders and new stages repeat until acknowledged.
+- **Backgrounded, locked or closed:** the operating system suspends the page, so nothing can be spoken. A push still shows on the lock screen with the system's notification sound when notifications are allowed (iPhone and iPad: the Home Screen app, iOS 16.4 or later).
+- **Tapped notification:** the app opens at the request. Browsers do not count a notification tap as permission to play sound, so iPad and iPhone show "Tap here to turn announcements back on" (or Resume duty if the app was closed). One tap brings the voice back, and every unacknowledged request plays again.
+- **Silent mode, Focus, Do Not Disturb:** the operating system decides whether a push makes a sound. Time-sensitive alerts and critical alerts are not available to web push.
+- **Offline:** pushes wait at the push service until the expiry; the outbox retries failed sends; on reconnect the duty screen reads today's trips afresh and announces what is still open.
+
+## Physical-device verification matrix
+Nothing below has been run on a device yet. Mark a cell only after running it on that device.
+
+| Test | iPhone PWA | iPad PWA | Android phone PWA | Android tablet PWA | Desktop browser |
+|---|---|---|---|---|---|
+| 1. Foreground, screen on: voice within 3 s, full sentence | not run | not run | not run | not run | not run |
+| 2. Background, screen on: banner with sound | not run | not run | not run | not run | not run |
+| 3. Locked: lock-screen alert with sound | not run | not run | not run | not run | n/a |
+| 4. App closed normally: alert arrives | not run | not run | not run | not run | not run |
+| 5. Tap alert: opens the request, duty kept, voice after one tap | not run | not run | not run | not run | not run |
+| 6. Offline 2 min, reconnect: missed requests announced | not run | not run | not run | not run | not run |
+| 7. Notifications denied: Blocked state, steps shown | not run | not run | not run | not run | not run |
+| 8. Silent mode: note what is heard | not run | not run | not run | not run | n/a |
+| 9. Focus / Do Not Disturb: note what is heard | not run | not run | not run | not run | not run |
+| 10. Battery saver / restricted | n/a | n/a | not run | not run | n/a |
+| 11. Two devices, one account: each gets it once | not run | not run | not run | not run | not run |
+| 12. Three pickups at once: one voice at a time, urgent first | not run | not run | not run | not run | not run |
+| 13. Cancelled before delivery: no gate alert | not run | not run | not run | not run | not run |
+| 14. End duty, start again: no stale or doubled speech | not run | not run | not run | not run | not run |
+| 15. New version deployed while on duty: no reload mid-duty, alerts keep coming | not run | not run | not run | not run | not run |
+| Test alert: Ready reached | not run | not run | not run | not run | not run |
+
+Force-stop (Android Settings, Force stop) is not the same as closing the app: Chrome then receives no push until it is opened again. Closing from the app switcher is a normal close.
+
 ## Privacy
-Lock-screen text names the child's first name and a time, never a location. The morning reminder and "other parent" alerts can be turned off per person. Provider: the browser's own push service; no third-party messaging account.
+Lock-screen text names the child's first name only (never the surname) and a time, never a location. The morning reminder and "other parent" alerts can be turned off per person. Provider: the browser's own push service; no third-party messaging account.

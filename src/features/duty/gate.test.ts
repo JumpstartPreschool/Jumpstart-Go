@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Trip } from '../trips/api'
 import { DEFAULT_GATE, gateSettings } from '../../../supabase/functions/_shared/gateAnnounce'
-import { announceStage, cancelledText, isLate, isUrgent, lateText, priorityOf, PRIORITY, shouldAnnounce, spokenText, stageOf, type GateChild } from './gate'
+import { announceStage, cancelledText, isLate, isUrgent, lateText, priorityOf, PRIORITY, settled, shouldAnnounce, spokenText, stageOf, type GateChild } from './gate'
 
 const child: GateChild = { id: 'c', name: 'Aarav', fullName: 'Aarav Sharma', classId: 'k', className: 'Nursery', programmeName: 'Nursery Morning' }
 const S = DEFAULT_GATE
@@ -148,5 +148,15 @@ describe('running late (0043)', () => {
     expect(isLate(late(12))).toBe(true)
     expect(isLate(late(12, { arrived_at: iso(T0) }))).toBe(false)
     expect(isLate(trip(12))).toBe(false)
+  })
+})
+
+describe('handled requests (lock-screen alerts taken down)', () => {
+  it('is handled once closed, cancelled or acknowledged, and open again when the collector arrives after that', () => {
+    expect(settled(trip(10))).toBe(false)
+    expect(settled(trip(10, { status: 'completed' as Trip['status'] }))).toBe(true)
+    expect(settled(trip(10, { status: 'cancelled' as Trip['status'] }))).toBe(true)
+    expect(settled(trip(10, { acknowledged_at: iso(min(1)) }))).toBe(true)
+    expect(settled(trip(10, { acknowledged_at: iso(min(1)), arrived_at: iso(min(5)) }))).toBe(false)
   })
 })

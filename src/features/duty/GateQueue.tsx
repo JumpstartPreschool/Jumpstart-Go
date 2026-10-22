@@ -24,7 +24,7 @@ import type { Announcer } from './announcer'
 import { loadVoiceVersion, setVoiceChildren, warmClips } from './voiceClips'
 import type { VoiceChild } from '../../../supabase/functions/_shared/announce.ts'
 import { childMessages, commonPhrases } from '../../../supabase/functions/_shared/gateAnnounce.ts'
-import { isLate, shouldAnnounce, syncGate, type GateChild } from './gate'
+import { isLate, settled, shouldAnnounce, syncGate, type GateChild } from './gate'
 import { RequestPopup } from './RequestPopup'
 import { setVoiceOpenings } from './sound'
 import { useGateSettings } from './useGateSettings'
@@ -64,6 +64,13 @@ function useOnDuty(audible: boolean): Set<string> | null {
     }
   }, [audible])
   return ids
+}
+
+const TRIP_PARAM = /^[0-9a-f-]{36}$/i
+/** The request a notification opened (?trip=…), or null. */
+export function tripFromUrl(url: string = location.pathname + location.search): string | null {
+  const id = new URL(url, location.origin).searchParams.get('trip')
+  return id && TRIP_PARAM.test(id) ? id : null
 }
 
 /** Center Coordinators check in and hand over; Center Leaders hear, acknowledge and mark Ready (0038, enforced by the database). */
@@ -150,7 +157,19 @@ export function GateQueue({ announcer, audible = true }: { announcer: Announcer;
   // Covered: someone assigned who is on duty now. A class whose coordinator isn't is announced here straight away.
   const covered = new Set((gate.data?.assigned ?? []).filter((a) => !onDuty || onDuty.has(a.profileId)).map((a) => a.classId))
   const nowMs = useNow(5_000)
-  const [picked, setPicked] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string | null>(() => tripFromUrl())
+  // Taken off the address once read, so a reload doesn't open it again.
+  useEffect(() => { if (tripFromUrl()) history.replaceState(history.state, '', location.pathname) }, [])
+  // A tapped notification for this screen (public/push-sw.js) names its request without reloading the page.
+  useEffect(() => {
+    const onOpen = (e: MessageEvent) => {
+      const d = e.data as { type?: string; url?: string } | null
+      const id = d?.type === 'jumpstart-open' && d.url ? tripFromUrl(d.url) : null
+      if (id) { setPicked(id); void trips.reload() }
+    }
+    navigator.serviceWorker?.addEventListener('message', onOpen)
+    return () => navigator.serviceWorker?.removeEventListener('message', onOpen)
+  }, [trips.reload])
   const [busy, setBusy] = useState<string | null>(null)
   const [handover, setHandover] = useState<Trip | null>(null)
   const [codeFor, setCodeFor] = useState<Trip | null>(null)
@@ -216,6 +235,22 @@ export function GateQueue({ announcer, audible = true }: { announcer: Announcer;
     if (!trips.trips || !gate.data) return
     syncGate(trips.trips, { ...gate.data, covered }, nowMs, cfg, () => cfgRef.current, { announced: announced.current, cancelHeard: cancelHeard.current, lateHeard: lateHeard.current, since: listeningSince.current }, announcer)
   }, [trips.trips, gate.data, onDuty, nowMs, announcer, cfg])
+
+  // Tells the service worker which requests this screen is announcing aloud right now, so their push alert doesn't sound
+  // on top of the voice. Nothing while muted or with sound paused; cleared when the duty screen closes.
+  useEffect(() => {
+    const ids = audible ? [...announced.current.keys()] : []
+    navigator.serviceWorker?.controller?.postMessage({ type: 'jumpstart-announcing', on: audible, trips: ids })
+  }, [audible, trips.trips, gate.data, onDuty, nowMs])
+  useEffect(() => () => navigator.serviceWorker?.controller?.postMessage({ type: 'jumpstart-announcing', on: false }), [])
+  // Alerts still on this device's lock screen for requests that have been handled since are taken down.
+  useEffect(() => {
+    const done = new Set((trips.trips ?? []).filter(settled).map((t) => `trip-${t.id}`))
+    if (!done.size) return
+    void navigator.serviceWorker?.getRegistration().then((reg) => reg?.getNotifications()).then((shown) => {
+      for (const n of shown ?? []) if (done.has(n.tag)) n.close()
+    }).catch(() => {})
+  }, [trips.trips])
 
   async function act(t: Trip, step: GateStep, handedTo?: string) {
     setBusy(t.id)

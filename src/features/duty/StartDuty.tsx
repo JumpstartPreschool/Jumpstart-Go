@@ -1,6 +1,10 @@
-import type { ReactNode } from 'react'
-import { ArrowRight, CircleCheck, Clock, MapPin, PlayLine, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
-import { PushSwitch } from '../notifications/PushSwitch'
+import { useEffect, useState, type ReactNode } from 'react'
+import { ArrowRight, BellRing, CircleCheck, Clock, MapPin, PlayLine, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
+import { DeviceReadiness } from '../notifications/DeviceReadiness'
+import { pushState, pushTurnedOff, turnOffPush, turnOnPush, type PushState } from '../notifications/push'
+import { isNativeAndroid } from '../../native/duty'
+import { ScreenOffSwitch, type Platform } from './ScreenOffSwitch'
+import { useToast } from '../../ui/Toast'
 import { Button } from '../../ui/Button'
 import { Logo, Mascot } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
@@ -96,8 +100,51 @@ export function SoundResultLine({ result }: { result: SoundResult }) {
   return <p className={`mt-4 rounded-lg px-4 py-3 text-left text-small font-bold ${tone}`} role="status">{text}</p>
 }
 
+const platform = (): Platform =>
+  isNativeAndroid() ? 'android-app'
+    : /iPhone|iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) ? 'apple' : 'web'
+
+/** Alerts reach a locked screen only through push, so duty starts with it on (or a deliberate choice to go without). */
+const PUSH_BLOCKS: PushState[] = ['off', 'denied', 'needs-install']
+
+function PushGate({ state, onTurnOn, busy, onSkip }: { state: PushState; onTurnOn: () => void; busy: boolean; onSkip: () => void }) {
+  const steps = state === 'denied'
+    ? 'Notifications are blocked for Jumpstart Go. Open this device\'s Settings, find Jumpstart Go (or the browser), choose Notifications and allow them. Then come back to this screen.'
+    : state === 'needs-install'
+      ? 'On an iPhone or iPad, alerts only work from the Home Screen app. Tap Share, then Add to Home Screen, then open Jumpstart Go from the Home Screen and sign in again.'
+      : 'Without notifications, a locked or sleeping screen will not tell you when a parent is on the way. Turn them on for this device.'
+  return (
+    <li className="card flex flex-col gap-3 rounded-xl border-2 border-warning p-5 sm:col-span-2 short:p-4" role="alert">
+      <div className="flex items-center gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-md bg-warning-soft text-warning [&_svg]:size-[22px]" aria-hidden><BellRing /></span>
+        <p className="text-h4">Turn on notifications to start duty</p>
+      </div>
+      <p className="text-body text-ink-2 short:text-small">{steps}</p>
+      {state === 'off' && <Button size="lg" variant="primary" icon={<BellRing />} loading={busy} onClick={onTurnOn}>Turn on notifications</Button>}
+      <Button size="md" variant="quiet" onClick={onSkip}>Start without notifications</Button>
+    </li>
+  )
+}
+
 export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const installed = isInstalled()
+  const toast = useToast()
+  const [push, setPush] = useState<PushState | null>(null)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [withoutPush, setWithoutPush] = useState(false)
+  // Switched off on purpose (the switch below): duty starts without asking, and announcements play only on screen.
+  const [chosenOff, setChosenOff] = useState(pushTurnedOff)
+  useEffect(() => { void pushState().then(setPush, () => setPush('unsupported')) }, [])
+  const pushBlocked = !withoutPush && !chosenOff && (push === null || PUSH_BLOCKS.includes(push))
+  async function turnOn() {
+    setPushBusy(true)
+    try { setPush(await turnOnPush()); setChosenOff(false) } catch { toast("Couldn't turn on notifications. Try again.") } finally { setPushBusy(false) }
+  }
+  async function screenOff(on: boolean) {
+    if (on) return turnOn()
+    setPushBusy(true)
+    try { setPush(await turnOffPush(true)); setChosenOff(true) } catch { toast("Couldn't turn it off. Try again.") } finally { setPushBusy(false) }
+  }
 
   if (duty.phase === 'check') {
     const struggling = duty.testsPlayed >= 2 && !duty.testing
@@ -142,7 +189,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })
   const start = (
     <div className="mx-auto w-full max-w-[760px] landscape:lg:max-w-none">
-      <button type="button" className="dutybtn" disabled={!duty.soundSupported} onClick={duty.start}>
+      <button type="button" className="dutybtn" disabled={!duty.soundSupported || pushBlocked} onClick={duty.start}>
         <span className="dutybtn-icon" aria-hidden>{duty.resumable ? <PlayLine /> : <PowerLine />}</span>
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[19px] font-extrabold leading-tight tracking-[-0.01em]">{duty.resumable ? 'Resume duty' : 'Start duty'}</span>
@@ -173,8 +220,17 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
         <section aria-labelledby="checks-title" className="landscape:lg:col-start-2 landscape:lg:row-span-2 landscape:lg:row-start-1 landscape:lg:self-center">
           <h2 id="checks-title" className="kicker mb-3">Before you start</h2>
           <ul className="grid gap-4 short:gap-3 sm:grid-cols-2">
+            {(push === 'on' || (push === 'off' && (chosenOff || withoutPush))) && <ScreenOffSwitch state={push} platform={platform()} busy={pushBusy} onChange={(v) => void screenOff(v)} />}
+            {push && PUSH_BLOCKS.includes(push) && !withoutPush && !chosenOff && <PushGate state={push} busy={pushBusy} onTurnOn={() => void turnOn()} onSkip={() => setWithoutPush(true)} />}
+            {/* Only once notifications are on: proof they reach this device, never a prompt every morning. */}
+            {push === 'on' && <li className="card rounded-xl p-5 sm:col-span-2 short:p-4"><DeviceReadiness /></li>}
+            {(push === 'unsupported' || push === 'not-configured') && (
+              <Tile tone="warn" icon={<TriangleAlert />} title="Notifications are not available">
+                This device cannot receive alerts while it is locked, so keep Jumpstart Go open and the screen on. Updates still show in the app.
+              </Tile>
+            )}
             {installed ? (
-              <Tile tone="ok" icon={<CircleCheck />} title="On the Home Screen" extra={<div className="rounded-lg bg-sunken px-3.5"><PushSwitch label="Alerts when locked" /></div>}>
+              <Tile tone="ok" icon={<CircleCheck />} title="On the Home Screen">
                 Opened from the Home Screen, so alerts can reach this device when it's locked.
               </Tile>
             ) : (
