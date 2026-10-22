@@ -90,8 +90,11 @@ export async function readCapped(req: Request, max: number, ms = 3000): Promise<
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** A device's receipt (POST /push-send/receipt, sent as text so the browser needs no CORS preflight), or null when malformed. */
-export function parseReceipt(text: string): { id: number; receipt: string; event: 'displayed' | 'opened' } | null {
+/**
+ * A device's receipt (POST /push-send/receipt, sent as text so the browser needs no CORS preflight), or null when
+ * malformed. 'spoken' comes from the Android app once it has said a gate alert aloud to its end.
+ */
+export function parseReceipt(text: string): { id: number; receipt: string; event: 'displayed' | 'opened' | 'spoken' } | null {
   if (text.length > 300) return null
   let v: unknown
   try { v = JSON.parse(text) } catch { return null }
@@ -99,21 +102,55 @@ export function parseReceipt(text: string): { id: number; receipt: string; event
   const { id, receipt, event } = v as Record<string, unknown>
   if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0) return null
   if (typeof receipt !== 'string' || !UUID.test(receipt)) return null
-  if (event !== 'displayed' && event !== 'opened') return null
+  if (event !== 'displayed' && event !== 'opened' && event !== 'spoken') return null
   return { id, receipt, event }
 }
 
 /**
- * The FCM HTTP v1 message for a native phone. Android gets data only, so the app's own service wakes up, shows the alert
- * and speaks it even when the screen is off. iOS gets a normal alert (time-sensitive for the gate).
+ * An alert the gate must hear: a request to the gate team (its link opens the duty screen) or a silent-device warning.
+ * A parent's alert about the same trip shares the trip's tag but is never spoken aloud.
  */
-export function fcmMessageFor(r: Pick<Claimed, 'outbox_id' | 'title' | 'body' | 'url' | 'tag' | 'platform' | 'token'> & Partial<Pick<Claimed, 'expires_at'>>, nowMs = Date.now()): { message: Record<string, unknown> } {
+export const isGateAlert = (r: Pick<Claimed, 'tag' | 'url'>) =>
+  (r.tag ?? '').startsWith('duty-') || ((r.tag ?? '').startsWith('trip-') && safePath(r.url).startsWith('/coordinator'))
+
+/**
+ * How a phone says an alert in the background, in the school's voice: each recording's key (a hash, never a name) and a
+ * short-lived link to it, the chime, and its place in the phone's queue. The words themselves are not sent: FCM data is
+ * readable by Google, so if a recording can't be had the phone's own voice reads the lock-screen title and body, which
+ * carry only the child's first name.
+ */
+export interface PhoneVoice {
+  clips: Array<{ key: string; url: string }>
+  chime: 'normal' | 'flagged'
+  priority: number
+  order: number
+}
+
+/**
+ * The FCM HTTP v1 message for a native phone. Android gets data only, so the app's own service wakes up, shows the alert
+ * and speaks it in the school's voice even when the screen is off. iOS gets an alert its notification service extension
+ * may change (mutable-content): it turns the same recording into the alert's sound (docs/architecture/ios-app.md).
+ */
+export function fcmMessageFor(
+  r: Pick<Claimed, 'outbox_id' | 'title' | 'body' | 'url' | 'tag' | 'platform' | 'token'> & Partial<Pick<Claimed, 'expires_at' | 'receipt'>>,
+  nowMs = Date.now(),
+  voice: PhoneVoice | null = null,
+  receiptUrl?: string,
+): { message: Record<string, unknown> } {
   const title = r.title.slice(0, 120)
   const body = r.body.slice(0, 240)
   const url = safePath(r.url)
   const tag = r.tag ?? ''
-  const gate = tag.startsWith('trip-') || tag.startsWith('duty-')
-  const data: Record<string, string> = { kind: gate ? 'gate' : 'info', tag, title, body, url, speak: gate ? `${title}. ${body}` : '', outbox_id: String(r.outbox_id) }
+  const test = tag.startsWith('test-')
+  const gate = isGateAlert(r)
+  const data: Record<string, string> = {
+    kind: gate ? 'gate' : test ? 'test' : 'info', tag, title, body, url,
+    speak: gate || test ? `${title}. ${body}` : '', outbox_id: String(r.outbox_id),
+    ...(voice ? { clips: JSON.stringify(voice.clips), chime: voice.chime, priority: String(voice.priority), order: String(voice.order) } : {}),
+    ...(r.expires_at ? { expires: String(Date.parse(r.expires_at)) } : {}),
+    // The phone reports that it showed the alert and that it said it aloud, as a web device's service worker does.
+    ...(receiptUrl && r.receipt ? { receipt: r.receipt, ack: receiptUrl } : {}),
+  }
   if (r.platform === 'ios') {
     return {
       message: {
@@ -121,7 +158,12 @@ export function fcmMessageFor(r: Pick<Claimed, 'outbox_id' | 'title' | 'body' | 
         data,
         apns: {
           headers: { 'apns-priority': '10', 'apns-push-type': 'alert', 'apns-collapse-id': tag.slice(0, 64) },
-          payload: { aps: { alert: { title, body }, sound: 'default', 'interruption-level': gate ? 'time-sensitive' : 'active', 'thread-id': 'gate' } },
+          payload: {
+            aps: {
+              alert: { title, body }, sound: 'default', 'interruption-level': gate ? 'time-sensitive' : 'active', 'thread-id': 'gate',
+              ...(voice?.clips.length ? { 'mutable-content': 1 } : {}),
+            },
+          },
         },
       },
     }

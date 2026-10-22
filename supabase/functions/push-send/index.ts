@@ -10,7 +10,9 @@
 // Without the VAPID secrets it answers 503 and leaves the queue untouched, so nothing is lost or marked sent.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
-import { fcmAssertion, fcmMessageFor, fcmTokenGone, parseReceipt, payloadFor, readCapped, receiptLimiter, ttlFor, type Claimed, type ServiceAccount } from '../_shared/push.ts'
+import { gateSettings } from '../_shared/gateAnnounce.ts'
+import { phoneVoiceFor, type VoiceSources, type VoiceTrip } from '../_shared/phoneVoice.ts'
+import { fcmAssertion, fcmMessageFor, fcmTokenGone, parseReceipt, payloadFor, readCapped, receiptLimiter, ttlFor, type Claimed, type PhoneVoice, type ServiceAccount } from '../_shared/push.ts'
 
 const secret = Deno.env.get('PUSH_SECRET') ?? ''
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
@@ -44,11 +46,53 @@ async function fcmAccessToken(sa: ServiceAccount): Promise<string> {
   return j.access_token
 }
 
-async function sendNative(r: Claimed, sa: ServiceAccount): Promise<'sent' | 'gone' | string> {
+// Where a device reports that an alert was displayed, opened (0059) or, in the Android app, spoken aloud (0060). No
+// sign-in: the receipt id, which travels only inside that device's push, is the proof, and it can only mark that one alert.
+const receiptUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-send/receipt`
+
+const VOICE_BUCKET = 'voice-audio'
+/**
+ * What the phones in this run need to play the school's recordings: the voice version and gate settings read once, each
+ * trip and each clip link once however many devices get it. A failed read means no recordings, never a lost alert: the
+ * phone's own voice reads the title instead.
+ */
+async function voiceSources(): Promise<VoiceSources | null> {
+  const [meta, cfg] = await Promise.all([
+    db.from('voice_meta').select('value').eq('key', 'voice').maybeSingle(),
+    db.from('gate_announcement_settings').select('*').maybeSingle(),
+  ])
+  if (meta.error || cfg.error) { console.error('voice sources', meta.error?.message ?? cfg.error?.message); return null }
+  const trips = new Map<string, Promise<VoiceTrip | null>>()
+  const links = new Map<string, Promise<string | null>>()
+  return {
+    version: (meta.data as { value: string } | null)?.value ?? null,
+    settings: gateSettings(cfg.data),
+    trip(id) {
+      if (!trips.has(id)) trips.set(id, (async () => {
+        const { data, error } = await db.from('trips')
+          .select('direction, arrive_at, off_schedule, traveller_relation, traveller_kind, arrived_at, late_at, children(full_name, preferred_name, programmes!children_programme_id_fkey(name), child_pronunciations(spoken_name))')
+          .eq('id', id).maybeSingle()
+        if (error || !data) return null
+        type Row = Omit<VoiceTrip, 'child'> & { children: { full_name: string; preferred_name: string | null; programmes: { name: string } | null; child_pronunciations: { spoken_name: string | null } | null } | null }
+        const { children: c, ...trip } = data as unknown as Row
+        if (!c) return null
+        // As the duty screen names the child (GateQueue), so the words, and so the clip's key, are the same.
+        return { ...trip, child: { fullName: c.full_name, name: c.preferred_name ?? c.full_name.split(' ')[0]!, programmeName: c.programmes?.name ?? '', spoken: c.child_pronunciations?.spoken_name ?? null } }
+      })())
+      return trips.get(id)!
+    },
+    sign(path, seconds) {
+      if (!links.has(path)) links.set(path, db.storage.from(VOICE_BUCKET).createSignedUrl(path, seconds).then(({ data }) => data?.signedUrl ?? null, () => null))
+      return links.get(path)!
+    },
+  }
+}
+
+async function sendNative(r: Claimed, sa: ServiceAccount, voice: PhoneVoice | null): Promise<'sent' | 'gone' | string> {
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${await fcmAccessToken(sa)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(fcmMessageFor(r, Date.now())),
+    body: JSON.stringify(fcmMessageFor(r, Date.now(), voice, receiptUrl)),
   })
   if (res.ok) return 'sent'
   const text = await res.text()
@@ -59,10 +103,6 @@ async function sendNative(r: Claimed, sa: ServiceAccount): Promise<'sent' | 'gon
   }
   return `error ${res.status} ${text}`
 }
-
-// Where a phone's service worker reports that an alert was displayed or opened (0059). No sign-in: the receipt id, which
-// travels only inside that device's encrypted push, is the proof, and it can only mark that one alert.
-const receiptUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-send/receipt`
 
 const receipts = receiptLimiter()
 
@@ -97,6 +137,8 @@ Deno.serve(async (req) => {
   webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT') ?? 'mailto:ai@jumpstartpreschool.in', vapidPublic, vapidPrivate)
   let sent = 0
   let gone = 0
+  // Read on the first phone row only: a run with web devices alone never touches the voice tables.
+  let voices: Promise<VoiceSources | null> | undefined
   // A few batches at most per call; the minute job picks up anything left.
   for (let round = 0; round < 5; round++) {
     const { data, error } = await db.rpc('push_claim', { p_limit: 100 })
@@ -110,7 +152,10 @@ Deno.serve(async (req) => {
           return
         }
         try {
-          const result = await sendNative(r, fcm)
+          voices ??= voiceSources().catch(() => null)
+          const src = await voices
+          const voice = src ? await phoneVoiceFor(r, src, Date.now()).catch((e) => { console.error('phone voice', (e as Error).message); return null }) : null
+          const result = await sendNative(r, fcm, voice)
           if (result === 'sent') sent += 1
           else if (result === 'gone') gone += 1
           await db.rpc('push_result', { p_outbox: r.outbox_id, p_result: result })

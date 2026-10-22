@@ -6,6 +6,7 @@
  * they are spoken, so a reminder says the time left now. Output is injected so the queue can be tested without a speaker.
  */
 import { DEFAULT_GATE } from '../../../supabase/functions/_shared/gateAnnounce.ts'
+import { REMINDER_PENALTY } from '../../../supabase/functions/_shared/gateTrip.ts'
 
 export type ChimeKind = 'normal' | 'flagged'
 
@@ -61,7 +62,6 @@ interface Item extends Announcement {
 }
 
 /** Before the item is next said, reminders sort after every new announcement. */
-const REMINDER_PENALTY = 1000
 const rank = (i: Item) => i.priority - (i.heard ? REMINDER_PENALTY : 0)
 
 export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
@@ -168,6 +168,18 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
       // If it's being said right now, stop: the gate has already dealt with it.
       if (playing?.id === id) output.stop?.()
       emit()
+    },
+    /**
+     * This phone's own announcer (the Android app's GateVoice) just said it in full while this page couldn't: count it as
+     * heard here, so the page says it next as a reminder at the usual interval, not again at once.
+     */
+    heardElsewhere(id: string) {
+      const item = items.get(id)
+      if (!item || playing?.id === id) return
+      item.heard = true
+      item.dueAt = Date.now() + repeatMs
+      if (item.once) items.delete(id)
+      void pump()
     },
     /** Silence now and hold announcements for `ms`. Whatever was cut off plays first when the mute ends. */
     mute(ms: number) {

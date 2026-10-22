@@ -1,6 +1,12 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-10
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-22
+
+## Background announcements in the school's voice (2026-10-22, branch `claude/jumpstart-background-voice-jkomjf`, PRD D61)
+- **Built and tested:** push-send works out the duty screen's words for each gate alert to a phone (`_shared/gateTrip.ts`, moved out of `duty/gate.ts` so both share it; `_shared/phoneVoice.ts`) and sends the matching pre-made Azure recording as a link signed for that alert. Android's `GateVoice` plays the duty screen's chime and that recording with the screen off, one at a time, most urgent first, each alert once, nothing expired, Android's voice only as a fallback. Receipts `displayed` and `spoken` (migration `0060`). A parent's trip alert is no longer spoken on a phone with the app. Test alerts play the school's sound check through the background path. Duty screen: "Speak alerts with the screen off" switch and an honest last-spoken status.
+- **Checks run:** `npm test`, `npm run typecheck`, `npm run test:db` (Postgres 16), `deno check` of push-send and pronounce, Java compiled against the Android 16 framework (Robolectric android-all) with stubs for androidx, Firebase and Capacitor, and JVM tests for `GateVoice`. **Not run:** a Gradle build of the APK (no Android SDK in this environment) and anything on a device.
+- **Written, not built:** the iOS notification service extension (`native-ios/`), which turns the same recording into the alert's sound. Needs the Apple Developer Program (US$99 a year, not approved) and a Mac ([ios-app.md](../architecture/ios-app.md)).
+- **Next:** owner deploys migration 0060 and push-send, builds and installs the APK, runs acceptance tests A to I ([android-app.md](../architecture/android-app.md)) on an Android phone and tablet, and decides on the Apple membership.
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).

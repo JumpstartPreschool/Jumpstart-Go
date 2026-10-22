@@ -10,6 +10,7 @@ interface DutyNative {
   openBatterySettings(): Promise<void>
   openNotificationSettings(): Promise<void>
   requestNotificationPermission(): Promise<{ granted: boolean }>
+  setSpeakAloud(o: { on: boolean }): Promise<void>
   getPushToken(): Promise<{ token: string | null }>
   addListener(event: 'pushToken', cb: (e: { token: string }) => void): Promise<PluginListenerHandle>
 }
@@ -24,6 +25,11 @@ export interface NativeStatus {
   mediaMax: number
   manufacturer: string
   firebase: boolean
+  /** The phone says gate alerts aloud itself when this page can't (GateVoice). Absent in apps built before it. */
+  speakAloud?: boolean
+  /** When the phone last said an alert in full (ms, 0 never), and in which voice: the school's recording or its own. */
+  lastSpokenAt?: number
+  lastVoice?: '' | 'school' | 'device'
 }
 
 const Duty = registerPlugin<DutyNative>('Duty')
@@ -44,6 +50,7 @@ export const nativeDutyStart = () => native(() => Duty.start())
 export const nativeDutyStop = () => native(() => Duty.stop())
 export const nativeAlive = () => native(() => Duty.alive())
 export const nativeStatus = () => native(() => Duty.status())
+export const setSpeakAloud = (on: boolean) => native(() => Duty.setSpeakAloud({ on }))
 export const openBatterySettings = () => native(() => Duty.openBatterySettings())
 export const openNotificationSettings = () => native(() => Duty.openNotificationSettings())
 export const requestNativeNotifications = async () => (await native(() => Duty.requestNotificationPermission()))?.granted ?? false

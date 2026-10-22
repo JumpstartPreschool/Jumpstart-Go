@@ -79,7 +79,18 @@ public class DutyPlugin extends Plugin {
         r.put("mediaMax", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
         r.put("manufacturer", Build.MANUFACTURER);
         r.put("firebase", firebase());
+        // The phone's own announcer (GateVoice): whether it speaks, and when it last said an alert in full and in which voice.
+        android.content.SharedPreferences p = GateVoice.prefs(c);
+        r.put("speakAloud", p.getBoolean("speakAloud", true));
+        r.put("lastSpokenAt", p.getLong("lastSpokenAt", 0));
+        r.put("lastVoice", p.getString("lastVoice", ""));
         call.resolve(r);
+    }
+
+    /** Whether this phone says gate alerts aloud in the background (the notification shows either way). */
+    @PluginMethod public void setSpeakAloud(PluginCall call) {
+        GateVoice.prefs(getContext()).edit().putBoolean("speakAloud", Boolean.TRUE.equals(call.getBoolean("on", true))).apply();
+        call.resolve();
     }
 
     @PluginMethod public void openBatterySettings(PluginCall call) {

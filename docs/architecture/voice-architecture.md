@@ -57,6 +57,10 @@ Parent taps "On my way" / "I've arrived" ─► start_trip / arrive_trip (server
 8. **Pronunciation**: `child_pronunciations.spoken_name`, written the way it sounds ("Aa-raadh-ya Sharma"), previewed live and approved by the admin or head office; coordinators listen. Applied only within that child's announcements. The registered name never changes; a new registered name clears the pronunciation. Status on the child's page: Ready, Getting ready, or Couldn't be made with Regenerate.
 9. **Bluetooth**: iPadOS sends all sound to a connected speaker. The duty bar's Speaker button opens Apple's own speaker list and plays a test.
 
+## Background and locked screens (2026-10-22)
+
+The same recordings play when the duty screen can't: push-send works out the duty screen's words for the alert's trip at that moment (`_shared/gateTrip.ts`, shared with the duty screen, and `_shared/phoneVoice.ts`), so the clip key is the one made ahead, and sends each phone a link to it signed for that alert only. The Android app plays the duty screen's chime and that clip ([android-app.md](android-app.md)); the iOS extension makes them the alert's sound ([ios-app.md](ios-app.md), not built yet). Nothing is synthesised on a phone and no extra Azure characters are spent: a sentence nobody made ahead (a rare arrival time not yet warmed) has no clip, and then the phone's own voice reads the alert's title.
+
 ## Cost (Azure Free F0)
 
 - Free F0 includes 0.5 million neural characters a month ([pricing](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speech-services/), checked 2026-09-29). The database stops at **450,000** (`voice_count`, `voice_usage`) before Azure is called; the minute job stops and carries on next month.

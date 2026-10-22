@@ -85,9 +85,18 @@ export function useDuty() {
     // The duty service pokes the page every 5 s, also with the screen off (page hidden), so the check runs then too.
     const tick = () => run()
     window.addEventListener('jumpstart-native-tick', tick)
+    // The phone said a request aloud while this page couldn't (GateVoice): this page doesn't say it again at once.
+    const spoke = (e: Event) => {
+      const tag = (e as CustomEvent<{ tag?: string }>).detail?.tag ?? ''
+      if (tag.startsWith('trip-')) announcer.heardElsewhere(`trip:${tag.slice(5)}`)
+    }
+    window.addEventListener('jumpstart-native-spoke', spoke)
     const alive = setInterval(run, 10_000)
-    return () => { events.forEach(([t, e]) => t.removeEventListener(e, check)); clearInterval(every); window.removeEventListener('jumpstart-native-tick', tick); clearInterval(alive) }
-  }, [phase])
+    return () => {
+      events.forEach(([t, e]) => t.removeEventListener(e, check)); clearInterval(every); clearInterval(alive)
+      window.removeEventListener('jumpstart-native-tick', tick); window.removeEventListener('jumpstart-native-spoke', spoke)
+    }
+  }, [phase, announcer])
 
   const playTest = useCallback(async () => {
     setTesting(true)

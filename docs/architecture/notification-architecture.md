@@ -32,7 +32,7 @@ Gate alerts also repeat; see Repeating gate alerts below.
 - No VAPID key in the build means the switch says notifications aren't set up yet, rather than failing.
 
 - `device_tokens`: one row per phone running the native app (`platform` android or ios), saved with `save_device_token`, moved to whoever signs in on it, removed with `delete_device_token` or when Firebase reports it unregistered (`push_forget_token`). Each person keeps their 10 newest.
-- Android phones get a data-only FCM message (`kind`, `tag`, `title`, `body`, `url`, `speak`, `outbox_id`, high priority, collapse key = tag, 10 minutes to live for a trip). The app's own service shows it and speaks `speak` aloud, so the screen can be off. iOS gets a normal time-sensitive alert. `push-send` signs into Firebase with the `FCM_SERVICE_ACCOUNT` secret; without it native rows are recorded `skipped no fcm` and not retried, and web delivery carries on.
+- Android phones get a data-only FCM message (`kind`, `tag`, `title`, `body`, `url`, `speak`, `outbox_id`, `expires`, `receipt`, `ack`, high priority, collapse key = tag, 10 minutes to live for a trip). For a gate request it also carries the school's recordings for the duty screen's words at that moment (`clips`: each key and a storage link valid until the alert expires), the chime and the queue place (`_shared/phoneVoice.ts`); a test alert carries the sound check. The app's own service shows it and plays the chime and the school's voice, so the screen can be off ([android-app.md](android-app.md)). `kind` is `gate` only for alerts to the gate team (link `/coordinator`) and silent-device warnings, `test` for test alerts, otherwise `info`: a parent's alert about a trip is never spoken. iOS gets a time-sensitive alert, with `mutable-content` when there are recordings, for the notification service extension to turn them into the alert's sound ([ios-app.md](ios-app.md); not built yet). `push-send` signs into Firebase with the `FCM_SERVICE_ACCOUNT` secret; without it native rows are recorded `skipped no fcm` and not retried, and web delivery carries on.
 - Start duty asks the coordinator to turn notifications on first, because a locked screen is reached only by push; a small "Start without notifications" button keeps duty possible.
 
 ## Repeating gate alerts
@@ -43,13 +43,14 @@ Gate alerts also repeat; see Repeating gate alerts below.
 - `app.alert_silent_duty()` (same job) tells every Center Leader and the person themselves, once, when a device on duty has not checked in for 2 minutes between 08:00 and 19:30: "No signal from Kavita's device. Announcements may not play on it. Open Jumpstart Go on that device." It fires again only when the device came back and went silent again, at most once every 30 minutes per person (a web app on an iPad goes silent whenever its screen locks).
 
 ## What is recorded, and what each word means
-Five separate facts, never inferred from one another:
+Six separate facts, never inferred from one another:
 
 | Fact | Where | Set by |
 |---|---|---|
 | Accepted | `push_outbox.result = 'sent'` | the push service answered 2xx to `push-send` |
 | Displayed | `push_outbox.displayed_at` | the device's service worker, after `showNotification` resolved |
 | Opened | `push_outbox.opened_at` | the service worker, on a tap |
+| Spoken on a phone in the background | `push_outbox.spoken_at`, and `app.gate_heard` for a gate request | the Android app, after it said the alert to its end (school's voice or its own) (0060) |
 | Spoken | `app.gate_heard` | the duty screen, after the announcer finished a sentence (not cut off, muted or silent) |
 | Acknowledged | `trips.acknowledged_at` | a person tapping Acknowledge |
 
@@ -59,7 +60,7 @@ Displayed means the system was asked to show it; whether it made a sound depends
 
 Start duty has one switch for Center Coordinators and Center Leaders, "Announce when the screen is off" (`ScreenOffSwitch`). On, this device is registered for alerts, and in the Android app the duty service keeps the announcements speaking with the screen off or the app in the background. Off, the device gets no alerts and announcements play only while Jumpstart Go is open on screen. What "on" does depends on the device, and the switch says so:
 
-- **Android app:** speaks every announcement aloud. While the page can play sound, the page speaks it with the school's voice at media volume. When it can't (screen off and the page suspended or silenced), the phone's own en-IN voice speaks each alert at full alarm volume, even in silent mode, ducking other sound, then puts the alarm volume back. The page tells the phone it is speaking (`nativeAlive`) only while its sound really plays, so a running but silenced page never stops the phone's voice.
+- **Android app:** speaks every announcement aloud in the school's voice. While the page can play sound, the page speaks it at media volume. When it can't (screen off and the page suspended or silenced), the phone plays the same chime and the same Azure recording itself at full alarm volume, even in silent mode, ducking other sound, then puts the alarm volume back; only if the recording can't be fetched in time does the phone's own en-IN voice read the alert. The page tells the phone it is speaking (`nativeAlive`) only while its sound really plays, so a running but silenced page never stops the phone's voice.
 - **iPhone and iPad (Home Screen app):** an alert with the notification sound. iOS gives a web app no way to speak while locked; the full announcement plays when the alert is opened.
 - **Other browsers:** an alert with the notification sound and vibration.
 
@@ -68,7 +69,7 @@ A deliberate Off is remembered on the device (`pushTurnedOff`), so Start duty st
 ## Device readiness
 Start duty (once notifications are on) and **Who gets alerts** show this device's state: Ready, Setup required, Notifications blocked, Unsupported or Needs attention (`readiness.ts`). Ready needs evidence from the last 7 days: this device displayed a test alert, and the person said they heard it. Permission and a saved subscription alone are Needs attention.
 
-**Send a test alert** (`send_test_push`, staff only, one a minute) queues a real alert to all the person's devices, sent 10 seconds later so the screen can be locked first. The panel follows this device's own row (`test_push_status`): accepted, then displayed. The person then answers "Did you hear its sound?" (`confirm_test_heard`, only within 10 minutes of a displayed test on that device). The report lists each web device's last test, whether it was heard and its last displayed alert. The Android app's phones report no receipts, so their readiness stays a check by ear.
+**Send a test alert** (`send_test_push`, staff only, one a minute) queues a real alert to all the person's devices, sent 10 seconds later so the screen can be locked first. The panel follows this device's own row (`test_push_status`): accepted, then displayed. The person then answers "Did you hear its sound?" (`confirm_test_heard`, only within 10 minutes of a displayed test on that device). The report lists each web device's last test, whether it was heard and its last displayed alert. The Android app reports `displayed` and `spoken` (0060), and its test alert plays the school's sound check through the background path; its readiness is still confirmed by ear.
 
 ## What a web app can and cannot do
 - **Open, sound on (after Start duty):** the announcer speaks every request in the school's voice. Reminders and new stages repeat until acknowledged.

@@ -247,6 +247,34 @@ describe('reminders and settings (0042)', () => {
   })
 })
 
+describe('said by the phone in the background (Android app)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('counts it as heard, so the page says it next as a reminder, not again at once', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.mute(60_000)
+    ann.announce(a('trip:1', PRIORITY.newRequest))
+    ann.heardElsewhere('trip:1')
+    ann.unmute()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(out.speak).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(65_000)
+    expect(out.speak).toHaveBeenCalledTimes(1)
+  })
+  it('changes nothing for a request this page has not heard of, or is saying now', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    ann.heardElsewhere('trip:9')
+    ann.announce(a('trip:1', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(1_000)
+    ann.heardElsewhere('trip:1')
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(out.played.filter((p) => !p.startsWith('chime'))).toEqual(['trip:1'])
+  })
+})
+
 describe('looking ahead', () => {
   it('readies the next reminder only from clips already made, never by making one live', async () => {
     const { createAnnouncer } = await import('./announcer')
