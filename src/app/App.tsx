@@ -12,6 +12,8 @@ import { UnreadProvider } from '../features/notifications/Unread'
 const AdminPeople = lazy(() => import('../features/admin/AdminPeople').then((m) => ({ default: m.AdminPeople })))
 const AdminSettings = lazy(() => import('../features/admin/AdminSettings').then((m) => ({ default: m.AdminSettings })))
 const AuditLog = lazy(() => import('../features/admin/AuditLog').then((m) => ({ default: m.AuditLog })))
+// The reports and their file makers (PDF, Excel, Word) load only when an admin or Head office opens them.
+const ReportsPage = lazy(() => import('../features/reports/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const PrivacyPage = lazy(() => import('../features/legal/LegalPage').then((m) => ({ default: m.PrivacyPage })))
 const TermsPage = lazy(() => import('../features/legal/LegalPage').then((m) => ({ default: m.TermsPage })))
 const Schedules = lazy(() => import('../features/school/Schedules').then((m) => ({ default: m.Schedules })))
@@ -35,6 +37,7 @@ function AreaPages({ area, index }: { area: 'admin' | 'core' | 'pro'; index: Rea
       {area === 'admin' && <Route path="settings" element={<AdminSettings />} />}
       {area === 'admin' && <Route path="audit" element={<AuditLog />} />}
       {area === 'core' && <Route path="schedules" element={<Schedules />} />}
+      {area !== 'pro' && <Route path="reports" element={<ReportsPage area={area} />} />}
       {area !== 'admin' && <Route path="messages" element={<OfficeMessages area={area} />} />}
       <Route path="announce" element={<Announce area={area} />} />
       {area !== 'pro' && <Route path="coordinators" element={<CoordinatorsPage area={area} />} />}

@@ -14,6 +14,9 @@ export default defineConfig({
       // Precache only the app shell and its assets. School data always comes live from the server, never from a cache.
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,webp,svg}', '**/*latin*.woff2'],
+        // The report file makers (PDF, Word, Excel, about 2 MB) are for the admin's downloads only: loaded when used,
+        // never precached on every parent's phone.
+        globIgnores: ['**/assets/{pdf,docx,xlsx,run}-*.js', '**/assets/logo-*.png'],
         navigateFallback: 'index.html',
         // Push notifications (public/push-sw.js): shown even when the app is closed or the iPad is locked.
         importScripts: ['push-sw.js'],

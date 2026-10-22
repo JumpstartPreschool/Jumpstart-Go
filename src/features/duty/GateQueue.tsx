@@ -148,7 +148,7 @@ const relationName = (t: Trip) => [t.traveller_relation, t.traveller_name.split(
  * The live gate queue on the coordinator's iPad (J4, J5, ANN-1): today's drop-offs and pickups as they come in,
  * announced aloud, with the steps at the gate. Handover goes only to a registered guardian (D4), checked by the server.
  */
-export function GateQueue({ announcer, audible = true }: { announcer: Announcer; audible?: boolean }) {
+export function GateQueue({ announcer, audible = true, paused = false }: { announcer: Announcer; audible?: boolean; /** Duty paused (0061): the queue stays on screen, but nothing pops up. */ paused?: boolean }) {
   // The gate voice's requests go to the functions on this origin: open the connection before the first announcement.
   if (import.meta.env.VITE_SUPABASE_URL) preconnect(import.meta.env.VITE_SUPABASE_URL)
   const toast = useToast()
@@ -411,8 +411,8 @@ export function GateQueue({ announcer, audible = true }: { announcer: Announcer;
       )}
       {(() => {
         // The request this phone is announcing that nobody has acknowledged yet, earliest first: popped up to acknowledge.
-        // Not over another sheet the coordinator is using.
-        if (handover || codeFor || calling) return null
+        // Not over another sheet the coordinator is using, and not while their duty is paused.
+        if (paused || handover || codeFor || calling) return null
         const waiting = trips.trips!.filter((t) => {
           const c = children.get(t.child_id)
           const snoozed = later.get(t.id)
