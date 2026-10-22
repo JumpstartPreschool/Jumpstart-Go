@@ -194,7 +194,7 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
         <span className="dutybtn-icon" aria-hidden><PowerLine /></span>
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[19px] font-extrabold leading-tight tracking-[-0.01em]">Start duty</span>
-          <span className="block text-small font-semibold opacity-85">Stays on when you switch apps or lock the screen, until you pause or end it</span>
+          <span className="block text-small font-semibold">Stays on when you switch apps or lock the screen, until you pause or end it</span>
         </span>
         <ArrowRight className="dutybtn-arrow" aria-hidden />
       </button>

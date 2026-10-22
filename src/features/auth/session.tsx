@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { turnOffPush } from '../notifications/push'
+import { clearCachedDuties } from '../duty/dutyState'
 
 export type Area = 'admin' | 'core' | 'pro' | 'coordinator' | 'parent'
 /** 'coordinator' is the Center Coordinator (check-ins and handovers); 'leader' the Center Leader (hears, acknowledges, Ready). */
@@ -125,6 +126,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void supabase.auth.getSession().then(({ data }) => load(data.session))
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       // Token refreshes keep the same person; only reload who they are when that could have changed.
+      if (event === 'SIGNED_OUT') clearCachedDuties()
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') void load(session)
     })
     return () => data.subscription.unsubscribe()
@@ -153,6 +155,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // This device stops getting the signed-out person's alerts. Needs the session, so it comes first; never blocks sign-out.
     await Promise.race([turnOffPush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))])
     await supabase.auth.signOut()
+    clearCachedDuties()
     setState({ status: 'signed-out' })
   }, [])
 

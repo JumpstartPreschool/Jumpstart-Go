@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FileSpreadsheet, FileText, Presentation, Table2 } from 'lucide-react'
 import { Download, Eye } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { SelectField } from '../../ui/Field'
 import { Notice } from '../../ui/States'
 import { useToast } from '../../ui/Toast'
-import type { Filters, Format, ReportKind } from './api'
+import { NEW_VERSION, type Filters, type Format, type ReportKind } from './api'
 import type { Row } from './engine'
 import { DEFAULT_SECTIONS, THEMES, type Sections } from './exports/doc'
 import type { Step } from './exports/run'
+import { isNativeAndroid } from '../../native/duty'
 
 const KINDS: Record<ReportKind, { title: string; text: string; icon: ReactNode; formats: Format[] }> = {
   executive: { title: 'Executive summary', text: 'One A4 landscape page: six key figures, three charts, insights and exceptions.', icon: <Presentation />, formats: ['pdf', 'docx', 'xlsx'] },
@@ -35,22 +36,33 @@ export function Studio({ filters, scope, rows }: { filters: Filters; scope: stri
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
+  // The choices a preview was made from: any change clears it, and a preview finished for older choices is dropped.
+  const choices = JSON.stringify([kind, format, childId, sections, theme, filters])
+  const current = useRef(choices)
+  current.current = choices
+  useEffect(() => setPreview(null), [choices])
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  // The Android app's web view saves no files and Chrome on Android shows no PDF inside a page.
+  const inApp = isNativeAndroid()
+  const canPreview = !inApp && (navigator as Navigator & { pdfViewerEnabled?: boolean }).pdfViewerEnabled !== false
 
   const children = useMemo(() => [...new Map(rows.map((r) => [r.child_id, r.child])).entries()].sort((a, b) => a[1].localeCompare(b[1])), [rows])
   const chosen = { ...filters, childId: childId || null }
   const scopeText = childId ? `${children.find(([id]) => id === childId)?.[1]} · ${scope}` : scope
   const busy = action !== null
 
-  const choose = (k: ReportKind) => { setKind(k); if (!KINDS[k].formats.includes(format)) setFormat(KINDS[k].formats[0]!); setPreview(null) }
+  const choose = (k: ReportKind) => { setKind(k); if (!KINDS[k].formats.includes(format)) setFormat(KINDS[k].formats[0]!) }
 
   async function run(show: boolean) {
     setError(null)
     setPreview(null)
     setAction(show ? 'preview' : 'download')
+    const made = choices
     try {
-      const { makeExport, save } = await import('./exports/run')
+      const { makeExport, save } = await import('./exports/run').catch(() => { throw new Error(NEW_VERSION) })
       const out = await makeExport({ kind, format, filters: chosen, scope: scopeText, sections, theme: THEMES[theme], onStep: setStep })
-      if (show) setPreview(URL.createObjectURL(out.blob))
+      if (show) { if (mounted.current && current.current === made) setPreview(URL.createObjectURL(out.blob)) }
       else { save(out.blob, out.name); toast(`Downloaded ${out.name} (${out.reportId}).`) }
     } catch (e) {
       setStep(null)
@@ -76,7 +88,7 @@ export function Studio({ filters, scope, rows }: { filters: Filters; scope: stri
           <legend className="kicker mb-2">Format</legend>
           <div className="flex flex-wrap gap-2">
             {KINDS[kind].formats.map((f) => (
-              <button key={f} type="button" className="choice flex items-center gap-2 px-4 py-2.5 text-small font-bold" aria-pressed={format === f} onClick={() => { setFormat(f); setPreview(null) }}>
+              <button key={f} type="button" className="choice flex min-h-11 items-center gap-2 px-4 py-2.5 text-small font-bold" aria-pressed={format === f} onClick={() => setFormat(f)}>
                 {f === 'pdf' || f === 'docx' ? <FileText className="size-4" aria-hidden /> : <FileSpreadsheet className="size-4" aria-hidden />}{FORMAT[f]}
               </button>
             ))}
@@ -99,7 +111,7 @@ export function Studio({ filters, scope, rows }: { filters: Filters; scope: stri
                 <li key={k}>
                   <label className="flex items-start gap-2.5 rounded-lg bg-sunken px-3 py-2.5 text-small font-bold">
                     <input type="checkbox" className="mt-0.5 size-4 accent-[var(--accent)]" checked={sections[k]} onChange={(e) => setSections((s) => ({ ...s, [k]: e.target.checked }))} />
-                    <span>{label}{hint && <span className="block text-caption font-semibold text-ink-3">{hint}</span>}</span>
+                    <span>{label}{hint && <span className="block text-caption font-semibold text-ink-2">{hint}</span>}</span>
                   </label>
                 </li>
               ))}
@@ -109,16 +121,17 @@ export function Studio({ filters, scope, rows }: { filters: Filters; scope: stri
         {format === 'csv' && (
           <label className="flex items-start gap-2.5 rounded-lg bg-sunken px-3 py-2.5 text-small font-bold">
             <input type="checkbox" className="mt-0.5 size-4" checked={sections.names} onChange={(e) => setSections((s) => ({ ...s, names: e.target.checked }))} />
-            <span>Staff and guardian names<span className="block text-caption font-semibold text-ink-3">Personal data: include only when needed</span></span>
+            <span>Staff and guardian names<span className="block text-caption font-semibold text-ink-2">Personal data: include only when needed</span></span>
           </label>
         )}
         <Notice tone="info">
           Uses the period and filters above, read again from the school's records when you download. Every download is recorded with its Report ID. Files are made on this device and never stored online.
         </Notice>
+        {inApp && <Notice tone="warning">The Jumpstart Go app can't save files yet. Open Jumpstart Go in Chrome or on a computer to download reports.</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
         <div className="flex flex-wrap gap-3">
-          {format === 'pdf' && <Button variant="secondary" icon={<Eye />} loading={action === 'preview'} disabled={busy} onClick={() => void run(true)}>Preview</Button>}
-          <Button icon={<Download />} loading={action === 'download'} disabled={busy} onClick={() => void run(false)}>Download {FORMAT[format]}</Button>
+          {format === 'pdf' && canPreview && <Button variant="secondary" icon={<Eye />} loading={action === 'preview'} disabled={busy} onClick={() => void run(true)}>Preview</Button>}
+          <Button icon={<Download />} loading={action === 'download'} disabled={busy || inApp} onClick={() => void run(false)}>Download {FORMAT[format]}</Button>
         </div>
         <p className="min-h-5 text-small font-semibold text-ink-2" aria-live="polite">{step ? STEP[step] : ''}</p>
       </div>
@@ -128,7 +141,8 @@ export function Studio({ filters, scope, rows }: { filters: Filters; scope: stri
         ) : (
           <div className="grid h-full min-h-[420px] place-items-center p-8 text-center">
             <p className="max-w-[36ch] text-small font-semibold text-ink-2">
-              {format === 'pdf' ? 'Preview shows the PDF exactly as it will download.' : `${FORMAT[format]} files open in their own app; download to see them.`}
+              {format !== 'pdf' ? `${FORMAT[format]} files open in their own app; download to see them.`
+                : canPreview ? 'Preview shows the PDF exactly as it will download.' : "This browser can't show a PDF inside the page; download it to see it."}
             </p>
           </div>
         )}

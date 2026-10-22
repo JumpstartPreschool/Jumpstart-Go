@@ -61,6 +61,21 @@ describe('announcer', () => {
     expect(out.speak).toHaveBeenCalledTimes(1)
   })
 
+  it('a Pause holding the queue for a year neither plays nor spins (timers over 24.8 days fire at once)', async () => {
+    const out = fakeOutput()
+    const ann = createAnnouncer(out)
+    const set = vi.spyOn(globalThis, 'setTimeout')
+    ann.mute(365 * 24 * 60 * 60_000)
+    ann.announce(a('held', PRIORITY.newRequest))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(out.played).toEqual([])
+    expect(out.chime).not.toHaveBeenCalled()
+    expect(Math.max(...set.mock.calls.map(([, ms]) => ms ?? 0))).toBeLessThanOrEqual(2 ** 31 - 1)
+    set.mockRestore()
+    ann.unmute()
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(out.played).toContain('held')
+  })
   it('keeps going when the speaker fails', async () => {
     const out = fakeOutput()
     out.chime.mockRejectedValueOnce(new Error('audio blocked'))

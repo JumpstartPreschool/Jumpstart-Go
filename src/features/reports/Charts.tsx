@@ -35,7 +35,8 @@ interface Props {
 
 /**
  * One chart card: a solid surface, the title says what is plotted, a legend for two or more series, a tooltip for the
- * category under the pointer or keyboard focus, and the same numbers as a table. Marks only ever wear the series colours.
+ * category under the pointer, and the same numbers as a table for the keyboard and screen readers. Marks only ever wear
+ * the series colours.
  */
 export function Chart({ title, subtitle, build, categories, seriesNames, values, format, note, empty }: Props) {
   const [hover, setHover] = useState<number | null>(null)
@@ -84,16 +85,15 @@ export function Chart({ title, subtitle, build, categories, seriesNames, values,
             {model.line?.dots.map((d) => (
               <circle key={d.category} cx={d.x} cy={d.y} r={hover === d.category ? 5 : 4} fill={SERIES[0]} stroke={INK.surface} strokeWidth={2} />
             ))}
-            {/* Hit targets: the whole category slot, bigger than any mark. */}
+            {/* Pointer hit targets: the whole category slot, bigger than any mark. Keyboard and screen reader users get
+                every value from the table below instead of a tab stop per day. */}
             {model.slots.map((s, i) => (
-              <rect key={i} x={s.x} y={plot.y} width={s.w} height={plot.h} fill="transparent" tabIndex={0}
-                aria-label={`${categories[i]}: ${seriesNames.map((n, k) => `${n} ${format(values[k]?.[i] ?? null)}`).join(', ')}`}
-                onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} />
+              <rect key={i} x={s.x} y={plot.y} width={s.w} height={plot.h} fill="transparent" onMouseEnter={() => setHover(i)} />
             ))}
           </svg>
           {tip && hover !== null && (
             <div className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md bg-ink px-3 py-2 text-caption font-bold text-canvas shadow-float"
-              style={{ left: `${Math.min(88, Math.max(12, ((tip.x + tip.w / 2) / VIEW.w) * 100))}%` }} role="status">
+              style={{ left: `${Math.min(88, Math.max(12, ((tip.x + tip.w / 2) / VIEW.w) * 100))}%` }} aria-hidden>
               <p className="opacity-80">{categories[hover]}</p>
               {seriesNames.map((n, k) => (
                 <p key={n} className="flex items-center gap-1.5">
@@ -107,10 +107,10 @@ export function Chart({ title, subtitle, build, categories, seriesNames, values,
       {note && <p className="mt-2 text-caption font-semibold text-ink-2">{note}</p>}
       {!empty && (
         <details className="mt-3 text-caption">
-          <summary className="cursor-pointer font-bold text-accent-ink">Show as a table</summary>
+          <summary className="min-h-11 cursor-pointer py-3 font-bold text-accent-ink">Show as a table</summary>
           <div className="mt-2 max-h-56 overflow-auto">
             <table className="w-full text-left tabular-nums">
-              <thead><tr><th className="py-1 pr-3 font-bold text-ink-3">Period</th>{seriesNames.map((n) => <th key={n} className="py-1 pr-3 font-bold text-ink-3">{n}</th>)}</tr></thead>
+              <thead><tr><th className="py-1 pr-3 font-bold text-ink-2">Period</th>{seriesNames.map((n) => <th key={n} className="py-1 pr-3 font-bold text-ink-2">{n}</th>)}</tr></thead>
               <tbody>
                 {categories.map((c, i) => (
                   <tr key={c} className="border-t border-line"><td className="py-1 pr-3">{c}</td>{seriesNames.map((n, k) => <td key={n} className="py-1 pr-3">{format(values[k]?.[i] ?? null)}</td>)}</tr>
@@ -144,7 +144,7 @@ export function BarList({ title, subtitle, items, format, empty }: { title: stri
               <span className="h-3 rounded-r-[4px] bg-sunken" aria-hidden>
                 <span className="block h-3 rounded-r-[4px]" style={{ width: `${((i.value ?? 0) / max) * 100}%`, background: SERIES[0] }} />
               </span>
-              <span className="text-right font-extrabold tabular-nums text-ink">{format(i.value)}{i.detail && <span className="ml-1 font-semibold text-ink-3">{i.detail}</span>}</span>
+              <span className="text-right font-extrabold tabular-nums text-ink">{format(i.value)}{i.detail && <span className="ml-1 font-semibold text-ink-2">{i.detail}</span>}</span>
             </li>
           ))}
         </ul>

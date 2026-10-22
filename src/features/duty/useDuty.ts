@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createAnnouncer, type AnnouncerState } from './announcer'
 import { SOUND_CHECK } from '../../../supabase/functions/_shared/gateAnnounce.ts'
 import { chime, deviceOutput, prepare, releaseSound, SOUND_CHECK_BUDGET_MS, soundReady, soundSupported, speak, stopSound, unlockSound, type Spoken } from './sound'
@@ -50,6 +50,11 @@ export function useDuty() {
   const [wake] = useState(() => createWakeLock(setScreenHeld))
   const [ann, setAnn] = useState<AnnouncerState>({ speaking: null, waiting: 0, mutedUntil: null })
   const online = useOnline()
+  // Bumped by every tap's change: a read that started before it may predate it and is dropped.
+  const changes = useRef(0)
+  // Gone (signed out, left the page): a read still on its way must not write the cache back.
+  const live = useRef(true)
+  useEffect(() => { live.current = true; return () => { live.current = false } }, [])
 
   const accept = useCallback((d: DutyState | null, who: string | null) => {
     setDutyState(d)
@@ -59,7 +64,9 @@ export function useDuty() {
 
   /** Reads the duty from the server. Never changes it: a failed read keeps what is shown and only marks the connection. */
   const refresh = useCallback(async (who: string | null = uid) => {
+    const seen = changes.current
     const { data, error: e } = await supabase.rpc('my_duty')
+    if (seen !== changes.current || !live.current) return
     if (e) { setLastFailAt(Date.now()); return }
     accept(parseDuty(data), who)
   }, [uid, accept])
@@ -90,9 +97,11 @@ export function useDuty() {
   const status = duty?.status ?? null
   const phase: DutyPhase = checking ? 'check' : duty === undefined ? 'loading' : status === 'active' ? 'on' : status === 'paused' ? 'paused' : 'idle'
 
+  const off = duty === null && !checking
   useEffect(() => announcer.subscribe(setAnn), [announcer])
   // What duty means for this device follows the duty, not the app's lifecycle: Active keeps the screen on, holds the
-  // Android duty service and lets the queue speak; Paused holds the queue; off clears it.
+  // Android duty service and lets the queue speak; Paused holds the queue; off clears it. Only a change of status runs
+  // it: a refresh with the same answer must not undo Mute 5 min or restart the duty service.
   useEffect(() => {
     if (status === 'active') {
       announcer.unmute()
@@ -102,12 +111,12 @@ export function useDuty() {
       announcer.mute(PAUSE_HOLD_MS)
       void nativeDutyStop()
       void wake.stop()
-    } else if (duty === null && !checking) {
+    } else if (off) {
       void nativeDutyStop()
       void wake.stop()
       announcer.clear()
     }
-  }, [status, duty, checking, announcer, wake])
+  }, [status, off, announcer, wake])
   // Leaving the duty screen (another page, signing out) silences this device. Duty itself stays as it is on the server.
   useEffect(
     () => () => {
@@ -155,8 +164,10 @@ export function useDuty() {
   const change = useCallback(async (next: 'active' | 'paused' | 'off', reason?: string): Promise<boolean> => {
     setChanging(true)
     setError(null)
+    changes.current++
     try {
       const { data, error: e } = await supabase.rpc('set_duty', { p_status: next, p_version: duty?.version ?? null, p_reason: reason ?? null })
+      changes.current++
       if (e) {
         if (isDutyConflict(e)) {
           await refresh()

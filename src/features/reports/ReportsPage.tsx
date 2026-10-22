@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart3, CalendarDays, Download, ListChecks, TriangleAlert } from 'lucide-react'
 import { AreaShell } from '../auth/AreaShell'
 import { useSession } from '../auth/session'
@@ -41,20 +41,37 @@ export function ReportsPage({ area }: { area: 'admin' | 'core' }) {
   const [classId, setClassId] = useState('')
   const [programmeId, setProgrammeId] = useState('')
   const [options, setOptions] = useState<{ classes: Option[]; programmes: Option[] } | null>(null)
-  const [data, setData] = useState<ReportData | null>(null)
+  const [optionsFailed, setOptionsFailed] = useState(false)
+  // With the filters it was read for: after a correction the same report is read again behind the current one.
+  const [read, setRead] = useState<{ key: string; data: ReportData } | null>(null)
+  const latest = useRef(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const filters: Filters = useMemo(() => ({ from: range.from, to: range.to, classId: classId || null, programmeId: programmeId || null, childId: null }), [range, classId, programmeId])
   const scope = [classId ? options?.classes.find((c) => c.id === classId)?.name : 'All classes', programmeId ? options?.programmes.find((p) => p.id === programmeId)?.name : 'all programmes'].filter(Boolean).join(' · ')
 
+  const key = JSON.stringify(filters)
   const load = useCallback(() => {
+    // Only the latest read counts: an earlier, slower one must not show another class's or period's figures.
+    const mine = ++latest.current
     setLoading(true)
     setError(null)
-    loadReport(filters).then((d) => { setData(d); setLoading(false) }, (e: Error) => { setError(e.message); setLoading(false) })
+    loadReport(filters).then(
+      (d) => { if (mine === latest.current) { setRead({ key: JSON.stringify(filters), data: d }); setLoading(false) } },
+      (e: Error) => { if (mine === latest.current) { setError(e.message); setLoading(false) } },
+    )
   }, [filters])
   useEffect(load, [load])
-  useEffect(() => { void loadOptions().then(setOptions, () => setOptions({ classes: [], programmes: [] })) }, [])
+  const loadLists = useCallback(() => {
+    setOptionsFailed(false)
+    void loadOptions().then(setOptions, () => { setOptions({ classes: [], programmes: [] }); setOptionsFailed(true) })
+  }, [])
+  useEffect(loadLists, [loadLists])
+  const data = read?.data ?? null
+  // A different period, class or programme shows the skeleton; the same one read again keeps the page (and the
+  // register's search, filters and page) in place.
+  const reading = loading && read?.key !== key
 
   // The dashboard's figures come from the same document builder as every download.
   const doc = useMemo(() => (data ? buildDoc({ data, reportId: '', generatedAt: data.generated_at, scope }) : null), [data, scope])
@@ -66,7 +83,7 @@ export function ReportsPage({ area }: { area: 'admin' | 'core' }) {
       <section className="card mt-6 grid gap-4 rounded-xl p-4 sm:p-5" aria-label="Filters">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Period">
           {PRESETS.map((p) => (
-            <button key={p.key} type="button" className="choice px-4 py-2 text-small font-bold" aria-pressed={preset === p.key} onClick={() => pick(p.key)}>{p.label}</button>
+            <button key={p.key} type="button" className="choice min-h-11 px-4 py-2 text-small font-bold" aria-pressed={preset === p.key} onClick={() => pick(p.key)}>{p.label}</button>
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -85,10 +102,16 @@ export function ReportsPage({ area }: { area: 'admin' | 'core' }) {
             {options?.programmes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </SelectField>
         </div>
+        {optionsFailed && (
+          <Notice tone="warning">
+            Couldn't load the class and programme lists, so only All can be chosen.{' '}
+            <button type="button" className="inline-flex min-h-11 items-center font-extrabold text-accent-ink underline underline-offset-2" onClick={loadLists}>Try again</button>
+          </Notice>
+        )}
         <p className="flex items-center gap-2 text-caption font-semibold text-ink-2">
           <CalendarDays className="size-4" aria-hidden />
           {range.from === range.to ? dayLabel(range.from) : `${dayLabel(range.from)} – ${dayLabel(range.to)}`} · {scope}
-          {data && <span className="text-ink-3"> · read at {new Date(data.generated_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</span>}
+          {data && !reading && <span className="text-ink-2"> · {loading ? 'updating…' : `read at ${new Date(data.generated_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}`}</span>}
         </p>
       </section>
 
@@ -102,7 +125,7 @@ export function ReportsPage({ area }: { area: 'admin' | 'core' }) {
 
       <div id="reports-panel" role="tabpanel" aria-labelledby={`reports-${tab}`} className="mt-5" aria-busy={loading}>
         {error ? <ErrorState title="Couldn't load attendance" onRetry={load}>{error}</ErrorState>
-          : !doc || loading ? <SkeletonList count={6} className="grid gap-3 md:grid-cols-3" height="h-[120px]" />
+          : !doc || reading ? <SkeletonList count={6} className="grid gap-3 md:grid-cols-3" height="h-[120px]" />
           : tab === 'overview' ? <Overview doc={doc} today={today} onOpen={() => setTab('register')} />
           : tab === 'register' ? <Register doc={doc} canCorrect={canCorrect} onChanged={load} />
           : <Studio filters={filters} scope={scope} rows={doc.rows} />}
@@ -167,12 +190,12 @@ function Overview({ doc, today, onOpen }: { doc: ReportDoc; today: string; onOpe
         <section className="card rounded-xl p-5" aria-labelledby="exc-t">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 id="exc-t" className="flex items-center gap-2 text-h4"><TriangleAlert className="size-5 text-warning" aria-hidden />Needs attention</h3>
-            <button type="button" className="text-small font-extrabold text-accent-ink underline" onClick={onOpen}>Open the register</button>
+            <button type="button" className="inline-flex min-h-11 items-center text-small font-extrabold text-accent-ink underline" onClick={onOpen}>Open the register</button>
           </div>
           <ul className="mt-3 divide-y divide-line">
             {doc.exceptions.slice(0, 8).map((r) => (
               <li key={`${r.child_id}-${r.day}`} className="flex flex-wrap justify-between gap-x-4 py-2 text-small">
-                <span className="font-bold">{r.child} <span className="font-semibold text-ink-3">· {r.class}</span></span>
+                <span className="font-bold">{r.child} <span className="font-semibold text-ink-2">· {r.class}</span></span>
                 <span className="text-ink-2">{dayLabel(r.day)} · {r.issues.join('; ')}</span>
               </li>
             ))}

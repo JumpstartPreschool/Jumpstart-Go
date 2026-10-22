@@ -40,7 +40,8 @@ export function UpdatePrompt() {
       void updateServiceWorker(true)
       return
     }
-    const whenHidden = () => { if (document.visibilityState === 'hidden') void updateServiceWorker(true) }
+    // Checked again when hidden: duty may have started since, and a reload would silence the gate until a tap.
+    const whenHidden = () => { if (document.visibilityState === 'hidden' && !onDuty()) void updateServiceWorker(true) }
     document.addEventListener('visibilitychange', whenHidden)
     return () => document.removeEventListener('visibilitychange', whenHidden)
   }, [needRefresh, toast, updateServiceWorker])

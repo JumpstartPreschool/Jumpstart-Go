@@ -1,6 +1,9 @@
 import { supabase } from '../../lib/supabase'
 import type { ReportData } from './engine'
 
+/** Said when a file maker or font of the build this page opened with is gone (a deploy since). */
+export const NEW_VERSION = 'A new version of Jumpstart Go was installed since this page opened. Reload the page, then download again.'
+
 export interface Filters { from: string; to: string; classId: string | null; programmeId: string | null; childId: string | null }
 
 /** The register for these filters, from attendance_report (0062): admin and Head office only, checked by the server. */

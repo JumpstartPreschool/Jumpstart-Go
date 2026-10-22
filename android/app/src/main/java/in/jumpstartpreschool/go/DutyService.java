@@ -44,6 +44,8 @@ public class DutyService extends Service {
     private GateVoice voice;
     private boolean dutyMode = false;
     private int ticks = 0;
+    // The latest start: stopping with it never stops a start that came in meanwhile (a new alert, Start duty).
+    private int lastStart = 0;
 
     /** The WebView announcer is running and has pinged recently, so it is already speaking. */
     static boolean webAlive() {
@@ -59,12 +61,13 @@ public class DutyService extends Service {
         }
     };
 
-    private final Runnable oneShotOver = () -> { if (!dutyMode) stopSelf(); };
+    private final Runnable oneShotOver = () -> { if (!dutyMode) stopSelfResult(lastStart); };
 
     @Override public IBinder onBind(Intent intent) { return null; }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         Notif.channels(this);
+        lastStart = startId;
         Bundle push = intent == null ? null : intent.getBundleExtra(EXTRA_PUSH);
         boolean oneShot = push != null;
         try {
@@ -73,7 +76,9 @@ public class DutyService extends Service {
         } catch (RuntimeException e) {
             // Not allowed to run in the foreground from here (Android 12+ background limits).
             Log.w(TAG, "startForeground refused", e);
-            stopSelf();
+            // The alert was shown quietly for this phone to say: it sounds instead.
+            if (oneShot) JumpstartMessagingService.show(this, push, Notif.GATE);
+            stopSelfResult(startId);
             return START_NOT_STICKY;
         }
         if (!oneShot) {
@@ -87,8 +92,12 @@ public class DutyService extends Service {
             }
             return START_STICKY;
         }
-        if (voice == null) voice = new GateVoice(this, () -> { if (!dutyMode && voice != null && voice.idle()) stopSelf(); });
-        voice.add(GateVoice.Item.from(push));
+        if (voice == null) voice = new GateVoice(this, () -> { if (!dutyMode && voice != null && voice.idle()) stopSelfResult(lastStart); });
+        // Already had (FCM delivered it twice): nothing to say, so a one-shot service ends now rather than in 3 minutes.
+        if (!voice.add(GateVoice.Item.from(push)) && !dutyMode && voice.idle()) {
+            stopSelfResult(startId);
+            return START_NOT_STICKY;
+        }
         main.removeCallbacks(oneShotOver);
         main.postDelayed(oneShotOver, ONE_SHOT_MAX_MS);
         return dutyMode ? START_STICKY : START_NOT_STICKY;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { connectivityOf, dutyOnThisDevice, isDutyConflict, notificationReadiness, parseDuty, readCachedDuty, writeCachedDuty } from './dutyState'
+import { clearCachedDuties, connectivityOf, dutyOnThisDevice, dutyTime, isDutyConflict, notificationReadiness, parseDuty, readCachedDuty, writeCachedDuty } from './dutyState'
 
 const active = { status: 'active', version: 3, started_at: '2026-10-22T03:00:00Z', changed_at: '2026-10-22T07:10:00Z', paused_at: null, resumed_at: '2026-10-22T07:10:00Z', change_reason: 'resumed' }
 
@@ -50,5 +50,20 @@ describe('notification readiness is its own fact', () => {
     expect(notificationReadiness('not-configured')).toBe('unavailable')
     expect(notificationReadiness('unsupported')).toBe('unsupported')
     expect(notificationReadiness(null)).toBeNull()
+  })
+})
+
+describe('duty across days', () => {
+  const now = Date.parse('2026-10-22T08:30:00+05:30')
+  it('says the day when duty started before today (duty runs past midnight)', () => {
+    expect(dutyTime(Date.parse('2026-10-22T07:05:00+05:30'), now)).toMatch(/^7:05/)
+    expect(dutyTime(Date.parse('2026-10-21T16:00:00+05:30'), now)).toMatch(/^yesterday, 4:00/i)
+    expect(dutyTime(Date.parse('2026-10-20T16:00:00+05:30'), now)).toMatch(/^Tue,? 20 Oct, 4:00/i)
+  })
+  it('signing out forgets cached duties, so an old one never holds back updates', () => {
+    writeCachedDuty('someone', parseDuty({ status: 'active', version: 1, started_at: '2026-10-22T03:00:00Z', changed_at: '2026-10-22T03:00:00Z' }), 1)
+    expect(dutyOnThisDevice()).toBe(true)
+    clearCachedDuties()
+    expect(dutyOnThisDevice()).toBe(false)
   })
 })

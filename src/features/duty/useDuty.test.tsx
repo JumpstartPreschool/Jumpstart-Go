@@ -115,6 +115,30 @@ describe('duty survives everything but an explicit tap', () => {
     expect(result.current.phase).toBe('on')
     expect(result.current.error).toMatch(/hasn't changed/)
   })
+  it('Mute 5 min outlasts the refreshes and app switches that bring the same Active duty back', async () => {
+    server = active()
+    const { result } = renderHook(() => useDuty())
+    await waitFor(() => expect(result.current.phase).toBe('on'))
+    act(() => result.current.mute())
+    const until = result.current.ann.mutedUntil
+    expect(until).not.toBeNull()
+    await act(async () => { lifecycle(); await new Promise((r) => setTimeout(r, 10)) })
+    await waitFor(() => expect(rpc.mock.calls.filter(([n]) => n === 'my_duty').length).toBeGreaterThan(1))
+    expect(result.current.ann.mutedUntil).toBe(until)
+  })
+  it('a read that started before a tap never undoes it', async () => {
+    server = active()
+    const { result } = renderHook(() => useDuty())
+    await waitFor(() => expect(result.current.phase).toBe('on'))
+    // my_duty is slow and answers with the duty from before the tap.
+    let answer!: () => void
+    rpc.mockImplementationOnce(async () => { await new Promise<void>((r) => { answer = r }); return { data: active(), error: null } })
+    await act(async () => { lifecycle(); await new Promise((r) => setTimeout(r, 10)) })
+    await act(async () => { await result.current.pause() })
+    expect(result.current.phase).toBe('paused')
+    await act(async () => { answer(); await new Promise((r) => setTimeout(r, 10)) })
+    expect(result.current.phase).toBe('paused')
+  })
   it('starts only once the school has it', async () => {
     const { result } = renderHook(() => useDuty())
     await waitFor(() => expect(result.current.phase).toBe('idle'))

@@ -56,7 +56,7 @@ const VOICE_BUCKET = 'voice-audio'
  * trip and each clip link once however many devices get it. A failed read means no recordings, never a lost alert: the
  * phone's own voice reads the title instead.
  */
-async function voiceSources(): Promise<VoiceSources | null> {
+async function voiceSources(): Promise<(VoiceSources & { newRound(): void }) | null> {
   const [meta, cfg] = await Promise.all([
     db.from('voice_meta').select('value').eq('key', 'voice').maybeSingle(),
     db.from('gate_announcement_settings').select('*').maybeSingle(),
@@ -82,9 +82,15 @@ async function voiceSources(): Promise<VoiceSources | null> {
       return trips.get(id)!
     },
     sign(path, seconds) {
-      if (!links.has(path)) links.set(path, db.storage.from(VOICE_BUCKET).createSignedUrl(path, seconds).then(({ data }) => data?.signedUrl ?? null, () => null))
-      return links.get(path)!
+      // By lifetime too, rounded up to the minute: each alert's link lasts about as long as that alert, and its devices
+      // (each working the seconds out a moment apart) share one link.
+      const life = Math.ceil(seconds / 60) * 60
+      const key = `${path}@${life}`
+      if (!links.has(key)) links.set(key, db.storage.from(VOICE_BUCKET).createSignedUrl(path, life).then(({ data }) => data?.signedUrl ?? null, () => null))
+      return links.get(key)!
     },
+    // Each claimed batch reads its trips afresh: a later batch may hold the alerts a trip change (arrived, running late) made.
+    newRound() { trips.clear() },
   }
 }
 
@@ -138,13 +144,14 @@ Deno.serve(async (req) => {
   let sent = 0
   let gone = 0
   // Read on the first phone row only: a run with web devices alone never touches the voice tables.
-  let voices: Promise<VoiceSources | null> | undefined
+  let voices: Promise<(VoiceSources & { newRound(): void }) | null> | undefined
   // A few batches at most per call; the minute job picks up anything left.
   for (let round = 0; round < 5; round++) {
     const { data, error } = await db.rpc('push_claim', { p_limit: 100 })
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
     const rows = (data ?? []) as Claimed[]
     if (!rows.length) break
+    if (voices) (await voices)?.newRound()
     await Promise.all(rows.map(async (r) => {
       if (r.platform !== 'web') {
         if (!fcm) {

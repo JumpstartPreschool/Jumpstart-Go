@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -46,7 +47,8 @@ import java.util.regex.Pattern;
  * background or closed). It plays what the duty screen would (src/features/duty/sound.ts): the same chime, then the
  * school's recordings, made ahead by the pronounce function and fetched with the link push-send signed for this alert.
  * One announcement at a time, most urgent first, then in arrival order; each alert once; nothing after its expiry. A
- * recording that can't be had in time is read by the phone's own voice instead, so an alert is never silent.
+ * recording that can't be had in time is read by the phone's own voice instead, and an alert that can't be said at all
+ * (a call keeps the audio, no voice) is shown again with its sound, so it is never silent.
  */
 final class GateVoice {
     static final String TAG = DutyService.TAG;
@@ -72,6 +74,8 @@ final class GateVoice {
         int priority = 20;
         boolean flagged;
         String[] keys = new String[0], urls = new String[0];
+        // The push as it came, to show it again with its sound if it can't be said.
+        Bundle data;
         // Kept by the queue.
         long seq, notBefore;
         int tries;
@@ -80,6 +84,7 @@ final class GateVoice {
         static Item from(Bundle b) {
             long now = System.currentTimeMillis();
             Item it = new Item();
+            it.data = b;
             it.tag = str(b, "tag");
             it.speak = str(b, "speak");
             it.receipt = b.getString("receipt");
@@ -152,6 +157,10 @@ final class GateVoice {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
     private final ExecutorService fetcher = Executors.newFixedThreadPool(2);
+    // Receipts to the school: one at a time, off the threads that show and say alerts.
+    private static final ExecutorService REPORTS = Executors.newSingleThreadExecutor();
+    // The drain waiting for a retry's time; a new alert doesn't wait for it.
+    private ScheduledFuture<?> later;
     private final List<Item> queue = new ArrayList<>();
     private boolean busy = false;
     private long seq = 0;
@@ -176,21 +185,28 @@ final class GateVoice {
         });
     }
 
-    /** Queues an alert, unless this phone already had it (FCM can deliver a message twice). A newer alert about the same trip replaces one still waiting. */
-    void add(Item it) {
-        if (closed || !firstTime(it.outboxId)) return;
+    /**
+     * Queues an alert, unless this phone already had it (FCM can deliver a message twice). A newer alert about the same
+     * trip replaces one still waiting. False when nothing was queued.
+     */
+    boolean add(Item it) {
+        if (closed || !firstTime(it.outboxId)) return false;
         it.clips = fetcher.submit(() -> fetch(it));
         synchronized (this) {
             if (!it.tag.isEmpty()) queue.removeIf(q -> q.tag.equals(it.tag));
             it.seq = seq++;
             queue.add(it);
             if (!busy) { busy = true; worker.execute(this::drain); }
+            // Only an earlier alert's retry was pending: this one is said now, not when that retry is due.
+            else if (later != null && later.cancel(false)) { later = null; worker.execute(this::drain); }
         }
+        return true;
     }
 
     synchronized boolean idle() { return !busy; }
 
     void close() {
+        // Stopped by Pause or End duty (or the app): what is still waiting is dropped, not sounded.
         closed = true;
         interrupted = true;
         worker.shutdownNow();
@@ -215,7 +231,7 @@ final class GateVoice {
                     if (wait != Long.MAX_VALUE) {
                         // Waiting to try again: other sound comes back up meanwhile.
                         quieten();
-                        worker.schedule(this::drain, wait, TimeUnit.MILLISECONDS);
+                        later = worker.schedule(this::drain, wait, TimeUnit.MILLISECONDS);
                         return;
                     }
                     busy = false;
@@ -226,7 +242,9 @@ final class GateVoice {
             String how = say(next);
             Log.i(TAG, "voice " + how);
             if ("school".equals(how) || "device".equals(how)) heard(next, how);
-            else if (++next.tries < MAX_TRIES) synchronized (this) {
+            else if (closed) break;
+            else if (++next.tries >= MAX_TRIES) unsaid(next);
+            else synchronized (this) {
                 next.notBefore = System.currentTimeMillis() + RETRY_MS;
                 // A newer alert about the same trip came meanwhile: that one is said instead.
                 Item retry = next;
@@ -336,7 +354,9 @@ final class GateVoice {
         File[] out = new File[it.keys.length];
         for (int i = 0; i < it.keys.length; i++) {
             File f = new File(dir, it.keys[i] + ".mp3");
-            if (!f.isFile() && !download(it.urls[i], f)) return null;
+            // A clip used again counts as new, so trimming the cache never drops the opening every alert shares.
+            if (f.isFile()) { if (!f.setLastModified(System.currentTimeMillis())) Log.d(TAG, "clip time not updated"); }
+            else if (!download(it.urls[i], f)) return null;
             out[i] = f;
         }
         trim(dir);
@@ -345,8 +365,10 @@ final class GateVoice {
 
     private static boolean download(String url, File to) {
         HttpURLConnection c = null;
-        File part = new File(to.getPath() + ".part");
+        File part = null;
         try {
+            // Its own temporary file: two alerts can fetch the same clip at once.
+            part = File.createTempFile(to.getName(), ".part", to.getParentFile());
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setConnectTimeout(4_000);
             c.setReadTimeout(4_000);
@@ -360,13 +382,14 @@ final class GateVoice {
                     os.write(buf, 0, n);
                 }
             }
-            return part.renameTo(to);
+            // The other fetch got there first: the same key is the same recording.
+            return part.renameTo(to) || to.isFile();
         } catch (Exception e) {
             Log.w(TAG, "clip download failed: " + e.getClass().getSimpleName());
             return false;
         } finally {
             if (c != null) c.disconnect();
-            if (part.exists() && !part.delete()) Log.w(TAG, "could not drop a partial clip");
+            if (part != null && part.exists() && !part.delete()) Log.w(TAG, "could not drop a partial clip");
         }
     }
 
@@ -378,15 +401,27 @@ final class GateVoice {
         for (int i = 0; i < all.length - KEEP_CLIPS; i++) if (!all[i].delete()) Log.w(TAG, "could not trim a clip");
     }
 
+    /** Couldn't be said: shown again on the sounding channel while it still matters, so the alert is heard as a notification. */
+    private void unsaid(Item it) {
+        if (it.data == null || it.expires <= System.currentTimeMillis()) return;
+        Log.i(TAG, "voice gave up: notification sounds instead");
+        JumpstartMessagingService.show(ctx, it.data, Notif.GATE);
+    }
+
     /** Said in full: remembered for the duty screen's status, reported to the school, and told to the page so it doesn't repeat it at once. */
     private void heard(Item it, String how) {
         prefs(ctx).edit().putLong("lastSpokenAt", System.currentTimeMillis()).putString("lastVoice", how).apply();
-        fetcher.execute(() -> receipt(it.ack, it.outboxId, it.receipt, "spoken"));
+        report(it.ack, it.outboxId, it.receipt, "spoken");
         String tag = it.tag.replaceAll("[^A-Za-z0-9-]", "");
         main.post(() -> {
             com.getcapacitor.Bridge b = DutyService.bridge.get();
             if (b != null) b.eval("window.dispatchEvent(new CustomEvent('jumpstart-native-spoke',{detail:{tag:'" + tag + "'}}))", null);
         });
+    }
+
+    /** Sends a receipt in the background. */
+    static Future<?> report(String ack, long id, String receipt, String event) {
+        return REPORTS.submit(() -> receipt(ack, id, receipt, event));
     }
 
     /** Tells push-send this phone showed or said an alert (0059, 0060). Never throws; the alert matters more than its report. */

@@ -24,7 +24,7 @@ set request.jwt.claims to '{"sub":"00000000-0000-0000-0000-00000000cc01"}';
 do $$
 declare ids uuid[];
 begin
-  ids := public.gate_heartbeat(false);
+  ids := public.gate_heartbeat(false, false);   -- today's app leaving the screen
   assert not ('00000000-0000-0000-0000-00000000cc01'::uuid = any (ids)), 'not heard after leaving the screen';
 end $$;
 reset role;

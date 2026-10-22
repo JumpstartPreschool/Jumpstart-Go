@@ -7,11 +7,13 @@ import { LATE_THRESHOLD_MIN } from '../../domain/lateness'
  * download (PDF, Excel, Word, CSV) call these functions on the same rows, so they can never disagree.
  *
  * Verified means a staff action: the gate's Check in or Hand over ('gate'), or an admin's correction with a reason
- * ('corrected'). A time from an older record with neither ('record') counts as present, never as verified. A parent's
+ * ('corrected'). A time from an older record with neither ('record') counts as present, never as verified. Trips are
+ * deleted after 30 days, so a time from before then without a correction ('expired') is neither: its record is 'not kept'
+ * rather than incomplete, and it can't be late. A parent's
  * "on my way", "I've arrived" and the gate's Ready are announcements, never proof that a child came or left.
  */
 
-export type Source = 'gate' | 'corrected' | 'record'
+export type Source = 'gate' | 'corrected' | 'record' | 'expired'
 export interface Correction { field: string; old: string | null; new: string | null; reason: string; by: string | null; at: string }
 export interface RawRow {
   child_id: string
@@ -45,14 +47,16 @@ export interface ReportData {
   cutoff: string
   today: string
   timezone: string
+  /** The first day whose gate details (trips) are still kept. */
+  verification_from: string
   holidays: Array<{ day: string; name: string }>
   rows: RawRow[]
 }
 
 /** Attendance: Present, Late (a verified drop-off after the scheduled arrival plus the threshold), Absent (marked absent or on leave), Not recorded (expected, nothing at all), Expected (today, not yet due), Not due (marked off). */
 export type Attendance = 'present' | 'late' | 'absent' | 'not_recorded' | 'expected' | 'not_due'
-/** The day's verification, apart from attendance: Complete (drop-off and pickup both verified), On campus (today, dropped off, not yet collected), Incomplete (present, but a verified drop-off or pickup is missing), None (not present). */
-export type RecordState = 'complete' | 'on_campus' | 'incomplete' | 'none'
+/** The day's verification, apart from attendance: Complete (drop-off and pickup both verified), On campus (today, dropped off, not yet collected), Not kept (a time from before the 30 days gate details are kept), Incomplete (present, but a verified drop-off or pickup is missing), None (not present). */
+export type RecordState = 'complete' | 'on_campus' | 'not_kept' | 'incomplete' | 'none'
 
 export interface Row extends RawRow {
   attendance: Attendance
@@ -100,6 +104,7 @@ export function classify(r: RawRow, nowMs: number, today: string): Row {
   if (attendance === 'present' || attendance === 'late') {
     if (dropoffVerified && pickupVerified) record = 'complete'
     else if (isToday && dropoffVerified && r.pickup_at === null) record = 'on_campus'
+    else if (r.dropoff_source === 'expired' || r.pickup_source === 'expired') record = 'not_kept'
     else record = 'incomplete'
   }
 
@@ -158,6 +163,8 @@ export interface Kpis {
   incomplete: number
   notRecorded: number
   missingVerification: number
+  /** Present child-days from before the 30 days gate details are kept: neither verified nor incomplete. */
+  notKept: number
   /** Today: dropped off and not yet collected. */
   onCampus: number
   counts: Counts
@@ -179,6 +186,7 @@ export function kpis(rows: readonly Row[]): Kpis {
     incomplete: c.notRecorded + missingVerification,
     notRecorded: c.notRecorded,
     missingVerification,
+    notKept: rows.filter((r) => r.record === 'not_kept').length,
     onCampus: rows.filter((r) => r.record === 'on_campus').length,
     counts: c,
   }
@@ -327,7 +335,9 @@ export function insights(rows: readonly Row[], pts: readonly PeriodPoint[]): str
     if (Math.abs(b - a) >= 0.02) out.push(`Attendance ${b > a ? 'rose' : 'fell'} from ${pct(a)} in the first half of the period to ${pct(b)} in the second.`)
   }
   if (k.incomplete > 0) out.push(`${k.notRecorded} expected child-days have no attendance record and ${k.missingVerification} lack a verified drop-off or pickup.`)
-  else if (k.counts.present + k.counts.late + k.counts.absent > 0) out.push('Every expected child-day has a record, with drop-offs and pickups verified.')
+  else if (k.notKept === 0 && k.counts.present + k.counts.late + k.counts.absent > 0) out.push('Every expected child-day has a record, with drop-offs and pickups verified.')
+  // Always said when it applies: without it, older days would read as on time and fully verified.
+  if (k.notKept > 0) return [...out.slice(0, 2), `Gate details are kept for 30 days: for ${k.notKept} earlier child-days only the recorded times remain, so lateness and who handed over aren't shown.`]
   return out.slice(0, 3)
 }
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -339,5 +349,5 @@ export const exceptions = (rows: readonly Row[]) =>
 export const ATTENDANCE_LABEL: Record<Attendance, string> = {
   present: 'Present', late: 'Late', absent: 'Absent', not_recorded: 'Not recorded', expected: 'Expected', not_due: 'Not due',
 }
-export const RECORD_LABEL: Record<RecordState, string> = { complete: 'Complete', on_campus: 'On campus', incomplete: 'Incomplete', none: '—' }
-export const SOURCE_LABEL: Record<Source, string> = { gate: 'Verified at the gate', corrected: 'Corrected by the admin', record: 'Recorded, not verified' }
+export const RECORD_LABEL: Record<RecordState, string> = { complete: 'Complete', on_campus: 'On campus', not_kept: 'Over 30 days', incomplete: 'Incomplete', none: '—' }
+export const SOURCE_LABEL: Record<Source, string> = { gate: 'Verified at the gate', corrected: 'Corrected by the admin', record: 'Recorded, not verified', expired: 'Recorded; gate details kept 30 days' }

@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Bell, BellOff, PauseLine, Sun, Wifi, WifiOff, AudioLines } from '../../ui/icons'
 import { formatTime, indiaClock } from '../../domain/time'
 import { pushState, type PushState } from '../notifications/push'
-import { notificationReadiness, type Connectivity, type DutyState, type NotificationReadiness } from './dutyState'
+import { dutyTime, notificationReadiness, type Connectivity, type DutyState, type NotificationReadiness } from './dutyState'
 import type { VoiceUsed } from './sound'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
@@ -20,7 +20,7 @@ function Chip({ tone, icon, label, value, detail }: { tone: Tone; icon: ReactNod
     <li className="flex min-w-0 items-center gap-3 rounded-lg bg-surface px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--line)]">
       <span className={`grid size-9 shrink-0 place-items-center rounded-full ${TONE[tone]} [&_svg]:size-[18px]`} aria-hidden>{icon}</span>
       <span className="min-w-0 leading-tight">
-        <span className="block text-label font-bold uppercase tracking-[0.06em] text-ink-3">{label}</span>
+        <span className="block text-label font-bold uppercase tracking-[0.06em] text-ink-2">{label}</span>
         <span className="block truncate text-small font-extrabold text-ink">{value}</span>
         {detail && <span className="block truncate text-caption font-semibold text-ink-2">{detail}</span>}
       </span>
@@ -43,10 +43,11 @@ export const READINESS: Record<NotificationReadiness, { tone: Tone; value: strin
 
 /** The duty's last change in words: "Paused at 12:40 · Lunch", "Resumed at 13:10", "Started at 08:52". */
 export function lastChange(d: DutyState): string {
-  const at = clock(Date.parse(d.changed_at))
+  const t = dutyTime(Date.parse(d.changed_at))
+  const at = t.includes(',') ? t : `at ${t}`
   const what = d.status === 'paused' ? 'Paused' : d.resumed_at && d.changed_at === d.resumed_at ? 'Resumed' : 'Started'
   const why = d.change_reason && !['started', 'paused', 'resumed'].includes(d.change_reason) ? ` · ${d.change_reason}` : ''
-  return `${what} at ${at}${why}`
+  return `${what} ${at}${why}`
 }
 
 /**

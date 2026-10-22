@@ -1,6 +1,7 @@
 package in.jumpstartpreschool.go;
 
 import android.app.Notification;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,6 +14,8 @@ import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.Map;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /** Receives the school's data-only push messages, also when the app is closed. */
 public class JumpstartMessagingService extends FirebaseMessagingService {
@@ -37,11 +40,25 @@ public class JumpstartMessagingService extends FirebaseMessagingService {
             && msg.getPriority() == RemoteMessage.PRIORITY_HIGH;
         boolean saying = say && startSpeaking(data);
 
-        String title = d.get("title") == null ? "Pickup update" : d.get("title");
-        String body = d.get("body") == null ? "" : d.get("body");
-        // Quiet when something is already saying it aloud, so the system's beep never talks over the announcement.
-        String channel = webSpeaks || saying ? Notif.GATE_QUIET : Notif.GATE;
-        Notification n = new NotificationCompat.Builder(this, channel)
+        // Quiet when something is already saying it aloud, so the system's beep never talks over the announcement. If this
+        // phone then can't say it after all (a call has the audio, no voice), GateVoice shows it again with its sound.
+        boolean shown = show(this, data, webSpeaks || saying ? Notif.GATE_QUIET : Notif.GATE);
+        // Reception, kept apart from acceptance by FCM and from being spoken (0059, 0060). Sent off FCM's thread, which
+        // handles one message at a time, so the next alert waits 2 s at most, and only when no announcer keeps this
+        // process alive (Android may freeze it once this returns).
+        if (shown || saying) {
+            Future<?> sent = GateVoice.report(d.get("ack"), GateVoice.num(data, "outbox_id", 0), d.get("receipt"), "displayed");
+            if (!saying && !webSpeaks) {
+                try { sent.get(2, TimeUnit.SECONDS); } catch (Exception e) { Log.d(DutyService.TAG, "receipt still sending"); }
+            }
+        }
+    }
+
+    /** Shows an alert's notification on a channel, replacing the one with the same tag. True when notifications are on. */
+    static boolean show(Context ctx, Bundle d, String channel) {
+        String title = d.getString("title") == null ? "Pickup update" : d.getString("title");
+        String body = d.getString("body") == null ? "" : d.getString("body");
+        Notification n = new NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(R.drawable.ic_stat_duty)
             .setContentTitle(title)
             .setContentText(body)
@@ -50,21 +67,18 @@ public class JumpstartMessagingService extends FirebaseMessagingService {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             // The lock screen shows no names or details.
-            .setPublicVersion(new NotificationCompat.Builder(this, channel)
+            .setPublicVersion(new NotificationCompat.Builder(ctx, channel)
                 .setSmallIcon(R.drawable.ic_stat_duty).setContentTitle("Pickup update").build())
             .setAutoCancel(true)
-            .setContentIntent(Notif.open(this, d.get("url")))
+            .setContentIntent(Notif.open(ctx, d.getString("url")))
             .build();
-        boolean shown = false;
         try {
-            // The same tag replaces the older notification.
-            NotificationManagerCompat.from(this).notify(d.get("tag"), 2, n);
-            shown = NotificationManagerCompat.from(this).areNotificationsEnabled();
+            NotificationManagerCompat.from(ctx).notify(d.getString("tag"), 2, n);
+            return NotificationManagerCompat.from(ctx).areNotificationsEnabled();
         } catch (SecurityException e) {
             Log.w(DutyService.TAG, "notifications not allowed", e);
+            return false;
         }
-        // Reception, kept apart from acceptance by FCM and from being spoken (0059, 0060).
-        if (shown || saying) GateVoice.receipt(d.get("ack"), GateVoice.num(data, "outbox_id", 0), d.get("receipt"), "displayed");
     }
 
     private boolean startSpeaking(Bundle data) {

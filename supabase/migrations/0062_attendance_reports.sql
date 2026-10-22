@@ -37,11 +37,16 @@ grant select on public.attendance_corrections to authenticated;
 create index if not exists trips_child_day on public.trips (child_id, day);
 
 -- 1. The register ---------------------------------------------------------------------------------------------------------
+-- jit off: the planner can't see how few days and children there are, prices the query in the millions and spends far
+-- longer compiling it than running it (1.8 s against 0.14 s for a month of 150 children).
 create function public.attendance_report(p_from date, p_to date, p_class uuid default null, p_programme uuid default null, p_child uuid default null)
 returns json
-language plpgsql stable security definer set search_path = '' as $$
+language plpgsql stable security definer set search_path = '' set jit = off as $$
 declare
   upto date := least(p_to, app.today());
+  -- Trips are deleted after 30 days (0021, as the consent notice promises), so who checked in or handed over a child on
+  -- an earlier day is no longer known: its times are 'expired', neither verified nor suspect.
+  kept date := app.today() - 30;
 begin
   if app.me() is null or not app.has_role('admin', 'core') then
     raise exception 'Only the admin and Head office can see attendance reports.' using errcode = '42501';
@@ -54,11 +59,42 @@ begin
   end if;
   return json_build_object(
     'generated_at', now(),
-    'from', p_from, 'to', p_to, 'cutoff', upto, 'today', app.today(), 'timezone', 'Asia/Kolkata',
+    'from', p_from, 'to', p_to, 'cutoff', upto, 'today', app.today(), 'timezone', 'Asia/Kolkata', 'verification_from', kept,
     'holidays', (select coalesce(json_agg(json_build_object('day', h.day, 'name', h.name) order by h.day), '[]'::json)
       from public.holidays h where h.day between p_from and upto),
     'rows', (select coalesce(json_agg(r order by r.day, r.child), '[]'::json) from (
-      select c.id as child_id, c.full_name as child, cl.name as class, c.class_id, pm.name as programme, d.day,
+      -- Per child and per programme work is done once here, not once per child and day: a year is 50,000 child-days.
+      with kids as materialized (
+        select c.id, c.full_name, c.class_id, c.active, cl.name as class, pm.name as programme,
+          (c.created_at at time zone 'Asia/Kolkata')::date as since,
+          array(select cp.programme_id from public.child_programmes cp where cp.child_id = c.id) || c.programme_id as progs
+        from public.children c
+        join public.classes cl on cl.id = c.class_id
+        join public.programmes pm on pm.id = c.programme_id
+        where (p_child is null or c.id = p_child) and (p_class is null or c.class_id = p_class)
+          and (p_programme is null or c.programme_id = p_programme
+               or exists (select 1 from public.child_programmes cp where cp.child_id = c.id and cp.programme_id = p_programme))
+      ),
+      -- When each deactivated child left: their last change from active to not, in one pass over the audit log (later
+      -- edits of a child who has left don't move it). The log is kept a year: a child with no such entry left before
+      -- then and is due on no day.
+      gone as materialized (
+        select l.new_row ->> 'id' as id, max(l.at at time zone 'Asia/Kolkata')::date as day from public.audit_log l
+        where l.table_name = 'children' and l.new_row ->> 'active' = 'false' and l.old_row ->> 'active' = 'true'
+          and l.new_row ->> 'id' in (select k.id::text from kids k where not k.active)
+        group by 1
+      ),
+      -- The days each of their programmes runs, with its times.
+      runs as materialized (
+        select p.id, g.dd::date as day, p.starts, p.ends from public.programmes p
+        cross join generate_series(p_from, upto, interval '1 day') g(dd)
+        where p.id in (select unnest(k.progs) from kids k) and app.runs_on(p.id, g.dd::date)
+      ),
+      -- Each child's due days: one of their programmes runs, from the earliest start to the latest end.
+      due as materialized (
+        select k.id, r.day, min(r.starts) as starts, max(r.ends) as ends from kids k join runs r on r.id = any (k.progs) group by k.id, r.day
+      )
+      select c.id as child_id, c.full_name as child, c.class, c.class_id, c.programme, d.day,
         x.expected,
         to_char(coalesce(dti.at, cs.dropoff, x.starts), 'HH24:MI') as sched_in,
         to_char(coalesce(dto.at, cs.pickup, x.ends), 'HH24:MI') as sched_out,
@@ -66,10 +102,10 @@ begin
         -- Where each time comes from: the gate's own action, an admin's correction, or an older record.
         case when a.checked_in_at is null then null
           when exists (select 1 from public.attendance_corrections k where k.child_id = c.id and k.day = d.day and k.field = 'dropoff') then 'corrected'
-          when din.closed_at is not null then 'gate' else 'record' end as dropoff_source,
+          when din.closed_at is not null then 'gate' when d.day < kept then 'expired' else 'record' end as dropoff_source,
         case when a.checked_out_at is null then null
           when exists (select 1 from public.attendance_corrections k where k.child_id = c.id and k.day = d.day and k.field = 'pickup') then 'corrected'
-          when dout.closed_at is not null then 'gate' else 'record' end as pickup_source,
+          when dout.closed_at is not null then 'gate' when d.day < kept then 'expired' else 'record' end as pickup_source,
         (select p.full_name from public.profiles p where p.id = din.closed_by) as dropoff_by,
         (select p.full_name from public.profiles p where p.id = dout.closed_by) as pickup_by,
         coalesce((select p.full_name from public.profiles p where p.id = dout.handed_to), dout.handed_to_name) as pickup_to,
@@ -79,22 +115,14 @@ begin
         (select coalesce(json_agg(json_build_object('field', k.field, 'old', k.old_value, 'new', k.new_value, 'reason', k.reason,
             'by', (select p.full_name from public.profiles p where p.id = k.corrected_by), 'at', k.corrected_at) order by k.id), '[]'::json)
           from public.attendance_corrections k where k.child_id = c.id and k.day = d.day) as corrections
-      from generate_series(p_from, upto, interval '1 day') g(dd)
+      from kids c
+      cross join generate_series(p_from, upto, interval '1 day') g(dd)
       cross join lateral (select g.dd::date as day) d
-      join public.children c on (p_child is null or c.id = p_child) and (p_class is null or c.class_id = p_class)
-        and (p_programme is null or c.programme_id = p_programme
-             or exists (select 1 from public.child_programmes cp where cp.child_id = c.id and cp.programme_id = p_programme))
-      join public.classes cl on cl.id = c.class_id
-      join public.programmes pm on pm.id = c.programme_id
-      cross join lateral (
-        -- Expected: enrolled by then, not yet deactivated, and one of their programmes runs that day.
-        select (d.day >= (c.created_at at time zone 'Asia/Kolkata')::date
-            and (c.active or d.day < coalesce((select max(l.at at time zone 'Asia/Kolkata')::date from public.audit_log l
-              where l.table_name = 'children' and l.new_row ->> 'id' = c.id::text and l.new_row ->> 'active' = 'false'), d.day + 1))
-            and app.child_runs_on(c.id, d.day)) as expected,
-          (select min(p.starts) from public.programmes p where (p.id = c.programme_id or p.id in (select cp.programme_id from public.child_programmes cp where cp.child_id = c.id)) and app.runs_on(p.id, d.day)) as starts,
-          (select max(p.ends) from public.programmes p where (p.id = c.programme_id or p.id in (select cp.programme_id from public.child_programmes cp where cp.child_id = c.id)) and app.runs_on(p.id, d.day)) as ends
-      ) x
+      left join gone z on z.id = c.id::text
+      left join due w on w.id = c.id and w.day = d.day
+      -- Expected: enrolled by then, not yet deactivated, and one of their programmes runs that day.
+      cross join lateral (select (d.day >= c.since and (c.active or d.day < coalesce(z.day, '-infinity')) and w.id is not null) as expected,
+        w.starts, w.ends) x
       left join public.attendance a on a.child_id = c.id and a.day = d.day
       left join public.child_schedules cs on cs.child_id = c.id and cs.weekday = extract(isodow from d.day)
       left join public.day_times dti on dti.child_id = c.id and dti.day = d.day and dti.direction = 'dropoff'
@@ -179,8 +207,9 @@ begin
   end if;
   insert into public.attendance (child_id, day, status, checked_in_at, checked_out_at, note, reported_by)
   values (p_child, p_day, new_status, new_in, new_out, new_note, me)
+  -- The admin is now who reported it: a parent's earlier report must not send an absence alert in the parent's name.
   on conflict (child_id, day) do update set status = excluded.status, checked_in_at = excluded.checked_in_at,
-    checked_out_at = excluded.checked_out_at, note = excluded.note
+    checked_out_at = excluded.checked_out_at, note = excluded.note, reported_by = excluded.reported_by
   returning * into a;
   return to_json(a);
 exception when invalid_text_representation or invalid_datetime_format or datetime_field_overflow then

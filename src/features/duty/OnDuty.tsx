@@ -15,6 +15,7 @@ import { NativeHealth } from '../../native/NativeHealth'
 import { isNativeAndroid } from '../../native/duty'
 import { onVoiceUsed, type VoiceUsed } from './sound'
 import { DutyStatus } from './DutyStatus'
+import { dutyTime } from './dutyState'
 import { Notice } from '../../ui/States'
 
 const clock = (ms: number) => formatTime(indiaClock(new Date(ms)).minutes)
@@ -44,7 +45,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
               <PauseLine className="size-4" aria-hidden />
               <span className="leading-tight">
                 <span className="block text-small font-extrabold">Duty paused</span>
-                <span className="block text-label font-bold opacity-85">since {duty.duty?.paused_at ? clock(Date.parse(duty.duty.paused_at)) : 'now'}</span>
+                <span className="block text-label font-bold">since {duty.duty?.paused_at ? dutyTime(Date.parse(duty.duty.paused_at)) : 'now'}</span>
               </span>
             </span>
           ) : (
@@ -55,7 +56,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
               </span>
               <span className="leading-tight">
                 <span className="block text-small font-extrabold">On duty</span>
-                <span className="block text-label font-bold opacity-85">since {duty.since ? clock(duty.since) : 'now'}</span>
+                <span className="block text-label font-bold">since {duty.since ? dutyTime(duty.since) : 'now'}</span>
               </span>
             </span>
           )}
@@ -225,7 +226,7 @@ export function OnDuty({ duty, online }: { duty: Duty; online: boolean }) {
         <div className="mb-5 flex items-center gap-3.5 rounded-xl bg-sunken p-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-live-soft text-live [&_svg]:size-5" aria-hidden><Sun /></span>
           <div>
-            <p className="text-h4">On duty since {duty.since ? clock(duty.since) : 'now'}</p>
+            <p className="text-h4">On duty since {duty.since ? dutyTime(duty.since) : 'now'}</p>
             <p className="text-small font-semibold text-ink-2">{duty.since ? hours(now - duty.since) : 'Just started'}{waiting > 0 ? ` · ${waiting} announcement${waiting === 1 ? '' : 's'} still waiting` : ''}</p>
           </div>
         </div>

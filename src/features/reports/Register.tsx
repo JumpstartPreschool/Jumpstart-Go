@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Pencil } from '../../ui/icons'
 import { Button } from '../../ui/Button'
 import { SearchField, SelectField, TextField } from '../../ui/Field'
@@ -14,7 +14,7 @@ import type { ReportDoc } from './exports/doc'
 
 const PAGE = 25
 const TONE: Record<Attendance, Tone> = { present: 'live', late: 'warning', absent: 'neutral', not_recorded: 'danger', expected: 'accent', not_due: 'neutral' }
-const RECORD_TONE: Record<RecordState, Tone> = { complete: 'live', on_campus: 'accent', incomplete: 'warning', none: 'neutral' }
+const RECORD_TONE: Record<RecordState, Tone> = { complete: 'live', on_campus: 'accent', not_kept: 'neutral', incomplete: 'warning', none: 'neutral' }
 const at = (iso: string | null) => (iso ? formatTime(indiaClock(new Date(iso)).minutes) : '—')
 
 interface Col { key: string; label: string; sort: (r: Row) => string | number; render: (r: Row) => React.ReactNode; always?: boolean }
@@ -32,13 +32,13 @@ const COLS: Col[] = [
 ]
 
 function Timed({ time, verified, late, sched }: { time: string; verified: boolean; late: number | null; sched: string | null }) {
-  if (time === '—') return <span className="text-ink-3">—</span>
+  if (time === '—') return <span className="text-ink-2">—</span>
   return (
     <span className="whitespace-nowrap">
       <span className="font-bold tabular-nums">{time}</span>
       <span className={`ml-1.5 text-caption font-bold ${verified ? 'text-live' : 'text-warning'}`}>{verified ? 'verified' : 'not verified'}</span>
       {late !== null && <span className="ml-1.5 text-caption font-bold text-warning">+{late} min</span>}
-      {sched && <span className="block text-caption text-ink-3">scheduled {sched}</span>}
+      {sched && <span className="block text-caption text-ink-2">scheduled {sched}</span>}
     </span>
   )
 }
@@ -81,16 +81,16 @@ export function Register({ doc, canCorrect, onChanged }: { doc: ReportDoc; canCo
         </SelectField>
         <SelectField label="Record" value={record} onValue={(v) => { setRecord(v as typeof record); reset() }}>
           <option value="">Any record</option>
-          {(['complete', 'on_campus', 'incomplete'] as const).map((s) => <option key={s} value={s}>{RECORD_LABEL[s]}</option>)}
+          {(['complete', 'on_campus', 'incomplete', 'not_kept'] as const).map((s) => <option key={s} value={s}>{RECORD_LABEL[s]}</option>)}
         </SelectField>
         <label className="flex items-center gap-2 text-small font-bold text-ink-2">
           <Switch on={onlyIssues} label="Exceptions only" onChange={(v) => { setOnlyIssues(v); reset() }} />Exceptions only
         </label>
         <details className="md:col-span-4">
-          <summary className="cursor-pointer text-small font-extrabold text-accent-ink">Columns</summary>
+          <summary className="min-h-11 cursor-pointer py-2.5 text-small font-extrabold text-accent-ink">Columns</summary>
           <div className="mt-2 flex flex-wrap gap-2">
             {COLS.filter((c) => !c.always).map((c) => (
-              <button key={c.key} type="button" className="choice px-3 py-1.5 text-caption font-bold" aria-pressed={!hidden.has(c.key)}
+              <button key={c.key} type="button" className="choice min-h-11 px-3 py-1.5 text-caption font-bold" aria-pressed={!hidden.has(c.key)}
                 onClick={() => setHidden((h) => { const n = new Set(h); if (n.has(c.key)) n.delete(c.key); else n.add(c.key); return n })}>{c.label}</button>
             ))}
           </div>
@@ -107,8 +107,8 @@ export function Register({ doc, canCorrect, onChanged }: { doc: ReportDoc; canCo
               <thead className="bg-sunken">
                 <tr>
                   {cols.map((c) => (
-                    <th key={c.key} scope="col" className="px-4 py-3 font-extrabold text-ink-2" aria-sort={sort.key === c.key ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
-                      <button type="button" className="inline-flex items-center gap-1" onClick={() => setSort((s) => ({ key: c.key, desc: s.key === c.key ? !s.desc : false }))}>
+                    <th key={c.key} scope="col" className="px-2 py-0 font-extrabold text-ink-2" aria-sort={sort.key === c.key ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
+                      <button type="button" className="inline-flex min-h-11 items-center gap-1 px-2" onClick={() => setSort((s) => ({ key: c.key, desc: s.key === c.key ? !s.desc : false }))}>
                         {c.label}{sort.key === c.key && (sort.desc ? <ArrowDown className="size-3.5" aria-hidden /> : <ArrowUp className="size-3.5" aria-hidden />)}
                       </button>
                     </th>
@@ -137,7 +137,7 @@ export function Register({ doc, canCorrect, onChanged }: { doc: ReportDoc; canCo
           </div>
         </div>
       )}
-      <DaySheet row={open} canCorrect={canCorrect} onClose={() => setOpen(null)} onChanged={() => { setOpen(null); onChanged() }} />
+      <DaySheet key={open ? `${open.child_id}-${open.day}` : ''} row={open} canCorrect={canCorrect} onClose={() => setOpen(null)} onChanged={() => { setOpen(null); onChanged() }} />
     </div>
   )
 }
@@ -155,7 +155,8 @@ function DaySheet({ row, canCorrect, onClose, onChanged }: { row: Row | null; ca
   ]
   return (
     <>
-      <Sheet open={!!row && !correcting} onClose={onClose} title={row.child} description={`${dayLabel(row.day)} · ${row.class} · ${row.programme}`} wide>
+      {/* Hidden, not closed, while correcting: hiding a dialog fires its close event, which must not clear the row. */}
+      <Sheet open={!!row && !correcting} onClose={() => { if (!correcting) onClose() }} title={row.child} description={`${dayLabel(row.day)} · ${row.class} · ${row.programme}`} wide>
         <div className="flex flex-wrap gap-2">
           <Pill tone={TONE[row.attendance]}>{ATTENDANCE_LABEL[row.attendance]}</Pill>
           {row.record !== 'none' && <Pill tone={RECORD_TONE[row.record]}>{RECORD_LABEL[row.record]}</Pill>}
@@ -164,7 +165,7 @@ function DaySheet({ row, canCorrect, onClose, onChanged }: { row: Row | null; ca
         <p className="mt-3 text-small font-semibold text-ink-2">Scheduled {row.sched_in ?? '—'} to {row.sched_out ?? '—'}{row.expected ? '' : ' · not a scheduled day'}</p>
         <ol className="mt-4 grid gap-2">
           {events.map(([what, when, how]) => (
-            <li key={what} className={`grid grid-cols-[88px_1fr] gap-3 rounded-lg px-3 py-2.5 ${when === '—' ? 'bg-sunken/50 text-ink-3' : 'bg-sunken'}`}>
+            <li key={what} className={`grid grid-cols-[88px_1fr] gap-3 rounded-lg px-3 py-2.5 ${when === '—' ? 'bg-sunken/50 text-ink-2' : 'bg-sunken'}`}>
               <span className="font-extrabold tabular-nums">{when}</span>
               <span className="text-small"><span className="font-bold">{what}</span>{how && <span className="block text-caption font-semibold text-ink-2">{how}</span>}</span>
             </li>
@@ -201,7 +202,8 @@ const isoOf = (day: string, hhmm: string) => new Date(`${day}T${hhmm}:00+05:30`)
 /** The admin's correction: only what changed is sent; a reason is required; the server keeps the old and new values. */
 function CorrectSheet({ row, onClose, onDone }: { row: Row; onClose: () => void; onDone: () => void }) {
   const toast = useToast()
-  const [request] = useState(() => crypto.randomUUID())
+  // One request id per exact correction: a retry of the same one is safe, and an edited one is never taken for it.
+  const ids = useRef(new Map<string, string>())
   const [status, setStatus] = useState<string>(row.marked ?? (row.dropoff_at || row.pickup_at ? 'present' : ''))
   const [dropoff, setDropoff] = useState(timeOfIso(row.dropoff_at))
   const [pickup, setPickup] = useState(timeOfIso(row.pickup_at))
@@ -221,8 +223,10 @@ function CorrectSheet({ row, onClose, onDone }: { row: Row; onClose: () => void;
   async function save() {
     setBusy(true)
     setError(null)
+    const what = JSON.stringify([changes, reason.trim()])
+    if (!ids.current.has(what)) ids.current.set(what, crypto.randomUUID())
     try {
-      await correctAttendance(row.child_id, row.day, changes, reason.trim(), request)
+      await correctAttendance(row.child_id, row.day, changes, reason.trim(), ids.current.get(what)!)
       toast('Correction saved. The old values are kept in its history.')
       onDone()
     } catch (e) {

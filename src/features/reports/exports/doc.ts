@@ -43,7 +43,7 @@ export interface ReportDoc {
 }
 
 const at = (iso: string | null) => (iso ? formatTime(indiaClock(new Date(iso)).minutes) : '')
-const shortSource = (s: Row['dropoff_source']) => (s === 'gate' ? 'Gate' : s === 'corrected' ? 'Corrected' : s === 'record' ? 'Not verified' : '')
+const shortSource = (s: Row['dropoff_source']) => (s === 'gate' ? 'Gate' : s === 'corrected' ? 'Corrected' : s === 'record' ? 'Not verified' : s === 'expired' ? 'Over 30 days' : '')
 
 /** India date and time, "22 Oct 2026, 2:05 PM IST". */
 export function stamp(iso: string): string {

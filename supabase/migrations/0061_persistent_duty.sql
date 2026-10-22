@@ -27,7 +27,10 @@ alter table app.gate_duty
   add column changed_by uuid references public.profiles (id) on delete set null,
   add column change_reason text check (change_reason is null or length(change_reason) <= 200),
   add column version int not null default 1;
--- Rows were created by the heartbeat; their duty began then.
+-- Rows were created by the heartbeat; their duty began then. Rows left by pages that closed without saying so (0058
+-- ignored rows from an earlier day and purged them a day later) are not duty: only pages still running become Active.
+delete from app.gate_duty
+where (started_at at time zone 'Asia/Kolkata')::date < (now() at time zone 'Asia/Kolkata')::date or seen_at < now() - interval '10 minutes';
 update app.gate_duty set changed_at = started_at, changed_by = profile_id;
 create trigger audit after insert or update of status, version or delete on app.gate_duty for each row execute function app.audit();
 

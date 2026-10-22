@@ -116,6 +116,42 @@ do $$ declare req uuid := gen_random_uuid(); r json; begin
   begin perform public.log_report_export('executive', 'exe', '{}'); raise exception 'FAIL: unknown format';
   exception when sqlstate '22023' then null; end;
 end $$;
+-- Older than the 30 days trips are kept: the times stay, the gate details are gone ('expired', not 'record').
+select set_config('app.now', '2026-04-09 10:00:00+05:30', false);
+do $$ declare r json; begin
+  r := (select x from pg_temp.rows(public.attendance_report('2026-03-02', '2026-03-02', null, null, '00000000-0000-0000-0000-0000000062a1')) x);
+  assert r ->> 'dropoff_source' = 'expired' or r ->> 'dropoff_source' = 'gate', 'old day: ' || r::text;
+  assert (public.attendance_report('2026-03-02', '2026-03-02') ->> 'verification_from') = '2026-03-10', 'kept from 30 days back';
+end $$;
+reset role;
+-- The purge has run: the trips are gone, the attendance stays.
+delete from public.trips where child_id = '00000000-0000-0000-0000-0000000062a1' and day = '2026-03-02';
+set role authenticated;
+do $$ declare r json; begin
+  r := (select x from pg_temp.rows(public.attendance_report('2026-03-02', '2026-03-02', null, null, '00000000-0000-0000-0000-0000000062a1')) x);
+  assert r ->> 'dropoff_source' = 'expired' and r ->> 'pickup_source' = 'expired' and r ->> 'dropoff_at' is not null, 'expired, times kept: ' || r::text;
+end $$;
+-- A child who left: Rohan, deactivated on Thursday 5 March, is due Monday and Tuesday only. Riya also does a club on
+-- Saturdays, so Saturday 7 March is due for her, until 15:00. A deactivation older than the audit log (a year) is gone:
+-- such a child is due on no day at all.
+reset role;
+insert into public.programmes (id, name, class_id, weekdays, starts, ends, flexible) values
+  ('00000000-0000-0000-0000-0000000062b2', 'Report club', '00000000-0000-0000-0000-0000000062c1', '{6}', '12:00', '15:00', true);
+insert into public.child_programmes values ('00000000-0000-0000-0000-0000000062a1', '00000000-0000-0000-0000-0000000062b2');
+update public.children set active = false where id in ('00000000-0000-0000-0000-0000000062a2', '00000000-0000-0000-0000-0000000062a3');
+update public.audit_log set at = '2026-03-05 08:00+05:30' where table_name = 'children' and new_row ->> 'id' = '00000000-0000-0000-0000-0000000062a2';
+-- A later edit of a child who has already left (a data fix, a migration) doesn't move the day they left.
+update public.children set full_name = 'Rohan Two' where id = '00000000-0000-0000-0000-0000000062a2';
+delete from public.audit_log where table_name = 'children' and new_row ->> 'id' = '00000000-0000-0000-0000-0000000062a3';
+set role authenticated;
+do $$ declare r json; begin
+  r := public.attendance_report('2026-03-02', '2026-03-08', '00000000-0000-0000-0000-0000000062c1');
+  assert (select array_agg(x ->> 'day' order by x ->> 'day') from pg_temp.rows(r) x where x ->> 'child' = 'Rohan Two' and (x ->> 'expected')::boolean)
+    = '{2026-03-02,2026-03-03}', 'due until he left: ' || r::text;
+  assert (select x ->> 'sched_out' from pg_temp.rows(r) x where x ->> 'child' = 'Riya One' and x ->> 'day' = '2026-03-07') = '15:00', 'club Saturday due';
+  assert not exists (select 1 from pg_temp.rows(r) x where x ->> 'child' = 'Rahul Three' and (x ->> 'expected')::boolean), 'left long ago: never due';
+  assert exists (select 1 from pg_temp.rows(r) x where x ->> 'child' = 'Rahul Three' and x ->> 'day' = '2026-03-05'), 'but his recorded day stays';
+end $$;
 reset role;
 do $$ begin
   assert exists (select 1 from public.audit_log where action = 'export' and table_name = 'attendance_report' and new_row ->> 'format' = 'pdf'), 'the export is logged';

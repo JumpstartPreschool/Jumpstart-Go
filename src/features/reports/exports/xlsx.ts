@@ -97,7 +97,9 @@ export async function workbook(d: ReportDoc): Promise<ArrayBuffer> {
     ['Verified drop-off / pickup', "A coordinator's Check in or Hand over at the gate (a pickup only to a registered guardian, or to a collector with their code), or an admin's correction with a reason."],
     ['Late', 'A verified drop-off or pickup more than 10 minutes after the scheduled time.'],
     ['Not recorded', 'Expected (enrolled, programme running, not a holiday) but with no attendance record.'],
+    ['Expected days', "Worked out from each child's current programmes, terms and regular times: a change made since (a new programme, a new pickup time) also applies to earlier days in this report."],
     ['Incomplete', 'Present, but without a verified drop-off or pickup (today: still on campus is not incomplete).'],
+    ['Over 30 days', 'Gate details are kept for 30 days: earlier days keep their recorded times only, so they are neither verified, incomplete nor late.'],
     ['Times', 'India Standard Time (Asia/Kolkata).'],
     ['Average arrival', `Mean time of verified drop-offs: ${timeOf(d.kpis.avgArrivalMin)}. Coverage of recorded child-days: ${pct(d.kpis.coverage)}.`],
   ]

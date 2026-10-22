@@ -80,17 +80,18 @@ enum GateSound {
         let name = "gate-\(id.prefix(32)).caf"
         let out = dir.appendingPathComponent(name)
         if fm.fileExists(atPath: out.path) { return name }
-        // Written under another name first, so a run cut short never leaves a broken sound behind under the real name.
-        let part = dir.appendingPathComponent("\(name).part")
-        var files: [URL] = []
-        defer {
-            files.forEach { try? fm.removeItem(at: $0) }
-            try? fm.removeItem(at: part)
-        }
+        // Its own folder: alerts arriving together are built at the same time and share the opening recording. The sound
+        // is written there first, under a name still ending in .caf (AVAudioFile takes the file type from it), so a run
+        // cut short never leaves a broken sound behind under the real name.
+        let work = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let part = work.appendingPathComponent(name)
+        defer { try? fm.removeItem(at: work) }
         do {
-            files = try clips.map(download)
+            try fm.createDirectory(at: work, withIntermediateDirectories: true)
+            let files = try clips.map { try download($0, into: work) }
             try write(chime: flagged ? flaggedNotes : normal, clips: files, to: part)
-            try fm.moveItem(at: part, to: out)
+            // Another alert with the same recordings may have made it meanwhile.
+            do { try fm.moveItem(at: part, to: out) } catch { guard fm.fileExists(atPath: out.path) else { throw error } }
             trim(dir)
             return name
         } catch {
@@ -100,9 +101,9 @@ enum GateSound {
 
     private final class Box: @unchecked Sendable { var result: Result<URL, Error> = .failure(URLError(.timedOut)) }
 
-    static func download(_ clip: Clip) throws -> URL {
+    static func download(_ clip: Clip, into dir: URL) throws -> URL {
         guard let url = URL(string: clip.url) else { throw URLError(.badURL) }
-        let to = FileManager.default.temporaryDirectory.appendingPathComponent("\(clip.key).mp3")
+        let to = dir.appendingPathComponent("\(clip.key).mp3")
         let box = Box()
         let done = DispatchSemaphore(value: 0)
         URLSession.shared.downloadTask(with: URLRequest(url: url, timeoutInterval: 8)) { tmp, response, error in

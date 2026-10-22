@@ -108,6 +108,9 @@ delete from app.gate_duty;
 do $$ declare kid uuid; team uuid[]; begin
   select c.id into kid from public.children c where cardinality(app.coordinators_for(c.id)) >= 2 limit 1;
   team := app.coordinators_for(kid);
+  -- Everyone on the team can be reached (0063 counts only people an alert can reach).
+  update public.profiles set active = true, app_access = true where id = any (team);
+  insert into public.device_tokens (profile_id, platform, token) select x, 'android', 'route-' || x::text from unnest(team) x on conflict (token) do nothing;
   insert into app.gate_duty (profile_id, status) values (team[1], 'paused');
   assert not (team[1] = any (app.gate_team_for(kid))) and cardinality(app.gate_team_for(kid)) = cardinality(team) - 1, 'paused person skipped';
   insert into app.gate_duty (profile_id, status) select x, 'paused' from unnest(team[2:]) x on conflict (profile_id) do nothing;

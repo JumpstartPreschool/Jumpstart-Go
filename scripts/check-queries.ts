@@ -18,7 +18,8 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => {
   const p = join(dir, f)
   return statSync(p).isDirectory() ? walk(p) : [p]
 })
-const sources = walk('src').filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.endsWith('lib/demo.ts'))
+// The Edge Functions too: their queries break the same way (an embed made ambiguous by a new table, 0053).
+const sources = [...walk('src'), ...walk('supabase/functions')].filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.endsWith('lib/demo.ts'))
 
 /** The file's string constants with ${NAME} filled in, so `select(FIELDS)` resolves to the text the app sends. */
 function constants(text: string) {

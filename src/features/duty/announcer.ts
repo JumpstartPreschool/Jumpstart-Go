@@ -92,7 +92,8 @@ export function createAnnouncer(output: AnnouncerOutput, repeatMs = REPEAT_MS) {
 
   const wakeAt = (at: number) => {
     clearTimeout(timer)
-    timer = setTimeout(pump, Math.max(0, at - Date.now()))
+    // Timers over 2^31 - 1 ms (24.8 days, a Pause's hold) fire at once: wake at most that far ahead and check again.
+    timer = setTimeout(pump, Math.min(2 ** 31 - 1, Math.max(0, at - Date.now())))
   }
 
   async function pump(): Promise<void> {

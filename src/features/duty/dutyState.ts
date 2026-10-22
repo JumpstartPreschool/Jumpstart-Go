@@ -1,4 +1,5 @@
 import type { PushState } from '../notifications/push'
+import { formatTime, indiaClock } from '../../domain/time'
 
 /**
  * Duty, connection and notifications are three separate facts (0061). Duty is the server's (app.gate_duty, changed only
@@ -47,6 +48,25 @@ export function readCachedDuty(uid: string): { duty: DutyState | null; at: numbe
 }
 export function writeCachedDuty(uid: string, duty: DutyState | null, at: number): void {
   try { localStorage.setItem(cacheKey(uid), JSON.stringify({ duty, at })) } catch { /* storage blocked: the server is asked again */ }
+}
+
+/** A duty time: "4:00 PM" today, else with its day ("yesterday, 4:00 PM", "Tue 20 Oct, 4:00 PM"): duty runs past midnight. */
+export function dutyTime(ms: number, nowMs = Date.now()): string {
+  const at = indiaClock(new Date(ms))
+  const time = formatTime(at.minutes)
+  if (at.date === indiaClock(new Date(nowMs)).date) return time
+  if (at.date === indiaClock(new Date(nowMs - 86_400_000)).date) return `yesterday, ${time}`
+  return `${new Date(`${at.date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}, ${time}`
+}
+
+/** Signing out forgets the cached duties: a stale one would otherwise hold back this device's updates for good. */
+export function clearCachedDuties(): void {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i)
+      if (k?.startsWith('jumpstart.duty.')) localStorage.removeItem(k)
+    }
+  } catch { /* storage blocked */ }
 }
 
 /** True when this device last saw someone's duty Active or Paused: app updates then wait for a tap, never reload mid-duty. */

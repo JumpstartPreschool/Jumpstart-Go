@@ -43,7 +43,7 @@ export function sampleReport(o: { from?: string; to?: string; children?: number;
     }
   }
   return {
-    generated_at: `${to}T12:30:00Z`, from, to, cutoff: to, today: '2026-11-02', timezone: 'Asia/Kolkata',
+    generated_at: `${to}T12:30:00Z`, from, to, cutoff: to, today: '2026-11-02', timezone: 'Asia/Kolkata', verification_from: from,
     holidays: [{ day: '2026-10-02', name: 'Gandhi Jayanti' }, { day: '2026-10-20', name: 'Diwali' }], rows,
   }
 }

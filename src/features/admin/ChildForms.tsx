@@ -154,7 +154,7 @@ function linkable(dir: Directory, exclude: Set<string>) {
  * Add a child (Screen Book v3): the child, their class and programme, then parents and family, saved together or not at
  * all. Everyone with app access signs in with their mobile and a code sent on WhatsApp.
  */
-export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (childId: string, name: string) => void }) {
+export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory; open: boolean; onClose: () => void; onSaved: (childId: string, name: string) => void | Promise<void> }) {
   const [name, setName] = useState('')
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'boy' | 'girl' | null>(null)
@@ -203,7 +203,8 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
     setFormError(null)
     try {
       const id = await saveChild({ full_name: words.join(' '), preferred_name: '', date_of_birth: dob, programme_id: programmeId!, also, gender }, list.map(toInput))
-      onSaved(id, who)
+      // Busy until the parent has reloaded and opened the child: a second tap meanwhile would add the child twice.
+      await onSaved(id, who)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {
@@ -324,7 +325,7 @@ export function AddChildSheet({ dir, open, onClose, onSaved }: { dir: Directory;
 }
 
 /** Add a parent or relative on the child's page: the relation first, then their details. */
-export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: Directory; child: Child; open: boolean; onClose: () => void; onSaved: (message: string) => void }) {
+export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: Directory; child: Child; open: boolean; onClose: () => void; onSaved: (message: string) => void | Promise<void> }) {
   const first = child.preferred_name ?? child.full_name.split(' ')[0]!
   const [p, setP] = useState<PersonDraft | null>(null)
   const [errors, setErrors] = useState<Errors>({})
@@ -349,7 +350,7 @@ export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: 
     try {
       await addGuardian(child.id, toInput(q))
       const name = q.name.trim().split(' ')[0]
-      onSaved(q.linkedId ? `${name} added for ${first}, with the same sign-in.` : q.appAccess ? `${name} added. Tap Invite to send them the link.` : `${name} added. They can collect ${first} from the gate.`)
+      await onSaved(q.linkedId ? `${name} added for ${first}, with the same sign-in.` : q.appAccess ? `${name} added. Tap Invite to send them the link.` : `${name} added. They can collect ${first} from the gate.`)
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {
@@ -386,7 +387,7 @@ export function AddGuardianSheet({ dir, child, open, onClose, onSaved }: { dir: 
 
 /** Edit a parent or relative on the child's page: every detail, and how they're related. Opens filled in. */
 export function EditGuardianSheet({ dir, child, person, relation, onClose, onSaved }: {
-  dir: Directory; child: Child; person: Profile; relation: string; onClose: () => void; onSaved: (message: string) => void
+  dir: Directory; child: Child; person: Profile; relation: string; onClose: () => void; onSaved: (message: string) => void | Promise<void>
 }) {
   const first = child.preferred_name ?? child.full_name.split(' ')[0]!
   const [p, setP] = useState<PersonDraft>({ key: person.id, name: person.full_name, phone: person.phone ?? '', abroad: person.abroad, appAccess: person.app_access, relation })
@@ -409,7 +410,7 @@ export function EditGuardianSheet({ dir, child, person, relation, onClose, onSav
     try {
       await updatePerson(person.id, child.id, { ...toInput(p), email: email.trim().toLowerCase() || null } as Parameters<typeof updatePerson>[2])
       const changed = phoneOf(p.phone)
-      onSaved(signedIn && changed && changed !== person.phone ? `Saved. ${p.name.trim().split(' ')[0]}'s sign-in code now goes to ${formatMobile(changed)}.` : 'Saved.')
+      await onSaved(signedIn && changed && changed !== person.phone ? `Saved. ${p.name.trim().split(' ')[0]}'s sign-in code now goes to ${formatMobile(changed)}.` : 'Saved.')
     } catch (err) {
       setFormError(explainDbError(err as { code?: string; message?: string }))
     } finally {

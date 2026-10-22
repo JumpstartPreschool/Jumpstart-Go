@@ -37,6 +37,17 @@ describe('statuses', () => {
     expect(c(gateDay('2026-03-02', '09:05', '13:05', { pickup_at: null, pickup_source: null })).issues).toEqual(['No pickup recorded'])
     expect(c(gateDay('2026-03-09', '09:05', '13:05', { pickup_at: null, pickup_source: null })).record).toBe('on_campus')
   })
+  it('a day from before the 30 days gate details are kept is present, neither incomplete nor late, and said so', () => {
+    const old = gateDay('2026-03-02', '09:40', '13:05', { dropoff_source: 'expired', pickup_source: 'expired' })
+    const r = c(old)
+    expect([r.attendance, r.record, r.dropoffVerified, r.lateArrivalMin, r.issues]).toEqual(['present', 'not_kept', false, null, []])
+    const k = kpis([r, c(gateDay('2026-03-03'))])
+    expect([k.notKept, k.missingVerification, k.incomplete, k.lateArrivals, k.verifiedDropoffs]).toEqual([1, 0, 0, 0, 1])
+    expect(insights([r], []).at(-1)).toMatch(/^Gate details are kept for 30 days: for 1 earlier child-days/)
+    expect(insights([r], []).join(' ')).not.toMatch(/verified\.$|pickups verified/)
+    // A correction is kept for good, so a corrected old day is still verified.
+    expect(c({ ...old, dropoff_source: 'corrected', pickup_source: 'corrected' }).record).toBe('complete')
+  })
   it('a corrected time is verified (an admin, with a reason)', () => {
     expect(c(gateDay('2026-03-02', '09:05', '13:05', { pickup_source: 'corrected' })).record).toBe('complete')
   })
@@ -56,7 +67,7 @@ describe('statuses', () => {
 })
 
 describe('KPIs', () => {
-  const data = (rows: RawRow[]): ReportData => ({ generated_at: '', from: '2026-03-02', to: '2026-03-08', cutoff: '2026-03-08', today: '2026-03-09', timezone: 'Asia/Kolkata', holidays: [], rows })
+  const data = (rows: RawRow[]): ReportData => ({ generated_at: '', from: '2026-03-02', to: '2026-03-08', cutoff: '2026-03-08', today: '2026-03-09', timezone: 'Asia/Kolkata', verification_from: '2026-02-07', holidays: [], rows })
   it('follow their formulas', () => {
     const rows = classifyAll(data([
       gateDay('2026-03-02', '09:05', '13:05'), gateDay('2026-03-03', '09:25', '13:45'),
@@ -83,7 +94,7 @@ describe('KPIs', () => {
 describe('periods and charts', () => {
   it('chooses days, weeks or months by length, and keeps empty periods as gaps', () => {
     expect([grainFor('2026-03-01', '2026-03-31'), grainFor('2026-03-01', '2026-05-31'), grainFor('2026-01-01', '2026-12-31')]).toEqual(['day', 'week', 'month'])
-    const pts = series(classifyAll({ generated_at: '', from: '2026-03-02', to: '2026-03-08', cutoff: '', today: '2026-03-09', timezone: '', holidays: [], rows: [gateDay('2026-03-02')] }, NOW), '2026-03-02', '2026-03-08')
+    const pts = series(classifyAll({ generated_at: '', from: '2026-03-02', to: '2026-03-08', cutoff: '', today: '2026-03-09', timezone: '', verification_from: '', holidays: [], rows: [gateDay('2026-03-02')] }, NOW), '2026-03-02', '2026-03-08')
     expect(pts).toHaveLength(7)
     expect(pts[0]!.rate).toBe(1)
     expect(pts[2]!.rate).toBeNull()   // the holiday: a gap, never 0%
