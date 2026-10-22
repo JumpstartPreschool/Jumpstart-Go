@@ -186,13 +186,14 @@ do $$ begin
     and pg_temp.got('00000000-0000-0000-0000-000000058a02', 'Reminder: Arnav, drop-off at %') = 1
     and pg_temp.got('00000000-0000-0000-0000-000000058a03', 'Reminder: Arnav, drop-off at %') = 1, 'with nobody on duty, everyone covering the child hears it';
 end $$;
--- A duty that began on an earlier day does not count as on duty today.
+-- 0061: a duty still Active from an earlier day is still duty (nothing ends it at midnight), so only that person is told.
 insert into app.gate_duty (profile_id, started_at, seen_at) values ('00000000-0000-0000-0000-000000058a02', app.clock() - interval '1 day', app.clock());
 delete from app.push_outbox;
 select pg_temp.clock(2240);
 do $$ begin
   assert app.send_gate_reminders() = 1, 'reminded again';
-  assert pg_temp.got('00000000-0000-0000-0000-000000058a01', 'Reminder%') = 1, 'yesterday''s duty is ignored, so everyone is told';
+  assert pg_temp.got('00000000-0000-0000-0000-000000058a02', 'Reminder%') = 1, 'the person still on duty is told';
+  assert pg_temp.got('00000000-0000-0000-0000-000000058a01', 'Reminder%') = 0, 'yesterday''s duty still counts';
 end $$;
 update public.trips set status = 'cancelled', closed_by = '00000000-0000-0000-0000-000000058a01', closed_at = app.clock() where id = '00000000-0000-0000-0000-000000058d02';
 delete from app.gate_duty;
@@ -230,10 +231,10 @@ do $$ begin assert app.alert_silent_duty() = 1, 'silent again after half an hour
 -- Silent the whole time since the alert: no repeat.
 update app.gate_duty set silent_alerted_at = app.clock() - interval '40 minutes', seen_at = app.clock() - interval '50 minutes';
 do $$ begin assert app.alert_silent_duty() = 0, 'one alert per silent spell'; end $$;
--- Ending duty removes the session.
+-- Ending duty removes the session (0061: an explicit End duty, not the heartbeat).
 set role authenticated;
 select pg_temp.as_who('00000000-0000-0000-0000-000000058a02');
-select public.gate_heartbeat(false);
+select public.set_duty('off', (public.my_duty() ->> 'version')::int);
 reset role;
 do $$ begin assert not exists (select 1 from app.gate_duty), 'ending duty deletes the session'; end $$;
 -- Outside 08:00 to 19:30 nobody is woken.

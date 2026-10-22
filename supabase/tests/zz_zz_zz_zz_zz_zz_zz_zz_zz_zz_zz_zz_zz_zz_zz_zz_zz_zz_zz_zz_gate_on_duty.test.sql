@@ -1,4 +1,4 @@
--- 0051: who is on duty at the gate. Gate team only; on duty for 75 seconds after the last check-in; off at once on leaving.
+-- 0051: who can be heard at the gate. Gate team only; heard for 75 seconds after the last check-in; not on leaving (0061: still on duty).
 insert into public.profiles (id, full_name, active, phone, user_id) values
   ('00000000-0000-0000-0000-00000000cc01', 'Sunita Gate', true, '+919811200001', null),
   ('00000000-0000-0000-0000-00000000cc02', 'Rekha Parent', true, '+919811200002', null);
@@ -25,9 +25,10 @@ do $$
 declare ids uuid[];
 begin
   ids := public.gate_heartbeat(false);
-  assert not ('00000000-0000-0000-0000-00000000cc01'::uuid = any (ids)), 'off duty after leaving';
+  assert not ('00000000-0000-0000-0000-00000000cc01'::uuid = any (ids)), 'not heard after leaving the screen';
 end $$;
 reset role;
+-- 0061: leaving the screen is not ending duty; only set_duty('off') ends it.
 do $$ begin
-  assert not exists (select 1 from app.gate_duty where profile_id = '00000000-0000-0000-0000-00000000cc01'), 'gone from the list';
+  assert exists (select 1 from app.gate_duty where profile_id = '00000000-0000-0000-0000-00000000cc01' and status = 'active' and not audible), 'still on duty, not audible';
 end $$;

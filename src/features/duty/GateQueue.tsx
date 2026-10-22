@@ -38,8 +38,9 @@ interface GateData {
 }
 
 /**
- * Who is on duty at the gate now (0051): this phone checks in every 30 seconds and on return to the screen, and says it
- * has left when the duty screen closes. Null until the first answer, or when the server can't say: then a class counts
+ * Who can be heard at the gate now (0051, 0061: Active duty, audible, checked in within 75 s): this phone checks in every
+ * 30 seconds and on return to the screen, and says it can't be heard when the duty screen closes. Duty itself is
+ * untouched by all of this. Null until the first answer, or when the server can't say: then a class counts
  * as covered by whoever is assigned, as before.
  */
 function useOnDuty(audible: boolean): Set<string> | null {
@@ -48,7 +49,8 @@ function useOnDuty(audible: boolean): Set<string> | null {
     let stopped = false
     // Muted or with sound paused, this phone can't be heard: it checks in as off duty, so the others speak its classes.
     const beat = async () => {
-      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: audible })
+      // Reachability only (0061): never starts, pauses or ends duty.
+      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: audible, p_start: false })
       // A failed check-in keeps the last list, so classes don't flip between covered and not.
       if (!stopped && !error && Array.isArray(data)) setIds(new Set(data as string[]))
     }
@@ -60,7 +62,7 @@ function useOnDuty(audible: boolean): Set<string> | null {
       stopped = true
       clearInterval(every)
       document.removeEventListener('visibilitychange', onVisible)
-      void supabase.rpc('gate_heartbeat', { p_on: false }).then(() => {}, () => {})
+      void supabase.rpc('gate_heartbeat', { p_on: false, p_start: false }).then(() => {}, () => {})
     }
   }, [audible])
   return ids
