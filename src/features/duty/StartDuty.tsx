@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowRight, BellRing, CircleCheck, Clock, MapPin, PlayLine, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
+import { ArrowRight, BellRing, CircleCheck, Clock, MapPin, PowerLine, RotateCcw, TriangleAlert, Volume2, Wifi } from '../../ui/icons'
 import { DeviceReadiness } from '../notifications/DeviceReadiness'
 import { pushState, pushTurnedOff, turnOffPush, turnOnPush, type PushState } from '../notifications/push'
 import { isNativeAndroid } from '../../native/duty'
 import { ScreenOffSwitch, type Platform } from './ScreenOffSwitch'
 import { useToast } from '../../ui/Toast'
 import { Button } from '../../ui/Button'
+import { Notice } from '../../ui/States'
 import { Logo, Mascot } from '../../ui/Logo'
 import { Pill } from '../../ui/Pill'
 import { isInstalled } from '../../ui/hooks'
@@ -95,7 +96,7 @@ export function SoundResultLine({ result }: { result: SoundResult }) {
     ? ['bg-danger-soft text-danger', "No sound could play. Tap Play again; if it stays silent, turn the volume up, switch off silent mode, and reopen Jumpstart Go from the Home Screen."]
     : result.voice === 'cut' ? ['bg-danger-soft text-danger', "The test sentence was cut off before the end. Tap Play again. If it keeps stopping, close other apps playing sound, then reopen Jumpstart Go from the Home Screen."]
     : result.voice === 'school' ? ['bg-live-soft text-live', `Played: ${result.chime ? 'the chime and ' : ''}the school's voice.`]
-    : result.voice === 'device' ? ['bg-warning-soft text-warning', `Played: ${result.chime ? 'the chime and ' : ''}this tablet's own voice. The school's voice wasn't ready; announcements still play.`]
+    : result.voice === 'device' ? ['bg-live-soft text-live', `Played: ${result.chime ? 'the chime and ' : ''}this tablet's own voice.`]
     : ['bg-warning-soft text-warning', 'Played: the chime only. No voice is available on this tablet, so names show on screen.']
   return <p className={`mt-4 rounded-lg px-4 py-3 text-left text-small font-bold ${tone}`} role="status">{text}</p>
 }
@@ -170,7 +171,8 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
             </ul>
           )}
           <div className="mt-8 grid gap-3">
-            <Button size="xl" variant="success" icon={<CircleCheck />} onClick={duty.confirmHeard} disabled={duty.testing || nothingPlayed(duty.result)}>
+            {duty.error && <Notice tone="danger">{duty.error}</Notice>}
+            <Button size="xl" variant="success" icon={<CircleCheck />} onClick={() => void duty.confirmHeard()} loading={duty.changing} disabled={duty.testing || nothingPlayed(duty.result)}>
               Yes, I heard it
             </Button>
             <Button size="lg" variant="secondary" icon={<RotateCcw />} loading={duty.testing} onClick={() => void duty.playTest()}>
@@ -185,15 +187,14 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
     )
   }
 
-  const since = duty.resumable && duty.since ? formatTime(indiaClock(new Date(duty.since)).minutes) : null
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })
   const start = (
     <div className="mx-auto w-full max-w-[760px] landscape:lg:max-w-none">
       <button type="button" className="dutybtn" disabled={!duty.soundSupported || pushBlocked} onClick={duty.start}>
-        <span className="dutybtn-icon" aria-hidden>{duty.resumable ? <PlayLine /> : <PowerLine />}</span>
+        <span className="dutybtn-icon" aria-hidden><PowerLine /></span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[19px] font-extrabold leading-tight tracking-[-0.01em]">{duty.resumable ? 'Resume duty' : 'Start duty'}</span>
-          <span className="block text-small font-semibold opacity-85">Announcements stay on until you tap End duty</span>
+          <span className="block text-[19px] font-extrabold leading-tight tracking-[-0.01em]">Start duty</span>
+          <span className="block text-small font-semibold">Stays on when you switch apps or lock the screen, until you pause or end it</span>
         </span>
         <ArrowRight className="dutybtn-arrow" aria-hidden />
       </button>
@@ -208,11 +209,9 @@ export function StartDuty({ duty, online }: { duty: Duty; online: boolean }) {
           <Mascot size={144} className="mx-auto short:hidden landscape:lg:mx-0" />
           <Mascot size={84} className="mx-auto hidden short:block landscape:lg:mx-0" />
           <p className="mt-6 short:mt-3 text-small font-bold uppercase tracking-[0.08em] text-ink-3">{today}</p>
-          <h1 className="mt-2 text-display">{duty.resumable ? 'Welcome back!' : 'Ready for the gate?'}</h1>
+          <h1 className="mt-2 text-display">Ready for the gate?</h1>
           <p className="mx-auto mt-3 max-w-[44ch] text-lead text-ink-2 shorter:mt-2 shorter:text-body landscape:lg:mx-0">
-            {since
-              ? `You've been on duty since ${since}. Tap Resume to turn announcements back on.`
-              : 'This device will announce every pickup and drop-off, and keep its screen on until you finish.'}
+            This device will announce every pickup and drop-off, and keep its screen on until you finish.
           </p>
         </section>
 

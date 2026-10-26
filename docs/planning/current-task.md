@@ -1,6 +1,29 @@
 # Current Task
 
-**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-10
+**Milestone:** M1 Login and people, mostly done ([implementation-plan.md](implementation-plan.md)) · **Updated:** 2026-10-22
+
+## Release audit and Attendance & Reports (2026-10-22, same branch, PRD D62–D64)
+- **Built:** persistent duty (0061, D62); Attendance & Reports with corrections and downloads (0062, D63,
+  [attendance-reports.md](../architecture/attendance-reports.md)); release audit fixes (0063 and in-place fixes to the
+  unreleased 0062, D64): gate alerts to reachable people, old apps' End duty, Mute and Pause surviving refreshes, a
+  1 ms timer loop while Paused, the report query (11 s → 0.14 s a month), leaving dates, 30-day gate details, the
+  correction sheet closing itself, stale previews and race conditions in Reports, the PDF preview CSP, export chunks
+  after a deploy, Android: unsaid alerts now sound, receipts off FCM's thread, lifecycle and cache races; iOS: temp
+  file type and per-alert folders; the `pronounce` clip query (PGRST201 since 0053); accessibility (axe: 0 violations
+  on 7 screens); Add child lag.
+- **Checks run:** typecheck, 500 unit tests, production build, all database tests on Postgres 16 (CI uses 18),
+  rollback check, `deno check` of push-send and pronounce, Java compiled against Android 16 with stubs and JUnit,
+  Playwright on the demo build (reports, downloads, correction, duty lifecycle, phone and iPad widths), axe-core,
+  npm audit (0 production advisories), secret scan. Not run here: Gradle/APK build, Swift build, real devices.
+- **Deployed 2026-10-22 by the owner:** backups taken, migrations 0060–0063 applied, web app live (version
+  `5dba5c32`, CSP `frame-src blob:` confirmed). Still to confirm: push-send and pronounce function deploys, the
+  clip re-queue, smoke tests, the database password change, the Android APK and device acceptance tests.
+
+## Background announcements in the school's voice (2026-10-22, branch `claude/jumpstart-background-voice-jkomjf`, PRD D61)
+- **Built and tested:** push-send works out the duty screen's words for each gate alert to a phone (`_shared/gateTrip.ts`, moved out of `duty/gate.ts` so both share it; `_shared/phoneVoice.ts`) and sends the matching pre-made Azure recording as a link signed for that alert. Android's `GateVoice` plays the duty screen's chime and that recording with the screen off, one at a time, most urgent first, each alert once, nothing expired, Android's voice only as a fallback. Receipts `displayed` and `spoken` (migration `0060`). A parent's trip alert is no longer spoken on a phone with the app. Test alerts play the school's sound check through the background path. Duty screen: "Speak alerts with the screen off" switch and an honest last-spoken status.
+- **Checks run:** `npm test`, `npm run typecheck`, `npm run test:db` (Postgres 16), `deno check` of push-send and pronounce, Java compiled against the Android 16 framework (Robolectric android-all) with stubs for androidx, Firebase and Capacitor, and JVM tests for `GateVoice`. **Not run:** a Gradle build of the APK (no Android SDK in this environment) and anything on a device.
+- **Written, not built:** the iOS notification service extension (`native-ios/`), which turns the same recording into the alert's sound. Needs the Apple Developer Program (US$99 a year, not approved) and a Mac ([ios-app.md](../architecture/ios-app.md)).
+- **Next:** owner deploys migration 0060 and push-send, builds and installs the APK, runs acceptance tests A to I ([android-app.md](../architecture/android-app.md)) on an Android phone and tablet, and decides on the Apple membership.
 
 ## Done
 - App scaffold: Vite, React 19, TypeScript, Tailwind 4; installable web app (manifest, service worker, iPad Home Screen tags).

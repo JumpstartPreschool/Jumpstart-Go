@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useToast } from '../ui/Toast'
+import { dutyOnThisDevice } from '../features/duty/dutyState'
 
 const CHECK_EVERY_MS = 15 * 60_000
 // Just opened: nothing typed yet, so the new version can load straight away.
 const FRESH_MS = 8_000
-// Set by Start duty (useDuty): a gate tablet on duty is never reloaded by itself.
-// A key left from an earlier day (End duty forgotten) doesn't count, like useDuty.readSince.
-const onDuty = () => { try { const v = Number(localStorage.getItem('jumpstart.dutySince')); return v > 0 && new Date(v).toDateString() === new Date().toDateString() } catch { return false } }
+// A gate tablet whose duty is Active or Paused (last confirmed by the server, 0061) is never reloaded by itself.
+const onDuty = dutyOnThisDevice
 
 /**
  * Keeps the installed app (home-screen shortcut) up to date by itself. It looks for a new version when it opens,
@@ -40,7 +40,8 @@ export function UpdatePrompt() {
       void updateServiceWorker(true)
       return
     }
-    const whenHidden = () => { if (document.visibilityState === 'hidden') void updateServiceWorker(true) }
+    // Checked again when hidden: duty may have started since, and a reload would silence the gate until a tap.
+    const whenHidden = () => { if (document.visibilityState === 'hidden' && !onDuty()) void updateServiceWorker(true) }
     document.addEventListener('visibilitychange', whenHidden)
     return () => document.removeEventListener('visibilitychange', whenHidden)
   }, [needRefresh, toast, updateServiceWorker])

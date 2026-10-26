@@ -396,6 +396,31 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     }
     if (rpc === 'announcement_stats') return json(readTalk().announcements.map((a) => ({ announcement_id: a.id, recipients: 6, reads: Object.values(readTalk().annReads).filter((r) => r.includes(a.id)).length })))
     if (rpc === 'recipient_count') return json(6)
+    // Attendance & Reports (0062): the made-up month from the reports' test fixture, for the requested range. Demo only.
+    if (rpc === 'attendance_report') {
+      if (!me?.roles.some((r) => r === 'admin' || r === 'core')) return json({ code: '42501', message: 'Only the admin and Head office can see attendance reports.' }, 403)
+      const { sampleReport } = await import('../features/reports/exports/fixture')
+      const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)
+      const to = String(body?.p_to) > today ? today : String(body?.p_to)
+      const r = sampleReport({ from: String(body?.p_from), to, children: 30 })
+      return json({ ...r, generated_at: new Date().toISOString(), to: String(body?.p_to), cutoff: to, today })
+    }
+    if (rpc === 'log_report_export') return json({ report_id: `DEMO-${Date.now().toString(36).toUpperCase()}`, generated_at: new Date().toISOString() })
+    if (rpc === 'correct_attendance') return json(null)
+    // Duty (0061), kept across reloads like the real server, with its version check.
+    if (rpc === 'my_duty') return json(readDemoDuty())
+    if (rpc === 'set_duty') {
+      const cur = readDemoDuty() as { status: string; version: number } | null
+      const next = String(body?.p_status)
+      if ((cur?.status ?? 'off') === next) return json(cur)
+      if ((body?.p_version ?? null) !== (cur?.version ?? null)) return json({ code: 'P0001', message: 'duty_conflict: Your duty was changed on another device.' }, 400)
+      const at = new Date().toISOString()
+      const d = next === 'off' ? null : cur
+        ? { ...cur, status: next, version: cur.version + 1, changed_at: at, change_reason: body?.p_reason ?? null, [next === 'paused' ? 'paused_at' : 'resumed_at']: at }
+        : { status: 'active', version: 1, started_at: at, changed_at: at, change_reason: 'started', paused_at: null, resumed_at: null }
+      try { localStorage.setItem('jumpstart.demoDuty', JSON.stringify(d)) } catch { /* demo only */ }
+      return json(d)
+    }
     if (rpc === 'admin_save_gate_announcements') {
       if (!me?.roles.includes('admin')) return json({ code: '42501', message: 'Only the admin can change gate announcements.' }, 403)
       const p = (body?.p ?? {}) as Record<string, unknown>
@@ -429,6 +454,10 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
     return one ? (rows[0] ? json(rows[0]) : json({ code: 'PGRST116', message: 'no rows' }, 406)) : json(rows)
   }
   return json({})
+}
+
+function readDemoDuty(): unknown {
+  try { return JSON.parse(localStorage.getItem('jumpstart.demoDuty') ?? 'null') } catch { return null }
 }
 
 let shown = false

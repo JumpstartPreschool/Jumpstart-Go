@@ -660,14 +660,14 @@
    * each an icon over a one-line label, so nothing wraps or runs off the card. Wider screens keep them inline.
    */
   @media (max-width: 639px) {
-    .duty-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex-basis: 100%; gap: 8px; }
+    .duty-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); flex-basis: 100%; gap: 8px; }
     .duty-actions > .lux, .duty-actions > .endduty {
       flex-direction: column;
       justify-content: center;
       gap: 4px;
       box-sizing: border-box;
       width: 100%;
-      height: 68px;
+      height: 60px;
       min-height: 0;
       padding: 8px 4px;
       border-radius: 16px;

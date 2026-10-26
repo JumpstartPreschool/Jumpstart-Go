@@ -1,5 +1,6 @@
 # Cloudflare response headers.
 # CSP: everything comes from this site, Supabase (data, sign-in, realtime, the gate voice's clips) and the map tiles.
+# frame-src blob: the reports' PDF preview, made on the device.
 # X-Robots-Tag: a private app, so nothing is listed in search results except the Privacy Policy and Terms (see
 # public/robots.txt).
 /*
@@ -8,7 +9,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Permissions-Policy: geolocation=(self), screen-wake-lock=(self), camera=(), microphone=(), payment=(), usb=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://tiles.openfreemap.org; media-src 'self' blob: data:; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://tiles.openfreemap.org; media-src 'self' blob: data:; worker-src 'self' blob:; frame-src blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   X-Robots-Tag: noindex, nofollow
 
 /privacy

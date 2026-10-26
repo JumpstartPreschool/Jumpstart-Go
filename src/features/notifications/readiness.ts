@@ -25,7 +25,7 @@ export function readinessOf(push: PushState, device: DeviceEvidence | null, nowM
     case 'off': return said('setup', 'Turn on notifications so a locked or sleeping screen still tells you when a parent is on the way.')
     case 'on': break
   }
-  if (nativeApp) return said('attention', 'Notifications are on in the Android app. Send a test alert, lock the screen and check you hear it.')
+  if (nativeApp) return said('attention', "Notifications are on in the Android app. Send a test alert and lock the screen: within a few seconds you should hear the chime and the sound check in the school's voice.")
   const tested = device?.lastTestAt && nowMs - Date.parse(device.lastTestAt) < FRESH_MS ? device.lastTestAt : null
   const heard = device?.testHeardAt && nowMs - Date.parse(device.testHeardAt) < FRESH_MS ? device.testHeardAt : null
   if (!tested) return said('attention', 'Notifications are on, but no test alert has reached this device this week. Send one and lock the screen.')

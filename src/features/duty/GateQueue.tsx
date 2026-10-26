@@ -38,8 +38,9 @@ interface GateData {
 }
 
 /**
- * Who is on duty at the gate now (0051): this phone checks in every 30 seconds and on return to the screen, and says it
- * has left when the duty screen closes. Null until the first answer, or when the server can't say: then a class counts
+ * Who can be heard at the gate now (0051, 0061: Active duty, audible, checked in within 75 s): this phone checks in every
+ * 30 seconds and on return to the screen, and says it can't be heard when the duty screen closes. Duty itself is
+ * untouched by all of this. Null until the first answer, or when the server can't say: then a class counts
  * as covered by whoever is assigned, as before.
  */
 function useOnDuty(audible: boolean): Set<string> | null {
@@ -48,7 +49,8 @@ function useOnDuty(audible: boolean): Set<string> | null {
     let stopped = false
     // Muted or with sound paused, this phone can't be heard: it checks in as off duty, so the others speak its classes.
     const beat = async () => {
-      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: audible })
+      // Reachability only (0061): never starts, pauses or ends duty.
+      const { data, error } = await supabase.rpc('gate_heartbeat', { p_on: audible, p_start: false })
       // A failed check-in keeps the last list, so classes don't flip between covered and not.
       if (!stopped && !error && Array.isArray(data)) setIds(new Set(data as string[]))
     }
@@ -60,7 +62,7 @@ function useOnDuty(audible: boolean): Set<string> | null {
       stopped = true
       clearInterval(every)
       document.removeEventListener('visibilitychange', onVisible)
-      void supabase.rpc('gate_heartbeat', { p_on: false }).then(() => {}, () => {})
+      void supabase.rpc('gate_heartbeat', { p_on: false, p_start: false }).then(() => {}, () => {})
     }
   }, [audible])
   return ids
@@ -146,7 +148,7 @@ const relationName = (t: Trip) => [t.traveller_relation, t.traveller_name.split(
  * The live gate queue on the coordinator's iPad (J4, J5, ANN-1): today's drop-offs and pickups as they come in,
  * announced aloud, with the steps at the gate. Handover goes only to a registered guardian (D4), checked by the server.
  */
-export function GateQueue({ announcer, audible = true }: { announcer: Announcer; audible?: boolean }) {
+export function GateQueue({ announcer, audible = true, paused = false }: { announcer: Announcer; audible?: boolean; /** Duty paused (0061): the queue stays on screen, but nothing pops up. */ paused?: boolean }) {
   // The gate voice's requests go to the functions on this origin: open the connection before the first announcement.
   if (import.meta.env.VITE_SUPABASE_URL) preconnect(import.meta.env.VITE_SUPABASE_URL)
   const toast = useToast()
@@ -409,8 +411,8 @@ export function GateQueue({ announcer, audible = true }: { announcer: Announcer;
       )}
       {(() => {
         // The request this phone is announcing that nobody has acknowledged yet, earliest first: popped up to acknowledge.
-        // Not over another sheet the coordinator is using.
-        if (handover || codeFor || calling) return null
+        // Not over another sheet the coordinator is using, and not while their duty is paused.
+        if (paused || handover || codeFor || calling) return null
         const waiting = trips.trips!.filter((t) => {
           const c = children.get(t.child_id)
           const snoozed = later.get(t.id)

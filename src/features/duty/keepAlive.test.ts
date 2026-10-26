@@ -1,4 +1,4 @@
-// The silent loop on iPhone and iPad before iOS 17 (sound.ts): only while on duty and only while the page is on screen.
+// The silent loop on iPhone and iPad before iOS 17 (sound.ts): only while on duty, and still playing while the page is hidden.
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./voiceClips', () => ({
@@ -25,13 +25,14 @@ beforeAll(async () => {
 })
 
 describe('silent loop before iOS 17', () => {
-  it('plays on duty, stops while hidden, and starts again on return', () => {
+  it('plays on duty, keeps playing while hidden, and starts again on return if iOS paused it', () => {
     sound.unlockSound()
     const loop = made[0]!
     expect(loop.loop).toBe(true)
     expect(loop.paused).toBe(false)
     show('hidden')
-    expect(loop.paused).toBe(true)
+    expect(loop.paused).toBe(false)
+    loop.pause() // iOS pausing the page's media
     show('visible')
     expect(loop.paused).toBe(false)
   })

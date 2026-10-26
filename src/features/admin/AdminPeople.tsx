@@ -63,10 +63,18 @@ export function AdminPeople() {
   useAfterImport(() => void reload().then(() => setTab('children')))
 
   const child = childId && dir ? dir.children.find((c) => c.id === childId && c.active) : null
+  // A failed reload (a child just added, say) is said as such, never as "not on the list", which reads as a failed save.
+  if (childId && dir && !child && loadError) return <AreaShell area="admin" title="People"><ErrorState title="Couldn't load people" onRetry={() => void reload()}>{loadError}</ErrorState></AreaShell>
   if (childId && dir && !child) return <AreaShell area="admin" title="People"><EmptyState title="This child isn't on the list" action={<Button onClick={() => navigate('/admin')}>Back to children</Button>}>They may have left the school, or the link is old.</EmptyState></AreaShell>
   if (child && dir) {
     return (
       <AreaShell area="admin" title="People">
+        {loadError && (
+          <Notice tone="danger" className="mt-4">
+            Saved, but the latest details couldn't be loaded, so this page may be out of date.{' '}
+            <button type="button" className="inline-flex min-h-11 items-center font-extrabold underline underline-offset-2" onClick={() => void reload()}>Reload</button>
+          </Notice>
+        )}
         <ChildPage key={child.id} dir={dir} child={child} onBack={() => navigate('/admin')} onChanged={reload} />
       </AreaShell>
     )
@@ -237,7 +245,7 @@ export function AdminPeople() {
           )}
       </section>
 
-      {dir && adding === 'child' && <AddChildSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(id, name) => void reload().then(() => { setAdding(null); toast(`${name} added.`); navigate(`/admin/child/${id}`) })} />}
+      {dir && adding === 'child' && <AddChildSheet open dir={dir} onClose={() => setAdding(null)} onSaved={(id, name) => reload().then(() => { setAdding(null); toast(`${name} added.`); navigate(`/admin/child/${id}`) })} />}
       {dir && bulk && <BulkImportSheet programmes={dir.programmes} onClose={() => setBulk(false)} />}
       {inviting && <InviteSheet person={inviting} onClose={() => setInviting(null)} onDone={() => void reload()} />}
       {adding === 'class' && <AddClassSheet onClose={() => setAdding(null)} onAdded={(id) => void reload().then(() => { setAdding(null); setOpenClass(id); toast('Class added. Now add its programmes.') })} />}

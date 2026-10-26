@@ -116,7 +116,8 @@ async function settings(): Promise<GateSettings> {
 /** A child's announcements, built exactly as the gate builds them. */
 async function childSentences(childId: string, cfg: GateSettings): Promise<string[]> {
   const { data, error } = await store.from('children')
-    .select('full_name, preferred_name, programmes(name), guardianships(relation, profiles(active)), child_pronunciations(spoken_name)')
+    // The hint: since 0053, children reach programmes two ways (programme_id and child_programmes), so PostgREST needs it.
+    .select('full_name, preferred_name, programmes!children_programme_id_fkey(name), guardianships(relation, profiles(active)), child_pronunciations(spoken_name)')
     .eq('id', childId).single()
   if (error) throw error
   const c = data as unknown as ChildRow

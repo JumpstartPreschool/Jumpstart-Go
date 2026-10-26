@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { BellRing, CalendarClock, Check, ChevronDown, ChevronRight, Clock, Headset, Megaphone, MessageSquare, ScrollText, Settings, ShieldCheck, UserRound, UsersRound, WifiOff } from '../../ui/icons'
+import { ChartColumn } from 'lucide-react'
 import { Avatar } from '../../ui/Avatar'
 import { Logo } from '../../ui/Logo'
 import { Sheet } from '../../ui/Sheet'
@@ -35,7 +36,8 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; short?
   admin: [
     { to: '/admin', label: 'People', icon: <UsersRound /> },
     { to: '/admin/coordinators', label: 'Gate team', short: 'Gate', icon: <BellRing /> },
-    { to: '/admin/announce', label: 'Announce', icon: <Megaphone /> },
+    { to: '/admin/announce', label: 'Announce', short: 'News', icon: <Megaphone /> },
+    { to: '/admin/reports', label: 'Attendance & Reports', short: 'Reports', icon: <ChartColumn /> },
     { to: '/admin/settings', label: 'Settings', icon: <Settings /> },
     { to: '/admin/audit', label: 'Audit log', short: 'Audit', icon: <ScrollText /> },
   ],
@@ -44,7 +46,8 @@ const AREA_PAGES: Partial<Record<Area, Array<{ to: string; label: string; short?
     { to: '/core/schedules', label: 'Schedules', short: 'Times', icon: <Clock /> },
     { to: '/core/coordinators', label: 'Gate team', short: 'Gate', icon: <BellRing /> },
     { to: '/core/messages', label: 'Messages', icon: <MessageSquare /> },
-    { to: '/core/announce', label: 'Announce', icon: <Megaphone /> },
+    { to: '/core/announce', label: 'Announce', short: 'News', icon: <Megaphone /> },
+    { to: '/core/reports', label: 'Attendance & Reports', short: 'Reports', icon: <ChartColumn /> },
   ],
   parent: PARENT_PAGES,
   pro: [

@@ -231,7 +231,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         <AlsoInSheet onClose={() => setSheet(null)} programmes={dir.programmes} mainId={child.programme_id} initial={extras.map((p) => p.id)} childName={first} busy={busy} error={error}
           onSave={(ids) => void run(() => setProgrammes(child.id, child.programme_id, ids), ids.length ? `${first}'s programmes are saved.` : `${first} is in ${programme?.name ?? 'the class'} only.`)} />
       )}
-      {sheet === 'add' && <AddGuardianSheet open dir={dir} child={child} onClose={() => setSheet(null)} onSaved={(m) => void onChanged().then(() => { setSheet(null); toast(m) })} />}
+      {sheet === 'add' && <AddGuardianSheet open dir={dir} child={child} onClose={() => setSheet(null)} onSaved={(m) => onChanged().then(() => { setSheet(null); toast(m) })} />}
       <Sheet open={sheet === 'edit'} onClose={() => setSheet(null)} title="Edit details" description="Changes show everywhere at once.">
         <div className="grid gap-4">
           {/* Same layout as Add a child. There is no "called" name (D59): the child is known by their own name. */}
@@ -259,7 +259,7 @@ export function ChildPage({ dir, child, onBack, onChanged }: { dir: Directory; c
         body={`${first} leaves every list today. Attendance is kept for the school's records. Parents with no other child here lose app access.`}
         action={`Yes, ${first} has left`} onYes={() => void run(() => childLeft(child.id), `${first} has been removed from today's lists.`).then((ok) => ok && onBack())} />
       {editing && <EditGuardianSheet dir={dir} child={child} person={editing.person} relation={editing.relation} onClose={() => setEditing(null)}
-        onSaved={(m) => void onChanged().then(() => { setEditing(null); toast(m) })} />}
+        onSaved={(m) => onChanged().then(() => { setEditing(null); toast(m) })} />}
       {inviting && <InviteSheet person={inviting} onClose={() => setInviting(null)} onDone={() => void onChanged()} />}
     </div>
   )

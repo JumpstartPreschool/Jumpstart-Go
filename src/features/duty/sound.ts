@@ -140,12 +140,11 @@ export function audioContext(): AudioContext {
     globalThis.document?.addEventListener('visibilitychange', back)
     globalThis.addEventListener?.('pageshow', back)
     globalThis.addEventListener?.('focus', back)
-    // The silent loop plays only while the page is on screen: it exists to beat the ring/silent switch, never to keep a
-    // hidden or locked app running in the background. Paused when hidden, started again on return.
+    // The silent loop keeps playing while the page is hidden or the device is locked: a playing media element is what keeps
+    // the duty's audio running there, so pausing it silenced announcements with the screen off. iOS may still pause it with
+    // the rest of the page's media; it starts again on return, only while on duty.
     globalThis.document?.addEventListener('visibilitychange', () => {
-      if (!keepAlive) return
-      if (document.visibilityState === 'hidden') keepAlive.pause()
-      else if (keepAlive.paused && keepAliveWanted) void keepAlive.play().catch(() => {})
+      if (document.visibilityState === 'visible' && keepAlive && keepAlive.paused && keepAliveWanted) void keepAlive.play().catch(() => {})
     })
   }
   void ctx.resume()
@@ -372,19 +371,12 @@ export function pickIndianVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'l
   }
   return voices.find((v) => LAST.test(v.name) && /\btara\b/i.test(v.name)) ?? null
 }
-// Women's English voices by name, for a device with no Indian English woman's voice (most Macs, Windows without Heera,
-// and iPads without Isha downloaded, whose only Indian English voice is Rishi, a man). Browsers don't say a voice's
-// gender, so only names known to be women's voices are used; an unknown voice is never risked.
-// Not Apple's novelty voices (Kathy, Bubbles and the like), which sound robotic.
-const FEMALE_ENGLISH = /\b(samantha|karen|moira|tessa|fiona|victoria|allison|ava|susan|serena|kate|zoe|nicky|catherine|vicki|martha|zira|aria|jenny|hazel|libby|sonia|clara|natasha|michelle|emma|female)\b/i
-const NOT_A_WOMAN = /\b(male|rishi|daniel|alex|fred|tom|aaron|arthur|oliver|guy|ryan|david|mark|george|james|prabhat|aman|ravi)\b/i
-/** The device voice the gate may use: an Indian English woman first, else another English woman's voice, else none. */
+/**
+ * The device voice the gate may use: only an Indian English woman's, else none (owner, 2026-10-26: never a UK or US
+ * accent, which says Indian names wrongly). With none, the chime plays, the screen shows it, and it is said again.
+ */
 export function pickFallbackVoice<V extends Pick<SpeechSynthesisVoice, 'name' | 'lang'>>(all: readonly V[]): V | null {
-  const indian = pickIndianVoice(all)
-  if (indian) return indian
-  const women = all.filter((v) => /^en[-_]/i.test(v.lang) && FEMALE_ENGLISH.test(v.name) && !NOT_A_WOMAN.test(v.name))
-  // Closest accent first: British, then the rest.
-  return women.find((v) => /^en[-_]gb/i.test(v.lang)) ?? women[0] ?? null
+  return pickIndianVoice(all)
 }
 // Safari fills the voice list a moment after the page loads: ask early, so the Start duty tap can use it at once.
 if (speechSupported) {
@@ -398,7 +390,6 @@ async function fallbackVoice(): Promise<SpeechSynthesisVoice | null> {
   const all = speechSynthesis.getVoices()
   const voice = pickFallbackVoice(all)
   if (!voice) voiceLog('device-voice-unavailable', { voices: all.length, indianEnglish: all.filter((v) => /^en[-_]in/i.test(v.lang)).map((v) => v.name) })
-  else if (!pickIndianVoice([voice])) voiceLog('device-voice-not-preferred', { using: voice.name, lang: voice.lang })
   return voice
 }
 

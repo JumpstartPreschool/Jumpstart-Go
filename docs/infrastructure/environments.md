@@ -5,7 +5,7 @@
 | Supabase project | `pwmsjcpdihwtgjreizup` (free plan) |
 | Region | AWS Singapore (ap-southeast-1); database pooler aws-0-ap-southeast-1.pooler.supabase.com |
 | Postgres | 17.6 |
-| Migrations applied | `0001`–`0043` live; `0044`–`0046` (WATI send limits and log-first delivery log, running-late retries and overdue gate wording, push retries) to push with `npx supabase db push` before deploying the functions and the app |
+| Migrations applied | `0001`–`0063` live (0060–0063 applied 2026-10-22, see [deployment.md](deployment.md)); web version `5dba5c32` deployed the same day |
 | App hosting | Cloudflare Workers static assets, `jumpstart-go` at https://jumpstart-go.singhankit91624.workers.dev (production; the old `jumpstart-preschool` address redirects there, see `scripts/old-link-redirect/`) and `jumpstart-preschool-design` (design review); waiting for the API token to get publishing permission |
 
 ## Publishing

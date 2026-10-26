@@ -21,6 +21,7 @@ describe('device receipts', () => {
   it('accepts displayed and opened with a numeric id and a uuid', () => {
     expect(parseReceipt(JSON.stringify({ id: 12, receipt, event: 'displayed' }))).toEqual({ id: 12, receipt, event: 'displayed' })
     expect(parseReceipt(JSON.stringify({ id: 12, receipt, event: 'opened' }))?.event).toBe('opened')
+    expect(parseReceipt(JSON.stringify({ id: 12, receipt, event: 'spoken' }))?.event).toBe('spoken')
   })
   it('refuses anything else', () => {
     for (const bad of ['', 'not json', 'null', '[]', JSON.stringify({ id: '12', receipt, event: 'displayed' }), JSON.stringify({ id: -1, receipt, event: 'displayed' }),
@@ -56,6 +57,12 @@ describe('FCM message', () => {
     expect((info.data as { kind: string; speak: string })).toMatchObject({ kind: 'info', speak: '' })
     expect((info.android as { ttl: string }).ttl).toBe('3600s')
   })
+  it('never speaks a parent\'s alert about a trip aloud', () => {
+    expect((fcmMessageFor({ ...row, title: 'Arnav has been collected', url: '/parent' }).message.data as { kind: string; speak: string })).toMatchObject({ kind: 'info', speak: '' })
+  })
+  it('marks a test alert, so the phone says it aloud whatever the duty screen is doing', () => {
+    expect((fcmMessageFor({ ...row, tag: 'test-1', url: '/', title: 'Test alert', body: 'Heard?' }).message.data as { kind: string; speak: string })).toMatchObject({ kind: 'test', speak: 'Test alert. Heard?' })
+  })
   it('keeps links inside the app', () => {
     expect((fcmMessageFor({ ...row, url: 'https://evil.example' }).message.data as { url: string }).url).toBe('/')
   })
@@ -64,6 +71,24 @@ describe('FCM message', () => {
     expect(m.android).toBeUndefined()
     expect(m.apns.headers).toEqual({ 'apns-priority': '10', 'apns-push-type': 'alert', 'apns-collapse-id': 'trip-abc' })
     expect(m.apns.payload.aps).toEqual({ alert: { title: row.title, body: row.body }, sound: 'default', 'interruption-level': 'time-sensitive', 'thread-id': 'gate' })
+  })
+
+  const voice = { clips: [{ key: 'a'.repeat(64), url: 'https://x.supabase.co/storage/v1/object/sign/voice-audio/sentences/a.mp3?token=t' }], chime: 'flagged' as const, priority: 40, order: 1760000000000 }
+  const receipt = '6f1c2a0e-3b4d-4c5e-8f9a-0b1c2d3e4f50'
+  it('gives the phone the school\'s recording, its queue place, the expiry and a receipt, as strings', () => {
+    const data = fcmMessageFor({ ...row, receipt, expires_at: '2026-10-15T10:10:00Z' }, Date.parse('2026-10-15T10:00:00Z'), voice, 'https://x.supabase.co/functions/v1/push-send/receipt').message.data as Record<string, string>
+    expect(JSON.parse(data.clips!)).toEqual(voice.clips)
+    expect(data).toMatchObject({ chime: 'flagged', priority: '40', order: '1760000000000', expires: String(Date.parse('2026-10-15T10:10:00Z')), receipt, ack: 'https://x.supabase.co/functions/v1/push-send/receipt' })
+    expect(Object.values(data).every((v) => typeof v === 'string')).toBe(true)
+    // The words are not sent: FCM data is readable by Google, and the title carries only the first name.
+    expect(JSON.stringify(data)).not.toMatch(/Sharma|will arrive/)
+    expect(new TextEncoder().encode(JSON.stringify(data)).length).toBeLessThan(4000)
+  })
+  it('lets the iOS extension change the alert only when there is a recording', () => {
+    const aps = (v: typeof voice | null) => ((fcmMessageFor({ ...row, platform: 'ios' }, 0, v).message as { apns: { payload: { aps: Record<string, unknown> } } }).apns.payload.aps)
+    expect(aps(voice)['mutable-content']).toBe(1)
+    expect(aps({ ...voice, clips: [] })['mutable-content']).toBeUndefined()
+    expect(aps(null)['mutable-content']).toBeUndefined()
   })
 })
 
