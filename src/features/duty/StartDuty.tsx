@@ -96,7 +96,7 @@ export function SoundResultLine({ result }: { result: SoundResult }) {
     ? ['bg-danger-soft text-danger', "No sound could play. Tap Play again; if it stays silent, turn the volume up, switch off silent mode, and reopen Jumpstart Go from the Home Screen."]
     : result.voice === 'cut' ? ['bg-danger-soft text-danger', "The test sentence was cut off before the end. Tap Play again. If it keeps stopping, close other apps playing sound, then reopen Jumpstart Go from the Home Screen."]
     : result.voice === 'school' ? ['bg-live-soft text-live', `Played: ${result.chime ? 'the chime and ' : ''}the school's voice.`]
-    : result.voice === 'device' ? ['bg-warning-soft text-warning', `Played: ${result.chime ? 'the chime and ' : ''}this tablet's own voice. The school's voice wasn't ready; announcements still play.`]
+    : result.voice === 'device' ? ['bg-live-soft text-live', `Played: ${result.chime ? 'the chime and ' : ''}this tablet's own voice.`]
     : ['bg-warning-soft text-warning', 'Played: the chime only. No voice is available on this tablet, so names show on screen.']
   return <p className={`mt-4 rounded-lg px-4 py-3 text-left text-small font-bold ${tone}`} role="status">{text}</p>
 }

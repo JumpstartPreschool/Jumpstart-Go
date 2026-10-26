@@ -17,7 +17,7 @@ const TONE: Record<Tone, string> = {
 
 function Chip({ tone, icon, label, value, detail }: { tone: Tone; icon: ReactNode; label: string; value: string; detail?: string | null }) {
   return (
-    <li className="flex min-w-0 items-center gap-3 rounded-lg bg-surface px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--line)]">
+    <li className="flex min-w-0 items-center gap-2.5 rounded-lg bg-surface px-3 py-2 shadow-[inset_0_0_0_1px_var(--line)]">
       <span className={`grid size-9 shrink-0 place-items-center rounded-full ${TONE[tone]} [&_svg]:size-[18px]`} aria-hidden>{icon}</span>
       <span className="min-w-0 leading-tight">
         <span className="block text-label font-bold uppercase tracking-[0.06em] text-ink-2">{label}</span>
@@ -68,16 +68,17 @@ export function DutyStatus({ duty, unconfirmed, connectivity, used }: { duty: Du
   const net = CONNECTIVITY[connectivity]
   const paused = duty.status === 'paused'
   return (
-    <ul className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="Status">
+    <ul className="mt-2 grid grid-cols-2 gap-2 sm:mt-3 lg:grid-cols-4" aria-label="Status">
       <Chip tone={paused ? 'warn' : 'ok'} icon={paused ? <PauseLine /> : <Sun />} label="Duty" value={paused ? 'Paused' : 'Active'}
         detail={unconfirmed ? 'Last confirmed state, checking…' : lastChange(duty)} />
       <Chip tone={net.tone} icon={connectivity === 'offline' ? <WifiOff /> : <Wifi />} label="Connection" value={net.value}
         detail={connectivity === 'online' ? null : 'Duty is unchanged'} />
       <Chip tone={ready ? READINESS[ready].tone : 'quiet'} icon={ready === 'ready' ? <Bell /> : <BellOff />} label="Alerts"
         value={ready ? READINESS[ready].value : 'Checking'} detail={ready ? READINESS[ready].detail : null} />
-      <Chip tone={used ? (used.voice === 'school' ? 'ok' : 'warn') : 'quiet'} icon={<AudioLines />} label="Last announcement"
+      {/* The reason a voice failed stays in the [voice] log; the coordinator only sees that it plays again. */}
+      <Chip tone={used && used.voice !== 'cut' && used.voice !== 'silent' ? 'ok' : 'quiet'} icon={<AudioLines />} label="Last announcement"
         value={used ? clock(used.at) : 'None yet'}
-        detail={used ? (used.voice === 'school' ? "School's voice" : used.voice === 'device' ? "This device's voice" : 'Not heard, retrying') : 'On this device, this session'} />
+        detail={used ? (used.voice === 'school' ? "School's voice" : used.voice === 'device' ? "This device's voice" : 'Playing again shortly') : 'On this device, this session'} />
     </ul>
   )
 }

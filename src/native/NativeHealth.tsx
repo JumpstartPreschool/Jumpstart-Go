@@ -28,7 +28,7 @@ export function backgroundVoiceSays(s: NativeStatus): string {
   if (!s.firebase) return "Push isn't set up in this app, so nothing is spoken once the app is closed. Ask the admin."
   const at = s.lastSpokenAt ? formatTime(indiaClock(new Date(s.lastSpokenAt)).minutes) : null
   if (at && s.lastVoice === 'school') return `Last spoken with the screen off at ${at}, in the school's voice.`
-  if (at) return `Last spoken with the screen off at ${at}, in this phone's own voice: the school's recording couldn't be fetched in time.`
+  if (at) return `Last spoken with the screen off at ${at}, in this phone's own voice.`
   return "When the duty screen can't speak, this phone plays the chime and the school's voice. Send a test alert and lock the screen to hear it."
 }
 
