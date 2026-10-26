@@ -266,15 +266,14 @@ describe("the tablet's own voice", () => {
     expect(pickIndianVoice([v('Samantha', 'en-US'), v('Isha', 'en-GB')])).toBeNull()
   })
 
-  it("falls back to another English woman's voice, never a man's or an unknown one, when there's no Indian woman's voice", async () => {
+  it("falls back only to an Indian English woman's voice, never a UK or US accent, a man's or an unknown one", async () => {
     const { pickFallbackVoice } = await import('./sound')
     // This Mac's Chrome (2026-10-04): Rishi is the only Indian English voice, and it is a man's.
-    expect(pickFallbackVoice([v('Rishi'), v('Daniel', 'en-GB'), v('Samantha', 'en-US')])?.name).toBe('Samantha')
-    expect(pickFallbackVoice([v('Rishi'), v('Samantha', 'en-US'), v('Google UK English Female', 'en-GB')])?.name).toBe('Google UK English Female')
-    // An iPhone without Isha: never Apple's robotic Kathy; Martha (British) or Samantha instead.
-    expect(pickFallbackVoice([v('Rishi'), v('Kathy', 'en-US'), v('Samantha', 'en-US')])?.name).toBe('Samantha')
-    expect(pickFallbackVoice([v('Rishi'), v('Kathy', 'en-US'), v('Daniel', 'en-GB'), v('Martha', 'en-GB'), v('Samantha', 'en-US')])?.name).toBe('Martha')
+    expect(pickFallbackVoice([v('Rishi'), v('Daniel', 'en-GB'), v('Samantha', 'en-US')])).toBeNull()
+    expect(pickFallbackVoice([v('Rishi'), v('Samantha', 'en-US'), v('Google UK English Female', 'en-GB')])).toBeNull()
+    expect(pickFallbackVoice([v('Rishi'), v('Kathy', 'en-US'), v('Daniel', 'en-GB'), v('Martha', 'en-GB'), v('Samantha', 'en-US')])).toBeNull()
     expect(pickFallbackVoice([v('Isha'), v('Samantha', 'en-US')])?.name).toBe('Isha')
+    expect(pickFallbackVoice([v('Samantha', 'en-US'), v('Veena')])?.name).toBe('Veena')
     expect(pickFallbackVoice([v('Rishi'), v('Google UK English Male', 'en-GB'), v('Alex', 'en-US'), v('en-in-x-ahp-local')])).toBeNull()
     expect(pickFallbackVoice([v('Amélie', 'fr-FR'), v('Karen', 'fr-FR')])).toBeNull()
   })
