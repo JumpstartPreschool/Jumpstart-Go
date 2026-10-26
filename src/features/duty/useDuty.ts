@@ -157,6 +157,16 @@ export function useDuty() {
     }
   }, [phase, announcer])
 
+  // A page iOS reloaded (after a lock or an app switch) opens on duty with its sound blocked until a tap. Before duty was
+  // kept on the server (0061), that tap was Resume duty; now any first tap on the screen turns the sound on, not only the banner.
+  useEffect(() => {
+    if (phase !== 'on' || !soundBlocked) return
+    const unlock = () => { unlockSound(); void soundReady().then((ok) => setSoundBlocked(!ok)) }
+    const gestures = ['touchend', 'click', 'keydown'] as const
+    gestures.forEach((g) => document.addEventListener(g, unlock, { capture: true, once: true }))
+    return () => gestures.forEach((g) => document.removeEventListener(g, unlock, { capture: true }))
+  }, [phase, soundBlocked])
+
   /**
    * The only way duty changes: an explicit tap, sent with the version this device last saw. Refused when another device
    * changed it since; then the newest is read and shown, and nothing is overwritten. Resolves true when it changed.
