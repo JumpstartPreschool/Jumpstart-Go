@@ -1,0 +1,49 @@
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      // 'prompt': src/app/UpdatePrompt.tsx decides when a new version loads (by itself when safe, never mid-duty).
+      registerType: 'prompt',
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'brand/*.webp', 'sounds/*.mp3'],
+      // Precache only the app shell and its assets. School data always comes live from the server, never from a cache.
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,png,webp,svg}', '**/*latin*.woff2'],
+        // The report file makers (PDF, Word, Excel, about 2 MB) are for the admin's downloads only: loaded when used,
+        // never precached on every parent's phone.
+        globIgnores: ['**/assets/{pdf,docx,xlsx,run,html2canvas,purify.es,index.es}-*.js', '**/assets/logo-*.png'],
+        navigateFallback: 'index.html',
+        // Push notifications (public/push-sw.js): shown even when the app is closed or the iPad is locked.
+        importScripts: ['push-sw.js'],
+        cleanupOutdatedCaches: true,
+      },
+      manifest: {
+        name: 'Jumpstart Go',
+        short_name: 'Jumpstart Go',
+        description: 'Pickups, drop-offs and attendance for Jumpstart Preschool',
+        id: '/',
+        scope: '/',
+        start_url: '/',
+        display: 'standalone',
+        orientation: 'any',
+        categories: ['education'],
+        lang: 'en-IN',
+        background_color: '#fdfbf8',
+        theme_color: '#fdfbf8',
+        icons: [
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+    }),
+  ],
+  // Lets a Cloudflare Quick Tunnel (https://….trycloudflare.com) reach `vite preview` for iPad testing.
+  preview: { allowedHosts: ['.trycloudflare.com'] },
+  test: { include: ['src/**/*.test.{ts,tsx}', 'supabase/functions/**/*.test.ts'] },
+})
