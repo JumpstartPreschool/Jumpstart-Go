@@ -1,0 +1,8 @@
+// The app's old address (jumpstart-preschool.singhankit91624.workers.dev) now only sends people to the new one, so
+// invitations and pickup links already sent keep working. Publish once from this folder:
+//   npx wrangler@4 deploy --env-file /dev/null
+{
+  "name": "jumpstart-preschool",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01"
+}
