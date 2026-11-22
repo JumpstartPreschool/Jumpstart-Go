@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+// `npm run dev:demo` only: a made-up school answered in the browser (demo.ts). DEV is false in every build, so this and
+// demo.ts never reach production.
+const demo = import.meta.env.DEV && import.meta.env.VITE_DEMO === '1'
+
+// Demo mode answers every request in the browser, so a fresh clone needs no .env.local to try it.
+const url = import.meta.env.VITE_SUPABASE_URL || (demo ? 'http://demo.localhost' : undefined)
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (demo ? 'demo' : undefined)
 
 if (!url || !key) {
   // Fail loudly at start-up rather than with confusing network errors later.
@@ -9,9 +14,6 @@ if (!url || !key) {
 }
 
 /** The one Supabase client. The publishable key is public; row-level security protects the data. */
-// `npm run dev:demo` only: a made-up school answered in the browser (demo.ts). DEV is false in every build, so this and
-// demo.ts never reach production.
-const demo = import.meta.env.DEV && import.meta.env.VITE_DEMO === '1'
 
 export const supabase = createClient(url, key, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce', ...(demo ? { storageKey: 'jumpstart-demo-auth' } : {}) },

@@ -86,7 +86,7 @@ All in [src/ui](../../src/ui):
 - **Toast:** confirmations and background news, read out by screen readers. Toasts with an action stay until used.
 - **EmptyState, ErrorState, SkeletonList, Notice:** every data screen shows a skeleton while loading, says what is empty and what to do next, and explains errors in plain words with Try again. ErrorState recognises when the device is offline.
 - **AreaShell:** skip link, floating top bar (logo, area chip with its icon, account), offline notice, page tabs, then the title with its description and actions.
-- **Logo, BrandStar, Mascot; CodeTiles; FreshnessBadge; TripMap; AppNav** (phone tab bar and iPad side rail, used by the design preview).
+- **Logo, BrandStar, Mascot; CodeTiles; FreshnessBadge; TripMap**.
 
 ## Responsive behaviour
 Checked automatically on every page and sheet in light and dark at 320, 360, 375, 390, 414 and 430 (phones), 667×375, 844×390 and 932×430 (phones in landscape), 600, 768, 820, 834, 1024 and 1180 (tablets, both orientations), and 1280 to 2560 (desktop). The checks cover horizontal overflow, text under 12 px, targets under 40 px and clipped text.

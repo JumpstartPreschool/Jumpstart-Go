@@ -18,3 +18,9 @@ android/.gradle/
 android/capacitor-cordova-android-plugins/
 *.jks
 *.keystore
+
+# Local-only output that must never reach the repository
+.wrangler/
+__pycache__/
+backup-*.sql
+*.dump
