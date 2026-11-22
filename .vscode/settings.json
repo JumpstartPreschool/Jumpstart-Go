@@ -1,0 +1,14 @@
+{
+  // The Java extension imports every Gradle project it finds. Copies of android/ under .claude/ (agent worktrees) or
+  // node_modules would show up as a second "android" project and turn the Problems panel red. The first four are its defaults.
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.metadata/**",
+    "**/archetype-resources/**",
+    "**/META-INF/maven/**",
+    "**/.claude/**"
+  ],
+  "files.watcherExclude": {
+    "**/.claude/worktrees/**": true
+  }
+}

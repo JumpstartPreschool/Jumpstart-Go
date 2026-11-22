@@ -1,0 +1,662 @@
+<title>Jumpstart App Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400..800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  /* A deliberate light-only page: bright paper, deep indigo ink, and the logo's rainbow as pastel fills
+     with strong colour kept for emphasis. Sticker cards: white, ink outline, solid offset shadow. */
+  :root {
+    color-scheme: light;
+    --paper: #fffdf8;
+    --paper-2: #f6f2ea;
+    --white: #ffffff;
+    --ink: #1d1b3a;
+    --ink-2: #4a4868;
+    --ink-3: #7d7b98;
+    --rule: rgba(29, 27, 58, 0.12);
+
+    --red: #e8363b;    --red-soft: #ffe0e1;
+    --orange: #ef7a1f; --orange-soft: #ffe6d3;
+    --yellow: #f5b700; --yellow-soft: #fff2c4;
+    --green: #22a043;  --green-soft: #daf4e1;
+    --teal: #0ea196;   --teal-soft: #d6f3f0;
+    --blue: #1f76df;   --blue-soft: #dcebff;
+    --violet: #7b4ddb; --violet-soft: #ebe3ff;
+    --flag: #b8430a;   --flag-soft: #ffe7d6;
+
+    --display: 'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+    --body: 'Figtree', 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --stroke: 2px solid var(--ink);
+    --lift: 5px 5px 0 var(--ink);
+    --lift-sm: 3px 3px 0 var(--ink);
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 500 17px/1.6 var(--body); padding-inline: 18px; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1080px; margin: 0 auto; padding-block: 32px 72px; }
+  h1, h2, h3 { font-family: var(--display); color: var(--ink); margin: 0; text-wrap: balance; font-optical-sizing: auto; }
+  h1 { font-size: clamp(40px, 7vw, 72px); line-height: 0.98; font-weight: 800; letter-spacing: -0.035em; }
+  h2 { font-size: clamp(30px, 4.4vw, 44px); line-height: 1.02; font-weight: 750; letter-spacing: -0.028em; }
+  h3 { font-size: 21px; line-height: 1.15; font-weight: 700; letter-spacing: -0.012em; }
+  p { margin: 0; max-width: 66ch; color: var(--ink-2); }
+  strong { color: var(--ink); font-weight: 750; }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+  .mono { font-family: var(--mono); font-weight: 500; }
+
+  /* Hero ---------------------------------------------------------------- */
+  .hero { position: relative; display: grid; gap: 22px; padding-block: 8px 34px; }
+  .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .hero-top img { height: 64px; width: auto; display: block; }
+  .stamp { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); border: var(--stroke); border-radius: 999px; padding: 9px 14px; background: var(--yellow-soft); box-shadow: var(--lift-sm); transform: rotate(-2deg); }
+  .flight { display: block; width: 100%; max-width: 520px; height: auto; margin-block: -6px -10px; }
+  .hero h1 span { background: linear-gradient(transparent 62%, var(--yellow-soft) 62%, var(--yellow-soft) 92%, transparent 92%); padding-inline: 4px; margin-inline: -4px; }
+  .lede { font-size: 20px; line-height: 1.55; color: var(--ink-2); max-width: 60ch; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font: 500 12.5px/1 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); background: var(--white); border: 1.5px solid var(--ink); border-radius: 999px; padding: 8px 12px; }
+  .chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--ink-3); }
+  .chip.good { background: var(--green-soft); } .chip.good i { background: var(--green); }
+  .chip.warn { background: var(--yellow-soft); } .chip.warn i { background: var(--flag); }
+
+  /* Buttons (section links) --------------------------------------------- */
+  nav.toc { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 6px 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; font: 700 15px/1 var(--body); color: var(--ink); text-decoration: none; background: var(--white); border: var(--stroke); border-radius: 999px; padding: 12px 18px 12px 12px; box-shadow: var(--lift-sm); transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
+  .btn .dot { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink); flex: none; }
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); background: var(--paper); }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+
+  /* Sections -------------------------------------------------------------- */
+  section { display: grid; gap: 20px; padding-block: 44px 8px; scroll-margin-top: 16px; }
+  .tab { display: inline-flex; align-items: center; gap: 8px; width: fit-content; font: 500 12px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 10px; padding: 7px 10px; }
+  .tab svg { width: 14px; height: 14px; }
+  .section-head { display: grid; gap: 12px; }
+
+  /* Sticker card ---------------------------------------------------------- */
+  .sticker { background: var(--white); border: var(--stroke); border-radius: 24px; box-shadow: var(--lift); }
+  figure.sticker { margin: 0; padding: 22px 22px 18px; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  svg.diagram { display: block; width: 100%; min-width: 760px; height: auto; }
+  figcaption { margin-top: 16px; padding-top: 14px; border-top: 1.5px dashed var(--rule); font-size: 15px; line-height: 1.55; color: var(--ink-2); max-width: 82ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; font: 500 12.5px/1.2 var(--mono); color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend svg { flex: none; }
+
+  .cards { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .card { padding: 20px 20px 22px; display: grid; gap: 10px; align-content: start; }
+  .card h3 { display: flex; align-items: center; gap: 10px; }
+  .card p { font-size: 16px; }
+  .swatch { width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid var(--ink); flex: none; }
+  .card.green { background: var(--green-soft); } .card.flag { background: var(--flag-soft); } .card.grey { background: var(--paper-2); } .card.orange { background: var(--orange-soft); }
+  .card.blue { background: var(--blue-soft); } .card.violet { background: var(--violet-soft); } .card.teal { background: var(--teal-soft); } .card.yellow { background: var(--yellow-soft); }
+
+  .callout { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; padding: 18px 20px; border: var(--stroke); border-radius: 20px; background: var(--violet-soft); }
+  .callout.sun { background: var(--yellow-soft); }
+  .callout .icon { width: 40px; height: 40px; border-radius: 12px; border: 1.5px solid var(--ink); background: var(--white); display: grid; place-items: center; }
+  .callout p { max-width: none; font-size: 16px; }
+  .callout ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; color: var(--ink-2); font-size: 15.5px; }
+
+  /* Timetable ------------------------------------------------------------- */
+  .timetable { overflow: hidden; padding: 0; }
+  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  thead th { background: var(--ink); color: var(--paper); font: 500 12px/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; padding: 14px 14px; }
+  tbody th, tbody td { padding: 13px 14px; border-top: 1.5px solid var(--rule); text-align: left; vertical-align: top; font-size: 15px; }
+  tbody tr:nth-child(even) { background: var(--paper); }
+  tbody th { font-weight: 700; color: var(--ink); }
+  tbody td { color: var(--ink-2); }
+  .t td.time, .t td.time span { font-family: var(--mono); font-weight: 500; font-size: 14px; white-space: nowrap; color: var(--ink); }
+  .t td { white-space: nowrap; }
+  .lvl { display: inline-block; width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid var(--ink); margin-right: 8px; vertical-align: -1px; }
+  sup.fn { font: 700 11px var(--mono); color: var(--flag); margin-left: 3px; }
+  .badge { display: inline-block; font: 500 12px/1.3 var(--mono); letter-spacing: 0.02em; background: var(--paper-2); border: 1.2px solid var(--ink); border-radius: 8px; padding: 3px 8px; color: var(--ink); white-space: normal; }
+  .yes { color: var(--ink); font-weight: 700; }
+  .yes::before { content: ''; display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: -3px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--green) radial-gradient(circle, transparent 0, transparent 0); box-shadow: inset 0 0 0 3px var(--green-soft); }
+  .no { color: var(--ink-3); }
+  .access td { white-space: normal; min-width: 120px; }
+
+  /* Steps and status ------------------------------------------------------ */
+  ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; counter-reset: s; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; }
+  ol.steps li::before { content: counter(s); display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: var(--stroke); background: var(--yellow-soft); font: 800 18px/1 var(--display); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+  ol.steps p { padding-top: 7px; max-width: 72ch; }
+  .status { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .status .card { gap: 8px; }
+  .state { width: fit-content; font: 500 11.5px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; border: 1.5px solid var(--ink); border-radius: 999px; padding: 6px 10px; background: var(--white); }
+  .state.built { background: var(--green); color: var(--white); }
+  footer { margin-top: 56px; padding-top: 22px; border-top: var(--stroke); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font: 500 12.5px/1.5 var(--mono); color: var(--ink-3); }
+
+  /* SVG diagrams, styled from the tokens ------------------------------------ */
+  .grid { stroke: var(--rule); stroke-width: 1; }
+  .guide { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 3 5; opacity: 0.55; }
+  .zone { fill: var(--yellow-soft); }
+  .t-zone { fill: var(--flag); font: 500 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+  .t-tick { fill: var(--ink-3); font: 500 11px var(--mono); }
+  .t-group { fill: var(--ink); font: 500 11.5px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+  .t-row { fill: var(--ink-2); font: 650 13.5px var(--body); }
+  .t-row-strong { fill: var(--ink); font: 750 14.5px var(--body); }
+  .t-who { fill: var(--ink-3); font: 500 11px var(--mono); letter-spacing: 0.02em; }
+  .t-small { fill: var(--ink-2); font: 650 12.5px var(--body); }
+  .t-small-flag { fill: var(--flag); font: 800 12.5px var(--body); }
+  .t-time { fill: var(--ink-2); font: 500 11px var(--mono); }
+  .t-in { fill: var(--ink); font: 650 11.5px var(--body); }
+  .t-in-strong { fill: var(--paper); font: 500 11px var(--mono); letter-spacing: 0.03em; }
+  .t-msg { fill: var(--ink); font: 650 12.5px var(--body); }
+  .t-num { fill: var(--ink); font: 800 13px var(--display); }
+  .label-bg { fill: var(--paper); }
+  .bar { stroke: var(--ink); stroke-width: 1.5; }
+  .win { stroke: var(--ink); stroke-width: 1.5; }
+  .bar-flex { stroke: var(--ink); stroke-width: 1.3; stroke-dasharray: 4 4; }
+  .dot { stroke: var(--ink); stroke-width: 2; }
+  .shadow { fill: var(--ink); }
+  .box { stroke: var(--ink); stroke-width: 2; }
+  .num { stroke: var(--ink); stroke-width: 1.5; }
+  .lifeline { stroke: var(--ink); stroke-width: 1.3; stroke-dasharray: 2 5; opacity: 0.45; }
+  .arrow { stroke: var(--ink); stroke-width: 2; fill: none; }
+  .arrow-person { stroke: var(--green); stroke-width: 2.4; stroke-dasharray: 7 5; fill: none; }
+  .arrowhead { fill: var(--ink); }
+  /* strong colour for windows, dots and numbers; pastel for bars, flexible bars and boxes */
+  .win.c-orange, .dot.c-orange, .num.c-orange { fill: var(--orange); }
+  .win.c-green, .dot.c-green, .num.c-green { fill: var(--green); }
+  .win.c-blue, .dot.c-blue, .num.c-blue { fill: var(--blue); }
+  .win.c-violet, .dot.c-violet, .num.c-violet { fill: var(--violet); }
+  .win.c-yellow, .dot.c-yellow, .num.c-yellow { fill: var(--yellow); }
+  .win.c-teal, .dot.c-teal, .num.c-teal { fill: var(--teal); }
+  .dot.c-flag, .num.c-flag { fill: var(--flag); }
+  .bar.c-orange, .bar-flex.c-orange, .box.c-orange { fill: var(--orange-soft); }
+  .bar.c-green, .bar-flex.c-green, .box.c-green { fill: var(--green-soft); }
+  .bar.c-blue, .bar-flex.c-blue, .box.c-blue { fill: var(--blue-soft); }
+  .bar.c-violet, .bar-flex.c-violet, .box.c-violet { fill: var(--violet-soft); }
+  .bar.c-yellow, .bar-flex.c-yellow, .box.c-yellow { fill: var(--yellow-soft); }
+  .bar.c-teal, .bar-flex.c-teal, .box.c-teal { fill: var(--teal-soft); }
+  .box.c-flag { fill: var(--flag-soft); }
+  .bar.c-ink { fill: var(--ink); }
+
+  /* Layout guard: grid children may shrink, so wide content scrolls inside its own box, never the page. */
+  section { grid-template-columns: minmax(0, 1fr); }
+  section > *, .section-head > * { min-width: 0; }
+
+  /* Plans ------------------------------------------------------------------ */
+  .plans { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .plan { background: var(--white); border: var(--stroke); border-radius: 20px; padding: 16px 18px 18px; display: grid; gap: 6px; align-content: start; }
+  .plan .kicker { font: 500 11.5px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .plan h3 { font-size: 23px; }
+  .plan p { font-size: 15px; line-height: 1.5; }
+
+  /* Programme timetable: one 9 AM–7 PM scale per row, so bars line up down each group ---------- */
+  .tt { padding: 0; overflow: hidden; }
+  .tt-group { padding: 20px 22px 6px; }
+  .tt-group + .tt-group { border-top: var(--stroke); }
+  .tt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .tt-head h3 { font-size: 23px; margin-right: 4px; }
+  .age { font: 500 12.5px/1 var(--mono); color: var(--ink); background: var(--c-soft, var(--paper-2)); border: 1.5px solid var(--ink); border-radius: 8px; padding: 6px 9px; }
+  .tt-note { font-size: 14.5px; margin-top: 8px; }
+  .tt-row, .tt-axis { display: grid; grid-template-columns: minmax(170px, 1.1fr) minmax(220px, 2fr) 112px 116px 116px; gap: 10px 18px; align-items: center; }
+  .tt-axis { margin-top: 16px; padding-bottom: 8px; }
+  .tt-row { padding: 14px 0; border-top: 1.5px dashed var(--rule); }
+  .ticks { position: relative; height: 14px; font: 500 11px/1 var(--mono); color: var(--ink-3); white-space: nowrap; }
+  .ticks span { position: absolute; top: 0; transform: translateX(-50%); }
+  .ticks span:first-child { transform: none; }
+  .ticks span:last-child { transform: translateX(-100%); }
+  .lab { font: 500 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .name { font-weight: 750; font-size: 17px; color: var(--ink); line-height: 1.25; }
+  .name small { display: block; margin-top: 5px; font: 500 12.5px/1.35 var(--mono); color: var(--ink-2); }
+  .track { position: relative; height: 26px; border-radius: 13px; background: repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 10%), var(--paper-2); }
+  .span { position: absolute; top: 3px; bottom: 3px; border: 1.5px solid var(--ink); border-radius: 10px; background: var(--c-soft); overflow: hidden; }
+  .span i { position: absolute; top: 0; bottom: 0; background: var(--c); }
+  .span.flex { border-style: dashed; display: grid; place-items: center; }
+  .track .wb { position: absolute; top: 3px; bottom: 3px; min-width: 6px; border: 1.5px solid var(--ink); border-radius: 6px; background: var(--c); }
+  .track .wb.any { background: repeating-linear-gradient(90deg, var(--c) 0 5px, var(--c-soft) 5px 10px); }
+  .lt .wb { top: 4px; bottom: 4px; }
+  .tt .track, .ladder .track { background: var(--paper-2); }
+  .stat .anyt { font: 650 12.5px/1.2 var(--body); font-style: normal; color: var(--ink-2); }
+  .span em { font: 700 12px/1 var(--body); font-style: normal; color: var(--ink); white-space: nowrap; }
+  .stat { display: grid; gap: 4px; }
+  .stat b { display: none; font: 500 10.5px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .stat span { font: 500 15.5px/1.2 var(--mono); color: var(--ink); white-space: nowrap; }
+  .stat.wide { grid-column: span 2; }
+  .stat .flexi { font: 700 14.5px/1.3 var(--body); white-space: normal; }
+  .notes { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+  .notes li { font-size: 15px; line-height: 1.5; color: var(--ink-2); padding-left: 26px; position: relative; }
+  .notes li > sup, .notes li > .dotmark { position: absolute; left: 0; top: 2px; }
+  .dotmark { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--white); margin-top: 3px; }
+  @media (max-width: 900px) {
+    .tt-group { padding: 18px 16px 4px; }
+    .tt-row, .tt-axis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+    .tt-row .name, .tt-row .track, .tt-axis .ticks { grid-column: 1 / -1; }
+    .tt-axis > span:first-child, .tt-axis .lab { display: none; }
+    .stat b { display: block; }
+    .stat span { font-size: 14px; }
+  }
+
+  /* Who sets which time: a ladder of layers, each drawn on the same 9 AM–2 PM scale ------------- */
+  .ladder { padding: 6px 22px 8px; --c: var(--green); --c-soft: var(--green-soft); }
+  .lr-axis, .lr { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(240px, 0.85fr); gap: 12px 22px; align-items: center; }
+  .lr-axis { padding-top: 18px; padding-bottom: 4px; }
+  .lr-list { list-style: none; margin: 0; padding: 0; }
+  .lr { padding: 18px 0; border-top: 1.5px dashed var(--rule); }
+  .step { align-self: start; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; border: var(--stroke); background: var(--yellow-soft); font: 800 18px/1 var(--display); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+  .lr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .lr h3 { font-size: 20px; margin-right: 2px; }
+  .who { font: 750 13px/1 var(--body); color: var(--ink); background: var(--c-soft, var(--paper-2)); border: 1.5px solid var(--ink); border-radius: 999px; padding: 6px 11px; white-space: nowrap; }
+  .also { font: 500 12px/1 var(--mono); color: var(--ink-3); }
+  .ex { margin-top: 8px; font-size: 16px; color: var(--ink); }
+  .ex b { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .rule { margin-top: 4px; font-size: 15px; }
+  .where { margin-top: 8px; font: 500 12.5px/1.45 var(--mono); color: var(--ink-2); }
+  .where span { color: var(--ink-3); }
+  .lt { height: 32px; }
+  .span.school { background: var(--ink); display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; border-right: 0; border-radius: 10px 0 0 10px; }
+  .span.school em { color: var(--paper); font: 500 11px/1 var(--mono); }
+  .ghost { position: absolute; top: 4px; bottom: 4px; border: 1.5px dashed var(--ink); border-radius: 8px; background: var(--green-soft); }
+  .pin { position: absolute; top: 50%; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); transform: translate(-50%, -50%); background: var(--white); box-shadow: 1.5px 1.5px 0 var(--ink); }
+  .pin.c-green { background: var(--green); } .pin.c-blue { background: var(--blue); } .pin.c-flag { background: var(--flag); }
+  .pin.was { width: 12px; height: 12px; background: var(--paper); border-width: 1.5px; border-style: dashed; box-shadow: none; }
+  .outcomes-title { font-size: 21px; margin-top: 6px; }
+  @media (max-width: 760px) {
+    .ladder { padding: 4px 16px 6px; }
+    .lr-axis, .lr { grid-template-columns: 40px minmax(0, 1fr); gap: 12px 14px; }
+    .lr .lt { grid-column: 2; }
+    .lr-axis > span:nth-child(2) { display: none; }
+  }
+
+  /* Access table: the first column stays put while the table scrolls on a phone ------------------ */
+  .access tbody th, .access thead th:first-child { position: sticky; left: 0; z-index: 1; }
+  .access tbody tr th { background: var(--white); box-shadow: 1.5px 0 0 var(--rule); }
+  .access tbody tr:nth-child(even) th { background: var(--paper); }
+  .access tbody th { min-width: 200px; }
+
+  /* Choosing coordinators ------------------------------------------------------------------------ */
+  .flow { padding: 22px; display: grid; gap: 16px; }
+  .flow-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+  /* Questions ------------------------------------------------------------------------------------ */
+  .qs { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .q { padding: 20px 20px 18px; display: grid; gap: 10px; align-content: start; }
+  .q .num { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .q h3 { font-size: 20px; }
+  .q p { font-size: 15.5px; }
+  .suggest { margin-top: 2px; padding: 12px 14px; border-radius: 14px; background: var(--green-soft); border: 1.5px solid var(--ink); }
+  .suggest b { display: block; font: 500 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; color: var(--ink); }
+  .suggest p { font-size: 15px; color: var(--ink); max-width: none; }
+
+  @media (max-width: 560px) {
+    body { font-size: 16px; }
+    .lede { font-size: 18px; }
+    .hero-top img { height: 52px; }
+    .btn { font-size: 14px; padding: 10px 14px 10px 10px; }
+    .sticker { box-shadow: 4px 4px 0 var(--ink); }
+  }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <div class="hero-top">
+      <img alt="Jumpstart" src="data:image/webp;base64,{{LOGO}}">
+      <span class="stamp">For the owner's review · 24 Sep 2026</span>
+    </div>
+    <svg class="flight" viewBox="0 0 520 70" aria-hidden="true">
+      <path d="M8 58 C 90 -6, 170 -6, 220 50 C 270 4, 360 0, 430 44 C 460 20, 490 16, 512 26" fill="none" stroke="#1d1b3a" stroke-width="2.4" stroke-dasharray="6 7" stroke-linecap="round"/>
+      <path d="M220 38 l4.2 8.6 9.5 1.4-6.9 6.7 1.6 9.4-8.4-4.4-8.4 4.4 1.6-9.4-6.9-6.7 9.5-1.4z" fill="#22a043" stroke="#1d1b3a" stroke-width="1.6" stroke-linejoin="round" transform="translate(0 -30)"/>
+      <path d="M430 34 l4.2 8.6 9.5 1.4-6.9 6.7 1.6 9.4-8.4-4.4-8.4 4.4 1.6-9.4-6.9-6.7 9.5-1.4z" fill="#1f76df" stroke="#1d1b3a" stroke-width="1.6" stroke-linejoin="round" transform="translate(0 -24)"/>
+      <path d="M12 44 l4.2 8.6 9.5 1.4-6.9 6.7 1.6 9.4-8.4-4.4-8.4 4.4 1.6-9.4-6.9-6.7 9.5-1.4z" fill="#e8363b" stroke="#1d1b3a" stroke-width="1.6" stroke-linejoin="round" transform="translate(0 -30)"/>
+    </svg>
+    <h1>How the Jumpstart app <span>works</span></h1>
+    <p class="lede">Everything I've understood from you and from jumpstartpreschool.in: the programmes and their timings, who sets which time, who can do what, and how a pickup runs from a parent's tap to the child reaching home. Read it through, and tell me anything that's wrong.</p>
+    <div class="facts">
+      <span class="chip"><i></i>Karve Road · about 50 children</span>
+      <span class="chip good"><i></i>Login, People, the programme picker and coordinator classes are built</span>
+      <span class="chip warn"><i></i>New: your 15-minute windows, family, the PRO team, two admins</span>
+      <span class="chip warn"><i></i>The website disagrees with itself in 3 places</span>
+    </div>
+    <nav class="toc" aria-label="Sections">
+      <a class="btn" href="#programmes"><span class="dot" style="background: var(--orange)"></span>Programmes</a>
+      <a class="btn" href="#timings"><span class="dot" style="background: var(--green)"></span>Who sets which time</a>
+      <a class="btn" href="#access"><span class="dot" style="background: var(--violet)"></span>Who can do what</a>
+      <a class="btn" href="#child"><span class="dot" style="background: var(--blue)"></span>Adding a child</a>
+      <a class="btn" href="#pickup"><span class="dot" style="background: var(--teal)"></span>A pickup</a>
+      <a class="btn" href="#announcements"><span class="dot" style="background: var(--yellow)"></span>Announcements</a>
+      <a class="btn" href="#status"><span class="dot" style="background: var(--red)"></span>Built and next</a>
+      <a class="btn" href="#questions"><span class="dot" style="background: var(--white)"></span>Questions for you</a>
+    </nav>
+  </header>
+
+  <section id="programmes">
+    <div class="section-head">
+      <span class="tab" style="background: var(--orange-soft)">From the website</span>
+      <h2>The programmes at Karve Road</h2>
+      <p>Four classes, each with a choice of programmes, and three programmes that stand on their own: 17 in all. Drop-off is the 15 minutes before a class starts and pickup the 15 minutes after it ends. The core team can change any of them in the app, and the windows follow.</p>
+    </div>
+    <div class="plans">
+      <div class="plan"><span class="kicker">Programme</span><h3>Half day</h3><p>The core preschool hours. Playgroup and Nursery run it as a morning or an afternoon shift. Meals cost extra.</p></div>
+      <div class="plan"><span class="kicker">Programme</span><h3>360°</h3><p>A full day with lunch, milk, snacks, fruit and a 45-minute rest, from June to March.</p></div>
+      <div class="plan"><span class="kicker">Programme</span><h3>360°+</h3><p>Preschool plus the Learning Center, all year (June to May). The child must be in school for the core hours: 11:45 to 5:30 for Playgroup and Nursery, 9:00 to 4:30 for Jr KG and Sr KG. Pickup any time until 7 PM.</p></div>
+    </div>
+    <div class="sticker tt" role="table" aria-label="Programme timetable"><div class="tt-group" style="--c: var(--orange); --c-soft: var(--orange-soft)"><div class="tt-head"><h3>Playgroup &amp; Nursery</h3><span class="age">Playgroup 2–3 y</span><span class="age">Nursery 3–4 y</span></div><p class="tt-note">Both classes keep the same times, each in its own programme.</p><div class="tt-axis" aria-hidden="true"><span></span><div class="ticks"><span style="left:4.55%; transform:translateX(-50%)">9 AM</span><span style="left:22.73%; transform:translateX(-50%)">11 AM</span><span style="left:40.91%; transform:translateX(-50%)">1 PM</span><span style="left:59.09%; transform:translateX(-50%)">3 PM</span><span style="left:77.27%; transform:translateX(-50%)">5 PM</span><span style="left:95.45%; transform:translateX(-50%)">7 PM</span></div><span class="lab">Hours</span><span class="lab">Drop-off</span><span class="lab">Pickup</span></div><div class="tt-row" role="row"><div class="name" role="rowheader">Half day · morning<small>Mon–Fri · Jun–Mar</small></div><div class="track" aria-hidden="true"><span class="span" style="left:4.55%;width:22.73%"></span><span class="wb" style="left:2.27%;width:2.27%"></span><span class="wb" style="left:27.27%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>9:00–11:30</span></div><div class="stat"><b>Drop-off</b><span>8:45–9:00</span></div><div class="stat"><b>Pickup</b><span>11:30–11:45</span></div></div><div class="tt-row" role="row"><div class="name" role="rowheader">Half day · afternoon<small>Mon–Fri · Jun–Mar</small></div><div class="track" aria-hidden="true"><span class="span" style="left:29.55%;width:22.73%"></span><span class="wb" style="left:27.27%;width:2.27%"></span><span class="wb" style="left:52.27%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>11:45–2:15</span></div><div class="stat"><b>Drop-off</b><span>11:30–11:45</span></div><div class="stat"><b>Pickup</b><span>2:15–2:30</span></div></div><div class="tt-row" role="row"><div class="name" role="rowheader">360°<small>Mon–Fri · Jun–Mar</small></div><div class="track" aria-hidden="true"><span class="span" style="left:29.55%;width:52.27%"></span><span class="wb" style="left:27.27%;width:2.27%"></span><span class="wb" style="left:81.82%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>11:45–5:30</span></div><div class="stat"><b>Drop-off</b><span>11:30–11:45</span></div><div class="stat"><b>Pickup</b><span>5:30–5:45</span></div></div><div class="tt-row" role="row"><div class="name" role="rowheader">360°+<small>Mon–Sat<sup class="fn">1</sup> · Jun–May</small></div><div class="track" aria-hidden="true"><span class="span" style="left:29.55%;width:52.27%"></span><span class="wb any" style="left:4.55%;width:25.00%"></span><span class="wb any" style="left:81.82%;width:13.64%"></span></div><div class="stat"><b>In school</b><span>11:45–5:30</span></div><div class="stat"><b>Drop-off</b><span>9:00–11:45</span><i class=anyt>any time</i></div><div class="stat"><b>Pickup</b><span>5:30–7:00</span><i class=anyt>any time</i></div></div></div><div class="tt-group" style="--c: var(--green); --c-soft: var(--green-soft)"><div class="tt-head"><h3>Jr KG &amp; Sr KG</h3><span class="age">Jr KG 4–5 y</span><span class="age">Sr KG 5–6 y</span></div><div class="tt-axis" aria-hidden="true"><span></span><div class="ticks"><span style="left:4.55%; transform:translateX(-50%)">9 AM</span><span style="left:22.73%; transform:translateX(-50%)">11 AM</span><span style="left:40.91%; transform:translateX(-50%)">1 PM</span><span style="left:59.09%; transform:translateX(-50%)">3 PM</span><span style="left:77.27%; transform:translateX(-50%)">5 PM</span><span style="left:95.45%; transform:translateX(-50%)">7 PM</span></div><span class="lab">Hours</span><span class="lab">Drop-off</span><span class="lab">Pickup</span></div><div class="tt-row" role="row"><div class="name" role="rowheader">Half day<small>Mon–Fri · Jun–Mar</small></div><div class="track" aria-hidden="true"><span class="span" style="left:4.55%;width:36.36%"></span><span class="wb" style="left:2.27%;width:2.27%"></span><span class="wb" style="left:40.91%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>9:00–1:00</span></div><div class="stat"><b>Drop-off</b><span>8:45–9:00</span></div><div class="stat"><b>Pickup</b><span>1:00–1:15</span></div></div><div class="tt-row" role="row"><div class="name" role="rowheader">360°<small>Mon–Fri · Jun–Mar</small></div><div class="track" aria-hidden="true"><span class="span" style="left:4.55%;width:68.18%"></span><span class="wb" style="left:2.27%;width:2.27%"></span><span class="wb" style="left:72.73%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>9:00–4:30<sup class="fn">2</sup></span></div><div class="stat"><b>Drop-off</b><span>8:45–9:00</span></div><div class="stat"><b>Pickup</b><span>4:30–4:45</span></div></div><div class="tt-row" role="row"><div class="name" role="rowheader">360°+<small>Mon–Sat<sup class="fn">1</sup> · Jun–May</small></div><div class="track" aria-hidden="true"><span class="span" style="left:4.55%;width:68.18%"></span><span class="wb" style="left:2.27%;width:2.27%"></span><span class="wb any" style="left:72.73%;width:22.73%"></span></div><div class="stat"><b>In school</b><span>9:00–4:30</span></div><div class="stat"><b>Drop-off</b><span>8:45–9:00</span></div><div class="stat"><b>Pickup</b><span>4:30–7:00</span><i class=anyt>any time</i></div></div></div><div class="tt-group mixed"><div class="tt-head"><h3>On their own</h3></div><div class="tt-axis" aria-hidden="true"><span></span><div class="ticks"><span style="left:4.55%; transform:translateX(-50%)">9 AM</span><span style="left:22.73%; transform:translateX(-50%)">11 AM</span><span style="left:40.91%; transform:translateX(-50%)">1 PM</span><span style="left:59.09%; transform:translateX(-50%)">3 PM</span><span style="left:77.27%; transform:translateX(-50%)">5 PM</span><span style="left:95.45%; transform:translateX(-50%)">7 PM</span></div><span class="lab">Hours</span><span class="lab">Drop-off</span><span class="lab">Pickup</span></div><div class="lvl-row" style="--c: var(--blue); --c-soft: var(--blue-soft)"><div class="tt-row" role="row"><div class="name" role="rowheader">Learning Center<small>Mon–Sat<sup class="fn">1</sup> · All year · daycare, 6 m–8 y</small></div><div class="track" aria-hidden="true"><span class="wb" style="left:2.27%;width:2.27%"></span><span class="wb any" style="left:4.55%;width:90.91%"></span></div><div class="stat"><b>Hours</b><span>9:00–7:00</span></div><div class="stat"><b>Drop-off</b><span>8:45–9:00</span></div><div class="stat"><b>Pickup</b><span>9:00–7:00</span><i class=anyt>any time</i></div></div></div><div class="lvl-row" style="--c: var(--violet); --c-soft: var(--violet-soft)"><div class="tt-row" role="row"><div class="name" role="rowheader">Preschool Readiness<small>Mon–Fri · 3-month course · 18 m–2 y</small></div><div class="track" aria-hidden="true"><span class="span" style="left:27.27%;width:13.64%"></span><span class="wb" style="left:25.00%;width:2.27%"></span><span class="wb" style="left:40.91%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>11:30–1:00</span></div><div class="stat"><b>Drop-off</b><span>11:15–11:30</span></div><div class="stat"><b>Pickup</b><span>1:00–1:15</span></div></div></div><div class="lvl-row" style="--c: var(--yellow); --c-soft: var(--yellow-soft)"><div class="tt-row" role="row"><div class="name" role="rowheader">After School<small>Mon–Fri · All year · 4–8 y</small></div><div class="track" aria-hidden="true"><span class="span" style="left:68.18%;width:27.27%"></span><span class="wb" style="left:65.91%;width:2.27%"></span><span class="wb" style="left:95.45%;width:2.27%"></span></div><div class="stat"><b>Hours</b><span>4:00–7:00<sup class="fn">3</sup></span></div><div class="stat"><b>Drop-off</b><span>3:45–4:00</span></div><div class="stat"><b>Pickup</b><span>7:00–7:15</span></div></div></div></div></div>
+    <div class="legend" style="margin-top: -4px">
+      <span><svg width="30" height="14" aria-hidden="true"><rect x="1" y="1" width="28" height="12" rx="6" class="bar c-green"/></svg>Class hours, or the hours a child must be in</span>
+      <span><svg width="30" height="14" aria-hidden="true"><rect x="1" y="1" width="28" height="12" rx="4" class="win c-green"/></svg>15-minute drop-off and pickup windows</span>
+      <span><svg width="30" height="14" aria-hidden="true"><rect x="1" y="1" width="28" height="12" rx="6" class="bar-flex c-blue"/></svg>Striped: any time in the window</span>
+    </div>
+    <div class="callout sun">
+      <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d1b3a" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9.5"/></svg></span>
+      <div>
+        <p><strong>Notes, and what the app uses where the website disagrees.</strong> The core team can change any of these in the app.</p>
+        <ul class="notes">
+          <li><sup class="fn">1</sup>Saturdays count, except the 2nd and last Saturday of each month.</li>
+          <li><sup class="fn">2</sup>Jr KG 360°: the programme page says it starts at 9:45 and the FAQ says 9:00. The app uses 9:00.</li>
+          <li><sup class="fn">3</sup>After School: the Karve Road page says 4–7 PM for ages 3–8; another page says 2–6 PM for ages 4–8. The app uses 4–7 PM, so by the rule its pickup is 7:00–7:15, the only pickup after 7 PM (question 7).</li>
+          <li><span class="dotmark"></span>Your rule: drop-off is the 15 minutes before a class starts, pickup the 15 minutes after it ends. 360°+ is different: the child must be in for the core hours, drop-off is any time before them (from 9:00 for Playgroup and Nursery, 8:45–9:00 for Jr KG and Sr KG) and pickup any time after them until 7 PM. The Learning Center takes children 8:45–9:00 and they can be collected any time until 7 PM.</li>
+          <li><span class="dotmark"></span>The gate is busiest from 11:30 to 11:45, when morning pickups and afternoon drop-offs happen together, and from 1:00 to 1:15.</li>
+          <li><span class="dotmark"></span>Not in the app: the Parent Toddler Program (the parent stays for the whole hour), the Early Childhood Expert course for adults, and corporate child care.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="timings">
+    <div class="section-head">
+      <span class="tab" style="background: var(--green-soft)">The workflow you described</span>
+      <h2>Who sets which time</h2>
+      <p>Five layers, each set by one person, and each fitting inside the one above it. Here they are for one child, Aarav, in Jr KG half day, drawn from 8:30 AM to 2 PM.</p>
+    </div>
+    <div class="sticker ladder"><div class="lr-axis" aria-hidden="true"><span></span><span></span><div class="ticks"><span style="left:9.09%; transform:translateX(-50%)">9 AM</span><span style="left:27.27%; transform:translateX(-50%)">10</span><span style="left:45.45%; transform:translateX(-50%)">11</span><span style="left:63.64%; transform:translateX(-50%)">12 PM</span><span style="left:81.82%; transform:translateX(-50%)">1 PM</span><span style="left:100.00%; transform:translateX(-50%)">2 PM</span></div></div><ol class="lr-list">
+<li class="lr"><span class="step">1</span><div class="lr-text"><div class="lr-top"><h3>School hours</h3><span class="who" style="--c: var(--ink-3); --c-soft: var(--paper-2)">Fixed in the app</span></div><p class="ex">9:00 AM to 7:00 PM, every school day</p><p class="rule">Drop-off can start 15 minutes before a class, so 8:45 is the earliest. Nothing can be booked before 8:45 AM or after 7:15 PM.</p></div><div class="track lt" aria-hidden="true"><span class="span school" style="left:9.09%;width:90.91%"><em>continues to 7 PM →</em></span></div></li>
+<li class="lr"><span class="step">2</span><div class="lr-text"><div class="lr-top"><h3>Programme hours</h3><span class="who" style="--c: var(--green); --c-soft: var(--green-soft)">Core team</span><span class="also">or the admin</span></div><p class="ex">Jr KG · Half day: <b>9:00–1:00</b>, so drop-off <b>8:45–9:00</b> and pickup <b>1:00–1:15</b></p><p class="rule">The core team sets the hours; the windows follow: 15 minutes before the start, 15 minutes after the end. Changes show everywhere at once.</p><p class="where">Screen: Core team → Schedules → Programmes <span>· in the Screen Book</span></p></div><div class="track lt" aria-hidden="true"><span class="span" style="left:9.09%;width:72.73%"></span><span class="wb" style="left:4.55%;width:4.55%"></span><span class="wb" style="left:81.82%;width:4.55%"></span></div></li>
+<li class="lr"><span class="step">3</span><div class="lr-text"><div class="lr-top"><h3>Aarav's regular times</h3><span class="who" style="--c: var(--green); --c-soft: var(--green-soft)">Core team</span><span class="also">or the admin</span></div><p class="ex">Monday to Friday: drop-off <b>8:50</b>, pickup <b>1:05</b></p><p class="rule">Must fit inside the windows. Each morning, the day's expected drop-offs and pickups are made from these.</p><p class="where">Screen: Core team → Schedules → Children's times <span>· in the Screen Book</span></p></div><div class="track lt" aria-hidden="true"><span class="ghost" style="left:4.55%;width:4.55%"></span><span class="ghost" style="left:81.82%;width:4.55%"></span><span class="pin c-green" style="left:6.06%"></span><span class="pin c-green" style="left:83.33%"></span></div></li>
+<li class="lr"><span class="step">4</span><div class="lr-text"><div class="lr-top"><h3>Today's time</h3><span class="who" style="--c: var(--blue); --c-soft: var(--blue-soft)">Parent or family</span><span class="also">or staff for them</span></div><p class="ex">Today only: pickup at <b>1:10</b></p><p class="rule">Inside the window, it is announced to the coordinators at once. Outside the window it is still allowed, with a reason, and flagged.</p><p class="where">Screen: Parent → Today → Change time <span>· in the Screen Book</span></p></div><div class="track lt" aria-hidden="true"><span class="ghost" style="left:4.55%;width:4.55%"></span><span class="ghost" style="left:81.82%;width:4.55%"></span><span class="pin was" style="left:83.33%"></span><span class="pin c-blue" style="left:84.85%"></span></div></li>
+<li class="lr"><span class="step">5</span><div class="lr-text"><div class="lr-top"><h3>Running late</h3><span class="who" style="--c: var(--blue); --c-soft: var(--blue-soft)">Parent or family</span><span class="also">or the third person</span></div><p class="ex">+20 min: pickup now <b>1:30</b>, past the 1:15 window</p><p class="rule">Announced at once. Past the window it is flagged and a coordinator taps Acknowledge. It can never go past 7:15 PM.</p><p class="where">Screen: Parent → Running late: +10, +20 or +30 min <span>· in the Screen Book</span></p></div><div class="track lt" aria-hidden="true"><span class="ghost" style="left:4.55%;width:4.55%"></span><span class="ghost" style="left:81.82%;width:4.55%"></span><span class="pin was" style="left:84.85%"></span><span class="pin c-flag" style="left:90.91%"></span></div></li>
+</ol></div>
+    <p style="margin-top: -4px">Also set by the core team: <strong>holidays</strong> and each child's <strong>days off</strong>. No drop-offs or pickups are expected on those days, so nothing is announced.</p>
+    <h3 class="outcomes-title">What happens to a change</h3>
+    <div class="cards">
+      <div class="sticker card green"><h3><span class="swatch" style="background: var(--green)"></span>Normal</h3><p>Inside the child's window, for example pickup 1:00–1:15. Announced to the class's coordinators at once; nothing else to do.</p></div>
+      <div class="sticker card flag"><h3><span class="swatch" style="background: var(--flag)"></span>Flagged</h3><p>Outside the window (with a reason), or less than 15 minutes' notice. Still allowed: a different chime, and a coordinator taps Acknowledge.</p></div>
+      <div class="sticker card orange"><h3><span class="swatch" style="background: var(--orange)"></span>Running late</h3><p>From the parent's +10, +20 or +30, or from the live location. Coordinators hear "running about 10 minutes late".</p></div>
+      <div class="sticker card grey"><h3><span class="swatch" style="background: var(--ink-3)"></span>Not possible</h3><p>Before 8:45 AM or after 7:15 PM. The app offers Call school instead.</p></div>
+    </div>
+  </section>
+
+  <section id="access">
+    <div class="section-head">
+      <span class="tab" style="background: var(--violet-soft)">Roles, as you set them</span>
+      <h2>Who can do what</h2>
+      <p>Only two people hold Admin: <strong>Ankit Singh and Aditya Tapadia</strong>. Nobody else can be given it. The core team plans timings and attendance, and chooses the coordinators and their classes. The <strong>PRO team</strong> runs the front desk: calls from parents, messages and announcements. Coordinators run the gate on their iPads. Parents, and the <strong>family</strong> the admin adds (grandparents, aunts, uncles, older siblings), see only their own children and collect without a link. A third person gets one link for one trip. The database checks every one of these rules on every request, not only the screens.</p>
+    </div>
+    <div class="sticker timetable">
+      <div class="scroll">
+        <table class="access">
+          <thead><tr><th scope="col">Can…</th><th scope="col">Admin</th><th scope="col">Core team</th><th scope="col">PRO team</th><th scope="col">Coordinator</th><th scope="col">Parent or family</th><th scope="col">Third person</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Add or remove children, parents and family</th><td class="yes">Only the admin</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">Give roles</th><td class="yes">All roles; Admin only for Ankit Singh and Aditya Tapadia</td><td class="yes">Coordinator only</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">Choose each coordinator's classes</th><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">Set programme hours and windows</th><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">Set a child's regular times</th><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">Change today's time; running late</th><td class="yes">Yes</td><td class="yes">Yes</td><td>For a parent who phones</td><td class="no">—</td><td>Own children</td><td>Running late only</td></tr>
+            <tr><th scope="row">Mark present, absent, on leave, off</th><td class="yes">Yes</td><td class="yes">Yes</td><td>An absence a parent phones in</td><td>Check-in and check-out at the gate</td><td>Report an absence</td><td class="no">—</td></tr>
+            <tr><th scope="row">Gate queue, Ready, handover</th><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">Hear announcements</th><td>Optional</td><td>Optional</td><td class="no">—</td><td class="yes">Their classes; everyone's if unanswered</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><th scope="row">See live location</th><td>Until handover</td><td>Until handover</td><td>Arrival time only</td><td>Until handover</td><td>Own trips, including home</td><td>Own position</td></tr>
+            <tr><th scope="row">Messages and announcements</th><td class="yes">Both</td><td class="yes">Both</td><td class="yes">Both</td><td>Messages</td><td>Messages; reads announcements</td><td class="no">—</td></tr>
+            <tr><th scope="row">Reports, export, audit log</th><td class="yes">Yes</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="callout">
+      <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d1b3a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg></span>
+      <p><strong>Login is invite-only.</strong> Nobody can sign up. The admin adds a person with their email, and the first 6-digit code they receive links their account. A parent who lives abroad signs in the same way and keeps their foreign mobile number, with its country code. The database itself refuses anyone the admin hasn't added; this is tested and working on your live Supabase project. Turning someone off ends their access at once and signs them out everywhere.</p>
+    </div>
+  </section>
+
+  <section id="child">
+    <div class="section-head">
+      <span class="tab" style="background: var(--blue-soft)">Admin → People · in the Screen Book</span>
+      <h2>Adding a child</h2>
+    </div>
+    <figure class="sticker">
+      <div class="scroll"><svg viewBox="0 0 980 172" role="img" aria-label="Adding a child: the admin adds the parents, adds the child, picks the programme, plan and class, saves in one step; then the parent signs in with an email code." class="diagram">
+<defs><marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect x="4.0" y="34" width="172" height="112" rx="18" class="shadow"/>
+<rect x="0.0" y="30" width="172" height="112" rx="18" class="box c-blue"/>
+<circle cx="24.0" cy="56" r="13" class="num c-blue"/>
+<text x="24.0" y="61" text-anchor="middle" class="t-num">1</text>
+<text x="44.0" y="61" class="t-who">admin</text>
+<text x="16.0" y="92" class="t-row-strong">Parents and family</text>
+<text x="16.0" y="112" class="t-small">relation from a pop-up,</text>
+<text x="16.0" y="129" class="t-small">email to sign in</text>
+<line x1="176.0" y1="86.0" x2="198.0" y2="86.0" class="arrow" marker-end="url(#ah1)"/>
+<rect x="206.0" y="34" width="172" height="112" rx="18" class="shadow"/>
+<rect x="202.0" y="30" width="172" height="112" rx="18" class="box c-orange"/>
+<circle cx="226.0" cy="56" r="13" class="num c-orange"/>
+<text x="226.0" y="61" text-anchor="middle" class="t-num">2</text>
+<text x="246.0" y="61" class="t-who">admin</text>
+<text x="218.0" y="92" class="t-row-strong">Add the child</text>
+<text x="218.0" y="112" class="t-small">name and</text>
+<text x="218.0" y="129" class="t-small">date of birth</text>
+<line x1="378.0" y1="86.0" x2="400.0" y2="86.0" class="arrow" marker-end="url(#ah1)"/>
+<rect x="408.0" y="34" width="172" height="112" rx="18" class="shadow"/>
+<rect x="404.0" y="30" width="172" height="112" rx="18" class="box c-green"/>
+<circle cx="428.0" cy="56" r="13" class="num c-green"/>
+<text x="428.0" y="61" text-anchor="middle" class="t-num">3</text>
+<text x="448.0" y="61" class="t-who">admin</text>
+<text x="420.0" y="92" class="t-row-strong">Class and programme</text>
+<text x="420.0" y="112" class="t-small">class, then</text>
+<text x="420.0" y="129" class="t-small">programme</text>
+<line x1="580.0" y1="86.0" x2="602.0" y2="86.0" class="arrow" marker-end="url(#ah1)"/>
+<rect x="610.0" y="34" width="172" height="112" rx="18" class="shadow"/>
+<rect x="606.0" y="30" width="172" height="112" rx="18" class="box c-violet"/>
+<circle cx="630.0" cy="56" r="13" class="num c-violet"/>
+<text x="630.0" y="61" text-anchor="middle" class="t-num">4</text>
+<text x="650.0" y="61" class="t-who">admin</text>
+<text x="622.0" y="92" class="t-row-strong">Saved in one step</text>
+<text x="622.0" y="112" class="t-small">child, parents, family</text>
+<text x="622.0" y="129" class="t-small">together, or nothing</text>
+<line x1="782.0" y1="86.0" x2="804.0" y2="86.0" class="arrow" marker-end="url(#ah1)"/>
+<rect x="812.0" y="34" width="172" height="112" rx="18" class="shadow"/>
+<rect x="808.0" y="30" width="172" height="112" rx="18" class="box c-teal"/>
+<circle cx="832.0" cy="56" r="13" class="num c-teal"/>
+<text x="832.0" y="61" text-anchor="middle" class="t-num">5</text>
+<text x="852.0" y="61" class="t-who">parent</text>
+<text x="824.0" y="92" class="t-row-strong">They sign in</text>
+<text x="824.0" y="112" class="t-small">email code → consent</text>
+<text x="824.0" y="129" class="t-small">→ sees the child</text>
+</svg></div>
+      <figcaption>The admin adds parents and family inside the child. <strong>Add a parent or relative</strong> opens a pop-up to choose how the person is related: mother, father or legal guardian; grandmother or grandfather; aunt or uncle (with mother's or father's side); elder sister or brother; cousin or another relative. Each has its own icon. A parent who lives abroad is marked <strong>Lives outside India</strong>: they get every update, and the family here collects. Then the class (Playgroup, Nursery, Jr KG, Sr KG, or a programme of its own) and its programme, each showing its real windows.</figcaption>
+    </figure>
+    <ol class="steps">
+      <li><p><strong>The child.</strong> Full name, the name used at school, and date of birth. The app shows the age and suggests the class.</p></li>
+      <li><p><strong>Class and programme.</strong> First the class (Nursery is suggested for a 3-year-old), then the programme: Half day morning <span class="mono">9:00–11:30</span>, afternoon <span class="mono">11:45–2:15</span>, 360° <span class="mono">11:45–5:30</span>, or 360°+ (in school <span class="mono">11:45–5:30</span>, pickup any time until 7). No separate class group to choose.</p></li>
+      <li><p><strong>Parents.</strong> Name, relation, email and mobile, and <strong>app access</strong>. Parents abroad keep their foreign number, with its country code.</p></li>
+      <li><p><strong>Family who can collect.</strong> Grandparents, aunts, uncles and older siblings, chosen from the relation pop-up. They collect from the gate without a link, like parents, and can have the app too. Anyone else is a third person, sent a one-trip link by a parent.</p></li>
+      <li><p><strong>Saved in one step.</strong> The child, parents and family are saved together or not at all. Each person with app access signs in with an email code and sees the child's day.</p></li>
+    </ol>
+  </section>
+
+  <section id="pickup">
+    <div class="section-head">
+      <span class="tab" style="background: var(--teal-soft)">The main safety journey</span>
+      <h2>A pickup, start to finish</h2>
+      <p>Aarav's mother sends the family's driver, Ramesh, to collect him at 1:00, inside his 1:00–1:15 pickup window. Ramesh isn't family the school knows, so he gets a one-trip link and a code. Nobody has to approve the request: the announcement starts the moment she taps, and the school gets Aarav ready while Ramesh is on the way.</p>
+    </div>
+    <figure class="sticker">
+      <div class="scroll"><svg viewBox="0 0 980 662" role="img" aria-label="A pickup from the parent's tap to the child reaching home, as messages between the parent, the Jumpstart server, the coordinator iPad and the third person." class="diagram">
+<defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect x="46" y="14" width="176" height="54" rx="16" class="shadow"/>
+<rect x="42" y="10" width="176" height="54" rx="16" class="box c-blue"/>
+<text x="130" y="34" text-anchor="middle" class="t-row-strong">Parent</text>
+<text x="130" y="52" text-anchor="middle" class="t-who">phone</text>
+<line x1="130" y1="70" x2="130" y2="654" class="lifeline"/>
+<rect x="296" y="14" width="176" height="54" rx="16" class="shadow"/>
+<rect x="292" y="10" width="176" height="54" rx="16" class="box c-violet"/>
+<text x="380" y="34" text-anchor="middle" class="t-row-strong">Jumpstart</text>
+<text x="380" y="52" text-anchor="middle" class="t-who">server</text>
+<line x1="380" y1="70" x2="380" y2="654" class="lifeline"/>
+<rect x="546" y="14" width="176" height="54" rx="16" class="shadow"/>
+<rect x="542" y="10" width="176" height="54" rx="16" class="box c-orange"/>
+<text x="630" y="34" text-anchor="middle" class="t-row-strong">Coordinator</text>
+<text x="630" y="52" text-anchor="middle" class="t-who">iPad at the gate</text>
+<line x1="630" y1="70" x2="630" y2="654" class="lifeline"/>
+<rect x="786" y="14" width="176" height="54" rx="16" class="shadow"/>
+<rect x="782" y="10" width="176" height="54" rx="16" class="box c-green"/>
+<text x="870" y="34" text-anchor="middle" class="t-row-strong">Third person</text>
+<text x="870" y="52" text-anchor="middle" class="t-who">phone, from the link</text>
+<line x1="870" y1="70" x2="870" y2="654" class="lifeline"/>
+<line x1="136" y1="96" x2="372" y2="96" class="arrow" marker-end="url(#ah2)"/>
+<rect x="148.4" y="74" width="213.2" height="18" rx="9" class="label-bg"/>
+<text x="255.0" y="87" text-anchor="middle" class="t-msg">Ramesh picks up Aarav at 1:00</text>
+<line x1="386" y1="138" x2="622" y2="138" class="arrow" marker-end="url(#ah2)"/>
+<rect x="391.6" y="116" width="226.8" height="18" rx="9" class="label-bg"/>
+<text x="505.0" y="129" text-anchor="middle" class="t-msg">announced at once to Sunflowers</text>
+<line x1="136" y1="180" x2="862" y2="180" class="arrow" marker-end="url(#ah2)"/>
+<rect x="386.6" y="158" width="226.8" height="18" rx="9" class="label-bg"/>
+<text x="500.0" y="171" text-anchor="middle" class="t-msg">link on WhatsApp (and by email)</text>
+<line x1="864" y1="222" x2="388" y2="222" class="arrow" marker-end="url(#ah2)"/>
+<rect x="504.8" y="200" width="240.4" height="18" rx="9" class="label-bg"/>
+<text x="625.0" y="213" text-anchor="middle" class="t-msg">Confirm: link locks to this phone</text>
+<line x1="864" y1="264" x2="388" y2="264" class="arrow" marker-end="url(#ah2)"/>
+<rect x="525.2" y="242" width="199.6" height="18" rx="9" class="label-bg"/>
+<text x="625.0" y="255" text-anchor="middle" class="t-msg">location every 5–10 seconds</text>
+<line x1="374" y1="306" x2="138" y2="306" class="arrow" marker-end="url(#ah2)"/>
+<rect x="145.0" y="284" width="220.0" height="18" rx="9" class="label-bg"/>
+<text x="255.0" y="297" text-anchor="middle" class="t-msg">LIVE map + ETA &quot;about 3–5 min&quot;</text>
+<line x1="386" y1="348" x2="622" y2="348" class="arrow" marker-end="url(#ah2)"/>
+<rect x="371.2" y="326" width="267.6" height="18" rx="9" class="label-bg"/>
+<text x="505.0" y="339" text-anchor="middle" class="t-msg">get ready: 10 min before, or ETA &lt; 10</text>
+<line x1="624" y1="390" x2="388" y2="390" class="arrow" marker-end="url(#ah2)"/>
+<rect x="480.0" y="368" width="50.0" height="18" rx="9" class="label-bg"/>
+<text x="505.0" y="381" text-anchor="middle" class="t-msg">Ready</text>
+<line x1="386" y1="432" x2="622" y2="432" class="arrow" marker-end="url(#ah2)"/>
+<rect x="381.4" y="410" width="247.2" height="18" rx="9" class="label-bg"/>
+<text x="505.0" y="423" text-anchor="middle" class="t-msg">arriving: within 200 m of the gate</text>
+<line x1="864" y1="474" x2="638" y2="474" class="arrow-person" marker-end="url(#ah2)"/>
+<rect x="667.2" y="452" width="165.6" height="18" rx="9" class="label-bg"/>
+<text x="750.0" y="465" text-anchor="middle" class="t-msg">shows the 4-digit code</text>
+<line x1="624" y1="516" x2="388" y2="516" class="arrow" marker-end="url(#ah2)"/>
+<rect x="408.6" y="494" width="192.8" height="18" rx="9" class="label-bg"/>
+<text x="505.0" y="507" text-anchor="middle" class="t-msg">code correct → Handed over</text>
+<line x1="374" y1="558" x2="138" y2="558" class="arrow" marker-end="url(#ah2)"/>
+<rect x="134.8" y="536" width="240.4" height="18" rx="9" class="label-bg"/>
+<text x="255.0" y="549" text-anchor="middle" class="t-msg">&quot;Aarav handed to Ramesh, 1:01 PM&quot;</text>
+<line x1="864" y1="600" x2="388" y2="600" class="arrow" marker-end="url(#ah2)"/>
+<rect x="477.6" y="578" width="294.8" height="18" rx="9" class="label-bg"/>
+<text x="625.0" y="591" text-anchor="middle" class="t-msg">Reached home → trip closes, sharing stops</text>
+</svg></div>
+      <figcaption>Each arrow is a message, and time runs down the page. The dashed green arrow happens in person at the gate: without a photo, the 4-digit code is how the coordinator knows Ramesh holds the real link. Three wrong codes lock the handover and alert the parent and the admin. When a parent collects in person, the coordinator confirms them from the child's guardian list instead.</figcaption>
+    </figure>
+    <div class="cards">
+      <div class="sticker card blue"><h3>Honest location</h3><p>Every position shows its age: <strong>LIVE</strong> under 15 seconds, <strong>RECENT</strong> under a minute, then <strong>STALE</strong>: the marker stops, turns grey, and the ETA is hidden. <strong>UNAVAILABLE</strong> means no location, but the handover still works.</p></div>
+      <div class="sticker card teal"><h3>ETA as a range</h3><p>From the real road route (OpenRouteService, working with your key): "about 3–5 min". Never an exact minute, since there's no live traffic data.</p></div>
+      <div class="sticker card violet"><h3>A link that can't be misused</h3><p>One phone (the first to tap Confirm), one trip, and it stops by itself. WhatsApp link previews can't lock it.</p></div>
+      <div class="sticker card green"><h3>Family collect without a link</h3><p>Grandparents, aunts, uncles and older siblings the admin has added are confirmed from Aarav's list at the gate, exactly like his parents.</p></div>
+      <div class="sticker card yellow"><h3>Privacy after handover</h3><p>Once Aarav is handed over, only his parents see the trip home. The school no longer sees the location.</p></div>
+    </div>
+  </section>
+
+  <section id="announcements">
+    <div class="section-head">
+      <span class="tab" style="background: var(--yellow-soft)">On the coordinators' iPads</span>
+      <h2>How announcements reach the right iPad</h2>
+    </div>
+    <figure class="sticker">
+      <div class="scroll"><svg viewBox="0 0 980 214" role="img" aria-label="Announcement routing: a request goes to the on-duty coordinators of the child's class; if none is on duty, or nobody acknowledges within 2 minutes, it goes to every coordinator on duty." class="diagram">
+<defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect x="20" y="74" width="220" height="70" rx="18" class="shadow"/>
+<rect x="16" y="70" width="220" height="70" rx="18" class="box c-blue"/>
+<text x="34" y="100" class="t-row-strong">A request or change</text>
+<text x="34" y="120" class="t-small">any child&#x27;s pickup or drop-off</text>
+<rect x="388" y="20" width="240" height="70" rx="18" class="shadow"/>
+<rect x="384" y="16" width="240" height="70" rx="18" class="box c-orange"/>
+<text x="402" y="46" class="t-row-strong">Coordinators of that class</text>
+<text x="402" y="66" class="t-small">on duty, chosen by the core team</text>
+<rect x="388" y="132" width="240" height="70" rx="18" class="shadow"/>
+<rect x="384" y="128" width="240" height="70" rx="18" class="box c-flag"/>
+<text x="402" y="158" class="t-row-strong">No one from the class on duty</text>
+<text x="402" y="178" class="t-small">so it goes to everyone</text>
+<rect x="768" y="74" width="200" height="70" rx="18" class="shadow"/>
+<rect x="764" y="70" width="200" height="70" rx="18" class="box c-green"/>
+<text x="782" y="100" class="t-row-strong">Every coordinator on duty</text>
+<text x="782" y="120" class="t-small">so it is never missed</text>
+<line x1="236" y1="96" x2="380" y2="52" class="arrow" marker-end="url(#ah3)"/>
+<rect x="247.2" y="64.0" width="121.6" height="20" rx="10" class="label-bg"/>
+<text x="308.0" y="78.0" text-anchor="middle" class="t-msg">within 3 seconds</text>
+<line x1="236" y1="114" x2="380" y2="162" class="arrow" marker-end="url(#ah3)"/>
+<rect x="250.5" y="128.0" width="115.0" height="20" rx="10" class="label-bg"/>
+<text x="308.0" y="142.0" text-anchor="middle" class="t-msg">if none on duty</text>
+<line x1="624" y1="52" x2="760" y2="96" class="arrow" marker-end="url(#ah3)"/>
+<rect x="624.6" y="64.0" width="134.8" height="20" rx="10" class="label-bg"/>
+<text x="692.0" y="78.0" text-anchor="middle" class="t-msg">no answer in 2 min</text>
+<line x1="624" y1="162" x2="760" y2="114" class="arrow" marker-end="url(#ah3)"/>
+</svg></div>
+      <figcaption>Each coordinator hears the classes the core team chose for them: a chime, then speech, repeating every 2 minutes until someone taps Acknowledge on any iPad. If nobody from the class is on duty, or nobody answers within 2 minutes, every coordinator on duty hears it.</figcaption>
+    </figure>
+    <div class="sticker flow">
+      <div class="flow-head"><span class="state built">Built</span><h3>Choosing the coordinators</h3></div>
+      <ol class="steps">
+        <li><p><strong>The core team (or the admin) opens Coordinators.</strong> Each class lists its coordinators. A class with nobody is marked in orange, because its requests go to every coordinator on duty.</p></li>
+        <li><p><strong>Add coordinator:</strong> choose someone the admin has already added, then tick their classes. If that person is also a parent here, the app warns that they will see every child's pickup details.</p></li>
+        <li><p><strong>Edit</strong> changes a coordinator's classes. <strong>Remove</strong> takes away the Coordinator role, and their classes with it; any other roles stay.</p></li>
+        <li><p><strong>The database enforces the limits.</strong> The core team can give only the Coordinator role, so nobody can raise their own access. Every change goes into the audit log.</p></li>
+      </ol>
+    </div>
+    <div class="callout sun">
+      <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d1b3a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2.5" width="16" height="19" rx="3"/><path d="M11 18.5h2"/></svg></span>
+      <p><strong>One iPad limit to know about.</strong> A web app can only speak while it's open on screen. Start duty keeps the screen awake and checks the speaker, and a notification reaches a locked iPad as a backup. If the school ever needs it to speak while locked, that takes a native iPad app ($99 a year from Apple, only with your approval).</p>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="section-head">
+      <span class="tab" style="background: var(--red-soft)">Where things stand</span>
+      <h2>Built and next</h2>
+    </div>
+    <div class="status">
+      <div class="sticker card"><span class="state built">Built</span><h3>Look and feel</h3><p>The rainbow design, your logo, iPad and phone layouts, light and dark.</p></div>
+      <div class="sticker card"><span class="state built">Built</span><h3>Login and roles</h3><p>Email code, invite-only (enforced by the database), privacy notice, a home area for each role.</p></div>
+      <div class="sticker card"><span class="state built">Built</span><h3>Admin People</h3><p>Children, parents, staff, classes, the programme picker, and turning access off and on.</p></div>
+      <div class="sticker card"><span class="state built">Built</span><h3>Coordinator duty</h3><p>Start duty on the iPad: screen kept awake, sound check, announcement queue.</p></div>
+      <div class="sticker card"><span class="state built">Built</span><h3>Coordinators and classes</h3><p>The core team gives the Coordinator role and chooses each coordinator's classes.</p></div>
+      <div class="sticker card"><span class="state built">Built</span><h3>Try every role</h3><p>A demo with sample children and a dummy code, kept apart from the school's real records.</p></div>
+      <div class="sticker card"><span class="state built">Built</span><h3>Routes and ETA</h3><p>The server-side route service, tested live: "about 5–8 min" from Kothrud.</p></div>
+      <div class="sticker card yellow"><span class="state">Next</span><h3>Your timing rule in the app</h3><p>15 minutes before and after every class, and the 360°+ and Learning Center hours, in the database and in each child's times. Designed in the Screen Book.</p></div>
+      <div class="sticker card yellow"><span class="state">Next</span><h3>Family and the PRO team</h3><p>Relatives who collect, parents abroad, the front desk's area, and Admin locked to Ankit Singh and Aditya Tapadia. Designed in the Screen Book.</p></div>
+      <div class="sticker card"><span class="state">After that</span><h3>Core team timings</h3><p>Edit programme hours, set each child's weekday times, holidays and attendance, and create each day's expected pickups.</p></div>
+      <div class="sticker card"><span class="state">After that</span><h3>The live gate</h3><p>The queue on the iPads, instant announcements, Ready, code entry and handover.</p></div>
+      <div class="sticker card"><span class="state">After that</span><h3>Parents and tracking</h3><p>Change time, Running late, sending a third person, the live map, notifications.</p></div>
+      <div class="sticker card grey"><span class="state">Setup</span><h3>Real login emails</h3><p>Three settings in the Supabase dashboard, then codes reach every inbox. The permanent web address needs one more Cloudflare permission.</p></div>
+    </div>
+  </section>
+
+  <section id="questions">
+    <div class="section-head">
+      <span class="tab" style="background: var(--paper-2)">Still to decide</span>
+      <h2>Questions for you</h2>
+      <p>These affect how the gate works on a real day. Each has my suggestion, so a quick "yes" is enough, or tell me what the school does instead.</p>
+    </div>
+    <div class="qs">
+      <div class="sticker q"><span class="num">Question 1 · At the gate</span><h3>Someone who isn't on the list comes for a child.</h3><p>No link, not a guardian: an uncle, or a neighbour asked at the last minute.</p>
+        <div class="suggest"><b>I suggest</b><p>The child is not released. The coordinator taps Call parent in the app, and the parent can send that person a link on the spot, which gives them a code. The attempt is recorded.</p></div></div>
+      <div class="sticker q"><span class="num">Question 2 · Safety</span><h3>Should the admin be able to mark a person who must not collect a child?</h3><p>For example, a custody arrangement or a court order.</p>
+        <div class="suggest"><b>I suggest</b><p>Yes. Only the admin can add it; coordinators see it in red at the gate. Parents don't see the note, so it can't cause conflict at home.</p></div></div>
+      <div class="sticker q"><span class="num">Question 3 · Two guardians</span><h3>Do both parents have the same say?</h3><p>Changing today's time, sending a third person, reporting an absence.</p>
+        <div class="suggest"><b>I suggest</b><p>Yes, equally, and the other parent is told about every change the moment it's made.</p></div></div>
+      <div class="sticker q"><span class="num">Question 4 · Siblings</span><h3>One adult collects two children from different classes.</h3><p>For example, Jr KG and the Learning Center at the same time.</p>
+        <div class="suggest"><b>I suggest</b><p>One request covers both children. Each class's coordinators hear their own child, and each handover is confirmed separately.</p></div></div>
+      <div class="sticker q"><span class="num">Question 5 · Closing time</span><h3>Nobody has come by 7:15 PM.</h3><p>The school closes, but the child is still there.</p>
+        <div class="suggest"><b>I suggest</b><p>At 7:00 PM the app alerts the core team, the parents and the family; at 7:15 it asks the core team to call. Please tell me who stays with the child, so the app can name them.</p></div></div>
+      <div class="sticker q"><span class="num">Question 6 · Age</span><h3>Is there a minimum age for the adult collecting?</h3><p>For example, an older brother or sister of 15 or 16.</p>
+        <div class="suggest"><b>I suggest</b><p>18 or older for anyone sent as a third person, and for an older brother or sister added as family. The admin confirms the age when adding them.</p></div></div>
+      <div class="sticker q"><span class="num">Question 7 · After School</span><h3>After School ends at 7:00 PM. Is pickup 7:00 to 7:15?</h3><p>That follows your 15-minute rule, but it is the only pickup after the school day ends.</p>
+        <div class="suggest"><b>I suggest</b><p>Keep 7:00–7:15 for After School only, and say so on the parents' screen.</p></div></div>
+      <div class="sticker q"><span class="num">Question 8 · Learning Center</span><h3>Do Learning Center children only arrive 8:45 to 9:00?</h3><p>You said drop-off 8:45–9:00 and pickup any time until 7. Some daycare children may come later, for example after a morning class elsewhere.</p>
+        <div class="suggest"><b>I suggest</b><p>Keep 8:45–9:00 as the window. A later drop-off is still allowed with a reason, and the coordinator sees it flagged.</p></div></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Jumpstart App Blueprint</span>
+    <span>Jumpstart International Preschool &amp; Learning Center · Karve Road, Erandwane, Pune</span>
+    <span>Sources: jumpstartpreschool.in and the product documents</span>
+  </footer>
+</div>

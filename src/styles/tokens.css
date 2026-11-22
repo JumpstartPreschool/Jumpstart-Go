@@ -1,0 +1,190 @@
+/*
+ * Jumpstart design tokens (docs/design/design-system.md). One source for colour, type, shape, depth and motion.
+ * Direction (owner, 2026-09-24): calm solid surfaces on a warm canvas, the logo's rainbow only as a whisper,
+ * solid buttons with a darker lip, no gradients, glow or shine; icons, not colours, tell roles and classes apart.
+ * Light and dark are designed separately. Text tokens meet WCAG 2.2 AA on their surfaces; status colours always
+ * come with an icon and words.
+ */
+:root {
+  color-scheme: light;
+
+  /* Brand rainbow (from the logo): child avatars, handoff-code tiles and small accents. Never text on its own. */
+  --rb-red: #ef3b3f;
+  --rb-orange: #f7852a;
+  --rb-yellow: #ffc21a;
+  --rb-green: #3cb44b;
+  --rb-teal: #14afa5;
+  --rb-blue: #1f8be6;
+  --rb-violet: #8b5cf6;
+  --rainbow: linear-gradient(90deg, var(--rb-red), var(--rb-orange), var(--rb-yellow), var(--rb-green), var(--rb-teal), var(--rb-blue));
+
+  /* Surfaces */
+  --canvas: #fdfbf8; /* page background */
+  --surface: #ffffff; /* cards, inputs, sheets */
+  --elevated: #ffffff; /* sheets and menus, lifted by shadow */
+  --sunken: #f4f2f7; /* tracks, tiles inside cards */
+  --sunken-hover: #ebe8f1;
+  --bar: rgb(255 255 255 / 0.86); /* floating bars over scrolling content (with blur) */
+  --scrim: rgb(22 25 58 / 0.32);
+
+  /* Text */
+  --ink: #16193a; /* primary: 15.9:1 on surface */
+  --ink-2: #4b5070; /* secondary: 7.8:1 */
+  --ink-3: #8a8ea6; /* muted: icons, placeholders and non-essential text only (3.2:1) */
+  --on-accent: #ffffff;
+
+  /* Lines */
+  --line: #ece8f1; /* dividers, card edges */
+  --line-2: #ddd8e6; /* input edges, button lips on light surfaces */
+  --line-hover: #cfc9dc;
+
+  /* Primary: Jumpstart red, from the logo's J and star, deepened so white text reads (5.6:1); blush for tints. */
+  --accent: #c8262c;
+  --accent-hover: #b41f25;
+  --accent-lip: #8a161b;
+  --accent-soft: #fdeceb;
+  --accent-ink: #a61c22; /* accent text and links on light surfaces, 7.5:1 */
+  --brand-deep: #5a0f1a; /* the sign-in panel and other large brand surfaces: deep wine */
+
+  /* Secondary: ink, for area chips and solid labels */
+  --secondary: #16193a;
+  --secondary-lip: #000000;
+
+  /* Warm accent: sunshine, for friendly secondary actions such as Running late (dark text 11:1) */
+  --sun: #ffc21a;
+  --sun-hover: #ffb300;
+  --sun-lip: #d18e00;
+  --sun-ink: #2b1a00;
+
+  /* Status */
+  --success: #157f40; /* white text 5.1:1 */
+  --success-hover: #106c36;
+  --success-lip: #0d5a2c;
+  --live: #137a3b;
+  --live-soft: #e1f5e8;
+  --warning: #b4430b; /* also "flag": off-schedule, short notice */
+  --warning-soft: #ffeedf;
+  --danger: #c4231f;
+  --danger-soft: #ffe9e8;
+  --danger-hover: #fff0ef;
+  --danger-line: #f0c6c4;
+  --danger-strong: #b91c1c; /* filled alerts with white text */
+  --info: #0f766e; /* the logo's teal, so information never reads as an error */
+  --info-soft: #e6f5f3;
+  --recent: #8f5a00;
+  --recent-soft: #fff0cc;
+  --stale: #5b6478;
+  --stale-soft: #e9ecf3;
+
+  /* Focus is ink, not red: on a red-themed app a red outline would read as an error. */
+  --focus: rgb(22 25 58 / 0.5);
+  --focus-ring: 0 0 0 4px rgb(22 25 58 / 0.1);
+
+  /* Whisper of the logo's colours behind every page */
+  --whisper-a: rgb(239 59 63 / 0.07);
+  --whisper-b: rgb(31 139 230 / 0.09);
+  --whisper-c: rgb(255 194 26 / 0.11);
+
+  /* Depth: one shadow per role */
+  --shadow-card: 0 1px 2px rgb(22 25 58 / 0.05), 0 14px 34px -22px rgb(22 25 58 / 0.3);
+  --shadow-float: 0 16px 36px -20px rgb(22 25 58 / 0.35), 0 2px 6px rgb(22 25 58 / 0.05);
+  --shadow-lift: 0 30px 70px -30px rgb(22 25 58 / 0.55), 0 10px 22px -14px rgb(22 25 58 / 0.25);
+
+  /* Shape */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  /* Motion: fast enough to feel immediate, never waiting on an animation */
+  --dur-press: 80ms;
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1); /* small things only: badges, switches, checks */
+}
+
+/*
+ * Dark: a calm night sky. Surfaces step lighter as they rise; text and accents re-tuned for contrast.
+ * Off for now (owner, 2026-09-24: light only, whatever the device's setting). It applies only while <html> carries
+ * data-theme="dark"; nothing sets that yet. To follow the device again, wrap this in @media (prefers-color-scheme: dark).
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --rb-red: #ff5a5e;
+  --rb-orange: #ff9a45;
+  --rb-yellow: #ffd23f;
+  --rb-green: #55cf65;
+  --rb-teal: #2cc9be;
+  --rb-blue: #4aa6ff;
+  --rb-violet: #a78bfa;
+
+  --canvas: #0d0f22;
+  --surface: #161a35;
+  --elevated: #1c2041;
+  --sunken: #20254a;
+  --sunken-hover: #292e57;
+  --bar: rgb(22 26 53 / 0.86);
+  --scrim: rgb(4 5 16 / 0.6);
+
+  --ink: #f3f4ff; /* 15.6:1 on surface */
+  --ink-2: #b8bcdc; /* 9.3:1 */
+  --ink-3: #8185aa;
+  --on-accent: #ffffff;
+
+  --line: #262a4d;
+  --line-2: #343960;
+  --line-hover: #444a74;
+
+  --accent: #d42f35; /* white text 4.9:1 */
+  --accent-hover: #e04449;
+  --accent-lip: #8a161b;
+  --accent-soft: rgb(229 72 77 / 0.18);
+  --accent-ink: #ff8a8e;
+
+  --secondary: #f3f4ff;
+  --secondary-lip: #9da2c8;
+
+  --sun-lip: #b37a00;
+
+  --success: #1a8a47;
+  --success-hover: #1f9a50;
+  --success-lip: #0e5a2d;
+  --live: #5de08f;
+  --live-soft: rgb(93 224 143 / 0.14);
+  --warning: #ffa062;
+  --warning-soft: rgb(255 160 98 / 0.14);
+  --danger: #ff8a86;
+  --danger-soft: rgb(255 128 128 / 0.14);
+  --danger-hover: rgb(255 128 128 / 0.2);
+  --danger-line: rgb(255 128 128 / 0.35);
+  --danger-strong: #c42b2b;
+  --info: #5eead4;
+  --info-soft: rgb(45 212 191 / 0.16);
+  --recent: #ffc857;
+  --recent-soft: rgb(255 200 87 / 0.14);
+  --stale: #a1a8c3;
+  --stale-soft: rgb(161 168 195 / 0.14);
+
+  --focus: rgb(255 138 142 / 0.75);
+  --focus-ring: 0 0 0 4px rgb(255 138 142 / 0.2);
+
+  --whisper-a: rgb(255 90 94 / 0.08);
+  --whisper-b: rgb(74 166 255 / 0.12);
+  --whisper-c: rgb(167 139 250 / 0.08);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35), 0 14px 34px -22px rgb(0 0 0 / 0.8);
+  --shadow-float: 0 16px 36px -18px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.3);
+  --shadow-lift: 0 30px 70px -26px rgb(0 0 0 / 0.85), 0 10px 22px -14px rgb(0 0 0 / 0.5);
+}
+
+/* Layout: the side gutter grows with the screen; content stays at a readable width on very wide screens. */
+:root { --gutter: 16px; --content: 1180px; }
+@media (min-width: 640px) { :root { --gutter: 24px; } }
+@media (min-width: 1024px) { :root { --gutter: 32px; } }
+@media (min-width: 1440px) { :root { --content: 1320px; } }

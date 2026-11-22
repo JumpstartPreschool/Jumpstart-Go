@@ -1,0 +1,1555 @@
+<title>Jumpstart Screen Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&display=swap">
+<style>
+  /* Jumpstart Screen Book, version 2.
+     Type: one family, Plus Jakarta Sans, for everything; emphasis is its own italic or bold.
+     Corners: controls 12-16px (by size), cards and sheets 24px, status tags fully round.
+     Buttons: solid colour on a darker lip, pressed down by the lip's depth. No gradients, no glows.
+     Screens inside device frames are sized in em from the frame width, so each mock scales as one object. */
+  :root {
+    color-scheme: light;
+    --canvas: #fdfbf8;
+    --paper: #ffffff;
+    --ink: #16193a;
+    --ink-2: #4b5070;
+    --ink-3: #8a8ea6;
+    --line: #ece8f1;
+    --line-2: #ddd8e6;
+    --sunken: #f4f2f7;
+
+    --red: #ef3b3f; --orange: #f7852a; --yellow: #ffc21a; --green: #3cb44b; --teal: #14afa5; --blue: #1f8be6; --violet: #8b5cf6;
+    --rainbow: linear-gradient(90deg, var(--red), var(--orange), var(--yellow), var(--green), var(--teal), var(--blue));
+
+    --accent: #1560d4; --accent-lip: #0c3e8f; --accent-soft: #eaf2ff; --accent-ink: #0f4aae;
+    --sun: #ffc21a; --sun-lip: #d18e00; --sun-ink: #2b1a00;
+    --ok: #1e9a52; --ok-lip: #136b38;
+    --live: #137a3b; --live-soft: #e1f5e8;
+    --flag: #b4430b; --flag-soft: #ffeedf;
+    --danger: #c4231f; --danger-soft: #ffe9e8;
+
+    --card-shadow: 0 1px 2px rgb(22 25 58 / 0.05), 0 14px 34px -20px rgb(22 25 58 / 0.28);
+    --float-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 16px 36px -20px rgb(22 25 58 / 0.35), 0 2px 6px rgb(22 25 58 / 0.05);
+    --lift: 0 34px 70px -34px rgb(22 25 58 / 0.55), 0 10px 22px -14px rgb(22 25 58 / 0.25);
+
+    --spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --paper: #fffefb;
+    --sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--canvas); scroll-behavior: smooth; }
+  body { margin: 0; background: var(--canvas); color: var(--ink); font: 500 16px/1.55 var(--sans); padding-inline: 16px; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4 { font-family: var(--sans); font-weight: 800; margin: 0; line-height: 1.08; letter-spacing: -0.03em; text-wrap: balance; }
+  p { margin: 0; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid rgb(21 96 212 / 0.55); outline-offset: 3px; border-radius: 14px; }
+  .i { width: 1.2em; height: 1.2em; flex: none; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--ink-2); }
+
+  /* A whisper of the logo's colours behind the page */
+  .aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(38vmax 30vmax at 4% -6%, rgb(239 59 63 / 0.08), transparent 70%), radial-gradient(40vmax 32vmax at 98% 0%, rgb(31 139 230 / 0.1), transparent 70%), radial-gradient(46vmax 30vmax at 50% 106%, rgb(255 194 26 / 0.12), transparent 70%); }
+  .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding-block: 0 88px; }
+
+  /* Buttons ------------------------------------------------------------------------------------ */
+  .btn { --b: var(--accent); --lip: var(--accent-lip); --fg: #fff; --edge: transparent;
+    position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 0.5em; height: 3.4em; padding: 0 1.35em;
+    border: 0; border-radius: 1em; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+    font: 750 1em/1 var(--sans); letter-spacing: -0.005em; color: var(--fg); background: var(--b);
+    box-shadow: 0 0.25em 0 var(--lip), inset 0 0 0 1.5px var(--edge), inset 0 1px 0 rgb(255 255 255 / 0.22);
+    transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease), background-color 0.2s var(--ease), filter 0.2s var(--ease); }
+  /* Hover is a real colour change (per variant below), never a shine. */
+  .btn:active, .btn.fake-press { transform: translateY(0.2em); box-shadow: 0 0.05em 0 var(--lip), inset 0 0 0 1.5px var(--edge), inset 0 1px 0 rgb(255 255 255 / 0.16); transition-duration: 0.06s; }
+  .btn .i { width: 1.25em; height: 1.25em; stroke-width: 2.3; }
+  .btn.sm { height: 2.85em; padding: 0 1em; font-size: 0.92em; border-radius: 0.85em; box-shadow: 0 0.2em 0 var(--lip), inset 0 0 0 1.5px var(--edge); }
+  .btn.sm:active { box-shadow: 0 0.04em 0 var(--lip), inset 0 0 0 1.5px var(--edge); transform: translateY(0.16em); }
+  .btn.lg { height: 3.75em; padding: 0 1.6em; font-size: 1.06em; border-radius: 1.05em; }
+  .btn.block { width: 100%; }
+  .btn.primary { --b: var(--accent); --lip: var(--accent-lip); }
+  .btn.primary:hover { --b: #0f4fb8; }
+  .btn.sunshine { --b: var(--sun); --lip: var(--sun-lip); --fg: var(--sun-ink); }
+  .btn.sunshine:hover { --b: #ffb300; }
+  .btn.success { --b: var(--ok); --lip: var(--ok-lip); }
+  .btn.success:hover { --b: #17853f; }
+  .btn.glass { --b: var(--paper); --lip: var(--line-2); --fg: var(--ink); --edge: var(--line-2); }
+  .btn.glass:hover { --b: #f1eff7; }
+  .btn.danger { --b: var(--paper); --lip: #f0c6c4; --fg: var(--danger); --edge: #f0c6c4; }
+  .btn.danger:hover { --b: #fff0ef; }
+  .btn.quiet { --b: transparent; --fg: var(--ink-2); box-shadow: none; }
+  .btn.quiet:hover { --b: var(--sunken); --fg: var(--ink); }
+  .btn.quiet:active { transform: scale(0.97); box-shadow: none; }
+  .btn[disabled] { --b: #eceaf1; --lip: #d9d6e0; --fg: #9d9bad; --edge: transparent; filter: none; pointer-events: none; }
+  .btn.fake-focus { outline: 3px solid rgb(21 96 212 / 0.55); outline-offset: 3px; }
+  .btn.primary.fake-hover { --b: #0f4fb8; }
+  .btn .spin { width: 1.15em; height: 1.15em; border-radius: 50%; border: 0.17em solid rgb(255 255 255 / 0.35); border-top-color: currentColor; animation: spin 0.7s linear infinite; }
+  .btn.glass .spin { border-color: var(--line-2); border-top-color: var(--ink); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn .check { stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw 0.4s var(--ease) 0.05s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .btn.pop { animation: pop 0.45s var(--spring); }
+  @keyframes pop { 0% { transform: translateY(0.2em); } 55% { transform: translateY(-0.08em); } 100% { transform: none; } }
+
+  /* Pressable choices: minutes, reasons, classes, roles */
+  .choice { --edge: var(--line-2); --lip: var(--line-2); --bg: var(--paper); position: relative; border: 0; cursor: pointer; text-align: left; background: var(--bg); color: var(--ink);
+    border-radius: 1em; box-shadow: 0 0.2em 0 var(--lip), inset 0 0 0 1.5px var(--edge);
+    transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease), background-color 0.2s var(--ease), color 0.2s; }
+  .choice:active { transform: translateY(0.16em); box-shadow: 0 0.04em 0 var(--lip), inset 0 0 0 1.5px var(--edge); }
+  .choice:hover { --bg: #f7f6fb; }
+  .choice[aria-checked="true"] { --edge: var(--accent); --lip: var(--accent-lip); --bg: var(--accent-soft); color: var(--accent-ink); box-shadow: 0 0.2em 0 var(--lip), inset 0 0 0 2px var(--edge); }
+  .choice[aria-checked="true"]::after { content: ''; position: absolute; top: -0.45em; right: -0.45em; width: 1.35em; height: 1.35em; border-radius: 50%; box-shadow: 0 0 0 0.16em #fff;
+    background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 62% no-repeat;
+    animation: badge 0.35s var(--spring); }
+  @keyframes badge { from { transform: scale(0); } to { transform: scale(1); } }
+  .choice[disabled] { opacity: 0.45; pointer-events: none; }
+
+  .pill { display: inline-flex; align-items: center; gap: 0.4em; height: 2.05em; padding: 0 0.8em; border-radius: 999px; font: 750 0.8em/1 var(--sans); white-space: nowrap; }
+  .pill .i { width: 1.1em; height: 1.1em; stroke-width: 2.4; }
+  .pill.live { background: var(--live-soft); color: var(--live); }
+  .pill.blue { background: var(--accent-soft); color: var(--accent-ink); }
+  .pill.flag { background: var(--flag-soft); color: var(--flag); }
+  .pill.muted { background: var(--sunken); color: var(--ink-2); }
+  .pill.solid { background: var(--ink); color: #fff; }
+  .pulse { width: 0.55em; height: 0.55em; border-radius: 50%; background: currentColor; position: relative; }
+  .pulse::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: ping 1.8s var(--ease) infinite; }
+  @keyframes ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(2.8); opacity: 0; } }
+
+  .card { background: var(--paper); border: 1px solid var(--line); box-shadow: var(--card-shadow); border-radius: 1.5em; }
+  .glassbar { background: rgb(255 255 255 / 0.86); border: 1px solid rgb(255 255 255 / 0.95); box-shadow: var(--float-shadow); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); }
+  .avatar { display: grid; place-items: center; flex: none; width: 3.3em; height: 3.3em; border-radius: 50%; color: #fff; background: var(--c); box-shadow: 0 0 0 0.2em #fff, 0 0.35em 0.8em -0.3em rgb(22 25 58 / 0.3); }
+  .avatar span { font: 800 1.35em/1 var(--sans); letter-spacing: -0.02em; }
+  .avatar.lg { width: 4.3em; height: 4.3em; } .avatar.lg span { font-size: 2em; }
+  .avatar.sm { width: 2.6em; height: 2.6em; } .avatar.sm span { font-size: 1.2em; }
+  .kicker { font: 750 0.72em/1.25 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* Segmented tabs: a sunken track and a raised white segment */
+  .tabs { display: flex; gap: 0.2em; padding: 0.28em; border-radius: 1.05em; width: fit-content; background: var(--sunken); box-shadow: inset 0 1px 2px rgb(22 25 58 / 0.07); }
+  .tabs span { display: flex; align-items: center; gap: 0.45em; height: 2.6em; padding: 0 0.95em; border-radius: 0.8em; font: 750 0.9em/1 var(--sans); color: var(--ink-2); }
+  .tabs span .i { color: var(--ink-3); }
+  .tabs span.on { background: var(--paper); color: var(--ink); box-shadow: 0 0.14em 0 var(--line-2), 0 1px 3px rgb(22 25 58 / 0.08); }
+  .tabs span.on .i { color: var(--c, var(--accent)); }
+  .tabs span em { font-style: normal; font-size: 0.82em; padding: 0.2em 0.5em; border-radius: 999px; background: rgb(22 25 58 / 0.06); color: var(--ink-2); }
+
+  /* Top bar ---------------------------------------------------------------------------------------- */
+  .topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; padding-top: 12px; }
+  .topbar-in { display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; border-radius: 22px; }
+  .topbar img { height: 30px; width: auto; display: block; }
+  .topbar .book { font: 750 12px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); padding-left: 14px; border-left: 1.5px solid var(--line-2); }
+  .topnav { margin-left: auto; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .topnav a { flex: none; font: 700 14px/1 var(--sans); color: var(--ink-2); text-decoration: none; padding: 11px 13px; border-radius: 12px; transition: background 0.2s var(--ease), color 0.2s var(--ease); }
+  .topnav a:hover { background: var(--sunken); color: var(--ink); }
+  @media (max-width: 720px) { .topbar .book { display: none; } .topnav a { padding: 10px 10px; font-size: 13px; } }
+
+  /* Hero -------------------------------------------------------------------------------------------- */
+  .hero { display: grid; gap: 20px; padding-block: 60px 28px; scroll-margin-top: 70px; }
+  .eyebrow { font: 750 12.5px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); display: inline-flex; align-items: center; gap: 10px; }
+  .eyebrow .bar { width: 34px; height: 4px; border-radius: 4px; background: var(--rainbow); }
+  .hero h1 { font-size: clamp(38px, 5.2vw, 64px); font-weight: 800; line-height: 1.1; letter-spacing: -0.04em; max-width: 18ch; padding-bottom: 0.08em; }
+  .hero h1 em { font-style: italic; font-weight: 800; color: var(--accent); }
+  .lede { font-size: clamp(17px, 2vw, 19.5px); line-height: 1.6; color: var(--ink-2); max-width: 58ch; }
+  .lede strong { color: var(--ink); font-weight: 750; }
+  .sample-note { display: inline-flex; align-items: center; gap: 8px; width: fit-content; font: 700 13px/1 var(--sans); color: var(--ink-2); background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; }
+
+  .stage { position: relative; display: grid; grid-template-columns: 300px 110px minmax(0, 1fr); align-items: center; padding: 34px 28px; border-radius: 36px; background: rgb(255 255 255 / 0.7); border: 1px solid var(--line); box-shadow: var(--card-shadow); }
+  .stage-col { display: grid; gap: 14px; justify-items: center; min-width: 0; width: 100%; }
+  .stage-label { font: 700 14px/1 var(--sans); color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+  .trail { position: relative; height: 180px; }
+  .trail svg { width: 100%; height: 100%; overflow: visible; }
+  .trail path.dash { fill: none; stroke: var(--ink); stroke-opacity: 0.3; stroke-width: 2; stroke-dasharray: 5 7; stroke-linecap: round; }
+  .flyer { position: absolute; left: 0; top: 0; width: 34px; height: 34px; offset-path: path('M4 140 C 30 10, 80 10, 106 120'); offset-distance: 0%; offset-rotate: 0deg; opacity: 0; }
+  .flyer.go { animation: fly 1s var(--ease) forwards; }
+  @keyframes fly { 0% { offset-distance: 0%; opacity: 0; transform: scale(0.6); } 15% { opacity: 1; transform: scale(1.1); } 85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; transform: scale(0.8) rotate(160deg); } }
+  .stage-tools { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: center; margin-top: 20px; }
+  .toggle { display: inline-flex; align-items: center; gap: 10px; font: 700 14px/1 var(--sans); color: var(--ink-2); cursor: pointer; user-select: none; }
+  .toggle input { appearance: none; width: 46px; height: 28px; border-radius: 28px; background: var(--line-2); position: relative; cursor: pointer; transition: background 0.25s var(--ease); margin: 0; }
+  .toggle input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); box-shadow: 0 2px 5px rgb(0 0 0 / 0.2); transition: transform 0.35s var(--spring); }
+  .toggle input:checked { background: var(--accent); }
+  .toggle input:checked::after { transform: translateX(18px); }
+  @media (max-width: 1060px) { .stage { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 26px 14px; } .trail { display: none; } }
+
+  /* Device frames ---------------------------------------------------------------------------------- */
+  .phone { width: min(300px, 100%); container-type: inline-size; }
+  .phone-body { aspect-ratio: 300 / 640; border-radius: 46px; padding: 9px; background: linear-gradient(150deg, #2a2d48, #0d0f1f 60%, #24284a); box-shadow: var(--lift), inset 0 0 0 1.5px rgb(255 255 255 / 0.12); }
+  .ipad { width: 100%; max-width: 880px; container-type: inline-size; margin-inline: auto; }
+  .ipad-body { aspect-ratio: 1180 / 820; border-radius: clamp(14px, 3.4cqw, 30px); padding: clamp(5px, 1.2cqw, 11px); background: linear-gradient(150deg, #2a2d48, #0d0f1f 60%, #24284a); box-shadow: var(--lift), inset 0 0 0 1.5px rgb(255 255 255 / 0.12); }
+  .ipad-scroll { width: 100%; }
+  .screen { position: relative; height: 100%; overflow: hidden; border-radius: 38px; background: var(--canvas); isolation: isolate; }
+  .phone .screen { font-size: calc(100cqw / 24); }
+  .ipad .screen { border-radius: clamp(10px, 2.3cqw, 20px); font-size: calc(100cqw / 66); }
+  .screen::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(70% 40% at 0% 0%, rgb(239 59 63 / 0.07), transparent 70%), radial-gradient(70% 45% at 100% 6%, rgb(31 139 230 / 0.09), transparent 70%), radial-gradient(80% 40% at 50% 100%, rgb(255 194 26 / 0.1), transparent 70%); }
+  .status { display: flex; justify-content: space-between; align-items: center; padding: 1.05em 1.9em 0.3em; font: 700 0.95em/1 var(--sans); }
+  .status .notch { width: 7.2em; height: 1.9em; border-radius: 1em; background: #0d0f1f; position: absolute; left: 50%; top: 0.7em; transform: translateX(-50%); }
+  .status .sig { display: flex; gap: 0.25em; align-items: flex-end; }
+  .status .sig b { width: 0.28em; background: var(--ink); border-radius: 1px; display: block; }
+
+  /* Parent: Today ---------------------------------------------------------------------------------- */
+  .p-head { display: flex; align-items: center; justify-content: space-between; padding: 0.9em 1.5em 0; }
+  .p-head img { height: 2.3em; width: auto; display: block; }
+  .roundbtn { width: 2.8em; height: 2.8em; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .roundbtn .dotred { position: absolute; top: 0.6em; right: 0.65em; width: 0.6em; height: 0.6em; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 0.16em #fff; }
+  .p-greet { padding: 1.2em 1.5em 0.2em; }
+  .p-greet h2 { font-size: 2.15em; font-weight: 800; margin-top: 0.25em; letter-spacing: -0.03em; }
+  .child { margin: 1em 1.1em 0; padding: 1.1em; }
+  .child-top { display: flex; align-items: center; gap: 0.85em; }
+  .child-top h3 { font: 800 1.45em/1.1 var(--sans); letter-spacing: -0.02em; }
+  .child-top .sub { font: 600 0.8em/1.3 var(--sans); color: var(--ink-2); margin-top: 0.15em; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6em; margin-top: 1em; }
+  .tile { border-radius: 1.1em; padding: 0.85em 0.9em; background: var(--sunken); display: grid; gap: 0.25em; align-content: start; }
+  .tile .when { font: 800 1.35em/1.1 var(--sans); letter-spacing: -0.02em; }
+  .tile .win { font: 600 0.76em/1.3 var(--sans); color: var(--ink-2); }
+  .tile.done { background: var(--live-soft); }
+  .tile.done .kicker, .tile.done .when, .tile.done .win { color: var(--live); }
+  .go { margin-top: 0.85em; }
+  .go .btn { width: 100%; height: 3.3em; font-size: 0.95em; }
+  .go p { font: 600 0.72em/1.3 var(--sans); color: var(--ink-3); text-align: center; margin-top: 0.6em; }
+
+  .trip { margin-top: 1em; border-radius: 1.2em; padding: 1em; background: var(--canvas); border: 1px solid var(--line); }
+  .trip-eta { font: 800 1.75em/1.05 var(--sans); letter-spacing: -0.03em; margin-top: 0.45em; }
+  .trip-sub { font: 600 0.84em/1.35 var(--sans); color: var(--ink-2); margin-top: 0.2em; }
+  .steps { list-style: none; margin: 0.8em 0 0; padding: 0; display: grid; gap: 0.1em; }
+  .steps li { display: grid; grid-template-columns: 1.6em 1fr auto; align-items: center; gap: 0.5em; font: 650 0.84em/1.25 var(--sans); color: var(--ink-3); padding: 0.3em 0; position: relative; }
+  .steps li::before { content: ''; width: 1.15em; height: 1.15em; border-radius: 50%; box-shadow: inset 0 0 0 0.15em var(--line-2); background: var(--paper); justify-self: center; transition: background 0.3s var(--ease), box-shadow 0.3s var(--ease), transform 0.4s var(--spring); }
+  .steps li:not(:last-child)::after { content: ''; position: absolute; left: 0.76em; top: 1.55em; width: 0.1em; height: 1.05em; background: var(--line-2); }
+  .steps li.on { color: var(--ink); }
+  .steps li.on::before { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 64% no-repeat; box-shadow: none; transform: scale(1.06); }
+  .trip.ok .steps li.on::before { background-color: var(--ok); }
+  .steps li time { font-size: 0.92em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .trip-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-top: 0.9em; }
+  .trip-actions .btn { height: 2.8em; font-size: 0.84em; padding: 0 0.6em; border-radius: 0.85em; box-shadow: 0 0.2em 0 var(--lip), inset 0 0 0 1.5px var(--edge); }
+  .trip-actions .btn.quiet { box-shadow: none; }
+
+  .tabbar { position: absolute; left: 0.9em; right: 0.9em; bottom: 0.9em; display: grid; grid-template-columns: repeat(4, 1fr); padding: 0.35em; border-radius: 1.5em; }
+  .tabbar span { display: grid; justify-items: center; gap: 0.25em; font: 700 0.68em/1 var(--sans); color: var(--ink-3); padding: 0.4em 0; }
+  .tabbar span .ico { width: 2.6em; height: 2.4em; border-radius: 0.9em; display: grid; place-items: center; }
+  .tabbar span .ico .i { width: 1.5em; height: 1.5em; }
+  .tabbar span.on { color: var(--ink); }
+  .tabbar span.on .ico { color: #fff; background: var(--accent); box-shadow: 0 0.18em 0 var(--accent-lip); }
+
+  /* Sheets ----------------------------------------------------------------------------------------- */
+  .scrim { position: absolute; inset: 0; background: rgb(22 25 58 / 0.3); opacity: 0; pointer-events: none; transition: opacity 0.35s var(--ease); z-index: 5; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--paper); border-radius: 2em 2em 0 0; padding: 0.7em 1.35em 1.5em; box-shadow: 0 -1.2em 3em -1.5em rgb(22 25 58 / 0.4);
+    transform: translateY(105%); transition: transform 0.55s var(--spring); }
+  .open > .scrim { opacity: 1; pointer-events: auto; }
+  .open > .sheet { transform: translateY(0); }
+  .handle { width: 2.8em; height: 0.32em; border-radius: 1em; background: var(--line-2); margin: 0 auto 0.9em; }
+  .sheet h4 { font-size: 1.6em; font-weight: 800; padding-right: 2em; }
+  .sheet-x { position: absolute; right: 1.1em; top: 1.25em; width: 2.4em; height: 2.4em; border-radius: 50%; border: 0; background: var(--sunken); display: grid; place-items: center; cursor: pointer; color: var(--ink-2); transition: transform 0.3s var(--spring); }
+  .sheet-x:active { transform: scale(0.9); }
+  .mins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55em 0.5em; margin-top: 0.75em; }
+  .min { padding: 0.6em 0.3em 0.5em; display: grid; gap: 0.15em; justify-items: center; text-align: center; }
+  .min b { font: 800 1.45em/1 var(--sans); letter-spacing: -0.03em; }
+  .min b small { font-size: 0.5em; font-weight: 700; letter-spacing: 0; margin-left: 0.15em; }
+  .min > small { font: 650 0.72em/1 var(--sans); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .min[aria-checked="true"] > small { color: var(--accent-ink); }
+  .check-line { display: flex; gap: 0.55em; align-items: flex-start; margin-top: 0.9em; border-radius: 1em; padding: 0.7em 0.8em; font: 650 0.82em/1.4 var(--sans); }
+  .check-line .i { margin-top: 0.05em; stroke-width: 2.4; }
+  .check-line.ok { background: var(--live-soft); color: var(--live); }
+  .check-line.early { background: var(--flag-soft); color: var(--flag); }
+  .reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-top: 0.55em; }
+  .reason { display: flex; align-items: center; gap: 0.55em; padding: 0.5em 0.6em; font: 700 0.8em/1.2 var(--sans); }
+  .reason .ri { width: 2.15em; height: 2.15em; border-radius: 0.7em; display: grid; place-items: center; flex: none; background: var(--rs); color: var(--rc); }
+  .reason .ri .i { width: 1.2em; height: 1.2em; }
+  .other { width: 100%; margin-top: 0.5em; height: 2.9em; border-radius: 1em; border: 0; box-shadow: inset 0 0 0 1.5px var(--line-2); padding: 0 0.9em; font: 600 0.84em/1 var(--sans); background: var(--paper); }
+  .other:focus { outline: 0; box-shadow: inset 0 0 0 2px var(--accent); }
+  .fine { font: 600 0.74em/1.4 var(--sans); color: var(--ink-3); text-align: center; margin-top: 0.8em; }
+
+  /* Coordinator iPad -------------------------------------------------------------------------------- */
+  .i-screen { display: grid; grid-template-rows: auto auto 1fr; height: 100%; }
+  .dutybar { display: flex; align-items: center; gap: 1em; margin: 1em 1em 0; padding: 0.55em 0.65em 0.55em 1.2em; border-radius: 1.3em; }
+  .dutybar img { height: 2.05em; width: auto; }
+  .onduty { display: flex; align-items: center; gap: 0.6em; background: var(--live-soft); color: var(--live); border-radius: 999px; padding: 0.45em 1em 0.45em 0.85em; font: 750 0.92em/1.1 var(--sans); }
+  .onduty small { display: block; font: 600 0.78em/1 var(--sans); opacity: 0.85; }
+  .clock { margin-left: auto; font: 800 2.1em/1 var(--sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .nowbar { display: flex; align-items: center; gap: 0.9em; margin: 0.7em 1em 0; padding: 0.7em 1em; border-radius: 1.2em; min-height: 3.8em; position: relative; overflow: hidden; }
+  .nowbar .ico { width: 2.55em; height: 2.55em; border-radius: 0.85em; display: grid; place-items: center; background: var(--sunken); color: var(--ink-3); flex: none; transition: background 0.3s, color 0.3s; }
+  .nowbar.on .ico { color: #fff; background: var(--accent); box-shadow: 0 0.18em 0 var(--accent-lip); }
+  .nowbar .txt { min-width: 0; flex: 1; }
+  .nowbar .txt p:last-child { font: 700 1.04em/1.3 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nowbar .rb { position: absolute; left: 0; right: 0; bottom: 0; height: 0.24em; background: var(--rainbow); transform: scaleX(0); transform-origin: left; }
+  .nowbar.on .rb { animation: sweep 2.6s var(--ease) infinite; }
+  @keyframes sweep { 0% { transform: scaleX(0); } 60% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+  .wave { display: flex; gap: 0.18em; align-items: center; height: 1.2em; }
+  .wave b { width: 0.2em; height: 100%; border-radius: 1em; background: currentColor; display: block; animation: wave 0.9s ease-in-out infinite; }
+  .wave b:nth-child(2) { animation-delay: 0.1s; } .wave b:nth-child(3) { animation-delay: 0.2s; } .wave b:nth-child(4) { animation-delay: 0.3s; }
+  @keyframes wave { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+  .i-main { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1em; padding: 1em; min-height: 0; }
+  .queue { min-height: 0; overflow: hidden; display: grid; align-content: start; gap: 0.5em; }
+  .qhead { display: flex; align-items: center; gap: 0.5em; font: 750 0.86em/1 var(--sans); color: var(--ink-2); margin-top: 0.45em; }
+  .qrow { display: flex; align-items: center; gap: 0.8em; padding: 0.7em 0.8em 0.7em 0.7em; border-radius: 1.2em; transition: box-shadow 0.4s var(--ease), opacity 0.3s; }
+  .qrow.sel { box-shadow: 0 0 0 2px var(--accent), var(--card-shadow); }
+  .qrow .who { min-width: 0; flex: 1; }
+  .qrow .who h5 { margin: 0; font: 800 1.15em/1.15 var(--sans); letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qrow .who p { font: 600 0.82em/1.35 var(--sans); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qrow .chips { display: flex; gap: 0.35em; margin-top: 0.4em; flex-wrap: wrap; }
+  .qrow .chips .pill { height: 1.9em; font-size: 0.72em; }
+  .qrow.done { opacity: 0.6; }
+  .qrow.arrive { animation: arrive 0.9s var(--spring); }
+  @keyframes arrive { 0% { transform: translateY(-1em) scale(0.97); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; } }
+  .detail { padding: 1.2em; display: grid; align-content: start; gap: 0.9em; overflow: hidden; }
+  .detail h4 { font-size: 1.85em; font-weight: 800; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; }
+  .fact { background: var(--sunken); border-radius: 0.95em; padding: 0.6em 0.8em; }
+  .fact b { display: block; font: 800 1.2em/1.25 var(--sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .empty-detail { display: grid; place-items: center; text-align: center; gap: 0.6em; color: var(--ink-2); font: 600 0.92em/1.45 var(--sans); padding: 2em 1em; }
+  .empty-detail img { width: 5em; height: 5em; }
+  .i-sheet .sheet { left: auto; right: 1em; bottom: 1em; width: 44%; border-radius: 1.6em; transform: translateY(120%); padding-top: 1.3em; }
+  .i-sheet.open .sheet { transform: none; }
+  .guard { width: 100%; display: flex; align-items: center; gap: 0.8em; padding: 0.65em; margin-top: 0.6em; }
+  .guard b { display: block; font: 800 1.05em/1.15 var(--sans); }
+  .guard small { font: 600 0.78em/1.2 var(--sans); color: var(--ink-2); }
+  .guard[aria-checked="true"] small { color: var(--accent-ink); }
+
+  /* Gallery ------------------------------------------------------------------------------------- */
+  section.block { padding-block: 72px 8px; scroll-margin-top: 84px; display: grid; gap: 28px; }
+  .block-head { display: grid; gap: 12px; max-width: 760px; }
+  .block-head h2 { font-size: clamp(36px, 4.8vw, 58px); font-weight: 800; letter-spacing: -0.03em; }
+  .block-head p { color: var(--ink-2); font-size: 17px; max-width: 62ch; }
+  .role-chip { width: fit-content; display: inline-flex; align-items: center; gap: 8px; font: 750 12.5px/1 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; padding: 8px 12px 8px 9px; border-radius: 10px; color: #fff; background: var(--c); box-shadow: 0 3px 0 color-mix(in oklab, var(--c) 70%, black); }
+  .pages { display: grid; gap: 34px; }
+  .pages.phones { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .pages.pairs { grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); }
+  .spec { display: grid; gap: 16px; align-content: start; justify-items: center; min-width: 0; }
+  .spec-head { width: 100%; max-width: 880px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+  .code { font: 750 12px/1 var(--sans); letter-spacing: 0.06em; color: #fff; background: var(--ink); padding: 6px 9px; border-radius: 999px; }
+  .spec-head h3 { font-size: 25px; font-weight: 800; }
+  .spec-head .dev { font: 650 13px/1 var(--sans); color: var(--ink-3); }
+  .spec-notes { width: 100%; max-width: 880px; margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; font-size: 15px; color: var(--ink-2); }
+  .spec-notes li { display: block; }
+  .spec-notes b { color: var(--ink); font-weight: 750; }
+
+  /* Foundations ------------------------------------------------------------------------------------ */
+  .found { display: grid; gap: 22px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .panel { grid-column: span 12; background: var(--paper); border: 1px solid var(--line); box-shadow: var(--card-shadow); border-radius: 28px; padding: 28px; display: grid; gap: 20px; align-content: start; }
+  .panel.half { grid-column: span 6; }
+  @media (max-width: 900px) { .panel.half { grid-column: span 12; } }
+  @media (max-width: 560px) { .panel { padding: 20px; } }
+  .panel h3 { font-size: 27px; font-weight: 800; }
+  .panel > p { color: var(--ink-2); font-size: 15.5px; max-width: 72ch; }
+  .panel > p b { color: var(--ink); }
+  .logos { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .logo-case { border-radius: 20px; background: var(--canvas); border: 1px solid var(--line); padding: 16px; display: grid; gap: 10px; align-content: start; }
+  .logo-case .demo { border-radius: 14px; background: var(--paper); border: 1px solid var(--line); min-height: 132px; display: grid; place-items: center; padding: 16px; }
+  .logo-case h4 { font-size: 18px; font-weight: 600; }
+  .logo-case p { font-size: 14px; color: var(--ink-2); }
+  .clearspace { padding: 14px; outline: 1.5px dashed rgb(21 96 212 / 0.45); border-radius: 6px; }
+  .mini-bar { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 14px; background: var(--paper); box-shadow: var(--float-shadow); border: 1px solid var(--line); }
+  .mini-bar img { height: 22px; }
+  .mini-chip { font: 750 10px/1 var(--sans); color: #fff; padding: 6px 9px; border-radius: 999px; }
+  .mini-av { margin-left: auto; width: 28px; height: 28px; border-radius: 50%; background: var(--violet); box-shadow: 0 0 0 3px #fff; }
+  .appicon { width: 96px; height: 96px; border-radius: 24px; background: var(--paper); box-shadow: 0 16px 30px -16px rgb(22 25 58 / 0.5), inset 0 0 0 1px var(--line); display: grid; place-items: center; }
+  .appicon img { width: 70%; }
+  .swatches { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .sw { border-radius: 16px; overflow: hidden; background: var(--paper); border: 1px solid var(--line); }
+  .sw div { height: 64px; }
+  .sw p { padding: 10px 12px 12px; font-size: 13px; color: var(--ink-2); line-height: 1.35; }
+  .sw p b { display: block; color: var(--ink); font-size: 14.5px; font-weight: 750; }
+  .rain { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rain span { flex: 1 1 70px; height: 50px; border-radius: 12px; display: flex; align-items: flex-end; padding: 8px 10px; font: 750 11px/1 var(--sans); color: #fff; }
+  .type-row { display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: baseline; padding-block: 14px; border-top: 1px solid var(--line); }
+  .type-row:first-of-type { border-top: 0; }
+  .type-row .meta { font: 650 12.5px/1.45 var(--sans); color: var(--ink-3); }
+  @media (max-width: 600px) { .type-row { grid-template-columns: 1fr; gap: 4px; } }
+  .btn-grid { display: grid; gap: 18px 14px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); align-items: center; }
+  .state-col { display: grid; gap: 10px; justify-items: start; }
+  .state-col small { font: 750 11.5px/1 var(--sans); color: var(--ink-3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .variants { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .anatomy { display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: center; padding: 22px; border-radius: 20px; background: var(--canvas); border: 1px solid var(--line); }
+  .anatomy ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 14.5px; color: var(--ink-2); }
+  .anatomy li b { color: var(--ink); }
+  @media (max-width: 640px) { .anatomy { grid-template-columns: 1fr; } }
+  .motion { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .motion-card { border-radius: 20px; background: var(--canvas); border: 1px solid var(--line); padding: 18px; display: grid; gap: 10px; align-content: start; }
+  .motion-card h4 { font-size: 18px; font-weight: 600; }
+  .motion-card code { font: 600 12.5px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--ink-2); }
+  .ball-track { height: 46px; border-radius: 14px; background: var(--paper); border: 1px solid var(--line); position: relative; }
+  .ball { position: absolute; top: 6px; left: 6px; width: 32px; height: 32px; border-radius: 10px; background: var(--accent); box-shadow: 0 3px 0 var(--accent-lip); transition: left 0.6s var(--spring); }
+  .ball-track.go .ball { left: calc(100% - 40px); }
+
+  /* Static screens --------------------------------------------------------------------------------- */
+  .login { display: grid; align-content: center; justify-items: center; height: 100%; padding: 0 1.5em 2em; text-align: center; gap: 0.2em; }
+  .login img.logo { height: 3.5em; width: auto; }
+  .login .place { font: 650 0.82em/1.3 var(--sans); color: var(--ink-2); margin-top: 0.35em; }
+  .login .box { width: 100%; margin-top: 1.4em; padding: 1.5em 1.2em 1.4em; }
+  .shield { width: 4.2em; height: 4.2em; border-radius: 1.3em; margin: 0 auto; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+  .shield .i { width: 2.1em; height: 2.1em; }
+  .codes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.4em; margin-top: 1.1em; }
+  .codes span { height: 3.5em; border-radius: 0.9em; display: grid; place-items: center; background: var(--paper); box-shadow: 0 0.16em 0 var(--line-2), inset 0 0 0 1.5px var(--line-2); }
+  .codes span b { font: 800 1.75em/1 var(--sans); opacity: 0; transform: translateY(0.3em) scale(0.8); display: block; }
+  .codes.typing span b { animation: digit 6s var(--spring) infinite; }
+  .codes.typing span:nth-child(2) b { animation-delay: 0.15s; } .codes.typing span:nth-child(3) b { animation-delay: 0.3s; } .codes.typing span:nth-child(4) b { animation-delay: 0.45s; } .codes.typing span:nth-child(5) b { animation-delay: 0.6s; } .codes.typing span:nth-child(6) b { animation-delay: 0.75s; }
+  @keyframes digit { 0%, 4% { opacity: 0; transform: translateY(0.3em) scale(0.8); } 10%, 88% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; transform: none; } }
+  .mascot { width: 6.5em; height: 6.5em; animation: float 5s ease-in-out infinite; }
+  @keyframes float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-0.5em) rotate(3deg); } }
+  .link-page { padding: 1em 1.3em; display: grid; gap: 0.9em; }
+  .codebig { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5em; }
+  .codebig span { height: 3.8em; border-radius: 1em; display: grid; place-items: center; color: #fff; background: var(--c); box-shadow: 0 0.22em 0 color-mix(in oklab, var(--c) 70%, black); }
+  .codebig span b { font: 800 2.1em/1 var(--sans); }
+  .steps-plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5em; }
+  .steps-plain li { display: flex; gap: 0.7em; align-items: center; font: 650 0.88em/1.3 var(--sans); }
+  .steps-plain li span { width: 1.9em; height: 1.9em; border-radius: 0.65em; display: grid; place-items: center; background: var(--sunken); font: 800 0.88em/1 var(--sans); flex: none; }
+  .start-duty { display: grid; grid-template-columns: 1fr 1fr; gap: 2em; align-items: center; height: 100%; padding: 2em 2.4em; }
+  .checklist { padding: 0.4em 1.2em; margin: 0; }
+  .checklist li { list-style: none; display: flex; gap: 0.9em; padding: 0.9em 0; border-top: 1px solid var(--line); }
+  .checklist li:first-child { border-top: 0; }
+  .checklist li .ico { width: 2.6em; height: 2.6em; border-radius: 0.85em; display: grid; place-items: center; flex: none; }
+  .checklist li b { display: block; font: 750 1.02em/1.2 var(--sans); }
+  .checklist li p { font: 600 0.86em/1.35 var(--sans); color: var(--ink-2); }
+  .area-bar { display: flex; align-items: center; gap: 0.9em; margin: 1em 1em 0; padding: 0.5em 0.55em 0.5em 1.2em; border-radius: 1.3em; }
+  .area-bar img { height: 2em; }
+  .area-chip { font: 750 0.78em/1 var(--sans); color: #fff; padding: 0.55em 0.85em; border-radius: 999px; }
+  .acct { margin-left: auto; display: flex; align-items: center; gap: 0.5em; padding: 0.25em 1em 0.25em 0.25em; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); font: 750 0.88em/1 var(--sans); }
+  .acct i { width: 2.3em; height: 2.3em; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 1.05em/1 var(--sans); font-style: normal; }
+  .pg { padding: 1em 1.4em; display: grid; gap: 0.9em; align-content: start; }
+  .pg h4 { font-size: 2.3em; font-weight: 800; }
+  .sumrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6em; }
+  .sum { border-radius: 1.2em; padding: 0.8em 1em; }
+  .sum b { display: block; font: 800 1.9em/1 var(--sans); letter-spacing: -0.03em; }
+  .sum span { font: 650 0.78em/1.2 var(--sans); color: var(--ink-2); }
+  .rows { display: grid; gap: 0.5em; }
+  .rowx { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.9em; padding: 0.6em 0.9em 0.6em 0.6em; border-radius: 1.2em; }
+  .rowx h5 { margin: 0; font: 800 1.1em/1.15 var(--sans); letter-spacing: -0.02em; }
+  .rowx p { font: 600 0.78em/1.35 var(--sans); color: var(--ink-2); }
+  .rowx .t { font: 800 1.1em/1 var(--sans); text-align: right; font-variant-numeric: tabular-nums; }
+  .rowx .t small { display: block; font: 650 0.62em/1.4 var(--sans); color: var(--ink-3); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6em; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65em; }
+  .classtile { display: flex; align-items: center; gap: 0.7em; padding: 0.75em 0.9em; border-radius: 1.2em; }
+  .classtile .bar { width: 0.32em; height: 2.3em; border-radius: 1em; background: var(--c); }
+  .classtile b { display: block; font: 800 1.08em/1.15 var(--sans); }
+  .classtile small { font: 650 0.78em/1.25 var(--sans); color: var(--ink-2); }
+  .classtile small.warn { color: var(--flag); }
+  .lvl { padding: 0.9em 1em; display: grid; gap: 0.3em; }
+  .lvl .dot { width: 1.2em; height: 1.2em; border-radius: 0.4em; background: var(--c); }
+  .lvl b { font: 800 1.2em/1.15 var(--sans); letter-spacing: -0.02em; }
+  .lvl small { font: 600 0.78em/1.3 var(--sans); color: var(--ink-2); }
+  .lvl .sugg { position: absolute; right: 0.8em; top: 0.8em; }
+  .lvl[aria-checked="true"] small { color: var(--accent-ink); }
+
+  /* Admin forms ------------------------------------------------------------------------------------ */
+  .modal { position: absolute; z-index: 6; left: 14%; right: 14%; top: 1.4em; bottom: 1.4em; background: var(--paper); border-radius: 1.8em; box-shadow: 0 2em 4em -2em rgb(22 25 58 / 0.5); padding: 1.5em 1.8em; display: grid; align-content: start; gap: 0.9em; overflow: hidden; }
+  .modal h4 { font-size: 1.9em; font-weight: 800; }
+  .modal .sheet-x { top: 1.3em; right: 1.3em; }
+  .stepper { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; }
+  .stepper span { display: grid; gap: 0.45em; font: 700 0.74em/1 var(--sans); color: var(--ink-3); }
+  .stepper span::before { content: ''; height: 0.32em; border-radius: 1em; background: var(--line-2); }
+  .stepper span.on { color: var(--accent-ink); }
+  .stepper span.on::before { background: var(--accent); }
+  .field { display: grid; gap: 0.35em; }
+  .flabel { font: 750 0.78em/1 var(--sans); color: var(--ink-2); }
+  .input { height: 3em; border-radius: 1em; padding: 0 0.95em; display: flex; align-items: center; gap: 0.6em; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--line-2); font: 650 0.98em/1 var(--sans); color: var(--ink); }
+  .input.focus { box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 0.3em rgb(21 96 212 / 0.14); }
+  .input .caret { width: 1.5px; height: 1.2em; background: var(--accent); animation: blink 1.1s steps(1) infinite; margin-left: -0.45em; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .input .ph { color: var(--ink-3); font-weight: 550; }
+  .age { margin-left: auto; font: 750 0.8em/1 var(--sans); color: var(--accent-ink); background: var(--accent-soft); padding: 0.45em 0.65em; border-radius: 0.6em; }
+  .prog { display: flex; align-items: center; gap: 0.8em; padding: 0.7em 0.8em 0.7em 0.9em; border-radius: 1em; background: var(--canvas); box-shadow: inset 0 0 0 1.5px var(--line-2); }
+  .prog .sq { width: 2.4em; height: 2.4em; border-radius: 0.75em; background: var(--c); display: grid; place-items: center; color: #fff; flex: none; }
+  .prog b { display: block; font: 800 1em/1.2 var(--sans); }
+  .prog small { font: 600 0.78em/1.3 var(--sans); color: var(--ink-2); }
+  .glink { display: flex; align-items: center; gap: 0.7em; padding: 0.5em 0.6em; border-radius: 1em; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .glink b { font: 750 0.94em/1.2 var(--sans); flex: 1; }
+  .sel { display: inline-flex; align-items: center; gap: 0.4em; height: 2.3em; padding: 0 0.7em 0 0.85em; border-radius: 0.7em; background: var(--sunken); font: 700 0.82em/1 var(--sans); }
+  .sel .i { width: 1em; height: 1em; }
+  .iconx { width: 2.1em; height: 2.1em; border-radius: 50%; display: grid; place-items: center; color: var(--ink-3); background: transparent; }
+  .planc { padding: 1em; display: grid; gap: 0.55em; align-content: start; }
+  .planc h5 { margin: 0; font: 800 1.35em/1 var(--sans); letter-spacing: -0.02em; }
+  .planc .hrs { font: 800 1.05em/1.2 var(--sans); font-variant-numeric: tabular-nums; }
+  .planc .meta { font: 600 0.76em/1.4 var(--sans); color: var(--ink-2); }
+  .planc[aria-checked="true"] .meta { color: var(--accent-ink); }
+  .mini-day { position: relative; height: 1.1em; border-radius: 0.55em; background: var(--sunken); overflow: hidden; }
+  .mini-day span { position: absolute; top: 0.18em; bottom: 0.18em; border-radius: 0.4em; background: color-mix(in oklab, var(--c) 30%, white); box-shadow: inset 0 0 0 1.2px var(--c); }
+  .mini-day span i { position: absolute; top: 0; bottom: 0; background: var(--c); }
+  .mini-day span.flex { box-shadow: inset 0 0 0 1.2px var(--c); background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--c) 22%, white) 0 0.4em, #fff 0.4em 0.7em); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4em; }
+  .pair div { background: var(--sunken); border-radius: 0.7em; padding: 0.45em 0.55em; }
+  .pair small { display: block; font: 700 0.64em/1.1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .pair b { font: 800 0.86em/1.3 var(--sans); font-variant-numeric: tabular-nums; }
+  .classchoice { height: 3em; padding: 0 1.2em; display: inline-flex; align-items: center; gap: 0.5em; font: 750 0.98em/1 var(--sans); }
+  .classchoice .sw2 { width: 0.75em; height: 0.75em; border-radius: 50%; background: var(--c); }
+  .roletile { padding: 0.9em 1em; display: flex; gap: 0.8em; align-items: flex-start; }
+  .roletile .ri { width: 2.5em; height: 2.5em; border-radius: 0.8em; display: grid; place-items: center; flex: none; background: var(--rs); color: var(--rc); }
+  .roletile b { display: block; font: 800 1em/1.2 var(--sans); }
+  .roletile small { font: 600 0.78em/1.35 var(--sans); color: var(--ink-2); }
+  .roletile[aria-checked="true"] small { color: var(--accent-ink); }
+  .stat-dot { display: inline-flex; align-items: center; gap: 0.35em; font: 700 0.74em/1 var(--sans); }
+  .stat-dot::before { content: ''; width: 0.55em; height: 0.55em; border-radius: 50%; background: currentColor; }
+
+  .input.sm { height: 2.6em; font-size: 0.88em; }
+  .gnew { display: grid; gap: 0.5em; padding: 0.65em; border-radius: 1em; background: var(--canvas); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .gnew-top { display: flex; align-items: center; gap: 0.7em; }
+  .gnew-top b { flex: 1; font: 800 0.95em/1.2 var(--sans); }
+  .access { display: flex; align-items: center; gap: 0.6em; font: 600 0.78em/1.3 var(--sans); color: var(--ink-2); }
+  .access b { color: var(--ink); font-weight: 750; }
+  .switch { width: 2.6em; height: 1.55em; border-radius: 1em; background: var(--line-2); position: relative; flex: none; }
+  .switch::after { content: ''; position: absolute; top: 0.18em; left: 0.18em; width: 1.2em; height: 1.2em; border-radius: 50%; background: var(--paper); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); }
+  .switch.on { background: var(--ok); }
+  .switch.on::after { left: auto; right: 0.18em; }
+  .kid-head { display: flex; align-items: center; gap: 1em; }
+  .kid-head h4 { font-size: 2.2em; }
+  .kid-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 0.8em; }
+  .kid-card { padding: 1em; display: grid; gap: 0.6em; align-content: start; }
+  .gl { display: flex; align-items: center; gap: 0.7em; padding: 0.5em 0; border-top: 1px solid var(--line); }
+  .gl b { display: block; font: 800 0.9em/1.2 var(--sans); }
+  .gl small { display: block; font: 600 0.74em/1.3 var(--sans); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    .codes.typing span b { opacity: 1; transform: none; }
+  }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-nav" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z"/><path d="m16.5 14.5 5-5"/><path d="m16.5 9.5 5 5"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+    <symbol id="i-smile" viewBox="0 0 24 24"><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M15 12h.01"/><path d="M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/><path d="M9 12h.01"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-school" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></symbol>
+    <symbol id="i-steth" viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></symbol>
+    <symbol id="i-cake" viewBox="0 0 24 24"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/></symbol>
+    <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  </defs>
+</svg>
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="topbar">
+    <div class="topbar-in glassbar">
+      <img data-img="logo" alt="Jumpstart">
+      <span class="book">Screen book</span>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#live">The pickup</a>
+        <a href="#foundations">Foundations</a>
+        <a href="#parent">Parent</a>
+        <a href="#coordinator">Coordinator</a>
+        <a href="#core">Core team</a>
+        <a href="#admin">Admin</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero" id="live">
+    <h1>One tap from a parent. <em>Ready at the gate.</em></h1>
+    <p class="lede">A parent taps <strong>I'm on my way</strong>. The gate's iPad announces it straight away. Sample children, demo time 12:10 PM.</p>
+
+    <div class="stage">
+      <div class="stage-col">
+        <span class="stage-label">Parent's phone</span>
+        <div class="phone">
+          <div class="phone-body">
+            <div class="screen" id="pscreen">
+              <div class="status"><span class="tnum">12:10</span><span class="notch"></span><span class="sig"><b style="height:.45em"></b><b style="height:.65em"></b><b style="height:.85em"></b><b style="height:1.05em"></b></span></div>
+              <div class="p-head">
+                <img data-img="logo" alt="Jumpstart">
+                <span class="roundbtn glassbar"><svg class="i"><use href="#i-bell"/></svg><span class="dotred"></span></span>
+              </div>
+              <div class="p-greet">
+                <p class="kicker">Thursday, 24 September</p>
+                <h2>Good afternoon, Sneha</h2>
+              </div>
+              <article class="card child">
+                <div class="child-top">
+                  <span class="avatar" style="--c: var(--orange)"><span>A</span></span>
+                  <div style="min-width:0; flex:1">
+                    <h3>Aarav</h3>
+                    <p class="sub">Jr KG, Half day · Sunflowers</p>
+                  </div>
+                  <span class="pill live" id="p-pill"><svg class="i"><use href="#i-school"/></svg>At school</span>
+                </div>
+                <div id="p-idle">
+                  <div class="tiles">
+                    <div class="tile done">
+                      <span class="kicker">Drop-off</span>
+                      <span class="when tnum">9:14 AM</span>
+                      <span class="win">Checked in by Farah</span>
+                    </div>
+                    <div class="tile">
+                      <span class="kicker">Pickup</span>
+                      <span class="when tnum">12:45 PM</span>
+                      <span class="win">Window 12:30-1:00</span>
+                    </div>
+                  </div>
+                  <div class="go">
+                    <button class="btn primary" id="p-go" type="button"><svg class="i"><use href="#i-nav"/></svg>I'm on my way</button>
+                  </div>
+                </div>
+                <div class="trip" id="p-trip" hidden>
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:.5em">
+                    <span class="pill blue" id="p-trip-pill"><span class="pulse"></span>On the way</span>
+                    <span class="kicker">Pickup</span>
+                  </div>
+                  <p class="trip-eta tnum" id="p-eta">Arriving about 12:30</p>
+                  <p class="trip-sub" id="p-sub">The school knows you're coming.</p>
+                  <ol class="steps">
+                    <li data-step="sent"><span>Sent to the school</span><time>12:10</time></li>
+                    <li data-step="seen"><span>Seen by the school</span><time></time></li>
+                    <li data-step="ready"><span>Aarav is ready at the gate</span><time></time></li>
+                    <li data-step="done"><span>Collected</span><time></time></li>
+                  </ol>
+                  <div class="trip-actions" id="p-trip-actions">
+                    <button class="btn glass" type="button" id="p-change"><svg class="i"><use href="#i-clock"/></svg>Change time</button>
+                    <button class="btn quiet" type="button" id="p-cancel">Cancel pickup</button>
+                  </div>
+                </div>
+              </article>
+              <nav class="tabbar glassbar" aria-hidden="true">
+                <span class="on"><span class="ico"><svg class="i"><use href="#i-cal"/></svg></span>Today</span>
+                <span><span class="ico"><svg class="i"><use href="#i-bell"/></svg></span>Updates</span>
+                <span><span class="ico"><svg class="i"><use href="#i-msg"/></svg></span>Messages</span>
+                <span><span class="ico"><svg class="i"><use href="#i-user"/></svg></span>Account</span>
+              </nav>
+
+              <div class="sheetwrap" id="p-sheet">
+                <div class="scrim" data-close></div>
+                <div class="sheet" role="dialog" aria-label="On my way to pick up Aarav">
+                  <div class="handle"></div>
+                  <h4>On my way to pick up Aarav</h4>
+                  <button class="sheet-x" type="button" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+                  <p class="kicker" style="margin-top:1em">I'll reach the school in</p>
+                  <div class="mins" role="radiogroup" aria-label="Minutes until you arrive" id="p-mins"></div>
+                  <div class="check-line ok" id="p-check"><svg class="i"><use href="#i-check"/></svg><span></span></div>
+                  <div id="p-reasons" hidden>
+                    <p class="kicker" style="margin-top:.85em">Tell the school why</p>
+                    <div class="reasons" role="radiogroup" aria-label="Reason"></div>
+                    <input class="other" id="p-other" type="text" placeholder="A few words for the school" hidden>
+                  </div>
+                  <button class="btn primary lg block" type="button" id="p-send" style="margin-top:1em"><svg class="i"><use href="#i-bell"/></svg><span>Tell the school</span></button>
+                  <p class="fine">The coordinators hear it straight away. You can change or cancel it.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trail" aria-hidden="true">
+        <svg viewBox="0 0 110 180"><path class="dash" d="M4 140 C 30 10, 80 10, 106 120"/></svg>
+        <img class="flyer" id="flyer" data-img="star" alt="">
+      </div>
+
+      <div class="stage-col">
+        <span class="stage-label">Coordinator's iPad at the gate</span>
+        <div class="ipad-scroll">
+          <div class="ipad">
+            <div class="ipad-body">
+              <div class="screen i-screen" id="iscreen">
+                <div class="dutybar glassbar">
+                  <img data-img="logo" alt="Jumpstart">
+                  <span class="onduty"><span class="pulse"></span><span>On duty<small>since 11:02 AM</small></span></span>
+                  <span class="clock">12:10</span>
+                  <button class="btn glass sm" type="button" tabindex="-1"><svg class="i"><use href="#i-mute"/></svg>Mute 5 min</button>
+                </div>
+                <div class="nowbar glassbar" id="i-now" aria-live="polite">
+                  <span class="ico" id="i-now-ico"><svg class="i"><use href="#i-bell"/></svg></span>
+                  <div class="txt"><p class="kicker" id="i-now-k">Announcements</p><p id="i-now-t" style="color: var(--ink-2)">Announcements will play here.</p></div>
+                  <span class="rb"></span>
+                </div>
+                <div class="i-main">
+                  <div class="queue">
+                    <p class="qhead">Arriving next</p>
+                    <div id="q-next">
+                      <div class="qrow card">
+                        <span class="avatar sm" style="--c: var(--teal)"><span>R</span></span>
+                        <div class="who"><h5>Riya Joshi</h5><p>Anjali (Mother) · arriving about 12:25</p>
+                          <div class="chips"><span class="pill muted">Learning Center</span></div></div>
+                        <span class="pill live"><svg class="i"><use href="#i-check"/></svg>Ready</span>
+                      </div>
+                    </div>
+                    <p class="qhead">Coming up</p>
+                    <div class="qrow card">
+                      <span class="avatar sm" style="--c: var(--violet)"><span>K</span></span>
+                      <div class="who"><h5>Kabir Shah</h5><p>Regular pickup, 5:15 PM · Neha (Mother)</p>
+                        <div class="chips"><span class="pill muted">Nursery · 360°</span></div></div>
+                    </div>
+                    <p class="qhead">Done today</p>
+                    <div id="q-done">
+                      <div class="qrow card done">
+                        <span class="avatar sm" style="--c: var(--red)"><span>I</span></span>
+                        <div class="who"><h5>Isha Patil</h5><p>Handed over to Rohan (Father) · 12:02</p></div>
+                      </div>
+                    </div>
+                  </div>
+                  <aside class="detail card">
+                    <div class="empty-detail" id="i-empty">
+                      <img data-img="star" alt="">
+                      <p>When a parent says they're on the way, the child appears here to get ready.</p>
+                    </div>
+                    <div id="i-trip" hidden>
+                      <div style="display:flex; align-items:center; gap:.9em">
+                        <span class="avatar lg" style="--c: var(--orange)"><span>A</span></span>
+                        <div><h4>Aarav Kulkarni</h4><p class="muted" style="font: 600 .88em/1.3 var(--sans)">Jr KG, Half day · Sunflowers</p></div>
+                      </div>
+                      <div class="facts" style="margin-top:1em">
+                        <div class="fact"><span class="kicker">Arriving</span><b id="i-arr">12:30</b></div>
+                        <div class="fact"><span class="kicker">In about</span><b id="i-in">20 min</b></div>
+                        <div class="fact"><span class="kicker">Who</span><b>Sneha · Mother</b></div>
+                        <div class="fact"><span class="kicker">Window</span><b>12:30-1:00</b></div>
+                      </div>
+                      <p id="i-flag" class="pill flag" style="margin-top:.8em" hidden><svg class="i"><use href="#i-alert"/></svg><span></span></p>
+                      <button class="btn primary lg block" type="button" id="i-act" style="margin-top:1em"></button>
+                    </div>
+                  </aside>
+                </div>
+
+                <div class="sheetwrap i-sheet" id="i-sheet">
+                  <div class="scrim" data-close></div>
+                  <div class="sheet" role="dialog" aria-label="Hand over Aarav">
+                    <h4>Hand over Aarav</h4>
+                    <button class="sheet-x" type="button" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+                    <p class="muted" style="font: 600 .88em/1.4 var(--sans); margin-top:.4em">Who is collecting? Only Aarav's registered guardians are listed.</p>
+                    <div role="radiogroup" aria-label="Guardian">
+                      <button class="choice guard" type="button" role="radio" aria-checked="true" data-guard="Sneha"><span class="avatar sm" style="--c: var(--blue)"><span>S</span></span><span><b>Sneha Kulkarni</b><small>Mother · said she's on the way</small></span></button>
+                      <button class="choice guard" type="button" role="radio" aria-checked="false" data-guard="Rahul"><span class="avatar sm" style="--c: var(--green)"><span>R</span></span><span><b>Rahul Kulkarni</b><small>Father</small></span></button>
+                    </div>
+                    <button class="btn success lg block" type="button" id="i-confirm" style="margin-top:1.1em"><svg class="i"><use href="#i-check"/></svg>Handed over to Sneha</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="stage-tools">
+      <label class="toggle" for="sound"><input type="checkbox" id="sound">Play the iPad's chime and voice</label>
+      <button class="btn glass sm" type="button" id="reset" style="font-size:15px"><svg class="i"><use href="#i-reset"/></svg>Start again</button>
+    </div>
+  </section>
+
+  <!-- Foundations ============================================================================= -->
+  <section class="block" id="foundations">
+    <div class="block-head">
+      <h2>Calm surfaces, one clear next step</h2>
+      <p>A bright pearl canvas, deep ink text, and white cards. Frosted glass only where something floats: the top bar, the tab bar and the announcement bar. The next action is always Jumpstart blue.</p>
+    </div>
+    <div class="found">
+      <div class="panel">
+        <h3>Logo placement</h3>
+        <p>The logo is the most playful thing on screen, so everything around it stays quiet. It never sits on a photo, never stretches, and always keeps clear space equal to the height of its stars.</p>
+        <div class="logos">
+          <div class="logo-case">
+            <div class="demo"><span class="clearspace"><img data-img="logo" alt="" style="height:48px; display:block"></span></div>
+            <h4>Sign in: centred, large</h4>
+            <p>56-64 px tall on a phone, with "Preschool &amp; Learning Center · Karve Road" underneath. The first thing a parent sees.</p>
+          </div>
+          <div class="logo-case">
+            <div class="demo"><div class="mini-bar"><img data-img="logo" alt=""><span class="mini-chip" style="background: var(--violet)">Admin</span><span class="mini-av"></span></div></div>
+            <h4>Inside the app: top left</h4>
+            <p>36-40 px in the top bar, followed by the area's chip (Admin, Core team). The account button sits on the right.</p>
+          </div>
+          <div class="logo-case">
+            <div class="demo"><div class="mini-bar"><img data-img="logo" alt=""><span class="mini-chip" style="background: var(--live)">On duty</span><span style="margin-left:auto; font: 800 20px/1 var(--sans); letter-spacing:-.03em">12:10</span></div></div>
+            <h4>iPad on duty: left, with the clock</h4>
+            <p>Small and steady, so the clock and the announcement bar own the screen.</p>
+          </div>
+          <div class="logo-case">
+            <div class="demo"><div class="appicon"><img data-img="star" alt=""></div></div>
+            <h4>Home Screen: the smiling star</h4>
+            <p>The star alone on a white tile, until your own icon design is ready. The wordmark is too wide to read at icon size.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel half">
+        <h3>Colour</h3>
+        <div class="swatches">
+          <div class="sw"><div style="background: #fdfbf8; box-shadow: inset 0 -1px 0 var(--line)"></div><p><b>Pearl</b>#FDFBF8 · the canvas</p></div>
+          <div class="sw"><div style="background: #16193a"></div><p><b>Ink</b>#16193A · text, 16:1</p></div>
+          <div class="sw"><div style="background: #1560d4; box-shadow: inset 0 -6px 0 #0c3e8f"></div><p><b>Jumpstart blue</b>#1560D4 on its lip #0C3E8F</p></div>
+          <div class="sw"><div style="background: #ffc21a; box-shadow: inset 0 -6px 0 #d18e00"></div><p><b>Sunshine</b>#FFC21A · running late</p></div>
+          <div class="sw"><div style="background: #1e9a52; box-shadow: inset 0 -6px 0 #136b38"></div><p><b>Done green</b>#1E9A52 · handed over</p></div>
+          <div class="sw"><div style="background: #ffeedf"></div><p><b>Flag amber</b>#B4430B on #FFEEDF</p></div>
+        </div>
+        <p class="muted" style="font-size:14.5px">The logo's rainbow gives each child and class a colour, used for avatars and class marks. Status always has a word and an icon, never colour alone.</p>
+        <div class="rain">
+          <span style="background: var(--red)">Aarav</span><span style="background: var(--orange)">Riya</span><span style="background: #d99a00">Kabir</span><span style="background: var(--green)">Isha</span><span style="background: var(--teal)">Meera</span><span style="background: var(--blue)">Vihaan</span><span style="background: var(--violet)">Saanvi</span>
+        </div>
+      </div>
+
+      <div class="panel half">
+        <h3>Type</h3>
+        <p>One family, <b>Plus Jakarta Sans</b>, from greetings to times: warm, crisp at small sizes, and clear from across a room. Emphasis is its own italic or bold, never a second font.</p>
+        <div>
+          <div class="type-row"><span class="meta">Greeting, 800<br>40 / 44</span><span style="font: 800 40px/1.1 var(--sans); letter-spacing:-.04em">Good afternoon, Sneha</span></div>
+          <div class="type-row"><span class="meta">Emphasis, 800 italic</span><span style="font: italic 800 30px/1.1 var(--sans); letter-spacing:-.03em; color: var(--accent); padding-bottom:.08em">Ready at the gate.</span></div>
+          <div class="type-row"><span class="meta">Name, 800<br>24, tight</span><span style="font: 800 24px/1.15 var(--sans); letter-spacing:-.02em">Aarav Kulkarni</span></div>
+          <div class="type-row"><span class="meta">Time, 800<br>tabular figures</span><span style="font: 800 30px/1 var(--sans); letter-spacing:-.03em; font-variant-numeric: tabular-nums">12:30 to 1:00 PM</span></div>
+          <div class="type-row"><span class="meta">Body, 500<br>16 / 24</span><span style="font: 500 16px/1.5 var(--sans)">The coordinators hear it straight away. You can change or cancel it.</span></div>
+          <div class="type-row"><span class="meta">Label, 750<br>12, tracked</span><span style="font: 750 12px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3)">Pickup window</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Buttons</h3>
+        <p>Solid colour sitting on a darker lip, like a real key. <b>Hover</b> deepens the colour. <b>Press</b> sinks the button onto its lip. No gradients, no glows, no shine. One main button per screen, always Jumpstart blue, and every target at least 44 points tall.</p>
+        <div class="anatomy" style="font-size:16px">
+          <button class="btn primary lg" type="button"><svg class="i"><use href="#i-nav"/></svg>I'm on my way</button>
+          <ul>
+            <li><b>Face</b> #1560D4, white label in Jakarta 750, 16-17 px</li>
+            <li><b>Lip</b> 4 px of #0C3E8F under the face: it's what makes it pressable</li>
+            <li><b>Corners</b> 16 px: friendly, not a pill</li>
+            <li><b>Press</b> moves down 3 px and the lip shrinks to 1 px, in 60 ms</li>
+          </ul>
+        </div>
+        <div class="variants" style="font-size:16px">
+          <button class="btn primary" type="button"><svg class="i"><use href="#i-nav"/></svg>I'm on my way</button>
+          <button class="btn sunshine" type="button"><svg class="i"><use href="#i-timer"/></svg>Running late</button>
+          <button class="btn glass" type="button"><svg class="i"><use href="#i-clock"/></svg>Change time</button>
+          <button class="btn success" type="button"><svg class="i"><use href="#i-check"/></svg>Handed over</button>
+          <button class="btn danger" type="button"><svg class="i"><use href="#i-out"/></svg>Turn off access</button>
+          <button class="btn quiet" type="button">Cancel</button>
+        </div>
+        <div class="btn-grid" style="font-size:16px">
+          <div class="state-col"><small>Default</small><button class="btn primary" type="button" tabindex="-1">Tell the school</button></div>
+          <div class="state-col"><small>Hover · deeper</small><button class="btn primary fake-hover" type="button" tabindex="-1">Tell the school</button></div>
+          <div class="state-col"><small>Pressed</small><button class="btn primary fake-press" type="button" tabindex="-1">Tell the school</button></div>
+          <div class="state-col"><small>Keyboard focus</small><button class="btn primary fake-focus" type="button" tabindex="-1">Tell the school</button></div>
+          <div class="state-col"><small>Disabled</small><button class="btn primary" type="button" disabled>Tell the school</button></div>
+          <div class="state-col"><small>Sending</small><button class="btn primary" type="button" tabindex="-1"><span class="spin"></span>Sending</button></div>
+          <div class="state-col"><small>Done</small><button class="btn success" type="button" tabindex="-1"><svg class="i"><use href="#i-check"/></svg>Sent</button></div>
+          <div class="state-col"><small>Try it</small><button class="btn primary" type="button" id="try-btn"><span>Tell the school</span></button></div>
+        </div>
+        <p class="muted" style="font-size:14.5px">Choices use the same idea in white: a card on a grey lip. Picking one turns it blue with a check, like the time and the reason below.</p>
+        <div class="variants" style="font-size:16px">
+          <span class="choice min" role="radio" aria-checked="false" style="width:96px"><b>15<small>min</small></b><small>12:25</small></span>
+          <span class="choice min" role="radio" aria-checked="true" style="width:96px"><b>20<small>min</small></b><small>12:30</small></span>
+          <span class="choice reason" style="--rs: #ffe9e8; --rc: #c4231f; width: 200px"><span class="ri"><svg class="i"><use href="#i-steth"/></svg></span>Doctor's visit</span>
+          <span class="choice reason" aria-checked="true" style="--rs: #fff4d6; --rc: #a86b00; width: 200px"><span class="ri"><svg class="i"><use href="#i-cake"/></svg></span>Family event</span>
+          <span class="tabs" style="--c: var(--accent)"><span class="on"><svg class="i"><use href="#i-cal"/></svg>Today</span><span><svg class="i"><use href="#i-clock"/></svg>Schedules</span></span>
+        </div>
+        <div class="variants" style="font-size:16px">
+          <button class="btn primary sm" type="button">Small · 44</button>
+          <button class="btn primary" type="button">Medium · 54</button>
+          <button class="btn primary lg" type="button">Large · 64, iPad</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Motion</h3>
+        <p>Things move like they have weight: a quick press, a soft spring when a sheet or a card arrives. Motion always explains a change and never blocks it. With Reduce Motion on, every change still happens, just without the movement.</p>
+        <div class="motion">
+          <div class="motion-card"><h4>Press</h4><code>down 3 px, 60 ms · back 120 ms</code><button class="btn primary" type="button" style="font-size:15px; justify-self:start">Press me</button></div>
+          <div class="motion-card"><h4>Spring</h4><code>cubic-bezier(.34, 1.45, .64, 1)</code><div class="ball-track" id="ball"><span class="ball"></span></div><button class="btn glass sm" type="button" style="font-size:15px; justify-self:start" id="ball-go">Play</button></div>
+          <div class="motion-card"><h4>Sheet rise</h4><code>translateY 105% → 0 · 550 ms spring</code><p class="muted" style="font-size:14px">Every choice a parent makes: the time, the reason, who is collecting.</p></div>
+          <div class="motion-card"><h4>Arrival on the iPad</h4><code>slide in, blue outline · 900 ms</code><p class="muted" style="font-size:14px">A new announcement drops into the queue with a blue outline, so a glance finds it.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Parent ================================================================================== -->
+  <section class="block" id="parent">
+    <div class="block-head">
+      <h2>Parent pages</h2>
+      <p>One screen for the day: each child's drop-off and pickup times, from the programme the admin chose, and one clear button when you set off.</p>
+    </div>
+    <div class="pages phones">
+      <div class="spec" style="--c: var(--blue)">
+        <div class="phone"><div class="phone-body"><div class="screen">
+          <div class="status"><span class="tnum">8:40</span><span class="notch"></span><span class="sig"><b style="height:.45em"></b><b style="height:.65em"></b><b style="height:.85em"></b><b style="height:1.05em"></b></span></div>
+          <div class="login">
+            <img class="logo" data-img="logo" alt="Jumpstart">
+            <p class="place">Preschool &amp; Learning Center · Karve Road</p>
+            <div class="box card">
+              <div class="shield"><svg class="i"><use href="#i-mail"/></svg></div>
+              <h4 style="font-size:1.75em; margin-top:.6em">Check your email</h4>
+              <p class="muted" style="font: 600 .84em/1.45 var(--sans); margin-top:.35em">We sent a 6-digit code to <b style="color:var(--ink)">sneha@example.com</b></p>
+              <div class="codes typing"><span><b>2</b></span><span><b>4</b></span><span><b>6</b></span><span><b>8</b></span><span><b>1</b></span><span><b>0</b></span></div>
+              <button class="btn primary block" type="button" style="margin-top:1.2em">Sign in</button>
+            </div>
+          </div>
+        </div></div></div>
+        <div class="spec-head"><span class="code">P1</span><h3>Sign in</h3><span class="dev">Phone · everyone</span></div>
+        <ul class="spec-notes">
+          <li><span><b>Invite only:</b> only an email the school added gets a code.</span></li>
+          <li><span>One real input drawn as six boxes, so iPhone fills the code straight from Mail.</span></li>
+        </ul>
+      </div>
+
+      <div class="spec" style="--c: var(--blue)">
+        <div class="phone"><div class="phone-body"><div class="screen">
+          <div class="status"><span class="tnum">12:10</span><span class="notch"></span><span class="sig"><b style="height:.45em"></b><b style="height:.65em"></b><b style="height:.85em"></b><b style="height:1.05em"></b></span></div>
+          <div class="p-head"><img data-img="logo" alt=""><span class="roundbtn glassbar"><svg class="i"><use href="#i-bell"/></svg></span></div>
+          <div class="p-greet"><p class="kicker">Thursday, 24 September</p><h2>Good afternoon, Sneha</h2></div>
+          <article class="card child">
+            <div class="child-top"><span class="avatar" style="--c: var(--orange)"><span>A</span></span><div style="flex:1"><h3>Aarav</h3><p class="sub">Jr KG, Half day · Sunflowers</p></div><span class="pill live">At school</span></div>
+            <div class="tiles">
+              <div class="tile done"><span class="kicker">Drop-off</span><span class="when tnum">9:14 AM</span><span class="win">Checked in</span></div>
+              <div class="tile"><span class="kicker">Pickup</span><span class="when tnum">12:45 PM</span><span class="win">Window 12:30-1:00</span></div>
+            </div>
+            <div class="go"><button class="btn primary" type="button"><svg class="i"><use href="#i-nav"/></svg>I'm on my way</button></div>
+          </article>
+          <article class="card child">
+            <div class="child-top"><span class="avatar" style="--c: var(--teal)"><span>M</span></span><div style="flex:1"><h3>Meera</h3><p class="sub">Learning Center</p></div><span class="pill muted">Not in yet</span></div>
+            <div class="tiles">
+              <div class="tile"><span class="kicker">Drop-off</span><span class="when tnum">Any time</span><span class="win">9:00 AM-7:00 PM</span></div>
+              <div class="tile"><span class="kicker">Pickup</span><span class="when tnum">5:30 PM</span><span class="win">Usual time</span></div>
+            </div>
+            <div class="go"><button class="btn primary" type="button"><svg class="i"><use href="#i-nav"/></svg>I'm on my way</button></div>
+          </article>
+        </div></div></div>
+        <div class="spec-head"><span class="code">P2</span><h3>Today</h3><span class="dev">Phone · parent</span></div>
+        <ul class="spec-notes">
+          <li><span>Times come from the child's <b>programme</b>, chosen by the admin when adding the child, and the core team's regular times.</span></li>
+          <li><span>One full-width <b>I'm on my way</b> button for whichever trip is next. Drop-off never before 9 AM; nothing after 7 PM.</span></li>
+          <li><span>Flexible programmes (Learning Center, 360°+) show "Any time" within their hours.</span></li>
+        </ul>
+      </div>
+
+      <div class="spec" style="--c: var(--blue)">
+        <div class="phone"><div class="phone-body"><div class="screen open">
+          <div class="status"><span class="tnum">12:10</span><span class="notch"></span><span class="sig"><b style="height:.45em"></b><b style="height:.65em"></b><b style="height:.85em"></b><b style="height:1.05em"></b></span></div>
+          <div class="p-greet"><p class="kicker">Thursday, 24 September</p><h2>Good afternoon, Sneha</h2></div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="handle"></div>
+            <h4>On my way to pick up Aarav</h4>
+            <p class="kicker" style="margin-top:1em">I'll reach the school in</p>
+            <div class="mins">
+              <span class="choice min"><b>5<small>min</small></b><small>12:15</small></span><span class="choice min" aria-checked="true"><b>10<small>min</small></b><small>12:20</small></span><span class="choice min"><b>15<small>min</small></b><small>12:25</small></span>
+              <span class="choice min"><b>20<small>min</small></b><small>12:30</small></span><span class="choice min"><b>30<small>min</small></b><small>12:40</small></span><span class="choice min"><b>45<small>min</small></b><small>12:55</small></span>
+            </div>
+            <div class="check-line early"><svg class="i"><use href="#i-alert"/></svg><span>12:20 is before Aarav's pickup window (12:30-1:00). The school will know it's early.</span></div>
+            <p class="kicker" style="margin-top:.85em">Tell the school why</p>
+            <div class="reasons">
+              <span class="choice reason" aria-checked="true" style="--rs: #ffe9e8; --rc: #c4231f"><span class="ri"><svg class="i"><use href="#i-steth"/></svg></span>Doctor's visit</span>
+              <span class="choice reason" style="--rs: #fff4d6; --rc: #a86b00"><span class="ri"><svg class="i"><use href="#i-cake"/></svg></span>Family event</span>
+              <span class="choice reason" style="--rs: #e1f5e8; --rc: #137a3b"><span class="ri"><svg class="i"><use href="#i-thermo"/></svg></span>Not feeling well</span>
+              <span class="choice reason" style="--rs: #efe9ff; --rc: #6d3fd6"><span class="ri"><svg class="i"><use href="#i-pencil"/></svg></span>Something else</span>
+            </div>
+            <button class="btn primary lg block" type="button" style="margin-top:1em"><svg class="i"><use href="#i-bell"/></svg>Tell the school</button>
+          </div>
+        </div></div></div>
+        <div class="spec-head"><span class="code">P3</span><h3>I'm on my way</h3><span class="dev">Phone · sheet</span></div>
+        <ul class="spec-notes">
+          <li><span>Each choice shows the <b>arrival time</b> under it, so nobody does sums while driving.</span></li>
+          <li><span>Inside the window: green, no questions. Early or late: amber, and one tap for the reason. "Something else" opens a short note.</span></li>
+        </ul>
+      </div>
+
+      <div class="spec" style="--c: var(--blue)">
+        <div class="phone"><div class="phone-body"><div class="screen">
+          <div class="status"><span class="tnum">12:24</span><span class="notch"></span><span class="sig"><b style="height:.45em"></b><b style="height:.65em"></b><b style="height:.85em"></b><b style="height:1.05em"></b></span></div>
+          <div class="p-head"><img data-img="logo" alt=""><span class="roundbtn glassbar"><svg class="i"><use href="#i-bell"/></svg><span class="dotred"></span></span></div>
+          <article class="card child" style="margin-top: 1.4em">
+            <div class="child-top"><span class="avatar" style="--c: var(--orange)"><span>A</span></span><div style="flex:1"><h3>Aarav</h3><p class="sub">Jr KG · Sunflowers</p></div><span class="pill blue"><span class="pulse"></span>On the way</span></div>
+            <div class="trip">
+              <span class="kicker">Pickup</span>
+              <p class="trip-eta tnum">Arriving about 12:30</p>
+              <p class="trip-sub">Aarav is ready at the gate.</p>
+              <ol class="steps">
+                <li class="on"><span>Sent to the school</span><time>12:10</time></li>
+                <li class="on"><span>Seen by the school</span><time>12:11</time></li>
+                <li class="on"><span>Aarav is ready at the gate</span><time>12:24</time></li>
+                <li><span>Collected</span><time></time></li>
+              </ol>
+              <div class="trip-actions"><button class="btn sunshine" type="button"><svg class="i"><use href="#i-timer"/></svg>Running late</button><button class="btn quiet" type="button">Cancel pickup</button></div>
+            </div>
+          </article>
+        </div></div></div>
+        <div class="spec-head"><span class="code">P4</span><h3>On the way</h3><span class="dev">Phone · parent</span></div>
+        <ul class="spec-notes">
+          <li><span>Four honest steps, each with the real time it happened. Nothing is guessed.</span></li>
+          <li><span><b>Running late</b> moves the time and announces it again on the iPad.</span></li>
+        </ul>
+      </div>
+
+      <div class="spec" style="--c: var(--blue)">
+        <div class="phone"><div class="phone-body"><div class="screen">
+          <div class="status"><span class="tnum">12:32</span><span class="notch"></span><span class="sig"><b style="height:.45em"></b><b style="height:.65em"></b><b style="height:.85em"></b><b style="height:1.05em"></b></span></div>
+          <div class="link-page">
+            <img data-img="logo" alt="" style="height:2.3em; width:auto">
+            <div><p class="kicker">Pickup link from Sneha</p><h2 style="font-size:2em; font-weight:560; margin-top:.25em">Hi Ramesh, you're collecting Aarav</h2></div>
+            <div class="card" style="padding:1em; display:grid; gap:.7em">
+              <p class="kicker" style="text-align:center">Show this code at the gate</p>
+              <div class="codebig"><span style="--c: var(--red)"><b>4</b></span><span style="--c: var(--orange)"><b>8</b></span><span style="--c: var(--green)"><b>1</b></span><span style="--c: var(--blue)"><b>7</b></span></div>
+            </div>
+            <ol class="steps-plain">
+              <li><span>1</span>Tap Start trip when you leave</li>
+              <li><span>2</span>Keep this page open on the way</li>
+              <li><span>3</span>Tell the coordinator the code</li>
+            </ol>
+            <button class="btn primary lg block" type="button"><svg class="i"><use href="#i-nav"/></svg>Start trip</button>
+          </div>
+        </div></div></div>
+        <div class="spec-head"><span class="code">P5</span><h3>Pickup link</h3><span class="dev">Phone · third person, no account</span></div>
+        <ul class="spec-notes">
+          <li><span>Works on the first phone that opens it, for one trip only. No photo needed.</span></li>
+          <li><span>The 4-digit code is how the coordinator knows it's the right person.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Coordinator ============================================================================= -->
+  <section class="block" id="coordinator">
+    <div class="block-head">
+      <h2>Coordinator pages</h2>
+      <p>For an iPad carried between the gate and the classrooms: big targets, a clock you can read across the room, and announcements that repeat until someone answers.</p>
+    </div>
+    <div class="pages pairs">
+      <div class="spec" style="--c: var(--orange)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen">
+          <div class="start-duty">
+            <div style="display:grid; gap:1em; justify-items:start">
+              <img data-img="logo" alt="" style="height:2.8em; width:auto">
+              <img class="mascot" data-img="star" alt="">
+              <h4 style="font-size:3.1em; font-weight:560; letter-spacing:-.03em">Ready for the gate?</h4>
+              <p class="muted" style="font: 550 1.02em/1.5 var(--sans)">Start your duty and this iPad announces every pickup and drop-off for your classes, and keeps its screen on until you finish.</p>
+              <button class="btn primary lg" type="button" style="font-size:1.2em"><svg class="i"><use href="#i-power"/></svg>Start duty</button>
+            </div>
+            <ul class="checklist card">
+              <li><span class="ico" style="background: var(--live-soft); color: var(--live)"><svg class="i"><use href="#i-check"/></svg></span><div><b>Opened from the Home Screen</b><p>Alerts reach a locked iPad as a backup.</p></div></li>
+              <li><span class="ico" style="background: var(--live-soft); color: var(--live)"><svg class="i"><use href="#i-sun"/></svg></span><div><b>The screen stays on</b><p>While you're on duty, it won't sleep.</p></div></li>
+              <li><span class="ico" style="background: var(--accent-soft); color: var(--accent-ink)"><svg class="i"><use href="#i-vol"/></svg></span><div><b>Sound check</b><p>A short chime plays when you start.</p></div></li>
+              <li><span class="ico" style="background: var(--live-soft); color: var(--live)"><svg class="i"><use href="#i-wifi"/></svg></span><div><b>Connected</b><p>Requests arrive the moment a parent sends them.</p></div></li>
+            </ul>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">C1</span><h3>Start duty</h3><span class="dev">iPad · coordinator</span></div>
+        <ul class="spec-notes"><li><span>Starting duty unlocks sound (iPads only allow it after a tap) and keeps the screen awake.</span></li></ul>
+      </div>
+      <div class="spec" style="--c: var(--orange); align-content:center">
+        <div class="spec-head"><span class="code">C2</span><h3>Gate queue and hand over</h3><span class="dev">iPad, coordinator · live at the top</span></div>
+        <ul class="spec-notes">
+          <li><span>The iPad in the demo at the top: <b>Arriving next</b>, <b>Coming up</b> and <b>Done today</b>, with the announcement bar always visible.</span></li>
+          <li><span>The one button is always the next step: <b>Acknowledge</b>, then <b>Ready at the gate</b>, then <b>Hand over</b>.</span></li>
+          <li><span>Each iPad announces its own classes first. If nobody answers in 2 minutes, every coordinator on duty hears it.</span></li>
+          <li><span>Hand over lists only the child's registered guardians. A third person needs the 4-digit code instead.</span></li>
+        </ul>
+        <a class="btn glass" href="#live" style="font-size:15px; text-decoration:none; justify-self:start"><svg class="i"><use href="#i-back"/></svg>Try it in the live demo</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core team =============================================================================== -->
+  <section class="block" id="core">
+    <div class="block-head">
+      <h2>Core team pages</h2>
+      <p>Plans the day: who is expected when, who has arrived, the programme windows, each child's regular times, and which coordinators look after which classes.</p>
+    </div>
+    <div class="pages pairs">
+      <div class="spec" style="--c: var(--green)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--live)">Core team</span><span class="acct"><i style="background: var(--green)">M</i>Meera</span></div>
+          <div class="pg">
+            <div class="tabs" style="--c: var(--live)"><span class="on"><svg class="i"><use href="#i-cal"/></svg>Today</span><span><svg class="i"><use href="#i-clock"/></svg>Schedules</span><span><svg class="i"><use href="#i-bell"/></svg>Coordinators</span><span><svg class="i"><use href="#i-msg"/></svg>Messages</span></div>
+            <h4>Today · Thursday</h4>
+            <div class="sumrow">
+              <div class="sum card"><b style="color: var(--live)">42</b><span>At school</span></div>
+              <div class="sum card"><b style="color: var(--accent-ink)">2</b><span>On the way</span></div>
+              <div class="sum card"><b>11</b><span>Collected</span></div>
+              <div class="sum card"><b style="color: var(--flag)">3</b><span>Absent</span></div>
+            </div>
+            <div class="rows">
+              <div class="rowx card"><span class="avatar sm" style="--c: var(--orange)"><span>A</span></span><div><h5>Aarav Kulkarni</h5><p>Jr KG, Half day · Sunflowers</p></div><span class="pill blue"><span class="pulse"></span>On the way</span><span class="t">12:30<small>pickup</small></span></div>
+              <div class="rowx card"><span class="avatar sm" style="--c: var(--teal)"><span>R</span></span><div><h5>Riya Joshi</h5><p>Learning Center · Bluebells</p></div><span class="pill live">Ready</span><span class="t">12:25<small>pickup</small></span></div>
+              <div class="rowx card"><span class="avatar sm" style="--c: var(--violet)"><span>K</span></span><div><h5>Kabir Shah</h5><p>Nursery, 360° · Bluebells</p></div><span class="pill muted">At school</span><span class="t">5:15<small>pickup</small></span></div>
+              <div class="rowx card"><span class="avatar sm" style="--c: var(--blue)"><span>V</span></span><div><h5>Vihaan Mehta</h5><p>Jr KG, Half day · Sunflowers</p></div><span class="pill flag">Absent · unwell</span><span class="t">None<small>no trips</small></span></div>
+            </div>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">K1</span><h3>Today board</h3><span class="dev">iPad or computer · core team</span></div>
+        <ul class="spec-notes"><li><span>Every child with today's times and status. Marking someone absent removes their trips, so nothing is announced.</span></li></ul>
+      </div>
+      <div class="spec" style="--c: var(--green)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--live)">Core team</span><span class="acct"><i style="background: var(--green)">M</i>Meera</span></div>
+          <div class="pg">
+            <div class="tabs" style="--c: var(--orange)"><span><svg class="i"><use href="#i-cal"/></svg>Today</span><span><svg class="i"><use href="#i-clock"/></svg>Schedules</span><span class="on"><svg class="i"><use href="#i-bell"/></svg>Coordinators</span><span><svg class="i"><use href="#i-msg"/></svg>Messages</span></div>
+            <h4>Coordinators</h4>
+            <div class="grid3">
+              <div class="classtile card" style="--c: var(--teal)"><span class="bar"></span><div><b>Bluebells</b><small class="warn">No coordinator: goes to everyone</small></div></div>
+              <div class="classtile card" style="--c: var(--green)"><span class="bar"></span><div><b>Sunflowers</b><small>Sunita, Farah</small></div></div>
+              <div class="classtile card" style="--c: var(--orange)"><span class="bar"></span><div><b>Tulips</b><small>Meera</small></div></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center"><p class="kicker">Coordinators · 3</p><button class="btn primary sm" type="button"><svg class="i"><use href="#i-plus"/></svg>Add coordinator</button></div>
+            <div class="grid2">
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto"><span class="avatar sm" style="--c: var(--blue)"><span>S</span></span><div><h5>Sunita Pawar</h5><p>Sunflowers</p></div><button class="btn glass sm" type="button">Edit</button></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto"><span class="avatar sm" style="--c: var(--red)"><span>F</span></span><div><h5>Farah Khan</h5><p>Sunflowers</p></div><button class="btn glass sm" type="button">Edit</button></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto"><span class="avatar sm" style="--c: var(--violet)"><span>M</span></span><div><h5>Meera Kulkarni</h5><p>Tulips</p></div><button class="btn glass sm" type="button">Edit</button></div>
+            </div>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">K2</span><h3>Coordinators</h3><span class="dev">Core team and admin · built</span></div>
+        <ul class="spec-notes"><li><span>A class with nobody is flagged: its requests go to every coordinator on duty. The core team gives only the Coordinator role.</span></li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Admin =================================================================================== -->
+  <section class="block" id="admin">
+    <div class="block-head">
+      <h2>Admin pages</h2>
+      <p>The admin works child by child: adds a child with their parents, gives the parents app access, chooses the programme and class in three steps, and manages everything from the child's own page.</p>
+    </div>
+    <div class="pages pairs">
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="pg">
+            <div class="tabs" style="--c: var(--violet)"><span class="on"><svg class="i"><use href="#i-users"/></svg>People</span><span><svg class="i"><use href="#i-bell"/></svg>Coordinators</span></div>
+            <div style="display:flex; align-items:flex-end; gap:1em"><h4>People</h4><button class="btn primary sm" type="button" style="margin-left:auto"><svg class="i"><use href="#i-plus"/></svg>Add child</button></div>
+            <div style="display:flex; gap:.7em; align-items:center">
+              <div class="tabs" style="--c: var(--orange)"><span class="on"><svg class="i"><use href="#i-smile"/></svg>Children <em>48</em></span><span><svg class="i"><use href="#i-users"/></svg>Parents <em>71</em></span><span><svg class="i"><use href="#i-user"/></svg>Staff <em>9</em></span><span><svg class="i"><use href="#i-school"/></svg>Classes <em>6</em></span></div>
+              <div class="input" style="flex:1; height:2.9em"><svg class="i" style="color: var(--ink-3)"><use href="#i-search"/></svg><span class="ph">Search by name, email or phone</span></div>
+            </div>
+            <div class="grid2">
+              <div class="rowx card" style="grid-template-columns: auto 1fr"><span class="avatar sm" style="--c: var(--orange)"><span>A</span></span><div><h5>Aarav Kulkarni</h5><p>Jr KG, Half day, Sunflowers · 4 y 1 m</p><p style="color: var(--ink)">Sneha (Mother) · Rahul (Father)</p></div></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr"><span class="avatar sm" style="--c: var(--violet)"><span>K</span></span><div><h5>Kabir Shah</h5><p>Nursery, 360°, Bluebells · 3 y 8 m</p><p style="color: var(--ink)">Neha (Mother)</p></div></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr"><span class="avatar sm" style="--c: var(--teal)"><span>R</span></span><div><h5>Riya Joshi</h5><p>Learning Center, Bluebells · 6 y 1 m</p><p style="color: var(--ink)">Anjali (Mother)</p></div></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr"><span class="avatar sm" style="--c: var(--red)"><span>I</span></span><div><h5>Isha Patil</h5><p>Sr KG, Half day, Tulips · 5 y 10 m</p><p style="color: var(--ink)">Rohan (Father)</p></div></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr"><span class="avatar sm" style="--c: var(--blue)"><span>V</span></span><div><h5>Vihaan Mehta</h5><p>Jr KG, Half day, Sunflowers · 4 y 5 m</p><p style="color: var(--ink)">Priti (Mother)</p></div></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr"><span class="avatar sm" style="--c: var(--green)"><span>S</span></span><div><h5>Saanvi Rao</h5><p>Sr KG, 360°, Tulips · 5 y 7 m</p><p style="color: var(--ink)">Lata (Aunt)</p></div></div>
+            </div>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A1</span><h3>People · children</h3><span class="dev">Admin · built</span></div>
+        <ul class="spec-notes"><li><span><b>Children come first.</b> Tap a child to open their page; parents are added from there, not separately.</span></li><li><span>Search covers names, emails and phones across tabs.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen open">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="pg"><h4>People</h4></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <h4>Add a child</h4>
+            <span class="sheet-x"><svg class="i"><use href="#i-x"/></svg></span>
+            <div class="grid2">
+              <div class="field"><span class="flabel">Full name</span><div class="input">Aarav Kulkarni</div></div>
+              <div class="field"><span class="flabel">Called at school</span><div class="input">Aarav</div></div>
+            </div>
+            <div class="field"><span class="flabel">Date of birth</span><div class="input"><svg class="i" style="color: var(--ink-3)"><use href="#i-cal"/></svg>10 August 2022<span class="age">4 y 1 m · Jr KG age</span></div></div>
+            <div class="field"><span class="flabel">Programme and class</span>
+              <div class="prog" style="--c: var(--green)"><span class="sq"><svg class="i"><use href="#i-school"/></svg></span><div style="flex:1"><b>Jr KG, Half day · Sunflowers</b><small>9:00 AM-1:00 PM, Mon-Fri, drop-off 9:00-9:30 · pickup 12:30-1:00</small></div><button class="btn glass sm" type="button">Change</button></div>
+            </div>
+            <div class="field"><span class="flabel">Parents and guardians · they get the app</span>
+              <div class="gnew">
+                <div class="gnew-top"><span class="avatar sm" style="--c: var(--blue)"><span>S</span></span><b>Sneha Kulkarni</b><span class="sel">Mother<svg class="i"><use href="#i-down"/></svg></span><span class="iconx"><svg class="i"><use href="#i-x"/></svg></span></div>
+                <div class="grid2"><div class="input sm"><svg class="i" style="color: var(--ink-3)"><use href="#i-mail"/></svg>sneha@example.com</div><div class="input sm"><svg class="i" style="color: var(--ink-3)"><use href="#i-phone"/></svg>98765 43210</div></div>
+                <div class="access"><span class="switch on"></span><span><b>App access</b> · an invitation code goes to sneha@example.com</span></div>
+              </div>
+              <div class="gnew">
+                <div class="gnew-top"><span class="avatar sm" style="--c: var(--green)"><span>R</span></span><b>Rahul Kulkarni</b><span class="sel">Father<svg class="i"><use href="#i-down"/></svg></span><span class="iconx"><svg class="i"><use href="#i-x"/></svg></span></div>
+                <div class="access"><span class="switch on"></span><span><b>App access</b> · already a parent here (Anika, Nursery)</span></div>
+              </div>
+              <div style="display:flex; gap:.5em; flex-wrap:wrap"><button class="btn glass sm" type="button"><svg class="i"><use href="#i-plus"/></svg>Add a parent</button><button class="btn quiet sm" type="button"><svg class="i"><use href="#i-link"/></svg>Link a parent already here</button></div>
+            </div>
+            <button class="btn primary lg block" type="button"><svg class="i"><use href="#i-plus"/></svg>Add Aarav</button>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A2</span><h3>Add a child, with the parents</h3><span class="dev">Admin</span></div>
+        <ul class="spec-notes"><li><span>The parents are added <b>inside the child</b>: name, relation, email and mobile. <b>App access</b> on sends them their invitation to sign in.</span></li><li><span>A parent already at the school (a brother or sister) is linked instead of added twice. The child and the parents are saved together or not at all.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="pg">
+            <span class="btn quiet sm" style="justify-self:start; padding: 0 .6em"><svg class="i"><use href="#i-back"/></svg>Children</span>
+            <div class="kid-head"><span class="avatar lg" style="--c: var(--orange)"><span>A</span></span><div><h4>Aarav Kulkarni</h4><p class="muted" style="font: 600 .9em/1.3 var(--sans)">Called Aarav, born 10 August 2022 · 4 y 1 m</p></div><span class="pill live" style="margin-left:auto"><svg class="i"><use href="#i-school"/></svg>At school today</span></div>
+            <div class="kid-grid">
+              <div class="card kid-card">
+                <p class="kicker">Programme and class</p>
+                <div class="prog" style="--c: var(--green)"><span class="sq"><svg class="i"><use href="#i-school"/></svg></span><div style="flex:1"><b>Jr KG, Half day · Sunflowers</b><small>Mon-Fri · June-March</small></div><button class="btn glass sm" type="button">Change</button></div>
+                <div class="pair"><div><small>Drop-off</small><b>9:00-9:30 · usually 9:15</b></div><div><small>Pickup</small><b>12:30-1:00 · usually 12:45</b></div></div>
+                <p class="kicker" style="margin-top:.4em">Coordinators for Sunflowers</p>
+                <p style="font: 650 .88em/1.3 var(--sans)">Sunita Pawar · Farah Khan</p>
+              </div>
+              <div class="card kid-card">
+                <div style="display:flex; align-items:center; justify-content:space-between"><p class="kicker">Parents and guardians</p><button class="btn glass sm" type="button"><svg class="i"><use href="#i-plus"/></svg>Add a parent</button></div>
+                <div class="gl"><span class="avatar sm" style="--c: var(--blue)"><span>S</span></span><div style="flex:1; min-width:0"><b>Sneha Kulkarni · Mother</b><small>sneha@example.com · +91 98765 43210</small></div><span class="stat-dot" style="color: var(--live)">Signed in</span><span class="switch on" title="App access"></span></div>
+                <div class="gl"><span class="avatar sm" style="--c: var(--green)"><span>R</span></span><div style="flex:1; min-width:0"><b>Rahul Kulkarni · Father</b><small>rahul@example.com</small></div><span class="stat-dot" style="color: var(--flag)">Invited</span><span class="switch on" title="App access"></span></div>
+                <div class="gl"><span class="avatar sm" style="--c: var(--ink-3)"><span>A</span></span><div style="flex:1; min-width:0"><b>Asha Kulkarni · Grandmother</b><small>+91 98111 22334</small></div><span class="stat-dot" style="color: var(--ink-3)">No app access</span><span class="switch"></span></div>
+                <p class="muted" style="font: 550 .76em/1.4 var(--sans)">Switching access off signs that person out everywhere at once. The last guardian can't be removed.</p>
+              </div>
+            </div>
+            <div style="display:flex; gap:.6em"><button class="btn glass sm" type="button"><svg class="i"><use href="#i-pencil"/></svg>Edit details</button><button class="btn danger sm" type="button" style="margin-left:auto"><svg class="i"><use href="#i-out"/></svg>Aarav has left the school</button></div>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A3</span><h3>The child's page</h3><span class="dev">Admin</span></div>
+        <ul class="spec-notes"><li><span>Everything about one child in one place: programme and class, today's windows, the class's coordinators, and every parent with their <b>app access</b> switch.</span></li><li><span><b>Add a parent</b> here gives them access straight away; a grandparent can be kept as a contact without the app.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen open">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="stepper"><span class="on">1 · Level</span><span>2 · Plan</span><span>3 · Class</span></div>
+            <h4>Which programme is Aarav joining?</h4>
+            <span class="sheet-x"><svg class="i"><use href="#i-x"/></svg></span>
+            <p class="muted" style="font: 550 .92em/1.4 var(--sans); margin-top:-.4em">Aarav is 4 y 1 m. Jr KG is suggested from the date of birth.</p>
+            <div class="grid3">
+              <div class="choice lvl" style="--c: var(--red)"><span class="dot"></span><b>Playgroup</b><small>2-3 years · 4 plans</small></div>
+              <div class="choice lvl" style="--c: var(--orange)"><span class="dot"></span><b>Nursery</b><small>3-4 years · 4 plans</small></div>
+              <div class="choice lvl" aria-checked="true" style="--c: var(--green)"><span class="dot"></span><b>Jr KG</b><small>4-5 years, 3 plans · suggested</small></div>
+              <div class="choice lvl" style="--c: var(--teal)"><span class="dot"></span><b>Sr KG</b><small>5-6 years · 3 plans</small></div>
+              <div class="choice lvl" style="--c: var(--blue)"><span class="dot"></span><b>Learning Center</b><small>6 m-8 y · daycare</small></div>
+              <div class="choice lvl" style="--c: var(--violet)"><span class="dot"></span><b>Preschool Readiness</b><small>18 m-2 y · 3 months</small></div>
+              <div class="choice lvl" style="--c: #d99a00"><span class="dot"></span><b>After School</b><small>4-8 years · 4-7 PM</small></div>
+            </div>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A4</span><h3>Programme picker · level</h3><span class="dev">Admin, step 1 of 3 · built</span></div>
+        <ul class="spec-notes"><li><span>The level that fits the child's age on 1 June is suggested, but any level can be chosen.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen open">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="stepper"><span class="on">1 · Level</span><span class="on">2 · Plan</span><span>3 · Class</span></div>
+            <div style="display:flex; align-items:center; gap:.6em"><span class="btn quiet sm" style="padding:0 .6em"><svg class="i"><use href="#i-back"/></svg>Jr KG</span></div>
+            <h4 style="margin-top:-.3em">Choose the plan</h4>
+            <span class="sheet-x"><svg class="i"><use href="#i-x"/></svg></span>
+            <div class="grid3" style="--c: var(--green)">
+              <div class="choice planc" aria-checked="true">
+                <h5>Half day</h5><span class="hrs">9:00 AM-1:00 PM</span>
+                <div class="mini-day"><span style="left:0; width:40%"><i style="left:0; width:12.5%"></i><i style="left:87.5%; width:12.5%"></i></span></div>
+                <div class="pair"><div><small>Drop-off</small><b>9:00-9:30</b></div><div><small>Pickup</small><b>12:30-1:00</b></div></div>
+                <span class="meta">Mon-Fri, June-March · meals extra</span>
+              </div>
+              <div class="choice planc">
+                <h5>360°</h5><span class="hrs">9:00 AM-4:30 PM</span>
+                <div class="mini-day"><span style="left:0; width:75%"><i style="left:0; width:6.7%"></i><i style="left:93.3%; width:6.7%"></i></span></div>
+                <div class="pair"><div><small>Drop-off</small><b>9:00-9:30</b></div><div><small>Pickup</small><b>4:00-4:30</b></div></div>
+                <span class="meta">Mon-Fri, June-March · lunch, milk, snacks and rest</span>
+              </div>
+              <div class="choice planc">
+                <h5>360°+</h5><span class="hrs">9:00 AM-7:00 PM</span>
+                <div class="mini-day"><span class="flex" style="left:0; width:100%"></span></div>
+                <div class="pair"><div><small>Drop-off</small><b>Any time</b></div><div><small>Pickup</small><b>Any time</b></div></div>
+                <span class="meta">Mon-Sat¹, June-May · meals and Learning Center</span>
+              </div>
+            </div>
+            <p class="muted" style="font: 550 .8em/1.4 var(--sans)">¹ Except the 2nd and last Saturday. Times come from the database, so the core team's changes show here at once.</p>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A5</span><h3>Programme picker · plan</h3><span class="dev">Admin, step 2 of 3 · built</span></div>
+        <ul class="spec-notes"><li><span>Each plan shows its real hours, windows, days, term and meals, with a small day bar from 9 AM to 7 PM.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen open">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="stepper"><span class="on">1 · Level</span><span class="on">2 · Plan</span><span class="on">3 · Class</span></div>
+            <div style="display:flex; align-items:center; gap:.6em"><span class="btn quiet sm" style="padding:0 .6em"><svg class="i"><use href="#i-back"/></svg>Jr KG · Half day</span></div>
+            <h4 style="margin-top:-.3em">Which class group is Aarav in?</h4>
+            <span class="sheet-x"><svg class="i"><use href="#i-x"/></svg></span>
+            <div role="radiogroup" style="display:flex; flex-wrap:wrap; gap:.6em">
+              <span class="choice classchoice" aria-checked="true" style="--c: var(--green)"><span class="sw2"></span>Sunflowers</span>
+              <span class="choice classchoice" style="--c: var(--orange)"><span class="sw2"></span>Tulips</span>
+              <span class="choice classchoice" style="--c: var(--teal)"><span class="sw2"></span>Bluebells</span>
+              <span class="choice classchoice" style="--c: var(--violet)"><span class="sw2"></span>Daisies</span>
+            </div>
+            <div style="display:flex; gap:.6em">
+              <div class="input" style="flex:1"><span class="ph">New class group, for example Marigolds</span></div>
+              <button class="btn glass" type="button"><svg class="i"><use href="#i-plus"/></svg>Add</button>
+            </div>
+            <div class="prog" style="--c: var(--green)"><span class="sq"><svg class="i"><use href="#i-check"/></svg></span><div style="flex:1"><b>Jr KG, Half day · Sunflowers</b><small>Aarav's times: drop-off 9:00-9:30, pickup 12:30-1:00</small></div></div>
+            <button class="btn primary lg block" type="button"><svg class="i"><use href="#i-check"/></svg>Use this programme and class</button>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A6</span><h3>Programme picker · class</h3><span class="dev">Admin, step 3 of 3 · built</span></div>
+        <ul class="spec-notes"><li><span>A new class group can be added on the spot. The summary shows exactly which times the parent will see.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="pg">
+            <div style="display:flex; align-items:flex-end; gap:1em"><h4>People</h4><button class="btn primary sm" type="button" style="margin-left:auto"><svg class="i"><use href="#i-plus"/></svg>Add staff</button></div>
+            <div class="tabs" style="--c: var(--violet)"><span><svg class="i"><use href="#i-smile"/></svg>Children <em>48</em></span><span><svg class="i"><use href="#i-users"/></svg>Parents <em>71</em></span><span class="on"><svg class="i"><use href="#i-user"/></svg>Staff <em>9</em></span><span><svg class="i"><use href="#i-school"/></svg>Classes <em>6</em></span></div>
+            <div class="rows">
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto auto"><span class="avatar sm" style="--c: var(--violet)"><span>A</span></span><div><h5>Ankit Singh <span style="font-weight:600; color: var(--ink-3)">(you)</span></h5><p>ai@jumpstartpreschool.in</p></div><span style="display:flex; gap:.35em"><span class="pill muted">Admin</span><span class="pill muted">Core team</span><span class="pill muted">Coordinator</span></span><span class="stat-dot" style="color: var(--live)">Signed in</span></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto auto auto"><span class="avatar sm" style="--c: var(--green)"><span>M</span></span><div><h5>Meera Kulkarni</h5><p>meera@example.com · +91 98000 00002</p></div><span class="pill muted">Core team</span><span class="stat-dot" style="color: var(--live)">Signed in</span><button class="btn quiet sm" type="button">Turn off</button></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto auto auto"><span class="avatar sm" style="--c: var(--blue)"><span>S</span></span><div><h5>Sunita Pawar</h5><p>sunita@example.com</p></div><span class="pill muted">Coordinator</span><span class="stat-dot" style="color: var(--live)">Signed in</span><button class="btn quiet sm" type="button">Turn off</button></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto auto auto"><span class="avatar sm" style="--c: var(--red)"><span>F</span></span><div><h5>Farah Khan</h5><p>farah@example.com</p></div><span class="pill muted">Coordinator</span><span class="stat-dot" style="color: var(--flag)">Invited</span><button class="btn quiet sm" type="button">Turn off</button></div>
+              <div class="rowx card" style="grid-template-columns: auto 1fr auto auto auto; opacity:.7"><span class="avatar sm" style="--c: var(--ink-3)"><span>P</span></span><div><h5>Priti Mehta</h5><p>+91 98000 00014</p></div><span class="pill muted">Coordinator</span><span class="stat-dot" style="color: var(--ink-3)">Access off</span><button class="btn glass sm" type="button">Turn on</button></div>
+            </div>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A7</span><h3>People · staff</h3><span class="dev">Admin · built</span></div>
+        <ul class="spec-notes"><li><span>Roles and status at a glance: <b>Signed in</b>, <b>Invited</b> (no code used yet) or <b>Access off</b>. Turning someone off signs them out everywhere.</span></li></ul>
+      </div>
+
+      <div class="spec" style="--c: var(--violet)">
+        <div class="ipad-scroll"><div class="ipad"><div class="ipad-body"><div class="screen open">
+          <div class="area-bar glassbar"><img data-img="logo" alt=""><span class="area-chip" style="background: var(--violet)">Admin</span><span class="acct"><i style="background: var(--violet)">A</i>Ankit</span></div>
+          <div class="pg"><h4>People</h4></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <h4>Add a staff member</h4>
+            <span class="sheet-x"><svg class="i"><use href="#i-x"/></svg></span>
+            <div class="field"><span class="flabel">Full name</span><div class="input focus">Farah Khan<span class="caret"></span></div></div>
+            <div class="grid2">
+              <div class="field"><span class="flabel">Email · for the sign-in code</span><div class="input"><svg class="i" style="color: var(--ink-3)"><use href="#i-mail"/></svg>farah@example.com</div></div>
+              <div class="field"><span class="flabel">Mobile (optional)</span><div class="input"><svg class="i" style="color: var(--ink-3)"><use href="#i-phone"/></svg><span class="ph">98765 43210</span></div></div>
+            </div>
+            <div class="field"><span class="flabel">Roles · choose one or more</span>
+              <div class="grid3">
+                <div class="choice roletile" style="--rs: #efe9ff; --rc: #6d3fd6"><span class="ri"><svg class="i"><use href="#i-shield"/></svg></span><span><b>Admin</b><small>Everything, including people and roles</small></span></div>
+                <div class="choice roletile" style="--rs: #e1f5e8; --rc: #137a3b"><span class="ri"><svg class="i"><use href="#i-cal"/></svg></span><span><b>Core team</b><small>Timings, attendance and coordinators</small></span></div>
+                <div class="choice roletile" aria-checked="true" style="--rs: #ffeedf; --rc: #b4430b"><span class="ri"><svg class="i"><use href="#i-bell"/></svg></span><span><b>Coordinator</b><small>The gate, on the iPad</small></span></div>
+              </div>
+            </div>
+            <button class="btn primary lg block" type="button"><svg class="i"><use href="#i-plus"/></svg>Add Farah</button>
+            <p class="fine" style="margin-top:0">Farah signs in with a code sent to this email. Nobody else can sign up.</p>
+          </div>
+        </div></div></div></div></div>
+        <div class="spec-head"><span class="code">A8</span><h3>Add a staff member</h3><span class="dev">Admin · built</span></div>
+        <ul class="spec-notes"><li><span>Roles are pressable tiles with what each one can do, so the choice is clear before saving.</span></li></ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// The logo and the star are embedded once and shared by every screen.
+;(() => {
+  const IMG = { logo: 'data:image/webp;base64,{{LOGO}}', star: 'data:image/webp;base64,{{STAR}}' }
+  document.querySelectorAll('img[data-img]').forEach((im) => { im.src = IMG[im.dataset.img] })
+})()
+;(() => {
+  const $ = (s, r = document) => r.querySelector(s)
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)]
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+  const BASE = 12 * 60 + 10                  // the demo clock: 12:10 PM
+  const WIN = [12 * 60 + 30, 13 * 60]        // Aarav's pickup window
+  const fmt = (m) => `${((Math.floor(m / 60) + 11) % 12) + 1}:${String(m % 60).padStart(2, '0')}`
+  const OPTIONS = [5, 10, 15, 20, 30, 45]
+  const REASONS = [
+    { label: "Doctor's visit", icon: 'steth', rs: '#ffe9e8', rc: '#c4231f' },
+    { label: 'Family event', icon: 'cake', rs: '#fff4d6', rc: '#a86b00' },
+    { label: 'Not feeling well', icon: 'thermo', rs: '#e1f5e8', rc: '#137a3b' },
+    { label: 'Something else', icon: 'pencil', rs: '#efe9ff', rc: '#6d3fd6' },
+  ]
+  const icon = (id) => `<svg class="i"><use href="#i-${id}"/></svg>`
+  const state = { stage: 'idle', minutes: 20, reason: null, note: '', guard: 'Sneha' }
+  const pSheet = $('#p-sheet'), iSheet = $('#i-sheet')
+
+  // Sound plays only after the viewer switches it on.
+  let audio
+  function chime() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)()
+      const t = audio.currentTime
+      ;[880, 1320].forEach((f, k) => {
+        const o = audio.createOscillator(), g = audio.createGain()
+        o.type = 'sine'; o.frequency.value = f
+        g.gain.setValueAtTime(0.0001, t + k * 0.18); g.gain.exponentialRampToValueAtTime(0.25, t + k * 0.18 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + k * 0.18 + 0.5)
+        o.connect(g).connect(audio.destination); o.start(t + k * 0.18); o.stop(t + k * 0.18 + 0.55)
+      })
+    } catch (e) { /* no audio here */ }
+  }
+  function say(text) {
+    if (!$('#sound').checked) return
+    chime()
+    try { const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; setTimeout(() => speechSynthesis.speak(u), 420) } catch (e) { /* no voice here */ }
+  }
+
+  const outside = () => { const at = BASE + state.minutes; return at < WIN[0] ? 'early' : at > WIN[1] ? 'late' : null }
+  const reasonText = () => state.reason === 'Something else' ? (state.note.trim() || 'something else') : state.reason
+
+  // ---- parent sheet ----
+  function renderSheet() {
+    $('#p-mins').innerHTML = OPTIONS.map((m) => `<button type="button" class="choice min" role="radio" aria-checked="${m === state.minutes}" data-m="${m}"><b>${m}<small>min</small></b><small>${fmt(BASE + m)}</small></button>`).join('')
+    const at = BASE + state.minutes, off = outside()
+    const line = $('#p-check')
+    line.className = 'check-line ' + (off ? 'early' : 'ok')
+    line.innerHTML = (off ? icon('alert') : icon('check')) + `<span>${off === 'early'
+      ? `${fmt(at)} is before Aarav's pickup window (12:30-1:00). The school will know it's early.`
+      : off === 'late' ? `${fmt(at)} is after Aarav's pickup window (12:30-1:00). The school will know it's late.`
+      : `Arriving about ${fmt(at)}, inside Aarav's pickup window (12:30-1:00).`}</span>`
+    $('#p-reasons').hidden = !off
+    $('#p-reasons .reasons').innerHTML = REASONS.map((r) => `<button type="button" class="choice reason" role="radio" aria-checked="${r.label === state.reason}" data-r="${r.label}" style="--rs: ${r.rs}; --rc: ${r.rc}"><span class="ri">${icon(r.icon)}</span>${r.label}</button>`).join('')
+    $('#p-other').hidden = state.reason !== 'Something else'
+    $('#p-send').disabled = !!off && !state.reason
+    $('#p-send span').textContent = state.stage === 'idle' ? 'Tell the school' : 'Update the school'
+  }
+  const openP = () => { renderSheet(); pSheet.classList.add('open') }
+  const closeP = () => pSheet.classList.remove('open')
+  $('#p-mins').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (!b) return; state.minutes = +b.dataset.m; if (!outside()) state.reason = null; renderSheet() })
+  $('#p-reasons').addEventListener('click', (e) => { const b = e.target.closest('[data-r]'); if (!b) return; state.reason = b.dataset.r; renderSheet(); if (state.reason === 'Something else') $('#p-other').focus() })
+  $('#p-other').addEventListener('input', (e) => { state.note = e.target.value })
+  $('#p-go').addEventListener('click', openP)
+  $('#p-change').addEventListener('click', openP)
+  $$('[data-close]', pSheet).forEach((el) => el.addEventListener('click', closeP))
+
+  // ---- send: sending, sent, the star flies, the iPad announces ----
+  $('#p-send').addEventListener('click', () => {
+    const btn = $('#p-send'), update = state.stage !== 'idle'
+    btn.innerHTML = '<span class="spin"></span><span>Sending</span>'
+    setTimeout(() => {
+      btn.className = 'btn success lg block pop'
+      btn.innerHTML = '<svg class="i"><path class="check" d="M20 6 9 17l-5-5"/></svg><span>The school knows</span>'
+      setTimeout(() => {
+        closeP()
+        btn.className = 'btn primary lg block'
+        btn.innerHTML = icon('bell') + '<span></span>'
+        state.stage = 'sent'
+        renderParent(update)
+        const fly = $('#flyer')
+        const trailShown = getComputedStyle($('.trail')).display !== 'none'
+        if (trailShown && !reduce) { fly.classList.remove('go'); void fly.getBoundingClientRect(); fly.classList.add('go') }
+        setTimeout(() => arriveOnIpad(update), trailShown && !reduce ? 950 : 250)
+      }, 650)
+    }, 700)
+  })
+
+  function stepOn(name, time) {
+    const li = $(`.steps li[data-step="${name}"]`)
+    li.classList.add('on'); if (time) li.querySelector('time').textContent = time
+  }
+  function renderParent(update) {
+    const at = BASE + state.minutes
+    $('#p-idle').hidden = true
+    const trip = $('#p-trip'); trip.hidden = false; trip.classList.remove('ok')
+    $('#p-eta').textContent = `Arriving about ${fmt(at)}`
+    $('#p-sub').textContent = update ? 'The school has your new time.' : "The school knows you're coming."
+    $$('.steps li').forEach((li) => { li.classList.remove('on'); if (li.dataset.step !== 'sent') li.querySelector('time').textContent = '' })
+    stepOn('sent', '12:10')
+    $('#p-pill').className = 'pill blue'; $('#p-pill').innerHTML = '<span class="pulse"></span>On the way'
+    $('#p-trip-pill').className = 'pill blue'; $('#p-trip-pill').innerHTML = '<span class="pulse"></span>On the way'
+    $('#p-trip-actions').hidden = false
+  }
+
+  // ---- iPad ----
+  let row
+  function announceText(update) {
+    const at = BASE + state.minutes
+    const flag = outside() ? `Outside the usual time: ${reasonText().toLowerCase()}. ` : ''
+    return `${update ? 'New time. ' : ''}${flag}Please get Aarav Kulkarni ready for pickup. Aarav's mother, Sneha, arrives at about ${fmt(at)}.`
+  }
+  function nowBar(on, kicker, text) {
+    $('#i-now').classList.toggle('on', on)
+    $('#i-now-ico').innerHTML = on ? '<span class="wave"><b></b><b></b><b></b><b></b></span>' : icon('bell')
+    $('#i-now-k').textContent = kicker
+    $('#i-now-t').textContent = text
+    $('#i-now-t').style.color = on ? 'var(--ink)' : 'var(--ink-2)'
+  }
+  function arriveOnIpad(update) {
+    const at = BASE + state.minutes, off = outside()
+    if (!row) { row = document.createElement('div'); row.className = 'qrow card sel'; $('#q-next').prepend(row) }
+    row.classList.remove('done', 'arrive'); void row.offsetWidth; row.classList.add('arrive', 'sel')
+    row.innerHTML = `<span class="avatar sm" style="--c: var(--orange)"><span>A</span></span>
+      <div class="who"><h5>Get Aarav ready for pickup</h5><p>Sneha (Mother), arriving about ${fmt(at)} · in ${state.minutes} min</p>
+      <div class="chips"><span class="pill blue">Your class: Sunflowers</span>${off ? `<span class="pill flag">${icon('alert')}${off === 'early' ? 'Early' : 'Late'}: ${reasonText()}</span>` : ''}${update ? '<span class="pill solid">New time</span>' : ''}</div></div>`
+    $('#i-empty').hidden = true; $('#i-trip').hidden = false
+    $('#i-arr').textContent = fmt(at); $('#i-in').textContent = `${state.minutes} min`
+    const f = $('#i-flag'); f.hidden = !off
+    if (off) f.querySelector('span').textContent = `${off === 'early' ? 'Early' : 'Late'} pickup: ${reasonText()}`
+    setAct('ack')
+    const text = announceText(update)
+    nowBar(true, 'Now announcing', text)
+    say(text)
+  }
+  function setAct(step) {
+    const b = $('#i-act'); b.dataset.step = step; b.className = 'btn primary lg block'
+    b.innerHTML = step === 'ack' ? icon('check') + 'Acknowledge' : step === 'ready' ? icon('star') + 'Ready at the gate' : step === 'hand' ? icon('users') + 'Hand over' : ''
+    b.hidden = step === 'none'
+  }
+  $('#i-act').addEventListener('click', () => {
+    const step = $('#i-act').dataset.step
+    if (step === 'ack') {
+      stepOn('seen', '12:11'); setAct('ready')
+      nowBar(false, 'Acknowledged on this iPad', 'Aarav, pickup at about ' + fmt(BASE + state.minutes))
+    } else if (step === 'ready') {
+      stepOn('ready', '12:24'); state.stage = 'ready'; setAct('hand')
+      $('#p-sub').textContent = 'Aarav is ready at the gate.'
+      $('#p-trip-pill').className = 'pill live'; $('#p-trip-pill').innerHTML = icon('check') + 'Ready'
+      row.querySelector('.chips').insertAdjacentHTML('beforeend', `<span class="pill live">${icon('check')}Ready</span>`)
+    } else if (step === 'hand') {
+      iSheet.classList.add('open')
+    }
+  })
+  iSheet.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-guard]')
+    if (g) { state.guard = g.dataset.guard; $$('[data-guard]', iSheet).forEach((x) => x.setAttribute('aria-checked', String(x === g))); $('#i-confirm').innerHTML = icon('check') + `Handed over to ${state.guard}` }
+    if (e.target.closest('[data-close]')) iSheet.classList.remove('open')
+  })
+  $('#i-confirm').addEventListener('click', () => {
+    iSheet.classList.remove('open')
+    const at = fmt(BASE + state.minutes)
+    stepOn('done', at); state.stage = 'done'
+    $('#p-trip').classList.add('ok')
+    $('#p-eta').textContent = state.guard === 'Sneha' ? `Collected at ${at}` : `Collected by Rahul at ${at}`
+    $('#p-sub').textContent = 'Have a lovely afternoon, Aarav!'
+    $('#p-trip-pill').className = 'pill live'; $('#p-trip-pill').innerHTML = icon('home') + 'Home time'
+    $('#p-pill').className = 'pill live'; $('#p-pill').innerHTML = icon('home') + 'Collected'
+    $('#p-trip-actions').hidden = true
+    row.classList.remove('sel', 'arrive'); row.classList.add('done')
+    row.innerHTML = `<span class="avatar sm" style="--c: var(--orange)"><span>A</span></span><div class="who"><h5>Aarav Kulkarni</h5><p>Handed over to ${state.guard} (${state.guard === 'Sneha' ? 'Mother' : 'Father'}) at ${at}</p></div>`
+    $('#q-done').prepend(row)
+    setAct('none'); $('#i-trip').hidden = true; $('#i-empty').hidden = false
+    nowBar(false, 'Announcements', 'All caught up.')
+  })
+  $('#p-cancel').addEventListener('click', () => {
+    reset(false)
+    nowBar(true, 'Now announcing', "Aarav Kulkarni's pickup is cancelled.")
+    say("Aarav Kulkarni's pickup is cancelled.")
+    setTimeout(() => nowBar(false, 'Announcements', 'Announcements will play here.'), 4200)
+  })
+
+  function reset(full = true) {
+    Object.assign(state, { stage: 'idle', minutes: 20, reason: null, note: '', guard: 'Sneha' })
+    $('#p-other').value = ''
+    closeP(); iSheet.classList.remove('open')
+    $('#p-idle').hidden = false; $('#p-trip').hidden = true
+    $('#p-pill').className = 'pill live'; $('#p-pill').innerHTML = icon('school') + 'At school'
+    if (row) { row.remove(); row = null }
+    $('#i-trip').hidden = true; $('#i-empty').hidden = false; setAct('none')
+    if (full) nowBar(false, 'Announcements', 'Announcements will play here.')
+  }
+  $('#reset').addEventListener('click', () => reset(true))
+  setAct('none')
+
+  // ---- foundations ----
+  $('#try-btn').addEventListener('click', function () {
+    const b = this
+    if (b.dataset.busy) return
+    b.dataset.busy = '1'
+    b.innerHTML = '<span class="spin"></span><span>Sending</span>'
+    setTimeout(() => { b.className = 'btn success pop'; b.innerHTML = '<svg class="i"><path class="check" d="M20 6 9 17l-5-5"/></svg><span>Sent</span>' }, 800)
+    setTimeout(() => { b.className = 'btn primary'; b.innerHTML = '<span>Tell the school</span>'; delete b.dataset.busy }, 2600)
+  })
+  $('#ball-go').addEventListener('click', () => $('#ball').classList.toggle('go'))
+})()
+</script>
